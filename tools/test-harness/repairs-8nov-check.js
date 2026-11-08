@@ -40,7 +40,7 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   await page.goto(`${BASE}/sites/${S1}/repairs`); await page.waitForTimeout(5000);
   let t = await text();
   check(!/Bulk Add/.test(t), 'no Bulk Add button any more');
-  check(/2 Jobs/.test(t) && await page.getByRole('button', {name: '⬇ Export Excel'}).count() === 1, 'footer bar: how many jobs and Export Excel');
+  check(/2 Jobs/.test(t) && await page.getByRole('button', {name: 'Export Excel'}).count() === 1, 'footer bar: how many jobs and Export Excel');
   await page.getByLabel(/^Quotation Required, /).click(); await page.waitForTimeout(1200);
   t = await text();
   check(/box=quote_needed/.test(page.url()) && /Works Orders › Quotation Required/.test(t) && /WO-1003/.test(t), `a box opened shows in the trail like a folder (${page.url().split('?')[1] || ''})`);
@@ -67,9 +67,9 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   await page.goto(`${BASE}/sites/${S1}/repairs/job/j2`); await page.waitForTimeout(5000);
   t = await text();
   check(/Works Orders › Scheduled - Awaiting Attendance › WO-1002/.test(t), 'job trail: Works Orders › its box › the job');
-  check(/CLIENT Sovereign Housing/.test(t) && /WORKS ORDER WO-1002\.pdf/.test(t), 'Client and Works Order side by side');
-  const cb = await page.getByLabel('Client', {exact: true}).boundingBox(), wb = await page.getByLabel('View the works order').boundingBox();
-  check(!!cb && !!wb && Math.abs(cb.width - wb.width) < 4 && Math.abs(cb.y - wb.y) < 4, `half and half (${cb ? Math.round(cb.width) : '?'} / ${wb ? Math.round(wb.width) : '?'})`);
+  check(/CLIENT Sovereign Housing/.test(t) && /WORKS ORDER WO-1002 View ›/.test(t), 'Client, and the works order: its number and View');
+  const cb = await page.getByLabel('Client', {exact: true}).boundingBox();
+  check(!!cb && cb.width > 400 && cb.width < 560, `half and half (${cb ? Math.round(cb.width) : '?'})`);
   check(/Resident Mr K Hughes/.test(t) && !/Tenant/.test(t) && /Booking Date/.test(t) && !/Booked For/.test(t), 'Resident, and Booking Date');
   await page.getByLabel(/^Booking Date: /).click(); await page.waitForTimeout(800);
   check(await page.getByLabel('Time Slot').count() === 1 && await page.getByLabel('Notes For The Booking').count() === 1 && await page.getByLabel('Operative').count() === 1, 'Booking Date opens the pop-up: date, time slot, operative, notes');

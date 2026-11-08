@@ -13,7 +13,7 @@ import type { Profile } from '@/lib/types';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
-export type RepairPhoto = { id: string; category: string; storage_path: string; hires_path: string | null; deleted_at: string | null; created_at?: string; trade_id?: string | null };
+export type RepairPhoto = { id: string; category: string; storage_path: string; hires_path: string | null; deleted_at: string | null; created_at?: string; trade_id?: string | null; uploaded_by?: string | null };
 
 export function useRepairJobs(siteId: string | undefined) {
   return useQuery({

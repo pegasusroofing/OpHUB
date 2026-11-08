@@ -146,6 +146,8 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
 
 55. OneDrive set-up, 8 Nov: Admin › OneDrive (and Finance › Settings › OneDrive): New Jobs, Where Things Save, Add Something To Save, changing a folder; the Create OneDrive folder tick on new jobs; a client set to no folders in the Directory; the super admin's Setting Up The Company. Fake database (21 checks); not yet tried by Andy on the real OneDrive.
 
+56. Repairs, later list of 8 Nov: box pages with the drop-down and table, equal boxes, one-line footer; Finance tabs (Costs By Job, Schedule Of Rates), Costs By Plot; money pop-ups, booking and adding costs to a job; quote View / Save / Send To Client; Quote Update ▾; ‹ Job Page; Attended By from the operative's photos. Fake database (25 checks); his test list is at the bottom of SUMMARY-2026-11-08.md.
+
 ## To discuss with Andy
 - ~~OneDrive and the full job set-up~~: talked through and built 8 Nov 2026 (item 55).
 - Sort out plots: how multi-site (multi-plot) jobs should work (Andy, 2 Nov 2026; asked again 5 Nov 2026: "we need to discuss and sort plots out"). Bring this up before Finance is signed off. Plots show today on BoQ lines and as a column on PO lines (only when the project has plots).

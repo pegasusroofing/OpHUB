@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
+import { RepairTabs } from '@/components/FinNav';
 import { RateFinder } from '@/components/RateFinder';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
@@ -56,6 +57,7 @@ export default function RepairRates() {
   return (
     <ScrollView contentContainerStyle={page(820)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Schedule Of Rates' }} />
+      <RepairTabs id={id} on="rates" />
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={{ flex: 1 }}>

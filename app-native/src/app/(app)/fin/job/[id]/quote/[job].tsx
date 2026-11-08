@@ -1,8 +1,8 @@
 // A repair job's quote (Andy, 7 Nov 2026: "really simple"): find items in the contract's schedule of rates (NHF or the
 // client's own) by Category ▾, Item ▾ or free text, less its set discount; add your own lines, or just put in one
-// figure. No VAT on the lines: the contract's VAT, from its Finance set-up, is added once at the bottom. Save asks where
-// the quote stands (Not Sent Yet, Awaiting Approval, Client Approved, Client Rejected); Save & Send To Client makes it
-// Awaiting Approval.
+// figure. No VAT on the lines: the contract's VAT, from its Finance set-up, is added once at the bottom. One row (Andy,
+// 8 Nov 2026): View Quote on the left, then Save and Send To Client (which saves first); both make the job Awaiting Client
+// Approval, as the line above them says. The client's answer goes in from the job: Quote Update ▾.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -64,11 +64,6 @@ export default function RepairQuote() {
     if (!ok) { toast('Could not save — try again.'); return; }
     ['repairJob', 'repairJobs', 'repairPaid'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
     router.back();
-  };
-  // Save: where does the quote stand? (Its status now is ticked.)
-  const saveAs = async () => {
-    const k = await chooseAction('Save As', QUOTE_STATUS.map(([key, label]) => ({ key, label: key === now ? `${label} ✓` : label })));
-    if (k) await save(k as QuoteStatus);
   };
   // Save & Send To Client: Awaiting Approval, and the quote emailed (with Approve Or Reject Online when it's switched on).
   const clean = () => lines.filter((l) => l.description.trim() && Number(l.qty) > 0);
@@ -153,10 +148,12 @@ export default function RepairQuote() {
         {!!t.vatNote && <Muted style={{ marginTop: 6 }}>{t.vatNote}</Muted>}
       </Card>
 
-      <Muted style={{ textAlign: 'center', marginBottom: 6 }}>Now: {QUOTE_STATUS.find(([k]) => k === now)?.[1]}</Muted>
-      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 8 }}>
-        <Button kind="ghost" busy={busy} title="Save ▾" onPress={() => void saveAs()} />
-        <Button busy={busy} title="Save & Send To Client" onPress={() => setSending(true)} />
+      <Muted style={{ textAlign: 'center', marginBottom: 6 }}>Now: {QUOTE_STATUS.find(([k]) => k === now)?.[1]}. Save or Send To Client puts the job in <Text style={{ fontWeight: '700', color: base.ink }}>Awaiting Client Approval</Text>.</Muted>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <Button small kind="ghost" title="📄 View Quote" onPress={async () => { if (!(await exportRepairReport('quote', { ...job, quote_lines: lines, quote_discount_pct: discount, variation_cost: t.net } as never, site, org, '', qs?.vat).catch(() => false))) toast('Could not build the PDF.'); }} />
+        <View style={{ flex: 1 }} />
+        <Button kind="ghost" busy={busy} title="Save" onPress={() => void save('awaiting')} />
+        <Button busy={busy} title="Send To Client" onPress={() => setSending(true)} />
       </View>
       {/* Decided online by the client (Andy, 7 Nov 2026). */}
       {!!job.quote_decided_online_at && <Muted style={{ textAlign: 'center', marginBottom: 6 }}>{job.quote_approved ? 'Approved' : 'Turned down'} online {new Date(job.quote_decided_online_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}{job.quote_decision_note ? ` — ${job.quote_decision_note}` : ''}</Muted>}
@@ -172,9 +169,7 @@ export default function RepairQuote() {
             return sendIt(to, String(v.words || ''));
           }} />
       )}
-      <View style={{ alignItems: 'center', marginBottom: space.xl }}>
-        <Button small kind="ghost" title="📄 Quote PDF" onPress={async () => { if (!(await exportRepairReport('quote', { ...job, quote_lines: lines, quote_discount_pct: discount, variation_cost: t.net } as never, site, org, '', qs?.vat).catch(() => false))) toast('Could not build the PDF.'); }} />
-      </View>
+      <View style={{ height: space.xl }} />
     </ScrollView>
   );
 }

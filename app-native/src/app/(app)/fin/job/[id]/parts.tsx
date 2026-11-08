@@ -5,7 +5,8 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView, Text, View } from 'react-native';
 
 import { ThinExportBar } from '@/components/FinFilterBar';
-import { FinRow, FinStat } from '@/components/FinNav';
+import { bookable, bookCostTo } from '@/components/FinBookCost';
+import { BoqTabs, FinRow, FinStat, RepairTabs } from '@/components/FinNav';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { chooseAction, promptText, useToast } from '@/components/toast';
 import { Card, Muted } from '@/components/ui';
@@ -57,9 +58,13 @@ export default function FinParts() {
   const valTot = sum('value'), cv = jf?.contract_value != null ? Number(jf.contract_value) : null;
   const open = async (r: P) => {
     const go = () => router.push(`/fin/job/${id}/costs?sub=${r.id}` as never);
-    if (!editValues || r.id === 'none' || !sv.subs.some((a) => a.id === r.id)) { go(); return; }
-    const k = await chooseAction(r.name, [{ key: 'costs', label: 'See its costs' }, { key: 'value', label: r.value != null ? `Change the value (${money(r.value)})` : 'Set its value' }]);
+    const isSub = r.id !== 'none' && sv.subs.some((a) => a.id === r.id);
+    if (!isSub) { go(); return; }
+    // Book a cost to it (Andy, 8 Nov 2026): one of the project's costs not booked to a job or plot yet.
+    const k = await chooseAction(r.name, [{ key: 'costs', label: 'See Its Costs' }, ...(bookable(fc.lines).length ? [{ key: 'book', label: 'Book A Cost To It' }] : []), { key: 'add', label: '+ Add A Cost To It' }, ...(editValues ? [{ key: 'value', label: r.value != null ? `Change The Value (${money(r.value)})` : 'Set Its Value' }] : [])]);
     if (k === 'costs') go();
+    if (k === 'add') router.push(`/fin/job/${id}/costs?sub=${r.id}&add=1` as never);
+    if (k === 'book') { const m = await bookCostTo(fc.lines, r.id, r.name); if (m) toast(m); void qc.invalidateQueries({ queryKey: ['finBook'] }); }
     if (k !== 'value') return;
     const t = await promptText(`Value of ${r.name} (£, blank to clear)`, r.value != null ? String(r.value) : ''); if (t == null) return;
     const n = num(t), value = n === null || isNaN(n) ? null : round2(n);
@@ -71,7 +76,9 @@ export default function FinParts() {
   return (
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(1200)}>
-      <Stack.Screen options={{ title: `Costs by ${subKind(site) === 'repair' ? 'repair job' : 'plot'}` }} />
+      <Stack.Screen options={{ title: subKind(site) === 'repair' ? 'Costs By Job' : 'Costs By Plot' }} />
+      {/* A tab beside Live Jobs, or beside the Bill's Plots (Andy, 8 Nov 2026). */}
+      {subKind(site) === 'repair' ? <RepairTabs id={id} on="parts" /> : <BoqTabs id={id} on="parts" />}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <FinStat v={money(sum('cost'), 0)} label="Total cost" /><FinStat v={money(round2(rows.reduce((t, r) => t + r.cost, 0)), 0)} label={`Allocated to ${nouns}`} />
         <FinStat v={money(un.cost, 0)} label="Not allocated" tone={un.cost > 0 ? 'amber' : undefined} /><FinStat v={money(sum('committed'), 0)} label="Committed (ordered)" />

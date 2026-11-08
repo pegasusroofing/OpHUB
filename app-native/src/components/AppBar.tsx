@@ -29,7 +29,7 @@ const FIN_PARENT: Record<string, [string, string]> = { po: ['Purchases', '/fin/p
 const FIN_SUB: Record<string, string> = { '': 'Overview', jobs: 'Projects', sales: 'Sales', purchases: 'Purchases', subs: 'Subcontractors & Labour', reports: 'Reports', settings: 'Settings', directory: 'Directory', statements: 'Statements', yard: 'Yard stock', inbox: 'Inbox', newjob: 'New project' };
 // A project's Finance tabs and the pages inside it, for the trail.
 const FIN_JOB_TABS: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ['setup', 'Project Admin'], ['docs', 'Documents']];
-const FIN_JOB_PAGES: Record<string, string> = { boq: 'Bill of Quantities', budget: 'Budgets', costs: 'Costs', dayworks: 'Day Works', monthly: 'Monthly Report', parts: 'Parts', quotes: 'Project Quotes', summary: 'Full Summary', variations: 'Variations', invoice: 'Invoices', application: 'Applications', repairs: 'Live Jobs', repair: 'Live Jobs', quote: 'Live Jobs', rates: 'Schedule Of Rates' };
+const FIN_JOB_PAGES: Record<string, string> = { boq: 'Bill of Quantities', budget: 'Budgets', costs: 'Costs', dayworks: 'Day Works', monthly: 'Monthly Report', quotes: 'Project Quotes', summary: 'Full Summary', variations: 'Variations', invoice: 'Invoices', application: 'Applications', repairs: 'Live Jobs', repair: 'Live Jobs', quote: 'Live Jobs', rates: 'Schedule Of Rates' };
 // Pages with no list of their own: the step back goes to the list on the project's tab (Andy, 3 Nov 2026).
 const FIN_JOB_UP: Record<string, string> = { application: '?tab=sales', invoice: '?tab=sales', repair: '/repairs', quote: '/repairs', rates: '/repairs' };
 // A job's sections, so a page further in can step back to its section from the trail.
@@ -79,7 +79,9 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   const jobPage = finRest.length ? FIN_JOB_PAGES[finRest[0]] || titleCase(title || '') : undefined;
   const inside = finRest.length > 1 && finRest[1] !== 'new' ? (title && titleCase(title) !== jobPage ? titleCase(title) : null) : finRest[1] === 'new' ? 'New' : null;
   const secTab = tabLabel(FIN_SUBS[finSec], finSec === 'directory' ? (typeof qKind === 'string' ? qKind : undefined) : typeof qTab === 'string' ? (finSec === 'purchases' && (qTab === 'pricebook' || qTab === 'pricelists') ? 'prices' : qTab) : undefined);
+  const pageTrail = useTrail(path);
   const finCrumbs: [string, string | null][] = path === '/fin' ? [['Finance', '/fin'], ['Overview', null]]
+    : finJob && pageTrail ? [['Finance', '/fin'], ['Projects', '/fin/jobs'], [fJob ? `${[fJob.job_number, fJob.name].filter(Boolean).join(' ')}${finClient ? ` · ${finClient}` : ''}` : 'Project', `/fin/job/${finJob}`], ...pageTrail]
     : finJob ? [['Finance', '/fin'], ['Projects', '/fin/jobs'], [fJob ? `${[fJob.job_number, fJob.name].filter(Boolean).join(' ')}${finClient ? ` · ${finClient}` : ''}` : 'Project', jobTab || jobPage ? `/fin/job/${finJob}` : null],
       ...(jobTab && jobTab !== 'Overview' ? [[jobTab, null] as [string, null]] : []),
       ...(jobPage ? [[jobPage, inside ? `/fin/job/${finJob}${FIN_JOB_UP[finRest[0]] ?? `/${finRest[0]}`}` : null] as [string, string | null]] : []),
@@ -91,7 +93,6 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
       : [['Finance', '/fin'], [finSub, null]];
   // A page can give its own steps after the job (e.g. Drawings › Roof plans); otherwise a page inside a
   // section (Materials › Requests) gets the section as a step back.
-  const pageTrail = useTrail(path);
   const secKey = site ? (path.split('/')[3] || '') : '';
   // The snagging section is called what its job-home tile says (old app): Inspections & Reports for managers, Snagging & Variations for everyone else.
   const secName = secKey === 'snagging' ? (isManager(me) ? 'Inspections & Reports' : 'Snagging & Variations') : SECTION[secKey];
@@ -153,7 +154,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
           ))}
         </View>
       )}
-      {!!finJob && <View style={{ backgroundColor: base.paper, paddingHorizontal: desk ? 40 : 16 }}><FinJobTabs id={finJob} job={fJob?.job_number} name={fJob?.name} onOverview={!finRest.length} active={!finRest.length ? (typeof qTab === 'string' && qTab ? qTab : 'overview') : finRest[0] === 'boq' ? 'boq' : ['repairs', 'repair', 'quote', 'rates'].includes(finRest[0]) ? 'repairs' : ['variations', 'dayworks', 'plots'].includes(finRest[0]) ? 'variations' : ['invoice', 'application'].includes(finRest[0]) ? 'sales' : finRest[0] === 'quotes' ? 'purchases' : 'overview'} /></View>}
+      {!!finJob && <View style={{ backgroundColor: base.paper, paddingHorizontal: desk ? 40 : 16 }}><FinJobTabs id={finJob} job={fJob?.job_number} name={fJob?.name} onOverview={!finRest.length} active={!finRest.length ? (typeof qTab === 'string' && qTab ? qTab : 'overview') : finRest[0] === 'boq' ? 'boq' : ['repairs', 'repair', 'quote', 'rates'].includes(finRest[0]) ? 'repairs' : finRest[0] === 'parts' ? 'parts' : ['variations', 'dayworks', 'plots'].includes(finRest[0]) ? 'variations' : ['invoice', 'application'].includes(finRest[0]) ? 'sales' : finRest[0] === 'quotes' ? 'purchases' : 'overview'} /></View>}
     </View>
   );
   return (

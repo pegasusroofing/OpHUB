@@ -27,7 +27,7 @@ import { page, space, useDesk } from '@/theme/theme';
 import { mustHit } from '@/lib/mustHit';
 
 export default function FinCosts() {
-  const { id, sub, open, type: type0 } = useLocalSearchParams<{ id: string; sub?: string; open?: string; type?: string }>();
+  const { id, sub, open, type: type0, add } = useLocalSearchParams<{ id: string; sub?: string; open?: string; type?: string; add?: string }>();
   const { me, org } = useAuth();
   const { data } = useBook(me?.org_id, id);
   const desk = useDesk(); // laptop: the current app's costs table (910; cmp-fin 5 Nov 2026)
@@ -48,6 +48,8 @@ export default function FinCosts() {
   // Arriving from a cost line on the Summary: open that line once the data is here.
   const openRef = useRef<((key: string) => void) | null>(null), opened = useRef(false);
   useEffect(() => { if (open && data && !opened.current) { opened.current = true; openRef.current?.(open); } }, [open, data]);
+  // + Add A Cost from a works order or plot (8 Nov 2026): the form opens, and the cost is booked to it.
+  useEffect(() => { if (add === '1' && data && !opened.current) { opened.current = true; setEdit('new'); } }, [add, data]);
   if (!data || !me) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const fc = forecast(data.book, id, data.settings);
   const ql = q.trim().toLowerCase();
@@ -148,7 +150,7 @@ export default function FinCosts() {
             if (!desc) return 'Add a description.';
             if (net === null || isNaN(net)) return 'Enter the net amount.';
             const row = { category: String(x.category || 'overheads'), cost_date: String(x.cost_date || '').trim() || today(), description: desc, supplier: String(x.supplier ?? '').trim() || null, ref: String(x.ref ?? '').trim() || null, net: round2(net), vat: vat === null || isNaN(vat) ? 0 : round2(vat) };
-            const r = cur ? await fdb.from('fin_job_costs').update(row as never).eq('id', cur.id) : await fdb.from('fin_job_costs').insert({ ...row, org_id: me.org_id, site_id: id, created_by: me.id } as never);
+            const r = cur ? await fdb.from('fin_job_costs').update(row as never).eq('id', cur.id) : await fdb.from('fin_job_costs').insert({ ...row, org_id: me.org_id, site_id: id, created_by: me.id, ...(sub && sub !== 'none' ? { sub_job_id: sub } : {}) } as never);
             if (r.error) return 'Could not save — try again.';
             toast('Saved'); refresh(); return null;
           }}

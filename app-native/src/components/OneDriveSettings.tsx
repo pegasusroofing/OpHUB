@@ -6,9 +6,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinTabs } from '@/components/FinNav';
+import { Pop } from '@/components/Pop';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { syncSiteFolder } from '@/data/drawings';
@@ -52,23 +53,6 @@ const FolderLink = ({ label, onPress, muted }: { label: string; onPress?: () => 
   </Pressable>
 );
 
-/** A pop-up with a ✕ (Andy: pop-ups have a ✕), used for choosing folders and adding an item. */
-function Pop({ title, onClose, children, footer }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
-  return (
-    <Modal transparent animationType="fade" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 16 }}>
-        <View style={{ backgroundColor: base.card, borderRadius: 14, padding: 16, maxHeight: '88%', width: '100%', maxWidth: 520, alignSelf: 'center' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 }}>
-            <Text style={{ flex: 1, fontWeight: '600', fontSize: 16, color: base.ink }}>{title}</Text>
-            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10}><Text style={{ fontSize: 18, color: base.slate }}>✕</Text></Pressable>
-          </View>
-          <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled">{children}</ScrollView>
-          {footer}
-        </View>
-      </View>
-    </Modal>
-  );
-}
 const folderRow = (name: string, onPress: () => void, sel = false) => (
   <Pressable key={name} accessibilityRole="button" accessibilityLabel={`Open ${name}`} onPress={onPress}
     style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 6, borderTopWidth: 1, borderTopColor: '#F0F1F4', backgroundColor: sel ? '#F0F4FF' : undefined, borderRadius: sel ? 6 : 0 }}>

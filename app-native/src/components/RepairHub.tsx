@@ -15,7 +15,9 @@ import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-nat
 import { usePageCrumbs, type Crumb } from '@/components/Crumbs';
 import { viewDoc } from '@/components/DocViewer';
 import { FinForm, type Field } from '@/components/FinForm';
+import { bookable, bookCostTo } from '@/components/FinBookCost';
 import { FinTabs } from '@/components/FinNav';
+import { Pop, PopLine } from '@/components/Pop';
 import { RepairPhotos } from '@/components/RepairPhotos';
 import { StageBar } from '@/components/StageBar';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
@@ -74,8 +76,10 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
   // The trail at the top (Andy, 8 Nov 2026): Projects › the contract › Works Orders › the box it's in › the job, as folders.
   const path = usePathname();
   const inProjects = path.startsWith('/sites/');
-  const inBox = job0 && inProjects ? BOXES.find((b) => b.k !== 'overdue' && b.k !== 'all' && b.k !== 'paid' && b.test(job0 as never)) : undefined;
-  usePageCrumbs(path, job0 && inProjects ? [['Works Orders', `/sites/${siteId}/repairs`], ...(inBox ? [[inBox.l, `/sites/${siteId}/repairs?box=${inBox.k}`] as Crumb] : []), [job0.job_number || job0.address || 'Repair Job', null]] : null);
+  const inBox = job0 ? BOXES.find((b) => b.k !== 'overdue' && b.k !== 'all' && b.k !== 'paid' && b.test(job0 as never)) : undefined;
+  const listAt = inProjects ? `/sites/${siteId}/repairs` : `/fin/job/${siteId}/repairs`;
+  usePageCrumbs(path, job0 ? [[inProjects ? 'Works Orders' : 'Live Jobs', listAt], ...(inBox ? [[inBox.l, `${listAt}?box=${inBox.k}`] as Crumb] : []), [job0.job_number || job0.address || 'Repair Job', null]] : null);
+  const [moneyPop, setMoneyPop] = useState<'' | 'quote' | 'costs'>('');
   if (!me) return null;
   if (isLoading || !data) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const job = job0 as (RepairJob & RJob & Row) | null;
@@ -109,6 +113,11 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
   const fc = fin && book ? forecast(book.book, siteId, book.settings) : null;
   const costs = fc ? fc.lines.filter((l) => l.sub === job.id && l.cat !== 'committed').reduce((t, l) => t + l.net, 0) : 0;
   const ordered = fc ? fc.lines.filter((l) => l.sub === job.id && l.cat === 'committed').reduce((t, l) => t + l.net, 0) : 0;
+  // Each job's costs by type, its value (invoiced, else quoted) and profit (Andy, 8 Nov 2026).
+  const byCat = (c: string) => (fc ? fc.lines.filter((l) => l.sub === job.id && (c === 'other' ? !['materials', 'labour', 'plant', 'subcontract', 'committed'].includes(l.cat) : l.cat === c)).reduce((t, l) => t + l.net, 0) : 0);
+  const value = job.invoice_id && inv ? Number(inv.net || 0) : quote ? quote.net : null;
+  const profit = value != null ? value - costs - ordered : null;
+  const pct = value && profit != null ? Math.round((profit / value) * 1000) / 10 : null;
 
   const docs = [
     // The quote document: Finance, and the client once it's been sent; not the Projects team (no money in Projects).
@@ -147,6 +156,16 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
       if (await deleteRepairJob(job)) { toast('Job deleted'); void qc.invalidateQueries({ queryKey: ['repairJobs'] }); router.back(); } else toast('Could not delete — try again.');
       return;
     }
+    // Quote Update ▾ (Andy, 8 Nov 2026): the client's answer. Rejected puts it back to Quotation Required for a new price;
+    // Rejected And Close Job closes it for good.
+    if (k === 'quoteupd') {
+      const c = await chooseAction('Quote Update', [{ key: 'qa', label: 'Quote Approved' }, { key: 'qr', label: 'Quote Rejected (Price It Again)' }, { key: 'qc', label: 'Rejected And Close Job' }]);
+      const at = new Date().toISOString();
+      if (c === 'qa') await save({ quote_approved: true, quote_approved_at: at, approved_by: me.id, self_authorized: false, job_status: 'Approved - To Do' });
+      if (c === 'qr') await save({ quote_approved: null, quote_approved_at: null, variation_issued_at: null, job_status: 'Surveyed - Awaiting Cost' });
+      if (c === 'qc' && (await confirmAsk('Mark the quote rejected and close this job for good? It can’t be reopened.', 'Reject And Close'))) await save({ quote_approved: false, job_status: 'Rejected', closed: true, closed_by: me.id, closed_at: at });
+      return;
+    }
     if (k === 'trades') { setTradeEdit({}); return; }
     setForm(k as Form);
   };
@@ -157,7 +176,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
     if (st === 'booked' || st === 'to_book' || st === 'attended' || st === 'quote_needed') o.push({ key: 'attend', label: 'Update Status' });
     if (st === 'booked' || st === 'works_booked') o.push({ key: 'noaccess', label: 'Record No Access' });
     if (fin && (st === 'attended' || st === 'quote_needed' || st === 'awaiting_approval')) o.push({ key: 'quote', label: st === 'awaiting_approval' ? 'Change The Quote' : 'Price It (Quote)' });
-    if (st === 'awaiting_approval') { o.push({ key: 'approve', label: 'Client Approved' }); o.push({ key: 'reject', label: 'Client Rejected' }); }
+    if (st === 'awaiting_approval') o.push({ key: 'quoteupd', label: 'Quote Update ▾' });
     if (st === 'approved' || st === 'works_booked') o.push({ key: 'works', label: st === 'works_booked' ? 'Change The Repair Booking' : 'Book The Repair' });
     if (st === 'attended' || st === 'approved' || st === 'works_booked') o.push({ key: 'done', label: 'Mark Job As Complete' });
     if (st === 'done' && !job.closed) o.push({ key: 'check', label: 'Checked — Ready To Invoice' });
@@ -190,6 +209,8 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
   const bookLine = (d: string | null | undefined, slot: string | null | undefined, who: string | null | undefined, none: string) => (d ? [fmt(d), slotShort(slot), who ? nameOf(people, who) : ''].filter(Boolean).join(' · ') : none);
   const bookNotes = (n: string | null | undefined) => (n ? <><Muted style={{ fontSize: 11.5 }}>Notes For The Booking</Muted>{txt(n)}</> : null);
   const visitPhotos = data.photos.filter((p) => !p.deleted_at && !p.trade_id && (p.category === 'survey' || p.category === 'access'));
+  // Who attended (Andy, 8 Nov 2026): the operative who uploaded the visit's photos; a manager's upload doesn't count.
+  const photoOperative = visitPhotos.map((p) => people.find((x) => x.id === p.uploaded_by)).find((x) => x && x.role === 'operative')?.id ?? null;
   const repairTab = (
     <View>
       {ladder(2, 'Booking', bookLine(job.survey_booking_date, job.survey_booking_slot, job.survey_booking_assigned_to, 'Not booked yet'), job.survey_booking_notes || noAccess.length || data.photos.some((p) => p.category === 'noaccess') ? (
@@ -213,7 +234,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
       {fin ? ladder(4, 'Quote', quote ? `${gbp(quote.total)}${job.variation_issued_at ? ` · sent ${fmt(job.variation_issued_at)}` : ' · not sent'}` : 'Not priced', quote ? <Muted>Net {gbp(quote.net)}{quote.vatPct ? ` + VAT ${gbp(quote.vat)}` : ''}</Muted> : undefined, <>{btn('quote', quote ? 'Open The Quote' : 'Price It', !!quote)}</>)
         : ladder(4, 'Quote', job.variation_issued_at ? `Quote Submitted ${fmt(job.variation_issued_at)}` : st === 'quote_needed' ? 'With Finance to price' : '—')}
       {ladder(5, 'Approved', job.quote_approved ? `${fmt(job.quote_approved_at)}${job.self_authorized ? ' · self-authorised' : ''}` : job.quote_approved === false ? 'Rejected' : 'Waiting', job.quote_decided_online_at ? <Muted>{job.quote_approved ? 'Approved' : 'Turned down'} online by the client{job.quote_decision_note ? ` — ${job.quote_decision_note}` : ''}</Muted> : undefined,
-        <>{st === 'awaiting_approval' && btn('approve', 'Client Approved', false)}{st === 'awaiting_approval' && btn('reject', 'Client Rejected')}</>)}
+        <>{st === 'awaiting_approval' && btn('quoteupd', 'Quote Update ▾', false)}</>)}
       {/* Repair Booked (Andy, 7 Nov 2026): the repair's date, and any other trades with their booked dates and photos of their completed works. */}
       {ladder(6, 'Repair Booked', bookLine(job.works_booking_date, job.works_booking_slot, job.works_booking_assigned_to, job.quote_approved ? 'Not booked yet' : '—'), (
         <>
@@ -284,22 +305,16 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
               <Text numberOfLines={2} style={{ fontSize: 13, fontWeight: '600', color: base.ink }}>{site?.client_name || '—'}</Text>
               {!!site?.client_contact_name && <Text numberOfLines={1} style={{ fontSize: 12, color: base.slate, marginTop: 2 }}>{site.client_contact_name}</Text>}
             </Pressable>
-            {job.work_order_path ? (
-              <Pressable accessibilityRole="button" accessibilityLabel="View the works order" onPress={async () => { const u = await openDocLink('site-photos', job.work_order_path as string); if (u) viewDoc(u, String(job.work_order_name || 'Works Order')); else toast('Could not open the file.'); }}
-                style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: '#C9CDD3', borderRadius: 10, padding: 10 }}>
-                <Text style={{ width: 34, height: 42, lineHeight: 42, textAlign: 'center', borderRadius: 5, backgroundColor: '#F0F1F4', fontSize: 10, fontWeight: '700', color: base.slate, overflow: 'hidden' }}>PDF</Text>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={{ fontSize: 11.5, fontWeight: '700', color: base.slate, letterSpacing: 0.4 }}>WORKS ORDER</Text>
-                  <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '600', color: base.ink }}>{job.work_order_name || 'Works order'}</Text>
-                </View>
-                <Text style={{ fontWeight: '600', color: base.blue }}>View</Text>
-              </Pressable>
-            ) : (
-              <View style={{ flex: 1, minWidth: 0, borderWidth: 1, borderStyle: 'dashed', borderColor: '#C9CDD3', borderRadius: 10, padding: 10, justifyContent: 'center' }}>
-                <Text style={{ fontSize: 11.5, fontWeight: '700', color: base.slate, letterSpacing: 0.4, marginBottom: 4 }}>WORKS ORDER</Text>
-                <Muted>None attached.{mgr ? ' Update ▾ › Upload The Works Order.' : ''}</Muted>
+            {/* The works order (Andy, 8 Nov 2026): a one-line heading, then just its number, and View for the PDF. */}
+            <View style={{ flex: 1, minWidth: 0, borderWidth: 1, borderStyle: 'dashed', borderColor: '#C9CDD3', borderRadius: 10, padding: 10, justifyContent: 'center' }}>
+              <Text numberOfLines={1} style={{ fontSize: 11.5, fontWeight: '700', color: base.slate, letterSpacing: 0.4, marginBottom: 4 }}>WORKS ORDER</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: '600', color: base.ink }}>{job.job_number || '—'}</Text>
+                {job.work_order_path
+                  ? <Text accessibilityRole="button" accessibilityLabel="View the works order" onPress={async () => { const u = await openDocLink('site-photos', job.work_order_path as string); if (u) viewDoc(u, String(job.work_order_name || 'Works Order')); else toast('Could not open the file.'); }} style={{ fontSize: 13, fontWeight: '600', color: base.blue }}>View ›</Text>
+                  : <Muted style={{ fontSize: 12 }}>No PDF</Muted>}
               </View>
-            )}
+            </View>
           </Card>
           <Card>
             <KV k="Address" v={label} />
@@ -321,11 +336,12 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
             <Card>
               <Text style={{ fontSize: 11.5, fontWeight: '700', color: base.slate, letterSpacing: 0.4, marginBottom: 8 }}>MONEY</Text>
               <View style={{ flexDirection: 'row', gap: 6 }}>
-                {[['Quoted', quote ? gbp(quote.net) : '—'], ['Costs So Far', gbp(costs)], ['Margin', quote ? gbp(quote.net - costs) : '—']].map(([l, v]) => (
-                  <View key={l} style={{ flex: 1, backgroundColor: '#F6F7F9', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 8 }}>
+                {/* Tap one for the detail (Andy, 8 Nov 2026): the quote, or the costs broken down with the profit. */}
+                {([['Quoted', quote ? gbp(quote.net) : 'Not Priced', 'quote'], ['Costs', gbp(costs), 'costs'], ['Profit', profit != null ? `${gbp(profit)}${pct != null ? ` · ${pct}%` : ''}` : '—', 'costs']] as [string, string, 'quote' | 'costs'][]).map(([l, v, k]) => (
+                  <Pressable key={l} accessibilityRole="button" accessibilityLabel={`${l}: ${v}`} onPress={() => setMoneyPop(k)} style={{ flex: 1, backgroundColor: '#F6F7F9', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 8 }}>
                     <Text style={{ fontSize: 10.5, fontWeight: '600', color: base.slate }}>{l}</Text>
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: base.ink }}>{v}</Text>
-                  </View>
+                    <Text numberOfLines={2} style={{ fontSize: 13, fontWeight: '700', color: l === 'Profit' && profit != null && profit < 0 ? '#C0392B' : base.blue }}>{v} ›</Text>
+                  </Pressable>
                 ))}
               </View>
               {ordered > 0 && <Muted style={{ marginTop: 6 }}>Also ordered, not invoiced yet: {gbp(ordered)}</Muted>}
@@ -385,9 +401,12 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
         </>
       )}
       {mgr && (
-        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: space.xl }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: space.xl }}>
+          {st === 'awaiting_approval' && <Button title="Quote Update ▾" onPress={() => void run('quoteupd')} />}
           <Button title="Update ▾" busy={!!busy && busy !== 'note'} onPress={async () => { const k = await chooseAction('Update', updates()); if (k) void run(k); }} />
           {tab === 'job' && <Button kind="ghost" title="Work Summary ›" onPress={() => setTab('repair')} />}
+          {/* Back to the job page from the Work Summary (Andy, 8 Nov 2026). */}
+          {tab === 'repair' && <Button kind="ghost" title="‹ Job Page" onPress={() => setTab('job')} />}
         </View>
       )}
 
@@ -434,7 +453,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
       {/* Update Status (Andy, 8 Nov 2026): what was found, what's needed, and the photos, all in one pop-up. A PM can delete the
           visit (recorded by mistake): the job goes back to Scheduled and its photos go to Deleted Photos, where they can be restored. */}
       {form === 'attend' && (
-        <FinForm title="Update Status" initial={{ d: (job.survey_date || new Date().toISOString()).slice(0, 10), who: job.surveyed_by || job.survey_booking_assigned_to || '', fault: job.fault_description || '', repair: job.repair_description || job.survey_notes || '', done: job.completed_in_visit === true ? 'yes' : 'no' }} onClose={() => setForm(null)}
+        <FinForm title="Update Status" initial={{ d: (job.survey_date || new Date().toISOString()).slice(0, 10), who: job.surveyed_by || photoOperative || '', fault: job.fault_description || '', repair: job.repair_description || job.survey_notes || '', done: job.completed_in_visit === true ? 'yes' : 'no' }} onClose={() => setForm(null)}
           fields={[{ k: 'd', label: 'Date Attended', kind: 'date', half: true }, { k: 'who', label: 'Attended By', kind: 'choice', half: true, options: [['', 'Not Chosen'], ...ops.map((p) => [p.id, p.name] as [string, string])] },
             { k: 'fault', label: 'Description Of Fault Found', kind: 'multiline' }, { k: 'repair', label: 'Description Of Repair Required', kind: 'multiline' }, { k: 'done', label: 'Completed Repair Whilst In Attendance?', kind: 'choice', options: [['no', 'No — Needs A Quote'], ['yes', 'Yes']] }]}
           extra={<View style={{ marginBottom: 6 }}><Muted style={{ fontWeight: '500', marginBottom: 4 }}>Photos</Muted><RepairPhotos jobId={job.id} photos={data.photos} cats={['survey', 'access']} onChanged={refresh} canAdd addLabel="📷 Upload Photos" /></View>}
@@ -442,7 +461,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
             const dn = v.done === 'yes' ? true : v.done === 'no' ? false : null;
             // The date as picked; the time it was first recorded is kept when the day hasn't changed.
             const d = String(v.d || ''), when = !d ? job.survey_date || new Date().toISOString() : job.survey_date && job.survey_date.slice(0, 10) === d ? job.survey_date : new Date(`${d}T12:00:00`).toISOString();
-            return (await save({ fault_description: String(v.fault || '').trim() || null, repair_description: String(v.repair || '').trim() || null, completed_in_visit: dn, survey_required: 'Y', survey_date: when, surveyed_by: String(v.who || '') || job.surveyed_by || me.id, job_status: dn === false ? 'Surveyed - Awaiting Cost' : job.job_status })) ? null : 'Could not save.';
+            return (await save({ fault_description: String(v.fault || '').trim() || null, repair_description: String(v.repair || '').trim() || null, completed_in_visit: dn, survey_required: 'Y', survey_date: when, surveyed_by: String(v.who || '') || null, job_status: dn === false ? 'Surveyed - Awaiting Cost' : job.job_status })) ? null : 'Could not save.';
           }}
           {...(isFullManager(me) && (job.survey_date || job.survey_required === 'Y') && !job.quote_approved && !job.works_completed ? {
             deleteLabel: 'Delete Visit',
@@ -476,6 +495,47 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
             if (ok && address !== job.address) void geocodeRepairJob(job.id, address);
             return ok ? null : 'Could not save.';
           }} />
+      )}
+      {moneyPop === 'quote' && (
+        <Pop title="Quote" onClose={() => setMoneyPop('')} footer={(
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 10 }}>
+            <Button small title={quote ? 'Open The Quote' : 'Price It'} onPress={() => { setMoneyPop(''); void run('quote'); }} />
+            <Button small kind="ghost" title="Close" onPress={() => setMoneyPop('')} />
+          </View>
+        )}>
+          {quote ? (
+            <>
+              <PopLine l="Net" v={gbp(quote.net)} />
+              {!!quote.vatPct && <PopLine l={`VAT ${quote.vatPct}%`} v={gbp(quote.vat)} />}
+              <PopLine l="Total" v={gbp(quote.total)} bold />
+              <PopLine l="Sent To The Client" v={job.variation_issued_at ? fmt(job.variation_issued_at) : 'Not Yet'} />
+              <PopLine l="Client’s Answer" v={job.quote_approved === true ? `Approved${job.quote_approved_at ? ` ${fmt(job.quote_approved_at)}` : ''}` : job.quote_approved === false ? 'Rejected' : 'Waiting'} />
+            </>
+          ) : <Muted>Not priced yet.</Muted>}
+        </Pop>
+      )}
+      {moneyPop === 'costs' && (
+        <Pop title={`Costs And Profit · ${job.job_number || label}`} onClose={() => setMoneyPop('')} footer={(
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 10 }}>
+            <Button small title="See Every Cost" onPress={() => { setMoneyPop(''); router.push(`/fin/job/${siteId}/costs?sub=${job.id}` as never); }} />
+            <Button small kind="ghost" title="+ Add A Cost" onPress={() => { setMoneyPop(''); router.push(`/fin/job/${siteId}/costs?sub=${job.id}&add=1` as never); }} />
+            {fc && bookable(fc.lines).length > 0 && <Button small kind="ghost" title="Book A Cost To This Job ▾" onPress={async () => {
+              const m = await bookCostTo(fc.lines, job.id, job.job_number || label); if (m) toast(m);
+              void qc.invalidateQueries({ queryKey: ['finBook'] });
+            }} />}
+          </View>
+        )}>
+          {/* Excl. VAT. The value is what's been invoiced, else the quote. */}
+          <PopLine l={job.invoice_id && inv ? 'Invoiced' : 'Quoted'} v={value != null ? gbp(value) : '—'} bold />
+          {([['Materials', 'materials'], ['Labour', 'labour'], ['Plant', 'plant'], ['Subcontract', 'subcontract'], ['Other', 'other']] as [string, string][]).map(([l, c]) => (
+            <PopLine key={c} l={l} v={gbp(byCat(c))} onPress={byCat(c) ? () => { setMoneyPop(''); router.push(`/fin/job/${siteId}/costs?sub=${job.id}${c === 'other' ? '' : `&type=${c}`}` as never); } : undefined} />
+          ))}
+          <PopLine l="Costs" v={gbp(costs)} bold />
+          {ordered > 0 && <PopLine l="Ordered, Not Invoiced Yet" v={gbp(ordered)} />}
+          <PopLine l="Profit" v={profit != null ? gbp(profit) : '—'} bold tone={profit != null && profit < 0 ? '#C0392B' : undefined} />
+          {pct != null && <PopLine l="Margin" v={`${pct}%`} />}
+          <Muted style={{ marginTop: 6, fontSize: 12 }}>Excl. VAT. Costs booked to this job: purchase invoices, labour, plant, subcontractors and other costs. A cost for the whole contract isn’t in here until it’s booked to the job.</Muted>
+        </Pop>
       )}
     </ScrollView>
   );

@@ -57,18 +57,21 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   t = await page.locator('body').innerText();
   check(/To Schedule/.test(t) && /Scheduled - Awaiting Attendance/.test(t) && /Quotation Required/.test(t) && /Awaiting Client Approval/.test(t) && /Approved - Requires Booking Date/.test(t) && /On Hold \/ Other Trades/.test(t) && /Completed Works - To Invoice/.test(t) && /Completed Works - Paid/.test(t) && /All Jobs/.test(t), 'Works Orders: the boxes in Andy’s words, All Jobs a box too');
   check(await page.getByLabel(/^Overdue, 1$/).count() === 1, 'Overdue box: the Emergency job past its 24 hours');
-  await page.getByLabel(/^Overdue, /).click(); await page.waitForTimeout(500);
+  await page.getByLabel(/^Overdue, /).click(); await page.waitForTimeout(1200);
   t = await page.locator('body').innerText();
-  check(/WO-1001/.test(t) && /Overdue \d+ (Hr|Day)/.test(t), 'Overdue: lists WO-1001 with how late it is');
-  await page.getByLabel(/^Overdue, /).click(); await page.waitForTimeout(400);
+  check(/box=overdue/.test(page.url()) && /WO-1001/.test(t) && /Overdue \d+ (Hr|Day)/.test(t), 'Overdue: its own page, WO-1001 with how late it is');
+  await page.goBack(); await page.waitForTimeout(1200);
   t = await page.locator('body').innerText();
-  check(!/WO-1001/.test(t) && /Tap a box to see its jobs/.test(t), 'no box open: no list until one is tapped');
+  check(!/WO-1001/.test(t) && /Tap a box to see its jobs/.test(t), 'Back: the boxes again, no list until one is tapped');
   const plusBox = await page.getByRole('button', {name: '+ New Job (Read Works Order)'}).boundingBox(), firstTile = await page.getByLabel(/^To Schedule, /).boundingBox();
   check(!!plusBox && !!firstTile && plusBox.y < firstTile.y && plusBox.width > 300, '+ New Job: full width, above the boxes');
-  await page.getByLabel(/^To Schedule, /).click(); await page.waitForTimeout(500);
-  check(/WO-1001 · Flat 4, Oak House/.test(await page.locator('body').innerText()), 'tap To Schedule: lists WO-1001');
-  await page.getByLabel(/^To Schedule, /).click(); await page.waitForTimeout(500);
-  check(!/WO-1001/.test(await page.locator('body').innerText()), 'tap it again: the list closes');
+  await page.getByLabel(/^To Schedule, /).click(); await page.waitForTimeout(1200);
+  t = await page.locator('body').innerText();
+  check(/WO-1001/.test(t) && /Flat 4, Oak House/.test(t), 'tap To Schedule: lists WO-1001');
+  await page.getByLabel('Box: To Schedule').click(); await page.waitForTimeout(500);
+  await page.locator('text=/^Quotation Required \\(1\\)$/ >> visible=true').last().click(); await page.waitForTimeout(1200);
+  check(/box=quote_needed/.test(page.url()) && /WO-1003/.test(await page.locator('body').innerText()), 'the drop-down jumps to another box');
+  await page.goto(`http://localhost:8081/sites/${S1}/repairs`); await page.waitForTimeout(4000);
   const close = page.getByLabel('Close', {exact: true});
   if (await close.count()) { await close.first().click(); await page.waitForTimeout(400); check(!/Nobody is assigned/.test(await page.locator('body').innerText()), 'the assign-operatives banner closes with ✕'); }
   await page.getByText('+ New Job (Read Works Order)', {exact: true}).click(); await page.waitForTimeout(500);
@@ -117,12 +120,13 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   t = await page.locator('body').innerText();
   // 4 × £45 = £180 less 10% = £162; + £120 = £282 net; VAT 20% £56.40; total £338.40
   check(/£162\.00/.test(t) && /£282\.00/.test(t) && /£56\.40/.test(t) && /£338\.40/.test(t), 'quote: schedule of rates less 10%, own line in full, VAT once (£338.40)');
-  await page.getByText('Save ▾', {exact: true}).click(); await page.waitForTimeout(500);
   t = await page.locator('body').innerText();
-  check(/Not Sent Yet/.test(t) && /Awaiting Approval/.test(t) && /Client Approved/.test(t) && /Client Rejected/.test(t), 'Save ▾: Not Sent Yet, Awaiting Approval, Client Approved, Client Rejected');
-  // Save as Not Sent Yet (it's ticked as where it stands now), then open it again: the lines are kept.
-  await page.locator('text="Not Sent Yet ✓" >> visible=true').last().click(); await page.waitForTimeout(2500);
-  check(!A.db.repair_jobs.find((j) => j.id === 'j3').variation_issued_at && (A.db.repair_jobs.find((j) => j.id === 'j3').quote_lines || []).length === 2, 'Save › Not Sent Yet: the lines saved, not sent');
+  check(/Save or Send To Client puts the job in Awaiting Client Approval/.test(t.replace(/\s+/g, ' ')), 'the quote says Save or Send puts it in Awaiting Client Approval');
+  const vq = await page.getByText('📄 View Quote', {exact: true}).boundingBox(), sv = await page.getByText('Save', {exact: true}).last().boundingBox(), sd = await page.getByText('Send To Client', {exact: true}).boundingBox();
+  check(!!vq && !!sv && !!sd && Math.abs(vq.y - sv.y) < 14 && Math.abs(sv.y - sd.y) < 14 && vq.x < sv.x && sv.x < sd.x, 'one row: View Quote on the left, then Save and Send To Client');
+  await page.getByText('Save', {exact: true}).last().click(); await page.waitForTimeout(2500);
+  const j3s = A.db.repair_jobs.find((j) => j.id === 'j3');
+  check(!!j3s.variation_issued_at && j3s.job_status === 'Surveyed - Variation Issued' && (j3s.quote_lines || []).length === 2, 'Save: the lines saved, Awaiting Client Approval');
   await page.goto(`http://localhost:8081/fin/job/${S1}/quote/j3`); await page.waitForTimeout(5000);
   check(/Less/.test(await page.locator('body').innerText()), 'quote: Less (discount) on the rates');
   await page.getByLabel('Less or plus').click(); await page.waitForTimeout(400); await page.locator('text="Plus (Uplift)" >> visible=true').last().click(); await page.waitForTimeout(400);
@@ -134,7 +138,7 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   check(fns.some(([n, b]) => n === 'send-repair-quote' && b.action === 'link' && b.repair_job_id === 'j3') && /quote\.html\?t=|Approval link copied/.test(await page.locator('body').innerText()), 'Copy Approval Link: the client’s link (online approval on)');
   const okBtn = page.locator('text="OK" >> visible=true'); if (await okBtn.count()) await okBtn.last().click();
   await page.screenshot({path: 'shots/repair-quote.png', fullPage: true});
-  await page.getByText('Save & Send To Client', {exact: true}).click(); await page.waitForTimeout(800);
+  await page.getByText('Send To Client', {exact: true}).click(); await page.waitForTimeout(800);
   t = await page.locator('body').innerText();
   check(/Send Quote To Client/.test(t) && /Approve Or Reject Online/.test(t) && (await page.getByLabel('To', {exact: true}).inputValue()) === 'repairs@sovereign.example', 'Save & Send: the send pop-up, to the client’s email, with the online approval button');
   await page.getByText('Send', {exact: true}).last().click(); await page.waitForTimeout(4000);
@@ -145,11 +149,9 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   await page.goto(`http://localhost:8081/sites/${S1}/repairs/job/j3`); await page.waitForTimeout(5000);
   t = await page.locator('body').innerText();
   check(/Awaiting Client Approval/.test(t) && /Quote submitted/i.test(t) && !/£/.test(t), 'the hub: Awaiting Client Approval, “quote submitted”, no figures');
-  await page.getByText('Update ▾', {exact: true}).click(); await page.waitForTimeout(600);
-  await page.locator('text="Client Approved" >> visible=true').last().click(); await page.waitForTimeout(600);
-  const yes = page.locator('text="Yes, Approved" >> visible=true'); if (await yes.count()) await yes.last().click();
-  await page.waitForTimeout(2500);
-  check(j3.quote_approved === true && j3.job_status === 'Approved - To Do', 'Client Approved: approved, the repair to book');
+  await page.getByText('Quote Update ▾', {exact: true}).last().click(); await page.waitForTimeout(600);
+  await page.locator('text="Quote Approved" >> visible=true').last().click(); await page.waitForTimeout(2500);
+  check(j3.quote_approved === true && j3.job_status === 'Approved - To Do', 'Quote Update ▾ › Quote Approved: the repair to book');
   await page.getByLabel('Add a note').fill('Tenant prefers mornings'); await page.getByText('Add', {exact: true}).click(); await page.waitForTimeout(1500);
   check(A.db.repair_job_notes.some((n) => n.repair_job_id === 'j3' && /mornings/.test(n.body)), 'a note is added');
   // No access on a booked job: back to be booked again.

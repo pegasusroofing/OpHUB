@@ -87,9 +87,14 @@ const useJobKind = (id: string) => useQuery({ queryKey: ['finJobBilling', id], q
 } });
 const useJobBilling = (id: string) => { const q = useJobKind(id); return { data: q.data?.billing ?? null }; };
 /** Inside the Bill of Quantities tab: the Bill, its Variations and the Plots (Andy, 2 Nov 2026). An invoice job has no Bill, so those two only. */
-export function BoqTabs({ id, on }: { id: string; on: 'boq' | 'variations' | 'plots' }) {
+export function BoqTabs({ id, on }: { id: string; on: 'boq' | 'variations' | 'plots' | 'parts' }) {
   const { data: billing } = useJobBilling(id);
-  return <FinTabs items={([['boq', 'BoQ'], ['variations', 'Variations'], ['plots', 'Plots']] as [string, string][]).filter(([k]) => k !== 'boq' || billing !== 'invoice')} value={on} onChange={(k) => { if (on !== k) router.replace(`/fin/job/${id}/${k}` as never); }} />;
+  // Costs By Plot (Andy, 8 Nov 2026): each plot's costs, value and margin, a tab rather than a button you have to find.
+  return <FinTabs items={([['boq', 'BoQ'], ['variations', 'Variations'], ['plots', 'Plots'], ['parts', 'Costs By Plot']] as [string, string][]).filter(([k]) => k !== 'boq' || billing !== 'invoice')} value={on} onChange={(k) => { if (on !== k) router.replace(`/fin/job/${id}/${k}` as never); }} />;
+}
+/** A repair contract's Live Jobs tab (Andy, 8 Nov 2026): the jobs, each job's costs, and the schedule of rates, as tabs. */
+export function RepairTabs({ id, on }: { id: string; on: 'repairs' | 'parts' | 'rates' }) {
+  return <FinTabs items={[['repairs', 'Live Jobs'], ['parts', 'Costs By Job'], ['rates', 'Schedule Of Rates']]} value={on} onChange={(k) => { if (on !== k) router.replace(`/fin/job/${id}/${k}` as never); }} />;
 }
 /** Variations and Day Works share the Variations tab. right: the + button, at the end of this row (Andy, 7 Nov 2026). */
 export function VarDayChips({ id, on, right }: { id: string; on: 'variations' | 'dayworks'; right?: ReactNode }) {
@@ -104,7 +109,9 @@ export function FinJobTabs({ id, active, job, name, onOverview }: { id: string; 
   const { data: kind } = useJobKind(id);
   const invoiceJob = kind?.billing === 'invoice', repair = !!kind?.repair;
   // Variations sit inside the Bill of Quantities tab, unless an invoice job has no Bill.
-  const current = active === 'variations' && !invoiceJob ? 'boq' : active;
+  // Costs By Job / Plot sits under Live Jobs on a repair contract, else under the Bill (or Variations on an invoice job).
+  const a0 = active === 'parts' ? (repair ? 'repairs' : 'variations') : active;
+  const current = a0 === 'variations' && !invoiceJob ? 'boq' : a0;
   const tabs: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ...(repair ? [['repairs', 'Live Jobs'] as [string, string]] : invoiceJob ? [['variations', 'Variations'] as [string, string]] : [['boq', 'Bill Of Quantities'] as [string, string]]), ['docs', 'Documents'], ['setup', 'Project Admin']];
   // Swaps the page rather than stacking another on top: a Bill left open underneath would keep saving over this one.
   const go = (k: string) => { if (k === 'boq' || k === 'variations' || k === 'repairs') router.replace(`/fin/job/${id}/${k}` as never); else if (onOverview) router.setParams({ tab: k }); else router.replace(`/fin/job/${id}?tab=${k}` as never); };
