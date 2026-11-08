@@ -188,7 +188,7 @@ Then the same run on Sandbox Roofing against the real database, admin only: 138 
 - **New in Finance:** Applications For Payment and Sales Invoices can be added to save into the job's folder (off until added).
 - **Add a Project / Finance New Project:** a "Create OneDrive folder" tick. It starts unticked when New Jobs is No or the client is set to no folders. **Finance › Directory › a client:** "Create OneDrive Folders For This Client's Jobs?" (fin_clients.onedrive_folders). A won quote follows the same two.
 - **Super admin:** Platform Admin › a company › Setting Up The Company (six steps ticked from what's there) and Open Their OneDrive Settings.
-- **Limits:** items save only into jobs whose folder the job pack made (14 RTB jobs linked by hand carry on as before). The current web app still makes a folder for every new job and doesn't know the client switch, until switch-over. The OneDrive sign-in return fix (supabase/functions/onedrive-oauth-*) is written but not deployed: it needs Andy's OK.
+- **Limits:** items save only into jobs whose folder the job pack made (14 RTB jobs linked by hand carry on as before). The current web app still makes a folder for every new job and doesn't know the client switch, until switch-over. The OneDrive sign-in return fix (supabase/functions/onedrive-oauth-*) went live on 8 Nov 2026 with Andy's OK (callback v31, start v27, verify_jwt off as before): it goes back to the page you started on, office-network addresses work, and it never shows the page as code.
 - Checks: `onedrive-setup-check.js` (21). SQL: `sql/onedrive-setup-8nov.sql`.
 
 ## Leftovers against the old app (8 Nov 2026)
