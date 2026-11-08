@@ -124,6 +124,8 @@ const piTone = (i: Row) => (isPaid(i) ? '#1E7A43' : i.status === 'query' ? '#C03
 export function NewPoButton() {
   return <Button small title="+ New PO" onPress={() => router.push('/fin/po/new' as never)} />;
 }
+// Put on hire from Projects (Andy, 8 Nov 2026): no rate yet, so Finance is told to add it.
+const noRate = (h: Row) => !Number(h.rate) && h.cost_from !== 'invoices';
 export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoices' | 'plant' | 'suppliers' | 'all'; siteId?: string; f?: string }) {
   const { me, org } = useAuth();
   const { data: sites = [] } = useSites();
@@ -510,12 +512,12 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               ...(siteId ? [] : [{ k: 'p', l: 'Project', render: (h: Row) => <Cell>{jobTag(site(h.site_id))}</Cell> }]),
               { k: 'on', l: 'On Hire', sort: (h: Row) => String(h.on_hire || ''), render: (h: Row) => <Cell>{h.on_hire ? fdate(h.on_hire) : '—'}</Cell> },
               { k: 'off', l: 'Off Hire', sort: (h: Row) => String(h.off_hire || ''), render: (h: Row) => <Cell>{h.off_hire ? fdate(h.off_hire) : '—'}</Cell> },
-              { k: 'c', l: 'Cost To Date', total: (l: Row[]) => money(l.reduce((t, h) => t + plantCost(h as never).cost, 0)), sort: (h: Row) => plantCost(h as never).cost, render: (h: Row) => <Cell>{money(plantCost(h as never).cost)}</Cell> },
+              { k: 'c', l: 'Cost To Date', total: (l: Row[]) => money(l.reduce((t, h) => t + plantCost(h as never).cost, 0)), sort: (h: Row) => plantCost(h as never).cost, render: (h: Row) => <Cell tone={noRate(h) ? '#B45309' : undefined}>{noRate(h) ? 'Rate To Add' : money(plantCost(h as never).cost)}</Cell> },
               { k: 'st', l: 'Status', noSort: true, render: (h: Row) => { const c = plantCost(h as never), long = !h.off_hire && c.days > 28; return <Cell tone={h.off_hire ? undefined : long ? '#C0392B' : '#1E7A43'}>{h.off_hire ? 'Off hire' : `On hire ${c.weeks} wk`}</Cell>; } },
             ]}
             footLabel={(left) => `${left.length} shown`} />
         ) : list.length ? list.map((h) => { const c = plantCost(h as never), long = !h.off_hire && c.days > 28; return (
-          <FinRow compact key={h.id} title={h.item} sub={[h.supplier_name, siteId ? '' : jobTag(site(h.site_id)), `on ${fdate(h.on_hire)}`, h.off_hire ? `off ${fdate(h.off_hire)}` : `on hire ${c.weeks} wk${long ? ' — over 4 weeks' : ''}`].filter(Boolean).join(' · ')} right={money(c.cost)} tone={long ? '#D98A00' : undefined} onPress={() => router.push(`/fin/plant/${h.id}` as never)} />
+          <FinRow compact key={h.id} title={h.item} sub={[h.supplier_name, siteId ? '' : jobTag(site(h.site_id)), `on ${fdate(h.on_hire)}`, h.off_hire ? `off ${fdate(h.off_hire)}` : `on hire ${c.weeks} wk${long ? ' — over 4 weeks' : ''}`].filter(Boolean).join(' · ')} right={noRate(h) ? 'Rate To Add' : money(c.cost)} tone={long || noRate(h) ? '#D98A00' : undefined} onPress={() => router.push(`/fin/plant/${h.id}` as never)} />
         ); }) : <Empty>No plant hire.</Empty>}
         {desk && exportBar('Plant hire', [{ l: 'Item', w: 140 }, { l: 'Supplier', w: 120 }, { l: 'Project', w: 150 }, { l: 'On hire', w: 70 }, { l: 'Off hire', w: 70 }, { l: 'Cost to date £', w: 80, money: true }],
           list.map((h) => [h.item || '', h.supplier_name || '', jobTag(site(h.site_id)), h.on_hire ? fdate(h.on_hire) : '', h.off_hire ? fdate(h.off_hire) : '', round2(plantCost(h as never).cost)]))}

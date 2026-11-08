@@ -132,7 +132,7 @@ export async function setPoStatusWithRequests(me: Profile, id: string, status: '
   }
   if (!(await fdb.from('purchase_orders').update({ status } as never).eq('id', id).select('id')).data?.length) return null;
   if (!ids.length) return 0;
-  const mine = (((await fdb.from('materials').select('id,cancel_reason').in('id', ids).eq('status', 'cancelled')).data as { id: string; cancel_reason: string | null }[] | null) ?? []).filter((m) => m.cancel_reason === cancelReason(po.number));
+  const mine = (((await fdb.from('materials').select('id,cancel_reason').in('id', ids).eq('status', 'cancelled')).data as { id: string; cancel_reason: string | null }[] | null) ?? []).filter((m) => m.cancel_reason === cancelReason(po.number) || m.cancel_reason === `Cancelled on PO ${po.number || ''} in Projects`); // cancelled from Projects too (8 Nov 2026)
   const was: Record<string, string> = {}; (po.items ?? []).forEach((l) => { if (l?.material_id && REQ_STATUSES.includes(l.was_status)) was[l.material_id] = l.was_status; });
   let n = 0;
   for (const st of [...new Set(mine.map((m) => was[m.id] || 'sent'))]) {

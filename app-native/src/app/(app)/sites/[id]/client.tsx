@@ -6,6 +6,7 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { ClientPoCard } from '@/components/SiteOrders';
 import { useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import { updateSite } from '@/data/siteAdmin';
@@ -53,14 +54,15 @@ export default function ClientInfo() {
       {!f ? (
         <Card>
           {row('Client', v.name)}{row('Contact', v.contact)}{row('Number', v.phone)}{row('Email', v.email)}
-          {locked
-            ? <Muted style={{ marginTop: space.m }}>This client was set up on the Finance job, so it’s only changeable from Finance.</Muted>
-            : <View style={{ marginTop: space.m }}><Button kind="ghost" title="Edit" onPress={() => setF(v)} /></View>}
+          {/* A client set up in Finance keeps its name (who's invoiced); the contact is the PM's to change (Andy, 8 Nov 2026). */}
+          {locked && <Muted style={{ marginTop: space.m }}>The client was set up in Finance, so its name is changed there. The contact can be changed here.</Muted>}
+          <View style={{ marginTop: space.m, flexDirection: 'row', justifyContent: 'center' }}><Button kind="ghost" title={locked ? 'Edit The Contact' : 'Edit'} onPress={() => setF(v)} /></View>
         </Card>
       ) : (
         <Card>
           <Muted style={{ fontWeight: '600' }}>Client Name</Muted>
-          <TextInput accessibilityLabel="Client Name" value={v.name} onFocus={() => setTyping(true)} onChangeText={(t) => { setTyping(true); setF({ ...v, name: titleCase(t) }); }} placeholder="Type a name, or pick one of your clients" style={[box, hits.length ? { marginBottom: 4 } : null]} />
+          {locked ? <Text style={[box, { color: base.slate }]}>{v.name || '—'}</Text>
+            : <TextInput accessibilityLabel="Client Name" value={v.name} onFocus={() => setTyping(true)} onChangeText={(t) => { setTyping(true); setF({ ...v, name: titleCase(t) }); }} placeholder="Type a name, or pick one of your clients" style={[box, hits.length ? { marginBottom: 4 } : null]} />}
           {hits.length > 0 && (
             <View style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, marginBottom: space.m, overflow: 'hidden' }}>
               {hits.map((c, i) => (
@@ -82,13 +84,15 @@ export default function ClientInfo() {
             <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => setF(null)} /></View>
             <View style={{ flex: 1 }}><Button title="Save" onPress={async () => {
               if (v.email.trim() && !isEmail(v.email)) { toast('Enter a valid email address.'); return; }
-              if (await updateSite(qc, id, { client_name: v.name.trim() || null, client_contact_name: v.contact.trim() || null, client_phone: v.phone.trim() || null, client_email: v.email.trim() || null })) {
+              if (await updateSite(qc, id, { ...(locked ? {} : { client_name: v.name.trim() || null }), client_contact_name: v.contact.trim() || null, client_phone: v.phone.trim() || null, client_email: v.email.trim() || null })) {
                 toast('Client info updated'); setF(null);
               } else toast('Could not save — try again.');
             }} /></View>
           </View>
         </Card>
       )}
+      {/* The client's PO, kept here as well as in Finance (Andy, 8 Nov 2026). */}
+      <ClientPoCard siteId={id} />
     </ScrollView>
   );
 }

@@ -279,8 +279,8 @@ async function bookCollection(me: Profile, siteId: string, f: Fulfil, supplier: 
 
 /**
  * Sends one order (one or several requests) to a supplier, or "Email to me".
- * Closes the requests, raises a Finance PO (finance users only, as today — the
- * database also refuses it while the company's PO switch is off), books any
+ * Closes the requests, raises a Finance PO (PMs, admins and Finance users; the
+ * database refuses it while the company's PO switch is off), books any
  * collection, then emails the order. Returns the message to show.
  */
 export async function sendOrder(me: Profile, opts: {

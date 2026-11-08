@@ -51,6 +51,7 @@ function ManagerTiles({ siteId, vis, role, me, site }: { siteId: string; vis: Pa
       <JobGrid>
       <Tile icon="🙋" tint="#F1E4FA" title="Material Requests" sub={sub} badge={pending?.length || undefined} onPress={go('materials/requests')} />
       <Tile icon="📄" tint="#FBEFE0" title="Material PO's" sub="" onPress={go('materials/pos')} />
+      <Tile icon="👷" tint="#E8EEF8" title="Subcontract Orders" sub="" onPress={go('materials/subcontracts')} />
       {canSeeMatTile(vis, 'plant', role) && <Tile icon="🏗" tint="#EAF3EC" title="Plant" sub="" onPress={go('plant')} {...visProps('plant', 'Plant')} />}
       {canSeeMatTile(vis, 'expenses', role) && <Tile icon="🧾" tint="#FDF1DE" title="Expenses" sub="" onPress={go('expenses')} {...visProps('expenses', 'Expenses')} />}
       </JobGrid>

@@ -16,7 +16,7 @@ import { sendOrder, toCollections, toggleFavourite, useOrderPeople, useSuppliers
 import { useAuth } from '@/lib/auth';
 import { DELIVERY_TIME_SLOTS } from '@/lib/rules/driver';
 import { branchLabel, companyOperativeLabel, orderNote, parseCc, sendToOptions, sortSuppliers, type Branch, type Fulfil, type Mat, type SendTo } from '@/lib/rules/materials';
-import { isFinanceUser } from '@/lib/roles';
+import { isFinanceUser, isFullManager } from '@/lib/roles';
 import { base, radius } from '@/theme/theme';
 
 const ME_KEY = 'me';
@@ -81,7 +81,8 @@ export function OrderPanel({ siteId, mats, again, onDone, onCancel }: { siteId: 
       skip = !(await confirmAsk(`This order has been sent before. Add it to the ${where} for ${name} again? Choose No if it is already on there — the email will still be sent.`, 'Yes — add it again', 'No — email only'));
     }
     setBusy(true);
-    const msg = await sendOrder(me, { siteId, mats, supplier: sup, toMe, f, financeUser: isFinanceUser(me, org), people: [...drivers, ...ops], orgName: org?.name ?? null, skipBooking: skip });
+    // Every PM's order gets a PO when the company has POs switched on, Finance or not (Andy, 8 Nov 2026).
+    const msg = await sendOrder(me, { siteId, mats, supplier: sup, toMe, f, financeUser: isFinanceUser(me, org) || isFullManager(me), people: [...drivers, ...ops], orgName: org?.name ?? null, skipBooking: skip });
     setBusy(false);
     toast(msg);
     void qc.invalidateQueries({ queryKey: ['materials', siteId] });
