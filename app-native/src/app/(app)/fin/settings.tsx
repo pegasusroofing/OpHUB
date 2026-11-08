@@ -8,6 +8,7 @@
 // Finance switch people on) and the invoice inbox address (906: a private key
 // in fin_settings; while Finance is on trial nothing that arrives is read or filed).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Platform, Pressable, Text, TextInput, View } from 'react-native';
 
@@ -98,6 +99,7 @@ export default function FinSettings() {
         ['bill', 'On your invoices', 'building', [['Company address', s.company_address || '—'], ['VAT no.', s.company_vat_no || '—'], ['Company no.', s.company_reg_no || '—'], ['Bank', [s.bank_name, s.bank_account_name, s.bank_sort_code, s.bank_account_no].filter(Boolean).join(' · ') || '—'], ['Contractor UTR (CIS)', s.contractor_utr || '—'], ['Employer ref', s.employer_ref || '—']]],
         ['inbox', 'Invoice inbox (email)', 'mail', []],
         ['xero', 'Xero', 'link', []],
+        ['onedrive', 'OneDrive', 'cloud', []],
       ] as [string, string, string, [string, string][]][]).map(([k, title, ic, rows]) => {
         const on = openS.includes(k);
         return (
@@ -109,7 +111,13 @@ export default function FinSettings() {
             </Pressable>
             {on && (
               <Card style={{ marginTop: 4, marginBottom: 4 }}>
-                {k === 'costs' ? (
+                {/* OneDrive (Andy, 8 Nov 2026): the same page as Admin › OneDrive in Projects. */}
+                {k === 'onedrive' ? (
+                  <>
+                    <Muted style={{ marginBottom: 8 }}>The OneDrive connection, a folder for every new job, and where things save (applications, invoices, and everything from Projects).</Muted>
+                    <View style={{ alignSelf: 'flex-start' }}><Button small title="Open OneDrive Settings ›" onPress={() => router.push('/fin/onedrive' as never)} /></View>
+                  </>
+                ) : k === 'costs' ? (
                   <>
                     <Muted style={{ marginBottom: 8 }}>Prices on project quotes (and in the Materials tile) are hidden from everyone except Finance users and the people switched on here.</Muted>
                     {!team ? <Muted>Loading…</Muted> : team.length ? team.map((p) => (

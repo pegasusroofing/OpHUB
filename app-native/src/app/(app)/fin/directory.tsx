@@ -282,6 +282,7 @@ export default function FinDirectory() {
                   <Text style={{ fontWeight: '600', fontSize: 13, color: '#111827' }}>{c.name}</Text>
                   <Text style={{ fontSize: 11.5, color: '#6b7280' }}>{[sup ? c.category : '', termsText(c), c.sales_vat ? `${sup ? '' : 'Sales '}VAT ${VAT_SHOW.find(([k]) => k === c.sales_vat)?.[1]}` : '', c.cis_registered ? 'CIS' : ''].filter(Boolean).join(' · ')}</Text>
                   {!!c.email && <Text style={{ fontSize: 11.5, color: '#6b7280' }}>{c.email}</Text>}
+                  {!sup && c.onedrive_folders === false && <Text style={{ fontSize: 10.5, fontWeight: '600', color: base.ink }}>No OneDrive Folders</Text>}
                   {sup && !!c._mat && <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#1e40af' }}>Materials</Text>}
                 </View>
               ) },
@@ -294,10 +295,10 @@ export default function FinDirectory() {
             ]}
             foot={(list) => <><FootText bold>{list.length} shown</FootText>{!sup && <FootText>Owed {money(list.reduce((t, c) => t + owedOf(c).o, 0))}</FootText>}{sup && <FootText>To pay {money(list.reduce((t, c) => t + Number(c._owed || 0), 0))}</FootText>}</>} />
         );
-      })() : list.length ? list.map((c) => <FinRow key={c.id || `n:${c.name}`} title={c.name} right={sup && c._owed ? money(c._owed) : undefined} sub={[sup ? c.category : '', sup && c._mat ? 'Materials' : '', c.email, sup && c._n ? `${c._n} invoice${c._n === 1 ? '' : 's'} · spent ${money(c._spend)}` : '', termsText(c), c.sales_vat ? `VAT ${VAT_SHOW.find(([k]) => k === c.sales_vat)?.[1]}` : '', c.cis_registered ? 'CIS' : '', c.xero_contact_id ? 'In Xero' : 'Not in Xero'].filter(Boolean).join(' · ')} onPress={() => setEdit(c)} />) : <Empty>Nothing here yet.</Empty>}
+      })() : list.length ? list.map((c) => <FinRow key={c.id || `n:${c.name}`} title={c.name} right={sup && c._owed ? money(c._owed) : undefined} sub={[sup ? c.category : '', sup && c._mat ? 'Materials' : '', c.email, sup && c._n ? `${c._n} invoice${c._n === 1 ? '' : 's'} · spent ${money(c._spend)}` : '', termsText(c), c.sales_vat ? `VAT ${VAT_SHOW.find(([k]) => k === c.sales_vat)?.[1]}` : '', c.cis_registered ? 'CIS' : '', !sup && c.onedrive_folders === false ? 'No OneDrive Folders' : '', c.xero_contact_id ? 'In Xero' : 'Not in Xero'].filter(Boolean).join(' · ')} onPress={() => setEdit(c)} />) : <Empty>Nothing here yet.</Empty>}
       {!sup && !!jd && sites.some((s) => !(s.client_name || jd.jfBy[s.id]?.billing_name)) && <Muted style={{ marginTop: 10 }}>Jobs with no client set: {sites.filter((s) => !(s.client_name || jd.jfBy[s.id]?.billing_name)).map(jobTag).join(', ')}</Muted>}
       {edit && (
-        <FinForm title={edit.id ? edit.name : `New ${sup ? 'supplier' : 'client'}`} initial={{ ...edit, estimating_markup_pct: edit.estimating_markup_pct ?? '', terms_days: edit.terms_days ?? '', cis_rate: String(edit.cis_rate ?? 20), toX: !edit.xero_contact_id }} onClose={() => setEdit(null)}
+        <FinForm title={edit.id ? edit.name : `New ${sup ? 'supplier' : 'client'}`} initial={{ ...edit, estimating_markup_pct: edit.estimating_markup_pct ?? '', terms_days: edit.terms_days ?? '', cis_rate: String(edit.cis_rate ?? 20), toX: !edit.xero_contact_id, od_folders: edit.onedrive_folders === false ? 'no' : 'yes' }} onClose={() => setEdit(null)}
           note={edit.xero_contact_id ? 'Linked to Xero.' : 'Not in Xero yet.'}
           fields={[
             { k: 'name', label: `${sup ? 'Supplier' : 'Client'} name` }, ...(sup ? [{ k: 'category', label: 'Category', kind: 'choice', options: [['', 'Not set'], ...SUP_CATS.map((x) => [x, x])] }, { k: 'supplier_id', label: 'Projects Supplier (ordering)', kind: 'choice', options: [['', 'Not linked'], ...mats.map((m) => { const other = ((data as Row[]) || []).find((x) => x.supplier_id === m.id && x.id !== edit.id); return [m.id, `${m.name}${other ? ` (linked to ${other.name})` : ''}`]; }), ['__new', '+ Add to the Projects suppliers']], note: 'Links this Directory record to the supplier you order from on projects. They stay separate — changing one never changes the other.' }] as Field[] : []),
@@ -310,6 +311,8 @@ export default function FinDirectory() {
             { k: 'company_number', label: 'Company number', half: true },
             // The guide mark-up a quote for this client starts with (Andy, 4 Nov 2026).
             ...(sup ? [] : [{ k: 'estimating_markup_pct', label: 'Estimating mark-up %', kind: 'number', half: true, note: 'Fills the guide mark-up on new quotes for this client.' }] as Field[]),
+            // Some clients never want OneDrive folders (Andy, 8 Nov 2026): their new jobs start with the tick off. Jobs already made keep theirs.
+            ...(sup ? [] : [{ k: 'od_folders', label: 'Create OneDrive Folders For This Client’s Jobs?', kind: 'choice', options: [['yes', 'Yes'], ['no', 'No']], half: true, note: 'No: their new jobs start without one. Jobs already made keep theirs.' }] as Field[]),
             { k: 'notes', label: 'Notes', kind: 'multiline' }, ...(!edit.xero_contact_id ? [{ k: 'toX', label: 'Add to Xero as well', kind: 'check' }] as Field[] : []),
           ]}
           onSave={async (v) => {
@@ -320,7 +323,7 @@ export default function FinDirectory() {
             const row: Row = { name, email: email || null, address: t('address'), postcode: t('postcode'), phone: t('phone'), vat_registered: !!v.vat_registered, vat_number: t('vat_number'), sales_vat: t('sales_vat'), terms_days: num(v.terms_days), terms_type: t('terms_type'), terms_agreed: !!v.terms_agreed, cost_code_id: t('cost_code_id'), company_number: t('company_number'), cis_registered: !!v.cis_registered, cis_rate: Number(v.cis_rate || 20), notes: t('notes') };
             let link = sup ? String(v.supplier_id || '') || null : null;
             if (link === '__new') { const m = await fdb.from('suppliers').insert({ org_id: me.org_id, name, email: email || '', created_by: me.id } as never).select('id').single(); link = (m.data as Row | null)?.id ?? null; if (!link) return 'Could not add it to the Projects suppliers.'; }
-            if (!sup) row.estimating_markup_pct = num(v.estimating_markup_pct);
+            if (!sup) { row.estimating_markup_pct = num(v.estimating_markup_pct); row.onedrive_folders = v.od_folders !== 'no'; }
             if (sup) Object.assign(row, { supplier_id: link, category: t('category'), purchase_vat: t('purchase_vat'), foreign_supplier: !!v.foreign_supplier, no_sync: !!v.no_sync, utr: utr || null, updated_at: new Date().toISOString() });
             const dup = ((data as Row[]) || []).find((x) => x.id !== edit.id && String(x.name).trim().toLowerCase() === name.toLowerCase());
             if (dup) return `“${dup.name}” is already in the directory.`;

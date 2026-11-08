@@ -2,7 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { listOneDriveLevel, type OdItem } from '@/data/drawings';
-import { hasJobPack, setupJobPack } from '@/data/jobPack';
+import { clientWantsFolders, hasJobPack, setupJobPack } from '@/data/jobPack';
 import { createSite } from '@/data/siteList';
 import { localISODate } from '@/lib/rules/driver';
 import { readTenderLog, statusPatch, type ImportRow, type QuoteRow } from '@/lib/rules/quotes';
@@ -145,7 +145,10 @@ export async function convertToJob(me: Profile, q: Quote, autoNumbers: boolean, 
   }, autoNumbers);
   if ('error' in made) return made;
   const notes: string[] = [];
-  const pack = await setupJobPack(made.id);
+  // No folder when new jobs are set not to get one, or the client is set to never (Andy, 8 Nov 2026).
+  const ps = (await supabase.from('job_pack_settings' as never).select('config').eq('org_id' as never, me.org_id as never).maybeSingle()).data as { config: { create_new?: boolean } | null } | null;
+  const want = ps?.config?.create_new !== false && (await clientWantsFolders(q.client_name));
+  const pack = want ? await setupJobPack(made.id) : { error: 'No OneDrive folder was made (switched off for new jobs, or for this client)' };
   if ('error' in pack) notes.push(pack.error);
   else if (pack.failed.length) notes.push(`These didn’t go across: ${pack.failed.join(', ')}`);
   if (q.folder_id && !('error' in pack)) {

@@ -85,7 +85,7 @@ async function makeContext(browser, role, log, opts){
       let body = null; try{ body = JSON.parse(req.postData()||'null'); }catch(e){}
       if(m==='POST'){
         const merge = /merge-duplicates/.test(req.headers()['prefer']||'');
-        const keys = merge ? (sp.get('on_conflict') ? sp.get('on_conflict').split(',') : (table==='job_finance' ? ['site_id'] : ['id'])) : null;
+        const keys = merge ? (sp.get('on_conflict') ? sp.get('on_conflict').split(',') : (table==='job_finance' ? ['site_id'] : table==='job_pack_settings' ? ['org_id'] : ['id'])) : null;
         const out = [];
         for(const r0 of (Array.isArray(body)?body:[body])){
           const ex = merge && keys.every(k=>r0[k]!=null) ? (db[table]||[]).find(x=>keys.every(k=>String(x[k])===String(r0[k]))) : null;

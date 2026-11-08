@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Platform, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
 
+import { CompanySetupSteps } from '@/components/CompanySetupSteps';
 import { FinChip } from '@/components/FinNav';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Check, Field, Muted, SectionTitle } from '@/components/ui';
@@ -96,6 +97,7 @@ export function PlatformAdmin() {
                 }} />
                 <Check label="OpHUB Finance" value={!!o.has_finance} onChange={async (on) => { toast((await setOrgModules(o.id, 'has_finance', on)) ? 'Modules updated' : 'Could not save — try again.'); reload(); }} />
                 <Muted style={{ fontSize: 11.5, marginBottom: 8 }}>Finance only = project management off. Finance is then given per person by their admin.</Muted>
+                <CompanySetupSteps org={o as never} />
                 <Button title="🛠 Open this company's app" onPress={async () => {
                   if (!(await confirmAsk(`Open ${o.name} as their admin? You'll see and can change everything they can. Use Exit on the bar at the top to come back.`, 'Open'))) return;
                   const err = await viewAsOrg(o.id); if (err) { toast(`Could not switch — ${err}`); return; }

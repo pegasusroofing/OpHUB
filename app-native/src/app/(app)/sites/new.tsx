@@ -2,7 +2,7 @@
 // automatic one), client (typing suggests Directory clients and past clients; free text is fine),
 // contact number and email, multi-site or repair contract, Active or Upcoming, and a start date.
 // Client, address and start date are required (Andy). PMs / admins only.
-import { setupNewJobPack } from '@/data/jobPack';
+import { setupNewJobPack, useNewJobFolderDefault } from '@/data/jobPack';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
@@ -37,6 +37,10 @@ export default function NewProject() {
   const [d, setD] = useState<NewSite>(EMPTY);
   const [chosen, setChosen] = useState(false); // Active / Upcoming must be picked
   const [busy, setBusy] = useState(false);
+  // Create OneDrive folder (Andy, 8 Nov 2026): ticked unless the company or the client says no; the tick wins once touched.
+  const [folderTick, setFolderTick] = useState<boolean | null>(null);
+  const fd = useNewJobFolderDefault(me?.org_id, d.client_name);
+  const wantFolder = folderTick ?? fd.start;
   if (!me) return null;
   if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project managers and admins only.</Muted>;
   const set = (p: Partial<NewSite>) => setD({ ...d, ...p });
@@ -60,7 +64,7 @@ export default function NewProject() {
     const r = await createSite(me, { ...d, name: d.name.trim(), address: d.address.trim(), postcode: d.postcode.trim(), job_number: d.job_number.trim(), client_name: d.client_name.trim(), client_phone: d.client_phone.trim(), client_email: d.client_email.trim(), start_date: d.start_date }, auto);
     setBusy(false);
     if ('error' in r) { toast(r.error); return; }
-    void setupNewJobPack(me.org_id, r.id);
+    void setupNewJobPack(me.org_id, r.id, wantFolder);
     await qc.invalidateQueries({ queryKey: ['sites'] });
     router.replace(`/sites/${r.id}` as never);
   };
@@ -81,6 +85,8 @@ export default function NewProject() {
         </View>
         <Check label="Multi-site job (several addresses / plots)" value={d.multi_site} onChange={(x) => set({ multi_site: x, repair_contract: x ? false : d.repair_contract })} />
         <Check label="Repair / maintenance contract" value={d.repair_contract} onChange={(x) => set({ repair_contract: x, multi_site: x ? false : d.multi_site })} />
+        {fd.shown && <Check label="Create OneDrive folder" value={wantFolder} onChange={setFolderTick} />}
+        {fd.shown && fd.clientOff && folderTick === null && <Muted style={{ marginTop: -4, marginBottom: 8 }}>{d.client_name.trim()} is set to no OneDrive folders in the Directory. Tick it to make one for this job only.</Muted>}
         <Text style={{ fontWeight: '600', color: base.ink, marginTop: 10, marginBottom: 6 }}>Status</Text>
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
           <FinChip on={chosen && d.status === 'active'} label="Active" onPress={() => { setChosen(true); set({ status: 'active' }); }} />

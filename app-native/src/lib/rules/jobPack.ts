@@ -7,6 +7,8 @@ export type PackConfig = {
   files: { folder: string; name: string }[];
   rules: Record<string, PackRule>;
   weekly: { name: string; addDate: boolean; weekStart: number; week1: 'start' | 'first' };
+  /** Make a folder for every new job (Andy, 8 Nov 2026). Missing = yes. A job can still be unticked, or a client set to never. */
+  create_new?: boolean;
 };
 
 const PROG = '5. OpHUB x Photos & Inspections/1. Progress Reports (Safety Culture)';
@@ -17,7 +19,7 @@ const IND = `${MC}/2. Induction Forms & Competency Certs`;
 export const WEEK_MARK = '{week folder}';
 
 /** What each rule is, in the order the page lists them. */
-export const PACK_RULES: { key: string; area: string; when: string; folder: string; on: boolean }[] = [
+export const PACK_RULES: { key: string; area: string; when: string; folder: string; on: boolean; tab?: 'projects' | 'finance' }[] = [
   { key: 'sow_prestart', area: 'Schedule of Works', when: 'Pre-start photo saved', folder: `${PROG}/1. Pre Start`, on: true },
   { key: 'sow_progress', area: 'Schedule of Works', when: 'Progress or completed photo saved', folder: WEEK, on: true },
   { key: 'sow_export', area: 'Schedule of Works', when: 'Export pressed, then OneDrive', folder: WEEK, on: true },
@@ -35,7 +37,21 @@ export const PACK_RULES: { key: string; area: string; when: string; folder: stri
   { key: 'drawing_out', area: 'Drawings', when: 'File added in the app', folder: '3. Drawings & Technical/1. Project Drawings & Generic Spec', on: true },
   { key: 'drawing_in', area: 'Drawings', when: 'File added in OneDrive comes into the app', folder: '3. Drawings & Technical/1. Project Drawings & Generic Spec', on: true },
   { key: 'material_orders_in', area: 'Material orders', when: 'File added in OneDrive comes into the app', folder: '4. Subcontractors & Suppliers/4. Supplier Material Orders', on: true },
+  // Finance (Andy, 8 Nov 2026): off until a company adds them under Admin › OneDrive.
+  { key: 'fin_application', area: 'Applications For Payment', when: 'Application PDF made', folder: '1. Contract & Commercial/4. Applications for Payment & Certificates', on: false, tab: 'finance' },
+  { key: 'fin_invoice', area: 'Sales Invoices', when: 'Invoice issued', folder: '1. Contract & Commercial/4. Applications for Payment & Certificates', on: false, tab: 'finance' },
 ];
+/** Which tab of Where Things Save a rule sits on. */
+export const ruleTab = (key: string) => PACK_RULES.find((r) => r.key === key)?.tab ?? 'projects';
+/** A rule's place in the template, shown as "Job › 2. Health & Safety › 1. RAMS"; the week folder as "This Week's Folder". */
+export const folderLabel = (f: string) => ['Job', ...cleanFolder(f).split('/').map((x) => (x === WEEK_MARK ? 'This Week’s Folder' : x))].join(' › ');
+/** The folders straight under a path in the template's list (the path itself included as needed). */
+export function foldersUnder(all: string[], at: string): string[] {
+  const base = cleanFolder(at), pre = base ? `${base}/` : '';
+  const out = new Set<string>();
+  all.map(cleanFolder).forEach((f) => { if (f.startsWith(pre) && f !== base) { const rest = f.slice(pre.length).split('/')[0]; if (rest) out.add(rest); } });
+  return [...out].sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+}
 
 const FOLDERS = [
   '1. Contract & Commercial', '1. Contract & Commercial/1. Contract-Order', '1. Contract & Commercial/2. Estimating', '1. Contract & Commercial/3. Variations', '1. Contract & Commercial/4. Applications for Payment & Certificates',
@@ -53,9 +69,11 @@ const FILES = [
   { folder: '6. Programme', name: 'RTB_Delivery_Schedule.xlsx' },
   { folder: '', name: 'RTB Handover Checklist.xlsx' },
 ];
-export const startingPack = (): PackConfig => ({
-  parent_path: 'RTB Roofing Ltd/Live Projects', template_path: 'RTB Roofing Ltd/Live Projects/- New Job Pack - Template',
-  folders: [...FOLDERS], files: FILES.map((f) => ({ ...f })),
+/** The starting pack. For RTB, its own folders and template documents; for any other company (generic), the standard
+ *  folder list with no documents and no paths, so their admin chooses where their folders go (8 Nov 2026). */
+export const startingPack = (generic = false): PackConfig => ({
+  parent_path: generic ? '' : 'RTB Roofing Ltd/Live Projects', template_path: generic ? '' : 'RTB Roofing Ltd/Live Projects/- New Job Pack - Template',
+  folders: [...FOLDERS], files: generic ? [] : FILES.map((f) => ({ ...f })), create_new: true,
   rules: Object.fromEntries(PACK_RULES.map((r) => [r.key, { on: r.on, folder: r.folder }])),
   weekly: { name: '{order}. Week {n}', addDate: false, weekStart: 1, week1: 'start' },
 });

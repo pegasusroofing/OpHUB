@@ -2,6 +2,7 @@
 // saving, issuing (the database hands out the next number, the PDF is kept
 // with it), voiding, payments received, and the PDF. Posting to Xero and
 // emailing the invoice are switched off while Finance is on trial.
+import { packPdfBytes } from '@/data/jobPack';
 import { fdb, finInvoke, loadSettings, xeroAutoOk } from '@/data/finance';
 import { buildInvoicePdf } from '@/lib/finInvoicePdf';
 import { daysOr, addDays, fdate, FIN_TRIAL_MSG, finBlocked, money, round2, today } from '@/lib/rules/finance';
@@ -60,6 +61,8 @@ export async function storePdf(me: Profile, org: Organization | null, inv: Row, 
   const up = await supabase.storage.from('finance-docs').upload(`${me.org_id}/${inv.site_id}/invoices/${String(inv.number || inv.id).replace(/[^a-z0-9-]+/gi, '_')}-${Date.now()}.pdf`, bytes, { contentType: 'application/pdf' });
   if (up.error) return null;
   await fdb.from('fin_invoices').update({ pdf_path: up.data.path } as never).eq('id', inv.id);
+  // Into the job's OneDrive folder too, when the company has added Sales Invoices under Admin › OneDrive (8 Nov 2026).
+  if (inv.number) packPdfBytes(inv.site_id, 'fin_invoice', `Invoice ${inv.number}${site?.name ? ` - ${site.name}` : ''}.pdf`, bytes);
   return up.data.path;
 }
 /** Gives a saved draft the next invoice number and marks it issued. */

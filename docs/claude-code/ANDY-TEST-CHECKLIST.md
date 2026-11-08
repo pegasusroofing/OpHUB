@@ -144,6 +144,8 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
 53. Repairs, Andy's list of 8 Nov (laptop): Booking Date pop-up with time slot and notes; Attended opens Update Status with photos and Delete Visit; Work Summary tab; Client / Works Order half and half; Reports & Photos on the Job tab; Resident wording; Booking Visit Report; Works Orders box in the trail, Export Excel footer bar, one Upload Works Order/Orders. Tested on the fake database (23 + 59 checks); not yet tried by Andy.
 54. PMs without Finance, 8 Nov: client PO on Client Info; hired plant on / off hire on Plant; Materials › Subcontract Orders; Material PO's without prices (change date or note, take lines off, cancel); client contact editable when Finance holds the client. Fake database (21 checks) and Sandbox (rolled back); not yet tried by Andy.
 
+55. OneDrive set-up, 8 Nov: Admin › OneDrive (and Finance › Settings › OneDrive): New Jobs, Where Things Save, Add Something To Save, changing a folder; the Create OneDrive folder tick on new jobs; a client set to no folders in the Directory; the super admin's Setting Up The Company. Fake database (21 checks); not yet tried by Andy on the real OneDrive.
+
 ## To discuss with Andy
-- OneDrive and the full job set-up for Projects, Finance and both (Andy, 8 Nov 2026: "im confused"). Talk it through once the repairs / orders work is finished; change nothing before.
+- ~~OneDrive and the full job set-up~~: talked through and built 8 Nov 2026 (item 55).
 - Sort out plots: how multi-site (multi-plot) jobs should work (Andy, 2 Nov 2026; asked again 5 Nov 2026: "we need to discuss and sort plots out"). Bring this up before Finance is signed off. Plots show today on BoQ lines and as a column on PO lines (only when the project has plots).

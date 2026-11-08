@@ -2,6 +2,7 @@
 // Bill of Quantities (last % carried forward, agreed variations, approved day
 // works), saving, Applied (locked) / back to draft, the client's certificate,
 // and the invoice raised from it.
+import { packPdfBytes } from '@/data/jobPack';
 import { issue } from '@/data/finInvoice';
 import { fdb, finInvoke, insertNumbered, loadSettings } from '@/data/finance';
 import { syncSiteVariationValues, varToSow } from '@/data/finVar';
@@ -331,10 +332,13 @@ export async function exportApplication(me: Profile, org: Organization | null, g
     return ok;
   }
   const appBytes = await buildAppPdf(a, D, { ...info, brand: org?.color_primary });
-  if (!sowBytes) return deliverPdf(appBytes, appFilename(a, site, 'pdf'));
+  // Into the job's OneDrive folder too, when the company has added Applications under Admin › OneDrive (8 Nov 2026).
+  if (!sowBytes) { packPdfBytes(a.site_id, 'fin_application', appFilename(a, site, 'pdf'), appBytes); return deliverPdf(appBytes, appFilename(a, site, 'pdf')); }
   const out = await PDFDocument.load(appBytes), add = await PDFDocument.load(sowBytes);
   (await out.copyPages(add, add.getPageIndices())).forEach((p) => out.addPage(p));
-  return deliverPdf(await out.save(), appFilename(a, site, 'pdf'));
+  const whole = await out.save();
+  packPdfBytes(a.site_id, 'fin_application', appFilename(a, site, 'pdf'), whole);
+  return deliverPdf(whole, appFilename(a, site, 'pdf'));
 }
 
 /** New Bill of Quantities lines from an uploaded Excel (9219n finAppAddLineCore): each goes in under its

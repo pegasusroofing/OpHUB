@@ -25,11 +25,26 @@ export async function setupJobPack(siteId: string): Promise<SetupResult> {
   packs.delete(siteId);
   return r.data;
 }
-/** After a new job: sets its folder up if the company uses the pack. Best effort: a button on the job can do it later. */
-export async function setupNewJobPack(orgId: string | null | undefined, siteId: string): Promise<void> {
-  if (!orgId) return;
+/** After a new job: sets its folder up if the company uses the pack. Best effort: a button on the job can do it later.
+ *  want: the new job form's "Create OneDrive folder" tick (Andy, 8 Nov 2026); false leaves the job without one. */
+export async function setupNewJobPack(orgId: string | null | undefined, siteId: string, want = true): Promise<void> {
+  if (!orgId || !want) return;
   const s = (await db.from('job_pack_settings').select('enabled').eq('org_id', orgId).maybeSingle()).data as { enabled: boolean } | null;
   if (s?.enabled) void setupJobPack(siteId).catch(() => undefined);
+}
+
+/** May a new job for this client get a folder? No only when the Directory says so (Andy, 8 Nov 2026). */
+export async function clientWantsFolders(name: string | null | undefined): Promise<boolean> {
+  if (!String(name || '').trim()) return true;
+  const r = await (supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>)('client_onedrive_folders', { p_name: name });
+  return r.error ? true : r.data !== false;
+}
+/** The new job form's tick: shown when the company uses the pack; starts on unless the company or the client says no. */
+export function useNewJobFolderDefault(orgId: string | null | undefined, client: string) {
+  const { data: s } = useJobPackSettings(orgId);
+  const on = !!s?.enabled && !!s.config;
+  const { data: clientOk = true } = useQuery({ queryKey: ['clientFolders', orgId, client.trim().toLowerCase()], enabled: on && !!client.trim(), staleTime: 60000, queryFn: () => clientWantsFolders(client) });
+  return { shown: on, start: on && s?.config?.create_new !== false && clientOk, clientOff: on && !clientOk };
 }
 
 const packs = new Map<string, boolean>();
@@ -58,5 +73,13 @@ export async function packPut(siteId: string, rule: string, filename: string, sr
   return true;
 }
 const pdfName = (name: string) => (/\.pdf$/i.test(name) ? name : `${name}.pdf`);
+/** A Finance PDF (application, invoice) into the job's folder when the company has added that item (8 Nov 2026).
+ *  Fire and forget: the server skips it when the item is off or not added. */
+const filedOnce = new Set<string>(); // the same PDF made twice in one go is filed once (OneDrive would keep both)
+export const packPdfBytes = (siteId: string | null | undefined, rule: string, name: string, bytes: Uint8Array) => {
+  const k = `${siteId}|${rule}|${name}|${bytes.length}`;
+  if (!siteId || filedOnce.has(k)) return;
+  filedOnce.add(k); void packPut(siteId, rule, pdfName(name), { bytes }).catch(() => undefined);
+};
 /** For the rules that fire and forget: never stops or slows what the person is doing. */
 export const packDoc = (siteId: string, rule: string, name: string, bucket: string, path: string) => { void packPut(siteId, rule, pdfName(name), { file: { bucket, path } }).catch(() => undefined); };

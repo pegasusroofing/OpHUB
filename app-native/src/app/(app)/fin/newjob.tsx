@@ -5,7 +5,7 @@
 // Projects (no PM to start with: "–"; a new project is Upcoming or Live, never Closed — Andy 7 Nov 2026). Lands on the job's Finance page. During the Finance trial this is
 // only for Finance-only companies and the sandbox (9219e) — RTB sets new jobs
 // up in Projects.
-import { setupNewJobPack } from '@/data/jobPack';
+import { setupNewJobPack, useNewJobFolderDefault } from '@/data/jobPack';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { router, Stack } from 'expo-router';
@@ -15,7 +15,7 @@ import { ScrollView, Text, View } from 'react-native';
 import { FinChip } from '@/components/FinNav';
 import { SelectBox } from '@/components/SelectBox';
 import { useToast } from '@/components/toast';
-import { Button, Card, Field, Muted } from '@/components/ui';
+import { Button, Card, Check, Field, Muted } from '@/components/ui';
 import { DateField } from '@/components/DateField';
 import { useTeam } from '@/data/admin';
 import { fdb } from '@/data/finance';
@@ -43,6 +43,10 @@ export default function FinNewJob() {
   const [v, setV] = useState<Record<string, string>>({ status: 'live', kind: 'single', pm: '' }); // no PM chosen to start with (Andy, 7 Nov 2026)
   const [files, setFiles] = useState<{ uri: string; name: string; mime: string; size: number }[]>([]);
   const [busy, setBusy] = useState(false);
+  // Create OneDrive folder (Andy, 8 Nov 2026): ticked unless the company or the client says no; the tick wins once touched.
+  const [folderTick, setFolderTick] = useState<boolean | null>(null);
+  const fd = useNewJobFolderDefault(me?.org_id, v.client || '');
+  const wantFolder = folderTick ?? fd.start;
   const set = (k: string) => (x: string) => setV((o) => ({ ...o, [k]: x }));
   const auto = !!nums?.auto_job_numbers;
   const q = (v.client || '').trim().toLowerCase();
@@ -92,7 +96,7 @@ export default function FinNewJob() {
         else if (up.length < files.length) warn = warn || 'Project created. Some PO files didn’t upload — add them from Project Admin.';
       }
       const made = ((await fdb.from('sites').select('job_number').eq('id', id).maybeSingle()).data as Row | null) ?? row;
-      void setupNewJobPack(me.org_id, id);
+      void setupNewJobPack(me.org_id, id, wantFolder);
       void qc.invalidateQueries();
       toast(warn || `Project ${made.job_number || ''} created`);
       router.replace(`/fin/job/${id}?setup=1` as never);
@@ -127,6 +131,8 @@ export default function FinNewJob() {
           <Button kind="ghost" title="📎 Add PO files" onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true, copyToCacheDirectory: true }); if (r.canceled) return; setFiles((o) => [...o, ...r.assets.map((a) => ({ uri: a.uri, name: a.name || 'po', mime: a.mimeType || '', size: a.size || 0 }))]); }} />
           {files.map((f, i) => <FinChip key={i} on label={`${f.name} ✕`} onPress={() => setFiles((o) => o.filter((_, j) => j !== i))} />)}
         </View>
+        {fd.shown && <Check label="Create OneDrive folder" value={wantFolder} onChange={setFolderTick} />}
+        {fd.shown && fd.clientOff && folderTick === null && <Muted style={{ marginTop: -4, marginBottom: 8 }}>{(v.client || '').trim()} is set to no OneDrive folders in the Directory. Tick it to make one for this job only.</Muted>}
       </Card>
       <Button busy={busy} title="Create project" onPress={() => void save()} />
     </ScrollView>
