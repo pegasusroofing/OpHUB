@@ -75,7 +75,7 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   await page.getByLabel('Priority', {exact: true}).fill('7 Days'); await page.waitForTimeout(300);
   check(/Due .* \(from the priority\)/.test(await page.locator('body').innerText()), '+ New Job: the due date from the priority');
   await page.getByLabel('Priority', {exact: true}).fill('');
-  check(await page.getByPlaceholder('Tenant', {exact: true}).count() === 1 && await page.getByPlaceholder('Tenant Phone').count() === 1 && await page.getByPlaceholder('Tenant No.').count() === 0, '+ New Job: one tenant (name and phone), no Tenant No.');
+  check(await page.getByPlaceholder('Resident Name', {exact: true}).count() === 1 && await page.getByPlaceholder('Resident Contact Number').count() === 1 && await page.getByPlaceholder('Tenant No.').count() === 0, '+ New Job: one resident (name and contact number), no Tenant No.');
   await page.screenshot({path: 'shots/repair-worksorders.png'});
   await page.getByLabel('Address', {exact: true}).fill('22 New Street, OX16 1AA'); await page.getByLabel('Works Order Number').fill('WO-1006');
   await page.getByText('Add Job', {exact: true}).click(); await page.waitForTimeout(3000);
@@ -88,15 +88,15 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   await page.goto(`http://localhost:8081/sites/${S1}/repairs/job/j3`); await page.waitForTimeout(5000);
   t = await page.locator('body').innerText();
   check(/Quotation Required/.test(t) && /With Finance to price/.test(t), 'hub (Projects): the stage, and the quote is with Finance');
-  check(/Call-Out/.test(t) && /Tenant/.test(t) && !/Tenant No/.test(t) && /Booked For/.test(t) && /Attended/.test(t) && /Completed/.test(t), 'hub: details (one tenant) and the three dates');
+  check(/Call-Out/.test(t) && /Resident/.test(t) && !/Tenant/.test(t) && /Booking Date/.test(t) && /Attended/.test(t) && /Completed/.test(t), 'hub: details (one resident) and the three dates');
   check(!/MONEY/.test(t) && !/£/.test(t), 'Projects: no money anywhere');
-  await page.getByLabel(/^Booked For: .*Change$/).click(); await page.waitForTimeout(600);
-  check(/Book In/.test(await page.locator('body').innerText()) && await page.getByLabel('Operative').count() > 0, 'Booked For: tap to change the booking');
+  await page.getByLabel(/^Booking Date: .*Change$/).click(); await page.waitForTimeout(600);
+  check(/Book In/.test(await page.locator('body').innerText()) && await page.getByLabel('Operative').count() > 0, 'Booking Date: tap to change the booking');
   await page.getByText('Cancel', {exact: true}).last().click(); await page.waitForTimeout(300);
   await page.screenshot({path: 'shots/repair-hub.png', fullPage: true});
-  await page.getByRole('tab', {name: /^Repair/}).click(); await page.waitForTimeout(600);
+  await page.getByRole('tab', {name: /^Work Summary/}).click(); await page.waitForTimeout(600);
   t = await page.locator('body').innerText();
-  check(/Description Of Fault Found/.test(t) && /Slipped tiles at the chimney/.test(t) && /Description Of Repair Required/.test(t) && /Attendance Report/.test(t), 'repair page: fault found, repair required, the attendance report');
+  check(/Description Of Fault Found/.test(t) && /Slipped tiles at the chimney/.test(t) && /Description Of Repair Required/.test(t) && /Booking Visit Report/.test(t), 'repair page: fault found, repair required, the booking visit report');
   check(/Repair Booked/.test(t) && /OTHER TRADES/.test(t) && /Works Done/.test(t), 'repair page: Repair Booked (with other trades) after Approved');
   await page.getByText('+ Add Other Trade', {exact: true}).click(); await page.waitForTimeout(500);
   await page.getByLabel('Trade', {exact: true}).fill('Scaffold'); await page.getByText('Save', {exact: true}).last().click(); await page.waitForTimeout(1500);
@@ -188,7 +188,7 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   await op.getByText('Save Attendance', {exact: true}).click(); await op.waitForTimeout(2500);
   const j2 = B.db.repair_jobs.find((j) => j.id === 'j2');
   check(j2.completed_in_visit === false && j2.survey_required === 'Y' && j2.job_status === 'Surveyed - Awaiting Cost' && /porch felt/.test(j2.fault_description), 'not done in the visit: attended, to the office to price');
-  check(/Attendance Report/.test(await op.locator('body').innerText()), 'the attendance report is there straight after');
+  check(/Booking Visit Report/.test(await op.locator('body').innerText()), 'the attendance report is there straight after');
   await op.getByText('Check Out', {exact: true}).last().click(); await op.waitForTimeout(3000);
   check(B.db.checkins.some((c) => c.repair_job_id === 'j2' && c.type === 'out'), 'checked out');
   await op.goto(`http://localhost:8081/sites/${S1}/repairs/job/j5`); await op.waitForTimeout(5000);
@@ -237,8 +237,8 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   await login(cl);
   await cl.goto(`http://localhost:8081/sites/${S1}/repairs/job/j3`); await cl.waitForTimeout(5000);
   t = await cl.locator('body').innerText();
-  check(!/Update ▾/.test(t) && !/MONEY/.test(t) && !/Repair Page/.test(t), 'client: no updates, no money');
-  check(/Attendance Report/.test(t) && /NOTES/.test(t), 'client: the documents and the notes');
+  check(!/Update ▾/.test(t) && !/MONEY/.test(t) && !/Work Summary/.test(t), 'client: no updates, no money');
+  check(/Booking Visit Report/.test(t) && /NOTES/.test(t), 'client: the documents and the notes');
   await cl.screenshot({path: 'shots/repair-client.png', fullPage: true});
 
   check(!errs.length, `no errors ${errs.slice(0, 3).join(' | ')}`);

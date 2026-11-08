@@ -21,7 +21,7 @@ import { exportRepairReport } from '@/lib/repairReportPdf';
 import { repairReportsAfter, scheduleRepairReport } from '@/data/repairOneDrive';
 import { hasRepairPhoto, notifyPmOfRepairNotes, patchRepairJob, recordNoAccess, syncRepairEvent, useRepairJob, useRepairJobs } from '@/data/repairs';
 import { useAuth } from '@/lib/auth';
-import { repairStage, type RJob } from '@/lib/rules/repairStages';
+import { bookedFor, bookedNotes, bookedSlot, repairStage, type RJob } from '@/lib/rules/repairStages';
 import type { RepairJob } from '@/lib/rules/repairs';
 import { base, page, radius, space, useTheme } from '@/theme/theme';
 
@@ -131,9 +131,12 @@ export function RepairOperative({ siteId, jobId }: { siteId: string; jobId: stri
         {!!job.description && <Text style={{ fontSize: 13, color: base.ink, marginTop: 6 }}>{job.description}</Text>}
         {!!(job.tenant_name || job.tenant_phone) && (
           <Pressable disabled={!job.tenant_phone} onPress={() => void Linking.openURL(`tel:${String(job.tenant_phone).replace(/\s+/g, '')}`)}>
-            <Text style={{ fontSize: 13, color: job.tenant_phone ? base.blue : base.slate, marginTop: 4 }}>Tenant: {[job.tenant_name, job.tenant_phone].filter(Boolean).join(' · ')}</Text>
+            <Text style={{ fontSize: 13, color: job.tenant_phone ? base.blue : base.slate, marginTop: 4 }}>Resident: {[job.tenant_name, job.tenant_phone].filter(Boolean).join(' · ')}</Text>
           </Pressable>
         )}
+        {/* The booking: date and time slot, and the office's notes for it (Andy, 8 Nov 2026). */}
+        {!!bookedFor(job) && <Text style={{ fontSize: 13, fontWeight: '600', color: base.ink, marginTop: 6 }}>Booked {fmt(bookedFor(job))}{bookedSlot(job) ? ` · ${bookedSlot(job)}` : ''}</Text>}
+        {!!bookedNotes(job) && <Text style={{ fontSize: 13, color: base.ink, marginTop: 2 }}>Notes: {bookedNotes(job)}</Text>}
         {!!job.work_order_path && <Pressable onPress={async () => { const u = await openDocLink('site-photos', job.work_order_path as string); if (u) viewDoc(u, String(job.work_order_name || 'Works Order')); }}><Text style={{ fontWeight: '600', color: base.blue, marginTop: 6 }}>📄 View The Works Order</Text></Pressable>}
         {worksVisit && <Text style={{ fontSize: 12.5, fontWeight: '600', color: base.ink, marginTop: 6 }}>Works visit: the quote was approved.</Text>}
       </Card>
@@ -175,7 +178,7 @@ export function RepairOperative({ siteId, jobId }: { siteId: string; jobId: stri
               {step(4, 'Completed Repair Whilst In Attendance?', answered, !answered, answered ? (
                 <>
                   <Muted>{job.completed_in_visit ? 'Yes.' : job.variation_issued_at ? `No — Quote Submitted ${fmt(job.variation_issued_at)}.` : 'No — sent to the office to price.'}</Muted>
-                  <View style={{ alignSelf: 'flex-start', marginTop: 8 }}><Button small kind="ghost" busy={busy === 'rep'} title="📄 Attendance Report" onPress={() => void report()} /></View>
+                  <View style={{ alignSelf: 'flex-start', marginTop: 8 }}><Button small kind="ghost" busy={busy === 'rep'} title="📄 Booking Visit Report" onPress={() => void report()} /></View>
                 </>
               ) : (
                 <>

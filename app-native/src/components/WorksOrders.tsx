@@ -5,23 +5,22 @@
 // Managers: + New Job (Read Works Order) across the top — the job number, address, call-out and tenant are read from
 // the PDF — then a box for each stage (To Schedule, Scheduled - Awaiting Attendance, Quotation Required, Awaiting Client
 // Approval, Approved - Requires Booking Date, On Hold / Other Trades, Completed Works - To Invoice, Completed Works -
-// Paid, All Jobs), the jobs in the chosen box, bulk add and the Excel export. No money here: the schedule of rates and
+// Paid, All Jobs), the jobs in the chosen box, and the Excel export in the footer bar. No money here: the schedule of rates and
 // quote pricing are in Finance (Andy, 7 Nov 2026).
 // Operatives: their boxes (no Quotation Required or Paid; Completed Works without "To Invoice"), and their jobs, soonest
 // booking first, grouped by day, with Show All (all of them if nobody's booked on any).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import * as DocumentPicker from 'expo-document-picker';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams, usePathname } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
-import { afterJobsAdded, readWo, RepairNewJob } from '@/components/RepairNewJob';
+import { usePageCrumbs } from '@/components/Crumbs';
+import { RepairNewJob } from '@/components/RepairNewJob';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
-import { makeRepairJobFolder } from '@/data/repairOneDrive';
 import { raiseRepairInvoice } from '@/data/repairInvoice';
-import { addRepairJob, uploadWorkOrder, useRepairJobs } from '@/data/repairs';
+import { useRepairJobs } from '@/data/repairs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { plainGet, plainSet } from '@/lib/kv';
@@ -52,12 +51,19 @@ export function WorksOrders({ siteId: id, finance = false }: { siteId: string; f
   const { data: paidIds = [] } = useQuery({ queryKey: ['repairPaid', id], enabled: !!id && mgr0, queryFn: async () => (((await (supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown }>)('repair_jobs_paid', { p_site: id })).data as string[] | null) ?? []).map(String) });
   // The "assign operatives" banner can be closed (✕), per contract, on this device.
   const { data: hideAssign = false } = useQuery({ queryKey: ['repairAssignHide', id], enabled: !!id, queryFn: () => plainGet<boolean>(`repair_assign_hide_${id}`, false) });
-  const [sel, setSel] = useState('');
+  // The open box lives in the link (?box=quote_needed), so the trail at the top shows it like a folder — Projects › the
+  // contract › Works Orders › Quotation Required — and Back closes it (Andy, 8 Nov 2026).
+  const { box: boxParam } = useLocalSearchParams<{ box?: string }>();
+  const path = usePathname();
+  const sel = typeof boxParam === 'string' ? boxParam : '';
+  const setSel = (k: string) => router.setParams({ box: k || undefined } as never);
+  const opSel = sel, setOpSel = setSel;
+  const openBox = BOXES.find((b) => b.k === sel);
+  const opView = !!me && !finance && !isManager(me) && me.role !== 'client';
+  usePageCrumbs(path, !finance && openBox ? [['Works Orders', path], [opView ? openBox.op || openBox.l : openBox.l, null]] : null);
   const wide = useWindowDimensions().width >= 900;
-  const [opSel, setOpSel] = useState('');
   const [showAll, setShowAll] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [bulk, setBulk] = useState('');
   const [find, setFind] = useState('');
   const [ticked, setTicked] = useState<string[]>([]);
   const [invBusy, setInvBusy] = useState(false);
@@ -202,6 +208,11 @@ export function WorksOrders({ siteId: id, finance = false }: { siteId: string; f
       ))}
     </View>
   );
+  const footBtn = (l: string, onPress: () => void) => (
+    <Pressable key={l} accessibilityRole="button" accessibilityLabel={l} onPress={onPress} style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)', borderRadius: 7, paddingVertical: 4, paddingHorizontal: 12 }}>
+      <Text style={{ color: t.brand1Text, fontSize: 12.5, fontWeight: '600' }}>{l}</Text>
+    </Pressable>
+  );
   const shell = (el: ReactNode) => <ScrollView contentContainerStyle={page(wide ? 1180 : 720)} keyboardShouldPersistTaps="handled">{el}</ScrollView>;
   return shell(
     <>
@@ -218,14 +229,14 @@ export function WorksOrders({ siteId: id, finance = false }: { siteId: string; f
       )}
       {/* + New Job across the top, then where every job is at: tap a box for its jobs (Andy, 7 Nov 2026). */}
       <View style={{ marginBottom: 10 }}><Button title="+ New Job (Read Works Order)" onPress={() => setAdding(!adding)} /></View>
-      {adding && <RepairNewJob siteId={site.id} onAdded={(jid) => { setAdding(false); router.push(jobRoute(jid) as never); }} onCancel={() => setAdding(false)} />}
+      {adding && <RepairNewJob siteId={site.id} existing={jobs.map((j) => j.job_number || '')} onAdded={(jid) => { setAdding(false); if (jid) router.push(jobRoute(jid) as never); }} onCancel={() => setAdding(false)} />}
       {layout((down) => tiles(BOXES, all, sel, (k) => { setSel(sel === k ? '' : k); setFind(''); setTicked([]); }, undefined, down), sel ? (
         <>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
             <Text style={{ flex: 1, fontSize: 11.5, fontWeight: '700', color: base.slate, letterSpacing: 0.4 }}>{def.l.toUpperCase()} ({inBox.length})</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="Close the list" hitSlop={10} onPress={() => { setSel(''); setFind(''); }}><Text style={{ fontSize: 15, color: base.slate }}>✕</Text></Pressable>
           </View>
-          {all.filter((j) => def.test(j, paid)).length > 8 && <TextInput value={find} onChangeText={setFind} placeholder="Search Works Order, Address Or Tenant" style={[box, { fontSize: 16 }]} />}
+          {all.filter((j) => def.test(j, paid)).length > 8 && <TextInput value={find} onChangeText={setFind} placeholder="Search Works Order, Address Or Resident" style={[box, { fontSize: 16 }]} />}
           {canTick && tickable.length > 0 && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <Button small busy={invBusy} title={`Invoice Ticked Jobs (${ticked.length})`} onPress={() => void invoiceTicked()} />
@@ -236,32 +247,14 @@ export function WorksOrders({ siteId: id, finance = false }: { siteId: string; f
         </>
       ) : null)}
       {!sel && <Muted style={{ textAlign: 'center', marginBottom: 6 }}>Tap a box to see its jobs.</Muted>}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 6, marginBottom: space.xl }}>
-        <Button small kind="ghost" title={bulk || '📥 Bulk Add Works Orders'} disabled={!!bulk} onPress={async () => {
-          const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', multiple: true, copyToCacheDirectory: true });
-          if (r.canceled || !r.assets.length) return;
-          const have = new Set(jobs.map((j) => (j.job_number || '').trim().toLowerCase()).filter(Boolean));
-          let made = 0, review = 0, dup = 0, noFolder = false;
-          for (let i = 0; i < r.assets.length; i++) {
-            const a = r.assets[i]; setBulk(`Importing ${i + 1} of ${r.assets.length}…`);
-            try {
-              const p = await readWo(a.uri, a.name), key = (p.jobNumber || '').trim().toLowerCase();
-              if (key && have.has(key)) { dup++; continue; }
-              const jid = await addRepairJob(me, site.id, { address: p.address || `⚠ Review — ${(a.name || 'works order').replace(/\.pdf$/i, '')}`, job_number: p.jobNumber || '', description: p.description || '', tenant_name: p.tenant, tenant_phone: p.tenantPhone });
-              if (!jid) continue;
-              // Each job's own OneDrive folder first, so its works order lands in it.
-              if (!noFolder) { const fo = await makeRepairJobFolder(jid); if (fo.error === 'no_site_folder') noFolder = true; }
-              await uploadWorkOrder(me, { id: jid, site_id: site.id } as RepairJob, { uri: a.uri, name: a.name || 'work-order.pdf', mimeType: a.mimeType });
-              made++; if (!p.address) review++; if (key) have.add(key);
-            } catch { /* one bad file doesn't stop the rest */ }
-          }
-          setBulk(''); void qc.invalidateQueries({ queryKey: ['repairJobs', id] });
-          toast(`Done — ${made} job${made === 1 ? '' : 's'} created${review ? ` (${review} need review — the address couldn't be read, check the attached PDF)` : ''}${dup ? `, ${dup} already on this contract skipped` : ''}`);
-          if (noFolder && made) await afterJobsAdded(site.id, { ok: false, error: 'no_site_folder' }, toast);
-        }} />
-        <Button small kind="ghost" title="⬇ Export Excel" onPress={async () => { if (!(await exportRepairTracker(site.name, jobs, finance))) toast('Could not make the file — try again.'); }} />
-        {finance && <Button small kind="ghost" title="Schedule Of Rates" onPress={() => router.push(`/fin/job/${id}/rates` as never)} />}
-        {finance && <Button small kind="ghost" title="Costs By Job ›" onPress={() => router.push(`/fin/job/${id}/parts` as never)} />}
+      {/* The footer bar, as on the other lists (Andy, 8 Nov 2026): how many jobs, and Export Excel on the right. */}
+      <View style={{ position: 'sticky' as never, bottom: 10, marginTop: 10, marginBottom: space.xl, backgroundColor: t.brand1, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 16, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+        <Text style={{ color: t.brand1Text, fontSize: 12.5, fontWeight: '600' }}>{jobs.length} Job{jobs.length === 1 ? '' : 's'}</Text>
+        <View style={{ marginLeft: 'auto', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+          {finance && footBtn('Schedule Of Rates', () => router.push(`/fin/job/${id}/rates` as never))}
+          {finance && footBtn('Costs By Job ›', () => router.push(`/fin/job/${id}/parts` as never))}
+          {footBtn('⬇ Export Excel', async () => { if (!(await exportRepairTracker(site.name, jobs, finance))) toast('Could not make the file — try again.'); })}
+        </View>
       </View>
     </>
   );

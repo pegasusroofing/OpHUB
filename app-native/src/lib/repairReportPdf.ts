@@ -12,8 +12,8 @@ const ukd = (v: string | null) => (v ? new Date(v).toLocaleDateString('en-GB', {
 const gbp = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 type Kind = 'survey' | 'completion' | 'quote';
 type J = RepairJob & Record<string, any>;
-const TITLE: Record<Kind, string> = { survey: 'ATTENDANCE REPORT', completion: 'COMPLETED WORKS REPORT', quote: 'QUOTE' };
-const FILE: Record<Kind, string> = { survey: 'Attendance Report', completion: 'Completed Works Report', quote: 'Quote' };
+const TITLE: Record<Kind, string> = { survey: 'BOOKING VISIT REPORT', completion: 'COMPLETED WORKS REPORT', quote: 'QUOTE' };
+const FILE: Record<Kind, string> = { survey: 'Booking Visit Report', completion: 'Completed Works Report', quote: 'Quote' };
 
 export async function exportRepairReport(kind: Kind, job: RepairJob, site: Site | null | undefined, org: Organization | null, surveyor: string, vat?: string | null): Promise<boolean> {
   const r = await buildRepairReport(kind, job, site, org, surveyor, vat);
@@ -49,7 +49,7 @@ export async function buildRepairReport(kind: Kind, job0: RepairJob, site: Site 
   newPage();
   bar('Job Details');
   field('Works Order', job.job_number); field('Address', job.address);
-  if (job.tenant_name || job.tenant_no) field('Tenant', [job.tenant_name, job.tenant_no ? `Tenant No. ${job.tenant_no}` : ''].filter(Boolean).join(' · '));
+  if (job.tenant_name || job.tenant_no) field('Resident', [job.tenant_name, job.tenant_no ? `Resident No. ${job.tenant_no}` : ''].filter(Boolean).join(' · '));
   if (job.description) field('Call-Out', job.description);
   if (kind === 'survey') {
     bar('Attendance');

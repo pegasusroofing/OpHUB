@@ -17,10 +17,10 @@ type V = Record<string, string | boolean>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card };
 
 /** onChange: when a field changes, return other fields to fill in (e.g. the approved value from the value issued). */
-export function FinForm({ title, fields, initial, onSave, onClose, onDelete, saveLabel = 'Save', note, extra, onChange }: {
+export function FinForm({ title, fields, initial, onSave, onClose, onDelete, deleteLabel = 'Remove', deleteAsk = 'Remove this? This can’t be undone.', saveLabel = 'Save', note, extra, onChange }: {
   /** fields: a list, or worked out from what's typed so far (e.g. an invoice job hides retention as soon as you pick Invoice). */
   title: string; fields: Field[] | ((v: V) => Field[]); initial?: Record<string, unknown>; saveLabel?: string; note?: string; extra?: ReactNode;
-  onSave: (v: V) => Promise<string | null | void>; onClose: () => void; onDelete?: () => Promise<string | null | void>;
+  onSave: (v: V) => Promise<string | null | void>; onClose: () => void; onDelete?: () => Promise<string | null | void>; deleteLabel?: string; deleteAsk?: string;
   onChange?: (k: string, next: V, before: V) => Partial<V> | void;
 }) {
   const [v, setV] = useState<V>(() => {
@@ -77,7 +77,7 @@ export function FinForm({ title, fields, initial, onSave, onClose, onDelete, sav
           {err ? <Text style={{ color: '#C0392B', fontWeight: '500', marginTop: 8 }}>{plainDbText(err)}</Text> : null}
           <View style={{ gap: 8, marginTop: 6 }}>
             <Button busy={busy} title={saveLabel} onPress={async () => { setBusy(true); setErr(''); try { const e = await onSave(v); if (e) setErr(e); else onClose(); } finally { setBusy(false); } }} />
-            {onDelete && <Button kind="ghost" title="Remove" onPress={async () => { if (!(await confirmAsk('Remove this? This can’t be undone.', 'Remove'))) return; const e = await onDelete(); if (e) setErr(e); else onClose(); }} />}
+            {onDelete && <Button kind="ghost" title={deleteLabel} onPress={async () => { if (!(await confirmAsk(deleteAsk, deleteLabel))) return; const e = await onDelete(); if (e) setErr(e); else onClose(); }} />}
             <Button kind="ghost" title="Cancel" onPress={onClose} />
           </View>
         </View>

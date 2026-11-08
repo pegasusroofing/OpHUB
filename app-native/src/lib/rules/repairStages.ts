@@ -11,6 +11,7 @@ export type RJob = {
   survey_required?: string | null; survey_date?: string | null; survey_booking_date?: string | null; survey_booking_assigned_to?: string | null; surveyed_by?: string | null;
   quote_approved?: boolean | null; quote_approved_at?: string | null; variation_issued_at?: string | null; variation_cost?: number | null;
   completed_in_visit?: boolean | null; works_booking_date?: string | null; works_booking_assigned_to?: string | null;
+  survey_booking_slot?: string | null; survey_booking_notes?: string | null; works_booking_slot?: string | null; works_booking_notes?: string | null;
   on_hold?: boolean | null; on_hold_reason?: string | null; other_trades?: string | null; other_trades_date?: string | null;
   access_requirement?: string | null; scaffold_erection_date?: string | null; invoice_id?: string | null;
   tenant_name?: string | null; tenant_phone?: string | null; tenant_no?: string | null; priority?: string | null;
@@ -108,6 +109,13 @@ export function nextHint(j: RJob, mgr: boolean, fin = false): string {
 export const bookedFor = (j: RJob): string | null => (j.quote_approved === true ? j.works_booking_date || null : j.survey_booking_date || null);
 /** Who it's booked to (the same way round). */
 export const bookedTo = (j: RJob): string | null => (j.quote_approved === true ? j.works_booking_assigned_to || null : j.survey_booking_assigned_to || null);
+/** Its time slot and the notes for the booking (Andy, 8 Nov 2026), the same way round. */
+export const bookedSlot = (j: RJob): string | null => (j.quote_approved === true ? j.works_booking_slot || null : j.survey_booking_slot || null);
+export const bookedNotes = (j: RJob): string | null => (j.quote_approved === true ? j.works_booking_notes || null : j.survey_booking_notes || null);
+/** The time slots a booking can have (Andy, 8 Nov 2026). */
+export const TIME_SLOTS = ['AM (8am – 12pm)', 'PM (12pm – 5pm)', 'All Day', '8am – 10am', '10am – 12pm', '12pm – 2pm', '2pm – 4pm'];
+/** The slot's short form, for a box or a calendar title: AM, PM, All Day or the hours. */
+export const slotShort = (s: string | null | undefined) => (s ? s.replace(/\s*\(.*\)$/, '') : '');
 
 export const isOpen = (j: RJob) => !['done', 'rejected'].includes(repairStage(j));
 

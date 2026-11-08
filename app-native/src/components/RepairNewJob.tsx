@@ -41,18 +41,43 @@ export async function afterJobsAdded(siteId: string, folder: { ok: boolean; erro
   toast(folder.error === 'not_connected' ? 'Job added — OneDrive isn’t connected, so its folder wasn’t made.' : 'Job added — its OneDrive folder couldn’t be made. Update ▾ › Send Everything To OneDrive tries again.');
 }
 
-export function RepairNewJob({ siteId, onAdded, onCancel }: { siteId: string; onAdded: (jobId: string) => void; onCancel: () => void }) {
+export function RepairNewJob({ siteId, existing = [], onAdded, onCancel }: { siteId: string; existing?: string[]; onAdded: (jobId: string | null) => void; onCancel: () => void }) {
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const [f, setF] = useState(EMPTY);
   const [wo, setWo] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [busy, setBusy] = useState(false);
+  const [bulk, setBulk] = useState('');
   if (!me) return null;
   const set = (k: keyof typeof EMPTY) => (v: string) => setF((o) => ({ ...o, [k]: k === 'address' ? titleCase(v) : v }));
+  // Several works orders at once (Andy, 8 Nov 2026: one upload for one or many): a job for each, read from its PDF;
+  // ones already on the contract (same works order number) are skipped.
+  const addMany = async (assets: DocumentPicker.DocumentPickerAsset[]) => {
+    const have = new Set(existing.map((n) => n.trim().toLowerCase()).filter(Boolean));
+    let made = 0, review = 0, dup = 0, noFolder = false;
+    for (let i = 0; i < assets.length; i++) {
+      const a = assets[i]; setBulk(`Adding ${i + 1} of ${assets.length}…`);
+      try {
+        const p = await readWo(a.uri, a.name), key = (p.jobNumber || '').trim().toLowerCase();
+        if (key && have.has(key)) { dup++; continue; }
+        const jid = await addRepairJob(me, siteId, { address: p.address || `⚠ Review — ${(a.name || 'works order').replace(/\.pdf$/i, '')}`, job_number: p.jobNumber || '', description: p.description || '', tenant_name: p.tenant || '', tenant_phone: p.tenantPhone || '' });
+        if (!jid) continue;
+        // Each job's own OneDrive folder first, so its works order lands in it.
+        if (!noFolder) { const fo = await makeRepairJobFolder(jid); if (fo.error === 'no_site_folder') noFolder = true; }
+        await uploadWorkOrder(me, { id: jid, site_id: siteId } as RepairJob, { uri: a.uri, name: a.name || 'work-order.pdf', mimeType: a.mimeType });
+        made++; if (!p.address) review++; if (key) have.add(key);
+      } catch { /* one bad file doesn't stop the rest */ }
+    }
+    setBulk(''); void qc.invalidateQueries({ queryKey: ['repairJobs', siteId] });
+    toast(`${made} job${made === 1 ? '' : 's'} added${review ? ` (${review} need checking — the address couldn't be read, see the attached PDF)` : ''}${dup ? `, ${dup} already on this contract skipped` : ''}`);
+    onAdded(null);
+    if (noFolder && made) await afterJobsAdded(siteId, { ok: false, error: 'no_site_folder' }, toast);
+  };
   const pickWo = async () => {
-    const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], copyToCacheDirectory: true });
-    if (r.canceled || !r.assets[0]) return;
+    const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], multiple: true, copyToCacheDirectory: true });
+    if (r.canceled || !r.assets.length) return;
+    if (r.assets.length > 1) { await addMany(r.assets); return; }
     const a = r.assets[0]; setWo(a);
     const p = await readWo(a.uri, a.name);
     const next = { ...f, ...(p.jobNumber ? { job_number: p.jobNumber } : {}), ...(p.address ? { address: p.address } : {}), ...(p.description ? { description: p.description } : {}), ...(p.tenant ? { tenant_name: p.tenant } : {}), ...(p.tenantPhone ? { tenant_phone: p.tenantPhone } : {}) };
@@ -80,7 +105,8 @@ export function RepairNewJob({ siteId, onAdded, onCancel }: { siteId: string; on
   return (
     <Card style={{ backgroundColor: base.paper }}>
       <SectionTitle>New Job</SectionTitle>
-      <Button kind="ghost" title={wo ? `📎 ${wo.name}` : '📎 Choose The Works Order PDF (Fills In The Rest)'} onPress={() => void pickWo()} />
+      <View style={{ marginBottom: 12 }}><Button kind="ghost" busy={!!bulk} title={bulk || (wo ? `📎 ${wo.name}` : '📎 Upload Works Order/Orders')} onPress={() => void pickWo()} /></View>
+      {!bulk && !wo && <Muted style={{ marginTop: -6, marginBottom: 10, textAlign: 'center' }}>One works order fills in the boxes below. Several make a job each.</Muted>}
       <View style={row}>
         <TextInput value={f.job_number} onChangeText={set('job_number')} placeholder="Works Order Number" accessibilityLabel="Works Order Number" style={[box, { flex: 1 }]} />
         <TextInput value={f.priority} onChangeText={set('priority')} placeholder="Priority (E.g. 7 Days)" accessibilityLabel="Priority" style={[box, { flex: 1 }]} />
@@ -89,8 +115,8 @@ export function RepairNewJob({ siteId, onAdded, onCancel }: { siteId: string; on
       <TextInput value={f.address} onChangeText={set('address')} placeholder="Address (With The Postcode, For The Check-In)" accessibilityLabel="Address" style={box} />
       <TextInput value={f.description} onChangeText={set('description')} placeholder="Call-Out (What’s Wrong)" accessibilityLabel="Call-Out" multiline style={[box, { minHeight: 56 }]} />
       <View style={row}>
-        <TextInput value={f.tenant_name} onChangeText={set('tenant_name')} placeholder="Tenant" accessibilityLabel="Tenant" style={[box, { flex: 1 }]} />
-        <TextInput value={f.tenant_phone} onChangeText={set('tenant_phone')} placeholder="Tenant Phone" accessibilityLabel="Tenant Phone" keyboardType="phone-pad" style={[box, { flex: 1 }]} />
+        <TextInput value={f.tenant_name} onChangeText={set('tenant_name')} placeholder="Resident Name" accessibilityLabel="Resident Name" style={[box, { flex: 1 }]} />
+        <TextInput value={f.tenant_phone} onChangeText={set('tenant_phone')} placeholder="Resident Contact Number" accessibilityLabel="Resident Contact Number" keyboardType="phone-pad" style={[box, { flex: 1 }]} />
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
         <Button busy={busy} title="Add Job" onPress={() => void add()} />
