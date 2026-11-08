@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
 import { compressOne, type Picked } from '@/lib/photos';
 import { financeValuePatch, money, valueOf } from '@/lib/rules/variations';
+import type { ClientStatus, SiteDoc } from '@/lib/rules/clientStage';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
 
@@ -16,11 +17,13 @@ import { mustHit } from '@/lib/mustHit';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
-const COLS_NO_VALUE = 'id,site_id,photo_path,description,created_by,created_at,status,approval_status,decided_by,decided_at,decline_reason,closed_at,schedule_section_id';
+// The client stage (Andy, 8 Nov 2026) has no money in it, so it comes with every list.
+const COLS_NO_VALUE = 'id,site_id,photo_path,description,created_by,created_at,status,approval_status,decided_by,decided_at,decline_reason,closed_at,schedule_section_id,client_status,client_at,instructed_by,instruction_ref,instructed_on,docs';
 
 export type Variation = {
   id: string; site_id: string; photo_path: string | null; description: string; created_by: string | null; created_at: string;
   status: string; approval_status: string | null; decline_reason: string | null; closed_at: string | null;
+  client_status?: ClientStatus | null; client_at?: string | null; instructed_by?: string | null; instruction_ref?: string | null; instructed_on?: string | null; docs?: SiteDoc[] | null;
 };
 
 export const approvalLabel = (v: Variation) => (v.approval_status === 'approved' ? 'Approved' : v.approval_status === 'declined' ? 'Declined' : 'Awaiting decision');
@@ -39,7 +42,7 @@ export async function raiseVariation(me: Profile, site: Site, photo: Picked, des
   const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
   const up = await supabase.storage.from('site-photos').upload(`${site.id}/variations/${rid}.jpg`, await (await fetch(uri)).arrayBuffer(), { contentType: 'image/jpeg' });
   if (up.error) return 'Could not upload the photo — check your signal and try again.';
-  const r = await db.from('variations').insert({ site_id: site.id, photo_path: up.data.path, description: desc || '—', created_by: me.id, status: 'live', approval_status: 'pending', ...(value != null ? { cost_impact: value.toFixed(2) } : {}) } as never);
+  const r = await db.from('variations').insert({ site_id: site.id, photo_path: up.data.path, description: desc || '—', created_by: me.id, status: 'live', approval_status: 'pending', client_status: 'to_issue', ...(value != null ? { cost_impact: value.toFixed(2) } : {}) } as never);
   if (r.error) return 'Could not save — try again.';
   if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'managers', kind: 'variation', body: `${me.name} raised a variation: ${desc || '(no description)'}`, email_details: { rows: [['Variation', desc || '(no description)'], ['Raised by', me.name]], photos: [{ bucket: 'site-photos', path: up.data.path }] } } as never).then(undefined, () => undefined);
   return null;
@@ -108,6 +111,20 @@ export async function saveVariationValue(v: Variation, value: number | null, fin
   await syncToFinance(v.id, vp.oldVal, value, financeUser);
   return value == null ? 'Value cleared' : `Value saved — ${money(value)}`;
 }
+
+/** The client stage (Andy, 8 Nov 2026): Issued To Client, Client Approved (who instructed it, their reference and date) or
+ *  Rejected — done in Projects; Finance's register follows by itself (database trigger), and only client-approved
+ *  variations go on an application. */
+export async function setVariationClient(me: Profile, siteId: string, v: Variation, status: ClientStatus, details?: { instructed_by?: string; instruction_ref?: string; instructed_on?: string }): Promise<boolean> {
+  const patch: Record<string, unknown> = { client_status: status, client_at: status === 'to_issue' ? null : new Date().toISOString() };
+  if (details) { patch.instructed_by = details.instructed_by?.trim() || null; patch.instruction_ref = details.instruction_ref?.trim() || null; patch.instructed_on = details.instructed_on || null; }
+  const r = mustHit(await db.from('variations').update(patch as never).eq('id', v.id).select('client_status'));
+  const saved = ((r.data as { client_status: string | null }[] | null) ?? [])[0]?.client_status;
+  if (r.error || saved !== status) return false;
+  log(me, siteId, 'variation_client', `Variation "${v.description || ''}": ${status === 'approved' ? 'client approved' : status === 'rejected' ? 'client rejected' : status === 'issued' ? 'issued to the client' : 'back to be issued'}`);
+  return true;
+}
+export const setVariationDocs = async (id: string, docs: SiteDoc[]) => !!(await db.from('variations').update({ docs } as never).eq('id', id).select('id')).data?.length;
 
 /** Approved variation → a new "Variation N" section in the Schedule of Works, linked back. */
 export async function addVariationToSchedule(me: Profile, siteId: string, v: Variation & { schedule_section_id?: string | null }): Promise<string> {

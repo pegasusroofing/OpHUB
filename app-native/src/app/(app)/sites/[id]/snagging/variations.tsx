@@ -1,11 +1,14 @@
 // Variations: Live / Closed, approval status, photo, decline reason and Raise a variation
 // (photo required). Managers also approve/decline/modify, set the value (PMs/admins),
 // add to the Schedule of Works, close and delete. Ported from renderVariations (800).
+// The client stage (Andy, 8 Nov 2026): an approved variation is issued to the client and approved or rejected by them here,
+// with the instruction and its documents — no need to go into Finance; only client-approved ones go on an application.
 import { useQueryClient } from '@tanstack/react-query';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { ClientChip, ClientStage } from '@/components/ClientStage';
 import { MarkupEditor } from '@/components/MarkupEditor';
 import { StorageImage } from '@/components/StorageImage';
 import { pickCameraOrLibrary } from '@/components/pickSource';
@@ -14,7 +17,9 @@ import { VariationManagerActions } from '@/components/VariationManagerActions';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { useSite } from '@/data/sites';
-import { approvalLabel, raiseVariation, useManagerVariations } from '@/data/variations';
+import { uploadSiteDoc } from '@/data/dayworks';
+import { approvalLabel, raiseVariation, setVariationClient, setVariationDocs, useManagerVariations } from '@/data/variations';
+import { CLIENT_LABEL, clientCounts, type ClientStatus } from '@/lib/rules/clientStage';
 import { useAuth } from '@/lib/auth';
 import { deliverPdf } from '@/lib/pdf';
 import type { Picked } from '@/lib/photos';
@@ -46,6 +51,9 @@ export default function Variations() {
   const [marking, setMarking] = useState(false);
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
 
+  const refresh = () => { void qc.invalidateQueries({ queryKey: ['variations', id] }); void qc.invalidateQueries({ queryKey: ['sow', id] }); };
+  const approved = (list || []).filter((v) => v.approval_status === 'approved');
+  const cn = clientCounts(approved);
   const submit = async () => {
     if (!photo) return;
     const n = canPrice ? readMoney(value) : null;
@@ -61,13 +69,17 @@ export default function Variations() {
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Variations' }} />
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12, alignItems: 'center' }}>
         {([['live', 'Live'], ['closed', 'Closed']] as const).map(([k, l]) => (
           <Pressable key={k} onPress={() => setFilter(k)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: filter === k ? live.brand1 : base.line, backgroundColor: filter === k ? live.brand1 : base.card }}>
             <Text style={{ fontWeight: '500', color: filter === k ? live.brand1Text : base.ink }}>{l}</Text>
           </Pressable>
         ))}
+        {mgr && <View style={{ marginLeft: 'auto' }}><Button small kind="ghost" title="Day Works" onPress={() => router.push(`/sites/${id}/snagging/dayworks` as never)} /></View>}
       </View>
+      {mgr && filter === 'live' && approved.length > 0 && (
+        <Muted style={{ marginBottom: 10 }}>{(['to_issue', 'issued', 'approved', 'rejected'] as ClientStatus[]).filter((k) => cn[k]).map((k) => `${CLIENT_LABEL[k]} ${cn[k]}`).join(' · ')}</Muted>
+      )}
       {isLoading ? <Muted>Loading…</Muted> : list?.length ? list.map((v) => {
         const isOpen = open.has(v.id);
         const col = v.approval_status === 'approved' ? base.ok : v.approval_status === 'declined' ? base.red : base.warn;
@@ -80,7 +92,7 @@ export default function Variations() {
                 <Muted>{nameOf(people, v.created_by)} · {d(v.created_at)}</Muted>
               </View>
               {valueOf(v.cost_impact) != null && <Text style={{ fontSize: 11, fontWeight: '600', color: base.ink }}>{money(valueOf(v.cost_impact) as number)}</Text>}
-              {v.status !== 'closed' && <Text style={{ fontSize: 11, fontWeight: '600', color: col, borderWidth: 1, borderColor: col, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>{approvalLabel(v)}</Text>}
+              {v.status !== 'closed' && (mgr && v.approval_status === 'approved' && v.client_status ? <ClientChip status={v.client_status} /> : <Text style={{ fontSize: 11, fontWeight: '600', color: col, borderWidth: 1, borderColor: col, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>{approvalLabel(v)}</Text>)}
               <Text style={{ color: base.slate }}>{isOpen ? '▼' : '▶'}</Text>
             </Pressable>
             {isOpen && (
@@ -88,7 +100,13 @@ export default function Variations() {
                 {!!v.photo_path && <StorageImage zoom bucket="site-photos" path={v.photo_path} style={{ width: 120, height: 120, borderRadius: 8 }} />}
                 {v.approval_status === 'declined' && !!v.decline_reason && <Text style={{ color: base.red, marginTop: 6 }}>Reason: {v.decline_reason}</Text>}
                 {v.status === 'closed' && <Muted style={{ marginTop: 6 }}>Closed{v.closed_at ? ` · ${d(v.closed_at)}` : ''}</Muted>}
-                {mgr && <VariationManagerActions v={v} siteId={id} onChanged={() => { void qc.invalidateQueries({ queryKey: ['variations', id] }); void qc.invalidateQueries({ queryKey: ['sow', id] }); }} />}
+                {mgr && v.approval_status === 'approved' && v.status !== 'closed' && (
+                  <ClientStage status={v.client_status} at={v.client_at} withInstruction instruction={v} docs={v.docs || []}
+                    onSet={async (s, det) => { const ok = await setVariationClient(me, id, v, s, det); if (ok) refresh(); return ok; }}
+                    onDocs={async (docs) => { const ok = await setVariationDocs(v.id, docs); if (ok) refresh(); return ok; }}
+                    upload={(a) => uploadSiteDoc(site, 'variation-docs', a)} />
+                )}
+                {mgr && <VariationManagerActions v={v} siteId={id} onChanged={refresh} />}
               </Card>
             )}
           </View>

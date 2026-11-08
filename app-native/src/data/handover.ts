@@ -48,6 +48,17 @@ export async function uploadHoDocs(me: Profile, site: Site, files: { uri: string
   }
   return made;
 }
+/* ---------- practical completion (Andy, 8 Nov 2026) ---------- */
+/** Practical completion and the defects period: set in Projects, used by Finance for the retention release dates. */
+export const useCompletion = (siteId: string | undefined) => useQuery({
+  queryKey: ['siteCompletion', siteId], enabled: !!siteId,
+  queryFn: async () => (((await supabase.rpc('site_completion' as never, { p_site: siteId } as never)).data as { pc_date: string | null; defects_months: number | null }[] | null) ?? [])[0] ?? { pc_date: null, defects_months: null },
+});
+export async function setCompletion(siteId: string, pcDate: string | null, defectsMonths: number | null): Promise<boolean> {
+  const r = await supabase.rpc('set_site_completion' as never, { p_site: siteId, p_pc_date: pcDate, p_defects_months: defectsMonths } as never);
+  return !r.error && r.data === true;
+}
+
 /* ---------- the job's OneDrive folder (Andy, 8 Nov 2026) ---------- */
 export type HoFound = { id: string; name: string; driveId: string | null; where: string; kind: HoKind; size: number };
 type OdLevel = { folders?: { id: string; name: string; driveId?: string | null }[]; files?: { id: string; name: string; driveId?: string | null; size?: number }[]; error?: string };

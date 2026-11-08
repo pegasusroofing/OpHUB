@@ -1,0 +1,26 @@
+-- Applied 8 Nov 2026 as migrations projects_variations_dayworks_8nov and site_completion_8nov. Additive only; the full SQL is
+-- in Supabase's migration history. Kept here as the record of what they do.
+--
+-- Andy, 8 Nov 2026: "in Projects as a PM you can do everything you need and don't need to go into Finance; Finance is purely
+-- the money. I can add variations in Projects (they need approval before they go on an application for payment)."
+--
+-- variations: new columns client_status ('to_issue' | 'issued' | 'approved' | 'rejected'), client_at, instructed_by,
+--   instruction_ref, instructed_on, docs (jsonb list of {bucket, path, name}).
+-- guard_variation_client_fields() + trigger zzz_guard_variation_client: only managers (is_pm / superadmin) set those; an
+--   operative's insert is held at 'to_issue' and their updates to them are put back.
+-- variation_to_finance() + trigger zzzz_variation_to_finance (after insert / update, only rows with a client stage):
+--   keeps the fin_variations row for the variation in step — To Issue = Priced (with a value) or Instructed, Issued To Client
+--   = Issued (submitted_on), Client Approved = Approved (agreed, agreed value, agreed_on, instructed by / ref / date),
+--   Client Rejected or declined = Rejected. A changed site value replaces Finance's only where Finance still has the old one.
+--   Only companies with Finance switched on.
+-- site_dayworks: new table (org, site, work_date, title, description, ref, labour, plant, materials, docs, client_status,
+--   client_at, created_by); RLS: managers with access to the job.
+-- fin_dayworks.daywork_id: new link column. daywork_to_finance() + trigger zz_daywork_to_finance keeps the fin_dayworks row
+--   in step (Issued / Approved with approved_on / Rejected; labour, plant and materials in the description); Finance adds
+--   the value. Deleting a day work not yet issued or valued removes its empty Finance row.
+-- site_completion(site) / set_site_completion(site, pc_date, defects_months): managers read and set practical completion
+--   and the defects period on job_finance (Finance uses them for the retention release dates).
+--
+-- Checked on Sandbox in rolled-back transactions: V002 Priced → Issued → Approved with agreed value 1,250, instructed by and
+-- ref; a value change to 1,400 carried to quoted and agreed; DW002 Issued with labour / plant, then Approved; an operative's
+-- "client approved" held at To Issue; operatives see no day works.

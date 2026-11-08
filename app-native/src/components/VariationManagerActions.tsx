@@ -47,7 +47,7 @@ export function VariationManagerActions({ v, siteId, onChanged }: { v: V; siteId
           <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Value to the client (£, ex VAT)</Muted>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <TextInput value={val} onChangeText={setVal} keyboardType="decimal-pad" placeholder="e.g. 850" style={[box, { flex: 1 }]} />
-            <Button kind="ghost" title="Save value" onPress={() => {
+            <Button kind="ghost" title="Save Value" onPress={() => {
               const n = readVal(); if (n === 'bad') { toast('Enter the value as a number, e.g. 850'); return; }
               void run(() => saveVariationValue(v, n ?? null, fin), '');
             }} />
@@ -74,26 +74,26 @@ export function VariationManagerActions({ v, siteId, onChanged }: { v: V; siteId
           <Button kind="ghost" title="Cancel" onPress={() => setMode(null)} />
         </View>
       ) : (
-        <View style={{ gap: 2 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
           {pending && (
             <>
-              <Button busy={busy} title="Approve" onPress={() => {
+              <Button small busy={busy} title="Approve" onPress={() => {
                 const n = readVal(); if (n === 'bad') { toast('Enter the value as a number, e.g. 850'); return; }
                 void run(() => decideVariation(me, siteId, v, { approve: true, value: n, financeUser: fin }), 'Variation approved');
               }} />
-              <Button kind="ghost" title="Decline" onPress={() => setMode('decline')} />
+              <Button small kind="ghost" title="Decline" onPress={() => setMode('decline')} />
             </>
           )}
           {/* 800: Modify & Approve is on every open variation, so a decline can be reversed. */}
-          <Button kind="ghost" title="Modify then Approve" onPress={() => setMode('modify')} />
+          <Button small kind="ghost" title="Modify Then Approve" onPress={() => setMode('modify')} />
           {v.approval_status === 'approved' && (v.schedule_section_id
             ? <Text style={{ color: base.ok, marginVertical: 6 }}>✓ In Schedule of Works</Text>
-            : <Button kind="ghost" title="Add to Schedule of Works" onPress={() => void run(() => addVariationToSchedule(me, siteId, v), '')} />)}
-          <Button kind="ghost" title="Close Variation" onPress={async () => {
+            : <Button small kind="ghost" title="Add To Schedule Of Works" onPress={() => void run(() => addVariationToSchedule(me, siteId, v), '')} />)}
+          <Button small kind="ghost" title="Close Variation" onPress={async () => {
             if (!(await confirmAsk('Close this variation?', 'Close'))) return;
             void run(() => closeVariation(me, siteId, v), 'Variation closed');
           }} />
-          <Button kind="ghost" title="🗑 Delete" onPress={async () => {
+          <Button small kind="ghost" title="🗑 Delete" onPress={async () => {
             if (!(await confirmAsk('Delete this variation? This cannot be undone.', 'Delete'))) return;
             void run(() => deleteVariation(me, siteId, v), 'Variation deleted');
           }} />

@@ -13,7 +13,8 @@ import { Button, Card, Empty, Muted } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { OneDriveFindPopup, siteHasOneDrive } from '@/components/HoOneDriveFind';
 import { DateBox } from '@/components/DateField';
-import { addBlankGuarantee, attachToDoc, deleteHoDoc, renameManual, setHoField, uploadHoDocs, useHandover, type HoDoc } from '@/data/handover';
+import { FinForm } from '@/components/FinForm';
+import { addBlankGuarantee, attachToDoc, deleteHoDoc, renameManual, setCompletion, setHoField, uploadHoDocs, useCompletion, useHandover, type HoDoc } from '@/data/handover';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { deleteManual, duplicateManual, newManual } from '@/data/omManual';
 import { useSite } from '@/data/sites';
@@ -45,6 +46,8 @@ export default function Handover() {
   const [tab, setTab] = useState<'manual' | 'sheets' | 'guar'>('manual');
   const [busy, setBusy] = useState('');
   const [finding, setFinding] = useState<'' | 'find' | 'new'>('');
+  const [pcEdit, setPcEdit] = useState(false);
+  const { data: pc } = useCompletion(id);
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['handover', id] }); };
@@ -78,6 +81,25 @@ export default function Handover() {
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Handover' }} />
+      {/* Practical completion (Andy, 8 Nov 2026): set here, not in Finance; Finance uses it for the retention release dates. */}
+      <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontWeight: '600', color: base.ink }}>Practical Completion</Text>
+          <Muted>{pc?.pc_date ? `${new Date(`${pc.pc_date}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}${pc.defects_months != null ? ` · Defects Period ${pc.defects_months} Months` : ''}` : 'Not Set Yet'}</Muted>
+        </View>
+        <Button small kind="ghost" title={pc?.pc_date ? 'Change' : 'Set'} onPress={() => setPcEdit(true)} />
+      </Card>
+      {pcEdit && (
+        <FinForm title="Practical Completion" note="The defects period runs from this date. Finance uses both for the retention release dates." onClose={() => setPcEdit(false)}
+          initial={{ pc_date: pc?.pc_date || '', defects: pc?.defects_months != null ? String(pc.defects_months) : '12' }}
+          fields={[{ k: 'pc_date', label: 'Practical Completion Date', kind: 'date', half: true }, { k: 'defects', label: 'Defects Period (Months)', kind: 'number', half: true }]}
+          onSave={async (v) => {
+            const m = String(v.defects ?? '').trim() === '' ? null : Number(v.defects);
+            if (m !== null && (!Number.isInteger(m) || m < 0 || m > 120)) return 'Enter the defects period in whole months, e.g. 12.';
+            if (!(await setCompletion(id, String(v.pc_date || '') || null, m))) return 'Could not save — only a manager on this job can set it.';
+            void qc.invalidateQueries({ queryKey: ['siteCompletion', id] }); void qc.invalidateQueries({ queryKey: ['finBook'] }); return null;
+          }} />
+      )}
       <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>{chip('manual', 'O&M Manuals')}{chip('sheets', 'Data Sheets', sheets.length)}{chip('guar', 'Guarantees', guars.length)}</View>
       {!!busy && <Muted style={{ marginBottom: 8 }}>{busy}</Muted>}
       {isLoading ? <Muted>Loading…</Muted> : tab === 'manual' ? (

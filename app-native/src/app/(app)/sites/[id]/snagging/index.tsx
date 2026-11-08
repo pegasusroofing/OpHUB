@@ -23,6 +23,7 @@ export default function SnagFolder() {
       <JobGrid>
       <Tile icon="🏷" tint="#FBEEDE" title="Snagging" sub={data ? `${data.openSnags} open` : '…'} onPress={() => router.push(`/sites/${id}/snagging/list`)} />
       <Tile icon="✎" tint="#F0E4F5" title="Variations" sub={data ? `${data.liveVariations} live` : '…'} onPress={() => router.push(`/sites/${id}/snagging/variations`)} />
+      {mgr && <Tile icon="🧾" tint="#E6F0E8" title="Day Works" sub="Record & Issue" onPress={() => router.push(`/sites/${id}/snagging/dayworks` as never)} />}
       {mgr && <Tile icon="📊" tint="#EDE7F6" title="Reports" sub={tpls ? `${tpls.length} template${tpls.length === 1 ? '' : 's'}` : '…'} onPress={() => router.push(`/sites/${id}/snagging/reports` as never)} />}
       </JobGrid>
     </ScrollView>

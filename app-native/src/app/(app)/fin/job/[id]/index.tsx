@@ -264,7 +264,7 @@ function RetentionPanel({ id, fc, settings, invs, apps }: { id: string; fc: Retu
       <Card>
         {alerts.map((a) => <Text key={a.half} style={{ color: '#D98A00', fontWeight: '500' }}>{a.half === 1 ? 'First' : 'Second'} half due {fdate(a.date)}</Text>)}
         <FinRow title="Held to date" right={money(fc.retHeld)} />
-        <FinRow title="First half — at practical completion" sub={`${d.first ? fdate(d.first) : 'Set the practical completion date in Project Admin'}${fc.jf.ret1_invoice_id ? ' · invoiced' : retAppFor(1) ? ` · In Application ${retAppFor(1)?.number}` : ''}`} right={money(retHalfAmt(heldCert, 1, fc.jf, invs, apps))} onPress={() => void retInv(1)} />
+        <FinRow title="First half — at practical completion" sub={`${d.first ? fdate(d.first) : 'Set the practical completion date in Projects › Handover'}${fc.jf.ret1_invoice_id ? ' · invoiced' : retAppFor(1) ? ` · In Application ${retAppFor(1)?.number}` : ''}`} right={money(retHalfAmt(heldCert, 1, fc.jf, invs, apps))} onPress={() => void retInv(1)} />
         <FinRow title="Second half — end of defects period" sub={`${d.second ? fdate(d.second) : '—'}${fc.jf.ret2_invoice_id ? ' · invoiced' : retAppFor(2) ? ` · In Application ${retAppFor(2)?.number}` : ''}`} right={money(retHalfAmt(heldCert, 2, fc.jf, invs, apps))} onPress={() => void retInv(2)} />
         <Muted>Tap a half to release it: Apply puts it through your next application (the client certifies it), or Raise invoice bills it straight away.</Muted>
       </Card>

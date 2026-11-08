@@ -13,6 +13,7 @@ import { appDoc, appExcelSheets, appFilename, type NewBoqLine } from '@/lib/rule
 import { makeXlsx } from '@/lib/rules/xlsx';
 import { daysOr, addDays, appDateFor, fdate, FIN_TRIAL_MSG, finBlocked, money, retentionHeld, retentionReleased, retHalf, round2, today } from '@/lib/rules/finance';
 import { invTotals, vatFromTreatment } from '@/lib/rules/finInvoice';
+import { variationPayable } from '@/lib/rules/clientStage';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile, Site } from '@/lib/types';
 
@@ -28,7 +29,8 @@ function registerRows(prev: Row | undefined, vars: Row[], fvars: Row[], fdays: R
   (prev?.dayworks || []).forEach((d: Row) => { if (d.fin_daywork_id) lastDay[d.fin_daywork_id] = d; });
   const linked = new Set(fvars.map((v) => v.variation_id).filter(Boolean));
   const varRows: Row[] = fvars.map((v) => ({ fin_variation_id: v.id, variation_id: v.variation_id || null, description: `${v.number} ${v.title}`, value: v.agreed_value != null ? Number(v.agreed_value) : Number(v.quoted || 0), pct: lastFinVar[v.id] ? lastFinVar[v.id].pct : 100 }));
-  vars.filter((v) => !linked.has(v.id)).forEach((v) => { const p = lastVar[v.id], amt = Number(String(v.cost_impact ?? '').replace(/[£,\s]/g, '')); varRows.push({ variation_id: v.id, description: v.description || 'Variation', value: isNaN(amt) || !String(v.cost_impact ?? '').trim() ? (p ? p.value : 0) : amt, pct: p ? p.pct : 100 }); });
+  // Only a client-approved site variation goes on (Andy, 8 Nov 2026); one from before the client stage as it always did.
+  vars.filter((v) => !linked.has(v.id) && variationPayable(v)).forEach((v) => { const p = lastVar[v.id], amt = Number(String(v.cost_impact ?? '').replace(/[£,\s]/g, '')); varRows.push({ variation_id: v.id, description: v.description || 'Variation', value: isNaN(amt) || !String(v.cost_impact ?? '').trim() ? (p ? p.value : 0) : amt, pct: p ? p.pct : 100 }); });
   (prev?.variations || []).filter((v: Row) => !v.variation_id && !v.fin_variation_id).forEach((v: Row) => varRows.push({ ...v }));
   // Added on an application and not approved yet (Andy, 3 Nov 2026): it carries on until it's approved or certified.
   (prev?.variations || []).filter((v: Row) => v.fin_variation_id && !fvars.some((f) => f.id === v.fin_variation_id)).forEach((v: Row) => varRows.push({ ...v }));

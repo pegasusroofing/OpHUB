@@ -5,6 +5,7 @@ import { fdb, insertNumbered } from '@/data/finance';
 import { addSection } from '@/data/sowManager';
 import { FIN_SANDBOX_ORGS, FIN_TRIAL, num, round2, today } from '@/lib/rules/finance';
 import { nextVariationName } from '@/lib/rules/sow';
+import { finStatusFor } from '@/lib/rules/clientStage';
 import type { Profile } from '@/lib/types';
 
 type Row = Record<string, any>;
@@ -26,10 +27,11 @@ export async function importSiteVariations(me: Profile, siteId: string): Promise
     busy = true;
     try {
       for (const v of fresh) {
-        const amt = num(v.cost_impact), ok = amt !== null && !isNaN(amt), approved = v.approval_status === 'approved';
+        // The client stage set in Projects decides the status (Andy, 8 Nov 2026); older site variations as before.
+        const amt = num(v.cost_impact), ok = amt !== null && !isNaN(amt), st = finStatusFor(v), approved = st === 'agreed';
         const r = await insertNumbered('fin_variations', { col: 'site_id', val: siteId }, label, {
           org_id: me.org_id, site_id: siteId, created_by: me.id, title: String(v.description || 'Variation').slice(0, 200), description: v.description || null,
-          variation_id: v.id, instructed_on: String(v.created_at || '').slice(0, 10) || null, status: approved ? 'agreed' : 'submitted',
+          variation_id: v.id, instructed_on: String(v.created_at || '').slice(0, 10) || null, status: st,
           quoted: ok ? amt : null, agreed_value: approved && ok ? amt : null, notes: 'Raised on site',
         });
         if (r) added++;

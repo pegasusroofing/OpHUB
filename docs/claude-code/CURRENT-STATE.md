@@ -173,6 +173,14 @@ About 14,000 presses across 173 screens, every role, computer and phone size, on
 
 Then the same run on Sandbox Roofing against the real database, admin only: 138 screens, 4,423 presses, no crashes, nothing sent out. Found repair photos not loading, Finance project delete never working, yard rates not loading, and refused saves looking successful; all fixed. Same file has the details and what it didn't cover.
 
+## Projects does everything a PM needs; Finance is only the money (Andy, 8 Nov 2026)
+- **Variations:** an approved variation is taken through the client in Projects (To Issue → Issued To Client → Client Approved with who instructed it, their ref and date / Client Rejected), with its instruction documents. Finance's register follows by itself (database trigger). Only client-approved variations go on an application (older ones, approved before the client stage, as before).
+- **Day Works:** new Projects page and tile (date, title, what was done, sheet no., labour / plant / materials, signed sheet, client stage). Finance's day works register follows by itself; Finance adds the value.
+- **Practical completion and defects period:** set on Handover; Finance uses them for the retention release dates.
+- **O&M:** four simple steps; Scope of Works from the Bill of Quantities (no prices) when the company has Finance; guarantees and data sheets found in the job's OneDrive folder.
+- Checks: `pm-projects-check.js` (14), `om-check.js` (15). SQL record: `sql/projects-variations-dayworks-8nov.sql`, `sql/site-boq-works-8nov.sql`.
+- **Still in Finance only (from the 8 Nov audit), not built yet:** client PO number / files (client_pos is Finance-only); hired plant on / off hire; subcontractor orders (scope, who, status); supplier POs for PMs without Finance (raise / amend / cancel, prices hidden); client details locked once Finance has them; the Schedule of Works "Add Variation" makes only a section, not a variation (variations need a photo — making it optional needs a database change and Andy's say-so). Finance prompts "No client PO" / "Client not in the Directory" should move to Projects once those are there.
+
 ## Leftovers against the old app (8 Nov 2026)
 Every LOW item in `PARITY-AUDIT.md` is now done, already done, or not needed; only the TRIAL ones wait (they send things). Checked by `tools/test-harness/leftovers-check.js` (23 pass) and unit tests (plainError, xeroWorkers, priceWeeks).
 - Finance: Getting Started card (BoQ, client PO, set-up); several client PO files, 20 MB each; Billed By change asks first; an application's Status ▾; + Someone New… on an operative invoice; Bring People In From Xero (Directory › Labour); a yard-stock cost can be changed from the project's Costs (yard_cost_edit); Status column on the costs PDF; budget bars on a phone; database messages in plain English everywhere.
