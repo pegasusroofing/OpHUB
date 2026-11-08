@@ -6,6 +6,7 @@ import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-nativ
 import { CalendarPopup, DateBox } from '@/components/DateField';
 import { chooseAction, confirmAsk } from '@/components/toast';
 import { Button, Check, Muted } from '@/components/ui';
+import { plainDbText } from '@/lib/rules/plainError';
 import { base, radius } from '@/theme/theme';
 
 export type Field = { k: string; label: string; kind?: 'text' | 'money' | 'number' | 'date' | 'day' | 'multiline' | 'choice' | 'check' | 'email'; options?: [string, string][]; ph?: string; half?: boolean; note?: string; extra?: { label: string; onPress: () => void } };
@@ -73,7 +74,7 @@ export function FinForm({ title, fields, initial, onSave, onClose, onDelete, sav
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>{(typeof fields === 'function' ? fields(v) : fields).map(field)}</View>
             {extra}
           </ScrollView>
-          {err ? <Text style={{ color: '#C0392B', fontWeight: '500', marginTop: 8 }}>{err}</Text> : null}
+          {err ? <Text style={{ color: '#C0392B', fontWeight: '500', marginTop: 8 }}>{plainDbText(err)}</Text> : null}
           <View style={{ gap: 8, marginTop: 6 }}>
             <Button busy={busy} title={saveLabel} onPress={async () => { setBusy(true); setErr(''); try { const e = await onSave(v); if (e) setErr(e); else onClose(); } finally { setBusy(false); } }} />
             {onDelete && <Button kind="ghost" title="Remove" onPress={async () => { if (!(await confirmAsk('Remove this? This can’t be undone.', 'Remove'))) return; const e = await onDelete(); if (e) setErr(e); else onClose(); }} />}

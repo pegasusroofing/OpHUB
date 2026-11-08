@@ -2,10 +2,14 @@
 // score, condition key, each listed section and question with its traffic-light
 // colour, note and photos. Used by Reports, Daily Briefings and LOLER.
 import type React from 'react';
-import { Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, Text, TextInput, View } from 'react-native';
+
+import { Popup } from '@/components/Popup';
 
 import { StorageImage, UrlImage } from '@/components/StorageImage';
-import { Card, Muted, SectionTitle } from '@/components/ui';
+import { Button, Card, Muted, SectionTitle } from '@/components/ui';
+import { TRAFFIC_COLOURS } from '@/lib/rules/templates';
 import {
   answerText, itemAllowsMedia, itemAllowsNote, itemTrafficLevel, itemVisible, reportListsItem, reportListsSection, scoreLabel, scoreSections,
   trafficHex, trafficLevels, type Answers, type ReportItem, type ReportSection,
@@ -15,7 +19,8 @@ import { base } from '@/theme/theme';
 // The question, as the old app's p.stub: small, grey, italic.
 const Q = ({ children }: { children: React.ReactNode }) => <Text style={{ fontSize: 11.5, fontStyle: 'italic', color: base.slate, marginBottom: 2 }}>{children}</Text>;
 
-export function TrafficKey({ sections }: { sections: ReportSection[] }) {
+// While filling a report (430 trafficKeyHtml canAdd): + Add Condition, and ✕ on the ones added on site.
+export function TrafficKey({ sections, onAdd, onRemove }: { sections: ReportSection[]; onAdd?: () => void; onRemove?: (id: string) => void }) {
   const lv = trafficLevels(sections);
   if (!lv) return null;
   return (
@@ -24,10 +29,35 @@ export function TrafficKey({ sections }: { sections: ReportSection[] }) {
       {lv.map((l) => (
         <View key={l.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 3 }}>
           <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: trafficHex(l.color) }} />
-          <Text style={{ color: base.ink }}>{l.label}</Text>
+          <Text style={{ color: base.ink, flex: 1 }}>{l.label}</Text>
+          {!!onRemove && l.addedOnSite && <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${l.label}`} hitSlop={8} onPress={() => onRemove(l.id)}><Text style={{ color: base.slate, fontWeight: '600' }}>✕</Text></Pressable>}
         </View>
       ))}
+      {!!onAdd && <View style={{ alignItems: 'center', marginTop: 6 }}><Button small kind="ghost" title="+ Add Condition" onPress={onAdd} /></View>}
     </Card>
+  );
+}
+
+/** New condition: what it means and a colour (the first one not used yet is picked). */
+export function NewConditionPopup({ used, onAdd, onClose }: { used: string[]; onAdd: (label: string, color: string) => void; onClose: () => void }) {
+  const [label, setLabel] = useState('');
+  const [pick, setPick] = useState((TRAFFIC_COLOURS.find((c) => !used.includes(c.k)) || TRAFFIC_COLOURS[0]).k);
+  const [err, setErr] = useState('');
+  return (
+    <Popup title="New Condition" onClose={onClose}
+      footer={<View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8 }}><Button title="Add" onPress={() => { if (!label.trim()) { setErr('Type what this condition means.'); return; } onAdd(label.trim(), pick); }} /><Button kind="ghost" title="Cancel" onPress={onClose} /></View>}>
+      <Muted>What It Means</Muted>
+      <TextInput value={label} onChangeText={(t) => { setLabel(t); setErr(''); }} autoFocus placeholder="e.g. Monitor / Re-inspect in 12 months" placeholderTextColor="#9AA1AB" accessibilityLabel="What it means"
+        style={{ borderWidth: 1, borderColor: '#D5D9DF', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 9, fontSize: 15, color: base.ink, backgroundColor: '#fff', marginBottom: 12 }} />
+      <Muted>Colour</Muted>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+        {TRAFFIC_COLOURS.map((c) => (
+          <Pressable key={c.k} accessibilityRole="radio" accessibilityLabel={c.lbl} aria-checked={pick === c.k} onPress={() => setPick(c.k)}
+            style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: trafficHex(c.k), borderWidth: 3, borderColor: pick === c.k ? base.ink : 'transparent' }} />
+        ))}
+      </View>
+      {!!err && <Text style={{ color: '#C0392B', marginTop: 8 }}>{err}</Text>}
+    </Popup>
   );
 }
 

@@ -224,6 +224,46 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
     const can = !locked && sp !== pct(v.pct);
     return <Text onPress={can ? () => { const was = pct(v.pct), to = pct(sp); setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: to } : y)) }); setGen((g) => g + 1); toast(`${v.description || 'Variation'}: ${was}% → ${to}% from site`); } : undefined} style={{ fontSize: 11.5, fontWeight: '500', color: sp > pct(v.pct) ? '#b45309' : base.slate }}>Site {sp}%{can ? <Text style={{ color: base.blue, fontWeight: '600', textDecorationLine: 'underline' }}> Use</Text> : null}</Text>;
   };
+  // Apply for payment: asked first, so saying No changes nothing; then the retention offer, then typed lines go into their tabs.
+  const applyNow = async () => {
+    if (!(await confirmAsk('Apply for payment? The application is locked so the figures can’t change. You can return it to draft if you need to edit it.', 'Apply For Payment'))) return;
+    let x = a;
+    if (allDone && !a.retention_release && !ret1Done && Number(a.retention_pct || 0) > 0) {
+      const k = await chooseAction('Everything is 100% complete', [{ key: 'yes', label: 'Also apply for the first half of the retention (practical completion)' }, { key: 'no', label: 'No — just apply for payment' }]);
+      if (!k) return;
+      if (k === 'yes') { const r = await releaseRet(1); if (!r) return; x = r; }
+    }
+    if (me) { x = await registerTyped(me, x); if (x !== a) setA(x); }
+    if (!(await save(true, x))) return;
+    if (await setStatus(a0.id, { status: 'submitted', submitted_at: new Date().toISOString() })) { toast('Applied for payment — now locked.'); refresh(); } else toast('Not saved — check your signal and try again.');
+  };
+  // Status ▾ (9219p finAppSetStage): Draft · Applied · Certified · Invoiced, moving it on or back from one place.
+  const pickStage = async () => {
+    const order = ['draft', 'applied', 'certified', 'invoiced'];
+    const k = await chooseAction('Status', order.map((st) => ({ key: st, label: `${st === stage ? '✓ ' : ''}${({ draft: 'Draft', applied: 'Applied', certified: 'Certified', invoiced: 'Invoiced' } as Record<string, string>)[st]}` })));
+    if (!k || k === stage) return;
+    if (stage === 'invoiced') { toast('It’s been invoiced, so it can’t change. Void the invoice first if it’s wrong.'); return; }
+    if (k === 'draft') {
+      if (!(await confirmAsk(stage === 'certified' ? 'Take it back to draft? The certificate figures will be cleared.' : 'Return this application to draft so you can edit it?', 'Return To Draft'))) return;
+      if (stage === 'certified' && !(await clearCertificate(a0.id))) { toast('Not saved — check your signal and try again.'); return; }
+      if (await setStatus(a0.id, { status: 'draft' })) { setCertifying(false); refresh(); } else toast('Not saved — check your signal and try again.');
+      return;
+    }
+    if (k === 'applied') {
+      if (stage === 'draft') { await applyNow(); return; }
+      if (!(await confirmAsk('Take it back to Applied? The certificate figures will be cleared.', 'Back To Applied'))) return;
+      if (await clearCertificate(a0.id)) refresh(); else toast('Not saved — check your signal and try again.');
+      return;
+    }
+    if (k === 'certified') {
+      if (stage === 'draft') { toast('Apply for payment first, then enter the certificate.'); return; }
+      setCertifying(true); setView('lines'); return;
+    }
+    if (stage !== 'certified') { toast('Enter the certificate first; the invoice follows it.'); return; }
+    setBusy('inv'); const r = await raiseInvoiceFromCert(me, org, a0, site as never, false); setBusy('');
+    if (r.error) toast(r.error);
+    if (r.id) { refresh(); router.push(`/fin/job/${a0.site_id}/invoice/${r.id}` as never); }
+  };
   return (
     <QtyHidden.Provider value={hideQty}>
     <View style={{ flex: 1 }}>
@@ -232,7 +272,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
       {!!a.retention_release && <Card style={{ backgroundColor: '#f1fbf5', borderColor: '#d3f0de' }}><Text style={{ color: base.ink }}><Text style={{ fontWeight: '600' }}>Retention release — {a.retention_release === 1 ? 'first half (practical completion)' : 'final release'}.</Text> Retention on this application is {pct(a.retention_pct)}%, so the client pays back {a.retention_release === 1 ? 'half of what they hold' : 'what they still hold'} when they certify it.</Text></Card>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 6 }}>
         <Text style={{ fontSize: desk ? 20 : 17, fontWeight: '600', color: base.ink }}>Application No. {a0.number}</Text>
-        <View style={{ backgroundColor: stage === 'draft' ? '#EEF0F3' : stage === 'applied' ? '#FFF4DF' : '#E3F5E9', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, marginTop: desk ? 4 : 3 }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: stage === 'draft' ? base.slate : stage === 'applied' ? '#92580A' : '#1E7A3C' }}>{certing ? 'Entering The Certificate' : STAGE[stage]}</Text></View>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Status: ${STAGE[stage]}`} disabled={stage === 'void'} onPress={() => void pickStage()} style={{ backgroundColor: stage === 'draft' ? '#EEF0F3' : stage === 'applied' ? '#FFF4DF' : '#E3F5E9', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, marginTop: desk ? 4 : 3 }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: stage === 'draft' ? base.slate : stage === 'applied' ? '#92580A' : '#1E7A3C' }}>{certing ? 'Entering The Certificate' : STAGE[stage]}{stage === 'void' ? '' : ' ▾'}</Text></Pressable>
       </View>
       <View style={{ flexDirection: 'row', gap: 6, marginBottom: 14, borderBottomWidth: 1, borderColor: base.cardLine }}>
         {([['overview', 'Overview'], ['lines', 'Line By Line']] as const).map(([k, l]) => (
@@ -584,19 +624,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
         <ActionRow note={autoNote} onDelete={async () => { if (await confirmAsk('Delete this draft application?', 'Delete')) { if (await deleteApplication(a0.id)) { toast('Draft deleted'); refresh(); router.back(); } else toast('Not saved — check your signal and try again.'); } }}>
           <Button kind="ghost" busy={busy === 'save'} title="Save" onPress={() => void save()} />
           <Button kind="ghost" busy={busy === 'xlsx'} title="Export Excel" onPress={() => void exportAs('xlsx', true)} />
-          <Button title="Apply For Payment" onPress={async () => {
-            // Asked first, so saying No changes nothing: then the retention offer, then typed lines go into their tabs.
-            if (!(await confirmAsk('Apply for payment? The application is locked so the figures can’t change. You can return it to draft if you need to edit it.', 'Apply For Payment'))) return;
-            let x = a;
-            if (allDone && !a.retention_release && !ret1Done && Number(a.retention_pct || 0) > 0) {
-              const k = await chooseAction('Everything is 100% complete', [{ key: 'yes', label: 'Also apply for the first half of the retention (practical completion)' }, { key: 'no', label: 'No — just apply for payment' }]);
-              if (!k) return;
-              if (k === 'yes') { const r = await releaseRet(1); if (!r) return; x = r; }
-            }
-            if (me) { x = await registerTyped(me, x); if (x !== a) setA(x); }
-            if (!(await save(true, x))) return;
-            if (await setStatus(a0.id, { status: 'submitted', submitted_at: new Date().toISOString() })) { toast('Applied for payment — now locked.'); refresh(); } else toast('Not saved — check your signal and try again.');
-          }} />
+          <Button title="Apply For Payment" onPress={() => applyNow()} />
         </ActionRow>
       )}
       {mailing && me && (

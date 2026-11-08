@@ -18,7 +18,7 @@ import { Image, Platform, Pressable, Text, TextInput, View } from 'react-native'
 
 import { MarkupEditor } from '@/components/MarkupEditor';
 import { StorageImage, UrlImage } from '@/components/StorageImage';
-import { TrafficKey } from '@/components/ReportAnswers';
+import { NewConditionPopup, TrafficKey } from '@/components/ReportAnswers';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { renderMarked } from '@/lib/markupRender';
 import { park, parkedFor, unpark } from '@/lib/reportOffline';
@@ -26,7 +26,7 @@ import { pdfPageImages } from '@/lib/pdfjs';
 import { refreshKeyColours, type MarkOp } from '@/lib/rules/markup';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { DateBox } from '@/components/DateField';
-import { completeReport, defaultOperatives, pendingPhotos, saveAnswers, uploadPhotos, type Sub } from '@/data/reports';
+import { addTemplateCondition, completeReport, defaultOperatives, pendingPhotos, saveAnswers, uploadPhotos, type Sub } from '@/data/reports';
 import { useAuth } from '@/lib/auth';
 import { compressOne, pickPhotos } from '@/lib/photos';
 import {
@@ -62,6 +62,7 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
   const closing = useRef(false); // set once Save & Exit / Complete starts: the kept copy stops updating
   const [sections, setSections] = useState(() => sub.sections || []);
   const [extra, setExtra] = useState(false);
+  const [condOpen, setCondOpen] = useState(false);
   const [mark, setMark] = useState<{ id: string; i: number } | null>(null);
   const secLive = useRef(sections);
   useEffect(() => { secLive.current = sections; }, [sections]);
@@ -389,10 +390,30 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
     onDone(sub.id, true);
   };
 
+  // A new condition while filling (430 reportAddCondition): on this report straight away, then offered to the template too.
+  const addCondition = async (label: string, color: string) => {
+    const lvl = { id: `tl_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, color, label, addedOnSite: true };
+    const next = secLive.current.map((s, i) => (i === 0 && s.traffic ? { ...s, traffic: { ...s.traffic, levels: [...(s.traffic.levels || []), lvl] } } : s));
+    secLive.current = next; setSections(next); setExtra(true);
+    void saveAnswers(sub.id, live.current, next).catch(() => false);
+    if (sub.template_id && (await confirmAsk(`Also add "${label}" to the template, so future reports have it too?`, 'Add To Template', 'No'))) {
+      if (!(await addTemplateCondition(sub.template_id, lvl))) toast('Couldn’t update the template — it’s still on this report.');
+    }
+  };
+  const removeCondition = async (id: string) => {
+    const l = (secLive.current[0]?.traffic?.levels || []).find((x) => x.id === id); if (!l) return;
+    const usedBy = Object.keys(live.current).filter((k) => /__tl$/.test(k) && live.current[k] === id).length;
+    if (!(await confirmAsk(`Remove "${l.label}"?${usedBy ? ` ${usedBy} item${usedBy > 1 ? 's are' : ' is'} set to it and will be cleared.` : ''}`, 'Remove'))) return;
+    const a = { ...live.current }; Object.keys(a).forEach((k) => { if (/__tl$/.test(k) && a[k] === id) a[k] = ''; });
+    live.current = a; setAnswers(a);
+    const next = secLive.current.map((s, i) => (i === 0 && s.traffic ? { ...s, traffic: { ...s.traffic, levels: (s.traffic.levels || []).filter((x) => x.id !== id) } } : s));
+    secLive.current = next; setSections(next); setExtra(true);
+  };
   return (
     <View>
       <SectionTitle>{sub.template_name}</SectionTitle>
-      <TrafficKey sections={sections} />
+      <TrafficKey sections={sections} onAdd={() => setCondOpen(true)} onRemove={(id) => void removeCondition(id)} />
+      {condOpen && <NewConditionPopup used={(sections[0]?.traffic?.levels || []).map((l) => l.color)} onClose={() => setCondOpen(false)} onAdd={(label, color) => { setCondOpen(false); void addCondition(label, color); }} />}
       {sc.overall.possible > 0 && <Text style={{ textAlign: 'right', fontWeight: '600', color: base.ink }}>Score: {scoreLabel(sc.overall)}</Text>}
       {sections.map((s) => (
         <Card key={s.id}>

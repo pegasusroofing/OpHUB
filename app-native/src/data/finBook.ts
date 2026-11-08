@@ -45,16 +45,21 @@ export async function saveJobFinance(me: Profile, siteId: string, patch: Row): P
 export async function saveJobNumber(siteId: string, jobNo: string): Promise<boolean> {
   return !!(await fdb.from('sites').update({ job_number: jobNo } as never).eq('id', siteId).select('id')).data?.length;
 }
-/** Client PO add / edit; only one main PO per project. */
-export async function saveClientPo(me: Profile, siteId: string, poId: string | null, row: { po_number: string; po_date: string | null; description: string | null; is_primary: boolean }, file?: { uri: string; name: string; mimeType?: string | null } | null): Promise<string | null> {
+/** Client PO add / edit; only one main PO per project. Several files at once (900 saveClientPo), each up to 20 MB; new
+ *  ones are added to the ones already saved. */
+export const CLIENT_PO_MAX_BYTES = 20 * 1024 * 1024;
+export async function saveClientPo(me: Profile, siteId: string, poId: string | null, row: { po_number: string; po_date: string | null; description: string | null; is_primary: boolean }, newFiles?: { uri: string; name: string; mimeType?: string | null; size?: number | null }[] | null): Promise<string | null> {
   const r0: Row = { ...row };
-  if (file) {
+  if (newFiles?.some((f) => (f.size || 0) > CLIENT_PO_MAX_BYTES)) return 'A file is over 20 MB.';
+  if (newFiles?.length) {
     const prev = poId ? ((await fdb.from('client_pos').select('files,file_path,file_name').eq('id', poId).maybeSingle()).data as Row | null) : null;
     const files = (Array.isArray(prev?.files) ? (prev?.files as Row[]) : prev?.file_path ? [{ path: prev.file_path, name: prev.file_name }] : []).slice();
-    const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
-    const up = await supabase.storage.from('finance-docs').upload(`${me.org_id}/${siteId}/client-po/${rid}-${file.name.replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, await (await fetch(file.uri)).arrayBuffer(), { contentType: file.mimeType || 'application/octet-stream' });
-    if (up.error) return 'Upload failed — try again.';
-    files.push({ path: up.data.path, name: file.name });
+    for (const file of newFiles) {
+      const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
+      const up = await supabase.storage.from('finance-docs').upload(`${me.org_id}/${siteId}/client-po/${rid}-${file.name.replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, await (await fetch(file.uri)).arrayBuffer(), { contentType: file.mimeType || 'application/octet-stream' });
+      if (up.error) return `Upload failed (${file.name}) — try again.`;
+      files.push({ path: up.data.path, name: file.name });
+    }
     Object.assign(r0, { files, file_path: files[0].path, file_name: files[0].name });
   }
   const res = poId ? await fdb.from('client_pos').update(r0 as never).eq('id', poId).select('id').single() : await fdb.from('client_pos').insert({ ...r0, org_id: me.org_id, site_id: siteId, created_by: me.id } as never).select('id').single();

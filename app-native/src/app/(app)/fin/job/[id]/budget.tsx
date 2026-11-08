@@ -155,9 +155,12 @@ export default function FinBudget() {
         </Card>
       ) : fc.cats.map((k) => {
         const { budget: b, tc, final } = line(k), diff = b !== null ? round2(final - b) : null;
+        // The used-of-budget bar on a phone too (9219zm): spent + ordered against the budget, red once it's over.
+        const usedPh = b ? Math.min(100, ((fc.actual[k] + fc.committed[k]) / b) * 100) : 0;
         return (
           <Card key={k}>
             <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 6 }}>{COST_CATS[k]}</Text>
+            {!!b && <View accessibilityLabel={`${COST_CATS[k]} ${Math.round(usedPh)}% of budget used`} style={{ width: '100%', height: 6, borderRadius: 3, backgroundColor: '#EEF0F2', overflow: 'hidden', marginBottom: 8 }}><View style={{ width: `${usedPh}%`, height: 6, backgroundColor: diff !== null && diff > 0.5 ? base.red : '#14161C' }} /></View>}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
               <View><Muted>Budget £</Muted><TextInput value={vals[k].budget} onChangeText={(x) => set(k, 'budget', x)} keyboardType="decimal-pad" placeholder="£0.00" style={box} /></View>
               <View><Muted>To complete £</Muted><TextInput value={vals[k].tc} onChangeText={(x) => set(k, 'tc', x)} keyboardType="decimal-pad" placeholder={money(fc.toComplete[k] || 0)} style={box} /></View>

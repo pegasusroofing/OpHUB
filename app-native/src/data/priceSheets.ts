@@ -180,6 +180,16 @@ export async function sheetFigures(sheet: Sheet) {
   return { total: t2, taken, balance: t2 - taken };
 }
 
+/** For the sheet's Excel: what's been booked in each week, and the labour wages entered each week (400). */
+export async function sheetWeekData(sheet: Sheet) {
+  if (!sheet.pricing_element_id) return { weeks: [], wages: [] };
+  const [w, e] = await Promise.all([
+    db.from('price_weeks').select('week_number,amount').eq('element_id', sheet.pricing_element_id),
+    db.from('price_week_operative_entries').select('week_number,amount').eq('element_id', sheet.pricing_element_id),
+  ]);
+  return { weeks: rows<{ week_number: number; amount: number | null }>(w), wages: rows<{ week_number: number; amount: number | null }>(e) };
+}
+
 /* ---------- weekly build-up ---------- */
 export async function loadElementWeeks(elementId: string, siteId: string) {
   const [e, w, sh, ops] = await Promise.all([

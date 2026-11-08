@@ -12,7 +12,7 @@ import { FinRow, FinStat } from '@/components/FinNav';
 import { XeroRow } from '@/components/FinXero';
 import { pickJob } from '@/components/FinSales';
 import { monday } from '@/components/FinSubs';
-import { chooseAction, confirmAsk, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { DateBox } from '@/components/DateField';
@@ -59,6 +59,22 @@ function Editor({ p, rateBy, who }: { p: Row | null; rateBy: Record<string, Row>
   const [lines, setLines] = useState<Row[]>(p?.lines?.length ? p.lines.map((l: Row) => ({ ...l, amount: String(l.amount ?? '') })) : [{ site_id: '', amount: '', description: '' }]);
   const [file, setFile] = useState<{ uri: string; name: string; mimeType?: string | null } | null>(null);
   const [busy, setBusy] = useState(false);
+  // Who it's from, with "+ Someone New…" (9219c finOpWho): a subcontractor worker on 20% CIS, added there and then.
+  const pickWho = async () => {
+    const k = await chooseAction('Who is the invoice from?', [...who.map((w) => ({ key: w.key, label: w.name })), { key: '__new', label: '+ Someone New…' }]);
+    if (!k) return;
+    if (k !== '__new') { setKey(k); return; }
+    const nm = String((await promptText('Their name (or company name)', '', { ok: 'Add' })) || '').trim();
+    if (!nm || !me) return;
+    const ins = await fdb.from('fin_labour_rates').insert({ org_id: me.org_id, user_id: null, name: nm, pay_type: 'subcontractor', cis_rate: 20, vat_registered: false, active: true, updated_at: new Date().toISOString() } as never).select('*').single();
+    const row = ins.data as Row | null;
+    if (!row) { toast(`Couldn’t add ${nm} — try again.`); return; }
+    const nk = `w:${row.id}`;
+    qc.setQueryData(['finOpInv', p ? String(p.id) : 'new'], (o: { p: Row | null; rateBy: Record<string, Row>; who: { key: string; name: string }[] } | undefined) => o && ({ ...o, rateBy: { ...o.rateBy, [nk]: row }, who: [...o.who, { key: nk, name: nm }].sort((a, b) => a.name.localeCompare(b.name)) }));
+    setKey(nk);
+    void qc.invalidateQueries({ queryKey: ['finDir'] });
+    toast(`${nm} is on the list — add their bank details and UTR in Directory › Labour.`);
+  };
   if (!me) return null;
   const locked = p?.status === 'paid';
   const r = rateBy[key] || {};
@@ -110,7 +126,7 @@ function Editor({ p, rateBy, who }: { p: Row | null; rateBy: Record<string, Row>
       {locked && <Card><Text style={{ color: '#1E7A3C', fontWeight: '500' }}>Paid {fdate(p?.paid_on)} — it can&apos;t be changed.</Text></Card>}
       <Card>
         <Muted style={{ fontWeight: '500' }}>From</Muted>
-        <Pressable disabled={locked || !!p} onPress={async () => { const k = await chooseAction('Who is the invoice from?', who.map((w) => ({ key: w.key, label: w.name }))); if (k) setKey(k); }} style={[box, { marginBottom: 8 }]}><Text style={{ color: base.ink }}>{key ? name(key) : 'Choose who'} ▾</Text></Pressable>
+        <Pressable disabled={locked || !!p} onPress={() => void pickWho()} style={[box, { marginBottom: 8 }]}><Text style={{ color: base.ink }}>{key ? name(key) : 'Choose who'} ▾</Text></Pressable>
         {key ? <Muted style={{ marginBottom: 8 }}>{r.utr ? `UTR ${r.utr}` : 'No UTR saved'} · CIS {r.cis_rate ?? 20}%{r.pay_type ? ` · ${r.pay_type}` : ''}</Muted> : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {([['no', 'Their invoice no.'], ['date', 'Invoice date'], ['week', 'Week commencing (Monday)'], ['materials', 'Materials £ (no CIS)'], ['cis', `CIS % (blank = ${r.cis_rate ?? 20}%)`]] as const).map(([k, l]) => (

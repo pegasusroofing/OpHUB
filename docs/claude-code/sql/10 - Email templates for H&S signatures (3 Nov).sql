@@ -1,3 +1,4 @@
+-- ALREADY IN PLACE (checked 8 Nov 2026): the rule already allows signatures, hsdocs and pi_query (file 16). Do not paste again.
 -- 10 - Email templates for H&S signatures (3 Nov 2026)
 -- Lets Settings › Templates save a wording for the two new H&S emails (outstanding signatures, signed RAMS / COSHH)
 -- (RAMS / COSHH › Email beside Ask Outstanding To Sign).

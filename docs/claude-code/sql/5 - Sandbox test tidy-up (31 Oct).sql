@@ -1,3 +1,4 @@
+-- NOT NEEDED (8 Nov 2026): file 9 was run instead. Leave this one.
 -- DON'T RUN THIS FOR NOW (2 Nov): use file 9, which keeps the ZZ jobs the tests still use. This one removes them all.
 -- Removes what the tests of 31 Oct and 1 Nov added to SANDBOX ROOFING only.
 -- Paste into Supabase > SQL Editor and press Run, only once you've finished looking at the test jobs. It is safe to run twice.

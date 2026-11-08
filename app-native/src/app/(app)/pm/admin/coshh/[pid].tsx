@@ -9,10 +9,11 @@ import { useState } from 'react';
 import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { CoshhFolderPicker } from '@/components/CoshhFolderPicker';
-import { confirmAsk, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
-import { useSite } from '@/data/sites';
+import { useSite, useSites } from '@/data/sites';
+import { siteStatusKey } from '@/lib/rules/checkin';
 import { assessMap, deleteProductFull, issueToSite, loadProduct, previewAssessment, saveAssessment, saveProduct, uploadSds } from '@/data/coshhLib';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
@@ -46,6 +47,14 @@ function Codes({ codes }: { codes: string[] }) {
 function Editor({ initial }: { initial: CoshhItem }) {
   const { folder, site: siteId } = useLocalSearchParams<{ folder?: string; site?: string }>();
   const { data: site } = useSite(siteId || '');
+  const { data: allSites = [] } = useSites();
+  // Use On A Job (589 coshhAssessFrom): pick a live or upcoming job, then its Add COSHH page with this product ticked.
+  const pickJobForProduct = async () => {
+    const jobs = allSites.filter((x) => siteStatusKey(x) !== 'closed').sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    if (!jobs.length) return;
+    const k = await chooseAction('Which job is it for?', jobs.map((x) => ({ key: x.id, label: `${x.job_number ? `${x.job_number} · ` : ''}${x.name}` })));
+    if (k) router.push(`/sites/${k}/hs/coshh/new?pick=${initial.id}` as never);
+  };
   const [where, setWhere] = useState('');
   const { me, org } = useAuth();
   const toast = useToast();
@@ -122,6 +131,7 @@ function Editor({ initial }: { initial: CoshhItem }) {
             <View style={{ flex: 1 }}><Button kind="ghost" title="Preview" onPress={async () => { setBusy('Building preview…'); try { await deliverPdf(await previewAssessment(it, org, me), `COSHH preview - ${(it.title || 'product').replace(/[\\/:*?"<>|]+/g, '-')}.pdf`); } finally { setBusy(''); } }} /></View>
           </View>
           {a && <Pressable onPress={async () => { const u = await openDocLink('coshh-library', a.files[0].storage_path); if (u) viewDoc(u); }} style={{ marginTop: 8 }}><Text style={{ color: base.blue, fontWeight: '600' }}>View the current assessment</Text></Pressable>}
+          {!siteId && !!initial.id && <View style={{ alignItems: 'center', marginTop: 10 }}><Button small kind="ghost" title="Use On A Job" onPress={() => void pickJobForProduct()} /></View>}
         </Card>
         <Card>
           <Muted style={{ fontWeight: '600' }}>Product name <Text style={{ color: '#C0392B' }}>*</Text></Muted>

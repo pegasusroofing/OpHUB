@@ -173,8 +173,15 @@ About 14,000 presses across 173 screens, every role, computer and phone size, on
 
 Then the same run on Sandbox Roofing against the real database, admin only: 138 screens, 4,423 presses, no crashes, nothing sent out. Found repair photos not loading, Finance project delete never working, yard rates not loading, and refused saves looking successful; all fixed. Same file has the details and what it didn't cover.
 
+## Leftovers against the old app (8 Nov 2026)
+Every LOW item in `PARITY-AUDIT.md` is now done, already done, or not needed; only the TRIAL ones wait (they send things). Checked by `tools/test-harness/leftovers-check.js` (23 pass) and unit tests (plainError, xeroWorkers, priceWeeks).
+- Finance: Getting Started card (BoQ, client PO, set-up); several client PO files, 20 MB each; Billed By change asks first; an application's Status ▾; + Someone New… on an operative invoice; Bring People In From Xero (Directory › Labour); a yard-stock cost can be changed from the project's Costs (yard_cost_edit); Status column on the costs PDF; budget bars on a phone; database messages in plain English everywhere.
+- Projects: price sheet Excel with Weekly Booked In and Labour Wages; + Add Condition while filling a report; Schedule of Works keeps the last task's address per section; COSHH product › Use On A Job; O&M › + Schedule of Works (uploaded SoW documents or a file).
+- Not built: bringing old COSHH PDFs in as products (switched off in the current app, never used).
+
 ## Andy's own to-dos
-- Paste `sql/5 - Sandbox test tidy-up (31 Oct).sql` into Supabase to remove the test job and test rows.
+- ~~Sandbox test tidy-up~~: done 8 Nov 2026 with `sql/9` (file 5 not needed). `sql/10` was already in place.
+- `sql/4` (private file storage) waits until the phone apps are rebuilt.
 - Press **Push origin** for the handoff pack.
 - Turn on leaked-password protection (Supabase › Authentication).
 - Reconnect OneDrive, and revoke the old Microsoft sessions.
@@ -198,4 +205,5 @@ Then the same run on Sandbox Roofing against the real database, admin only: 138 
 - Done and clicked through on Sandbox: six-tile Finance overview; Projects without the Clients tab, search bar or filter row on a laptop (Status is a tick drop-down starting on Live); click a heading to sort (A to Z, Z to A, off; default name A to Z); PM and Status columns narrower; the trail shows the whole path in Finance and every step is a link; the Home button in a project's bar has gone; a Documents tab on a project's Finance shows its OneDrive folder; the Retention box moved from the Overview to Sales › Retention with its invoices; Sales lists inside a project have no search or filter row on a laptop; Needs Attention is tighter.
 - The AI reader is live with Andy's key (model `claude-opus-5-5`, about 3p an invoice). Real test on Sandbox: three PDFs and a photo read; the photo's invoice number was missed. `finance-inbox` now keeps but doesn't read emailed invoices during the trial, except Sandbox.
 - Xero automatic posting asked for actions Xero doesn't have (`post_invoice`, `post_bill`); fixed to `push_invoice` / `push_bill`. Not tried against real Xero.
-- Waiting on Andy: a button style (A, B or C) to roll out everywhere; the cron secret change (`sql/8`).
+- Button style: Andy chose A (solid and soft); rolled out in `342457d`.
+- Waiting on Andy: the cron secret change (`sql/8`).

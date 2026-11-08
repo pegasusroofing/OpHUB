@@ -7,6 +7,7 @@ import { DocViewerHost } from '@/components/DocViewer';
 import { EmailPromptHost } from '@/components/EmailPrompt';
 import { noteTap, Popup, PopupButtons } from '@/components/Popup';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { plainDbText } from '@/lib/rules/plainError';
 
 // confirm: show a 'done' message anyway, for a couple of seconds, where Andy wants to see it was saved (4 Nov 2026).
 const Ctx = createContext<(msg: string, opts?: { confirm?: boolean }) => void>(() => undefined);
@@ -21,7 +22,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const show = useCallback((m: string, opts?: { confirm?: boolean }) => {
     if (!m || (isJustDone(m) && !opts?.confirm)) return;
-    setMsg(m);
+    setMsg(plainDbText(m));
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => setMsg(null), opts?.confirm ? 2500 : 4500);
   }, []);
@@ -119,7 +120,7 @@ export function showAlert(message: string, title = 'OpHUB') {
 export function ConfirmHost() {
   const [req, setReq] = useState<ConfirmReq | null>(null);
   useEffect(() => {
-    const l = (r: ConfirmReq) => setReq(r);
+    const l = (r: ConfirmReq) => setReq({ ...r, message: plainDbText(r.message) });
     confirmListeners.add(l);
     return () => { confirmListeners.delete(l); };
   }, []);

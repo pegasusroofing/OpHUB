@@ -15,7 +15,8 @@ import { AssignChips } from '@/components/AssignChips';
 import { promptEmail } from '@/components/EmailPrompt';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
-import { deleteSheet, issueSheet, loadRateCard, loadSheet, renameSheet, saveDraft, saveIssuedEdits, sheetDeleteBlock, sheetFigures, siteOperatives, unissueSheet, type Sheet } from '@/data/priceSheets';
+import { deleteSheet, issueSheet, loadRateCard, loadSheet, renameSheet, saveDraft, saveIssuedEdits, sheetDeleteBlock, sheetFigures, sheetWeekData, siteOperatives, unissueSheet, type Sheet } from '@/data/priceSheets';
+import { weeklyBookedIn, weeklyWages } from '@/lib/rules/priceWeeks';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { emailPdf } from '@/lib/pdf';
@@ -46,6 +47,15 @@ export default function PriceSheetPage() {
 }
 
 /* ---------- issued view ---------- */
+// The Excel's extra sheets (400): Weekly Booked In with a running total, and Labour Wages by week.
+function weekTables(sheet: Sheet, site: Site, wd?: { weeks: { week_number: number; amount: number | null }[]; wages: { week_number: number; amount: number | null }[] }): Table[] {
+  if (!wd) return [];
+  const booked = weeklyBookedIn(wd.weeks), wages = weeklyWages(wd.wages), out: Table[] = [];
+  const sub = [site.name, sheet.title].filter(Boolean).join(' · ');
+  if (booked.length) out.push({ title: 'Weekly Booked In', site: site.name, sub, cols: [{ l: 'Week', w: 90 }, { l: 'Amount', money: true, w: 90 }, { l: 'Running Total', money: true, w: 100 }], rows: booked });
+  if (wages.length) out.push({ title: 'Labour Wages', site: site.name, sub, cols: [{ l: 'Week', w: 90 }, { l: 'Total Wages', money: true, w: 100 }], rows: wages, totals: ['Total', pbRound2(wages.reduce((t, x) => t + x[1], 0))] });
+  return out;
+}
 function sheetTable(sheet: Sheet, items: SheetItem[], site: Site, f?: { total: number; taken: number; balance: number }): Table {
   const rows: Table['rows'] = items.map((it) => [it.category, it.option_label ? `${it.name} - ${it.option_label}` : it.name, it.quantity, PRICE_UNIT_LABEL[it.unit] || it.unit, Number(it.rate || 0), Number(it.line_total || 0), it.is_manual_rate ? 'Manual rate' : '']);
   if (f) rows.push(['', 'Taken (booked in)', null, '', null, f.taken, ''], ['', 'Balance', null, '', null, f.balance, '']);
@@ -56,12 +66,13 @@ function View_({ me, org, site, sheet, items, can }: { me: Profile; org: Organiz
   const qc = useQueryClient();
   const [title, setTitle] = useState(sheet.title);
   const { data: fig } = useQuery({ queryKey: ['sheetFig', sheet.id], queryFn: () => sheetFigures(sheet) });
+  const { data: wd } = useQuery({ queryKey: ['sheetWeeks', sheet.id], queryFn: () => sheetWeekData(sheet) });
   const { cats } = rateCategories(items.map((i) => ({ id: i.id, category: i.category, name: i.name, unit: i.unit, is_dropdown: false, rate: i.rate })), []);
   const byId: Record<string, SheetItem> = Object.fromEntries(items.map((i) => [i.id, i]));
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['priceSheets', site.id] }); void qc.invalidateQueries({ queryKey: ['priceSheet', sheet.id] }); void qc.invalidateQueries({ queryKey: ['priceTile', site.id] }); };
   const menu = async () => {
     const k = await chooseAction(sheet.title, [{ key: 'xl', label: '⬇ Export to Excel' }, { key: 'email', label: '✉️ Email PDF' }, ...(can ? [{ key: 'edit', label: '✏️ Edit' }, { key: 'un', label: '↩️ Un-issue' }, { key: 'del', label: '🗑 Delete' }] : [])]);
-    if (k === 'xl') { if (!(await exportTableExcel(sheetTable(sheet, items, site, fig), org).catch(() => false))) toast('Could not make the file — try again.'); }
+    if (k === 'xl') { if (!(await exportTableExcel(sheetTable(sheet, items, site, fig), org, weekTables(sheet, site, wd)).catch(() => false))) toast('Could not make the file — try again.'); }
     else if (k === 'email') {
       const ask = await promptEmail('Email this price sheet PDF to:', { myEmail: me.email }); if (!ask) return;
       const to = ask.to;
@@ -103,7 +114,7 @@ function View_({ me, org, site, sheet, items, can }: { me: Profile; org: Organiz
       </Card>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <View style={{ flex: 1 }}><Button title="📄 PDF" onPress={async () => { if (!(await exportTablePdf(sheetTable(sheet, items, site, fig), org).catch(() => false))) toast('Could not make the PDF — try again.'); }} /></View>
-        <View style={{ flex: 1 }}><Button kind="ghost" title="📊 Excel" onPress={async () => { if (!(await exportTableExcel(sheetTable(sheet, items, site, fig), org).catch(() => false))) toast('Could not make the file — try again.'); }} /></View>
+        <View style={{ flex: 1 }}><Button kind="ghost" title="📊 Excel" onPress={async () => { if (!(await exportTableExcel(sheetTable(sheet, items, site, fig), org, weekTables(sheet, site, wd)).catch(() => false))) toast('Could not make the file — try again.'); }} /></View>
       </View>
       {sheet.pricing_element_id && <Button kind="ghost" title="Open its price tile" onPress={() => router.push(`/sites/${site.id}/price/${sheet.pricing_element_id}` as never)} />}
     </ScrollView>

@@ -99,6 +99,23 @@ export async function collectAttachments(siteId: string, d: OmData): Promise<OmA
   return [...G.app, ...G.guar, ...G.draw, ...G.coshh];
 }
 
+/** A file for the back of the manual (857 hoAddAppendix): uploaded from the device, or copied from the job's Schedule of Works
+ *  documents (private schedule-docs) into mc-documents, so the manual keeps its own copy. */
+export async function appendixFile(me: Profile, site: Site, src: { uri: string; name: string; mimeType?: string | null } | { bucket: string; path: string; name: string }): Promise<{ bucket: string; path: string; name: string } | null> {
+  try {
+    let body: ArrayBuffer, type: string;
+    if ('uri' in src) { body = await (await fetch(src.uri)).arrayBuffer(); type = src.mimeType || 'application/pdf'; }
+    else {
+      const dl = await supabase.storage.from(src.bucket).download(src.path);
+      if (dl.error || !dl.data) return null;
+      body = await dl.data.arrayBuffer(); type = dl.data.type || (/\.png$/i.test(src.path) ? 'image/png' : /\.jpe?g$/i.test(src.path) ? 'image/jpeg' : 'application/pdf');
+    }
+    const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
+    const up = await supabase.storage.from('mc-documents').upload(`${site.org_id || me.org_id}/handover/${site.id}/appendix/${rid}-${(src.name || 'file').replace(/[^a-z0-9.-]+/gi, '_')}`, body, { contentType: type });
+    return up.error ? null : { bucket: 'mc-documents', path: up.data.path, name: src.name || 'Document' };
+  } catch { return null; }
+}
+
 /** A file attached to a table row (857 hoRowUpload) — goes in the back of the PDF after that section. */
 export async function uploadRowFile(me: Profile, site: Site, a: { uri: string; name: string; mimeType?: string | null }): Promise<{ bucket: string; path: string; name: string } | null> {
   try {

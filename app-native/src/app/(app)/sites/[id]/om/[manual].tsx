@@ -19,7 +19,7 @@ import { DateBox } from '@/components/DateField';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import * as DocumentPicker from 'expo-document-picker';
 import { assessMap, loadProducts } from '@/data/coshhLib';
-import { jobPhotos, loadManual, saveManual, uploadRowFile } from '@/data/omManual';
+import { appendixFile, jobPhotos, loadManual, saveManual, uploadRowFile } from '@/data/omManual';
 import { viewDoc } from '@/components/DocViewer';
 import { Popup, PopupButtons } from '@/components/Popup';
 import { useSite } from '@/data/sites';
@@ -175,7 +175,30 @@ function Editor({ me, org, site, manualId, name0, data0 }: { me: Profile; org: O
           </View>
         ))}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-          <Text style={small} onPress={() => up((x) => { if (!x.appendix.some((e) => e.kind === 'sow-app')) x.appendix.push({ kind: 'sow-app', label: 'Schedule of Works' }); })}>+ Schedule of Works</Text>
+          <Text style={small} onPress={async () => {
+            // Add a Schedule of Works to the back (857 hoAddAppendix('sow')): the app's own, one uploaded to the job's Schedule of
+            // Works, or a file from this device.
+            const docs = (((await supabase.from('schedule_documents').select('id,name,storage_path').eq('site_id', site.id).order('created_at', { ascending: true })).data ?? []) as { id: string; name: string; storage_path: string }[]).filter((x) => /\.(pdf|jpe?g|png)$/i.test(x.storage_path || ''));
+            const k = await chooseAction('Add A Schedule Of Works To The Back', [
+              { key: 'app', label: '📋 This Job’s Schedule Of Works (From The App)' },
+              ...docs.map((x) => ({ key: x.id, label: `📄 ${x.name} (Uploaded To The Schedule Of Works)` })),
+              { key: 'up', label: '⬆️ Upload A File (PDF Or Photo)' },
+            ]);
+            if (!k) return;
+            if (k === 'app') { up((x) => { if (!x.appendix.some((e) => e.kind === 'sow-app')) x.appendix.push({ kind: 'sow-app', label: 'Schedule of Works' }); }); return; }
+            let f: { bucket: string; path: string; name: string } | null = null;
+            if (k === 'up') {
+              const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/jpeg', 'image/png'], copyToCacheDirectory: true });
+              if (r.canceled || !r.assets[0]) return;
+              f = await appendixFile(me, site, { uri: r.assets[0].uri, name: r.assets[0].name, mimeType: r.assets[0].mimeType });
+            } else {
+              const doc = docs.find((x) => x.id === k); if (!doc) return;
+              f = await appendixFile(me, site, { bucket: 'schedule-docs', path: doc.storage_path, name: doc.name });
+            }
+            if (!f) { toast('Couldn’t add that file — try again.'); return; }
+            const got = f;
+            up((x) => { x.appendix.push({ kind: 'file', bucket: got.bucket, path: got.path, label: got.name }); });
+          }}>+ Schedule of Works</Text>
           <Text style={small} onPress={async () => {
             const subs = ((await supabase.from('report_submissions').select('id,template_name,submitted_at,status').eq('site_id', site.id).order('submitted_at', { ascending: false }).limit(100)).data ?? []) as { id: string; template_name: string; submitted_at: string | null; status: string }[];
             const done = subs.filter((s) => s.status !== 'in_progress');

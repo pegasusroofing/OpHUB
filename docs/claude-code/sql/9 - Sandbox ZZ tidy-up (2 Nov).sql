@@ -1,3 +1,5 @@
+-- RUN ON 8 Nov 2026 (Andy: "can you do all the sql that are outstanding"). Checked after: the 7 jobs, 4 ZZ RAMS drafts and the
+-- Money due test setting are gone; ZZ JOB Fin A, Fin B, Fin C, Pack Test and Regular stay. Do not paste again.
 -- Removes the ZZ test jobs nothing uses any more, from SANDBOX ROOFING only. Use this instead of file 5.
 -- Paste into Supabase > SQL Editor and press Run. It is safe to run twice. If anything goes wrong, the whole file is undone.
 --

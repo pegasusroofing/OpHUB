@@ -7,7 +7,7 @@ export type ReportItem = {
   allowMedia?: boolean; allowNote?: boolean; showIf?: { qId?: string; mode?: string; values?: unknown[] };
   required?: boolean; options?: string[]; asButtons?: boolean; traffic?: boolean; mediaRequiredWhen?: unknown[]; addedOnSite?: boolean;
 };
-export type TrafficLevel = { id: string; color: string; label: string };
+export type TrafficLevel = { id: string; color: string; label: string; addedOnSite?: boolean };
 export type ReportSection = { id: string; title: string; items?: ReportItem[]; showUnanswered?: boolean; traffic?: { on?: boolean; levels?: TrafficLevel[] } };
 export type Answers = Record<string, unknown>;
 

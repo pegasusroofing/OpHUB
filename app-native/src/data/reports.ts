@@ -127,6 +127,15 @@ export async function uploadPhotos(siteId: string, answers: Answers, onStep?: (d
 }
 
 /** Saves the answers as they stand, leaving out photos not uploaded yet. */
+/** A condition added while filling a report, also added to its template so future reports have it (430 reportAddCondition). */
+export async function addTemplateCondition(templateId: string, lvl: { id: string; color: string; label: string }): Promise<boolean> {
+  const row = (await db.from('report_templates').select('sections').eq('id', templateId).maybeSingle()).data as { sections?: ReportSection[] } | null;
+  const secs = row?.sections;
+  if (!secs?.[0]?.traffic || !Array.isArray(secs[0].traffic.levels)) return false;
+  secs[0].traffic.levels.push({ id: lvl.id, color: lvl.color, label: lvl.label });
+  const r = await db.from('report_templates').update({ sections: secs } as never).eq('id', templateId).select('id');
+  return !r.error && !!(r.data as unknown[] | null)?.length;
+}
 export async function saveAnswers(id: string, answers: Answers, sections?: ReportSection[]): Promise<boolean> {
   if (!(await (await import('@/lib/reportOffline')).ensureCreated(id))) return false;
   const out: Answers = {};

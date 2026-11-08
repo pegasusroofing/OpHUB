@@ -19,7 +19,7 @@ import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { fdb } from '@/data/finance';
 import { applyRetention, raiseRetentionInvoice } from '@/data/finApp';
-import { deleteClientPo, finBookedOn, saveClientPo, saveJobFinance, saveJobNumber, useBook } from '@/data/finBook';
+import { CLIENT_PO_MAX_BYTES, deleteClientPo, finBookedOn, saveClientPo, saveJobFinance, saveJobNumber, useBook } from '@/data/finBook';
 import { deleteSite, setSiteStatus, siteIsEmpty } from '@/data/siteList';
 import { subKind } from '@/data/finSubJobs';
 import { importSiteVariations } from '@/data/finVar';
@@ -49,7 +49,7 @@ const OV_OPTS: Record<string, [string, string][]> = {
 const k = (n: number | null | undefined) => (n == null ? '…' : Math.abs(n) >= 1000 ? `${n < 0 ? '−' : ''}£${(Math.abs(n) / 1000).toFixed(1)}k` : money(n, 0));
 
 export default function FinJob() {
-  const { id, tab = 'overview', sub: qSub, setup: qSetup, f: qF } = useLocalSearchParams<{ id: string; tab?: string; sub?: string; setup?: string; f?: string }>();
+  const { id, tab = 'overview', sub: qSub, setup: qSetup, f: qF, po: qPo } = useLocalSearchParams<{ id: string; tab?: string; sub?: string; setup?: string; f?: string; po?: string }>();
   const { me, org } = useAuth();
   const { data: site } = useSite(id);
   const { data, isLoading } = useBook(me?.org_id, id);
@@ -83,7 +83,7 @@ export default function FinJob() {
         : tab === 'purchases' ? <>{subTabs('purchases', [['invoices', 'Purchase Invoices'], ['orders', 'Purchase Orders'], ['quotes', 'Purchase Quotes'], ['plant', 'Plant Hire'], ['all', 'All']])}{sub.purchases === 'quotes' ? <PurchaseQuotes siteId={id} /> : <PurchasesLists key={sub.purchases} tab={sub.purchases as 'orders'} siteId={id} />}</>
         : tab === 'docs' ? <FinDocs site={s as Record<string, unknown> | undefined} />
         : tab === 'subs' ? <>{subTabs('subs', [['orders', 'Subcontractor POs'], ['apps', 'Applications'], ['opinv', 'Operative Invoices'], ['wages', 'Wages To Book']])}<SubsLists key={sub.subs} tab={sub.subs as 'orders'} siteId={id} /></>
-        : <Setup id={id} site={s} jf={fc.jf} cpos={data.book.cpos.filter((p) => p.site_id === id)} settings={data.settings} />}
+        : <Setup id={id} site={s} jf={fc.jf} cpos={data.book.cpos.filter((p) => p.site_id === id)} settings={data.settings} appsN={data.book.apps.filter((a) => a.site_id === id && a.status !== 'void').length} boqN={fc.schedItemsN} newPo={qPo === 'new'} />}
     </ScrollView>
   );
 }
@@ -94,7 +94,16 @@ function Overview({ id, fc, settings, invs, apps, book, askFinancials }: { id: s
   // A new project is asked for its financials (Andy, 1 Nov 2026): a pop-up on creating it, and this prompt until they're saved or
   // someone says they're fine. Not on a job that's already invoicing (9219zi).
   const [finOpen, setFinOpen] = useState(!!askFinancials);
-  const needsFin = !fc.jf.setup_checked_at && !invs.length && !apps.length;
+  // Getting Started (9219zi finStartCardHtml): until the first invoice or application, the set-up steps still to do; each
+  // drops off once it's done.
+  const fresh = !invs.length && !apps.length;
+  const needsFin = !fc.jf.setup_checked_at && fresh;
+  const hasPo = ((book.cpos as Row[]) || []).some((p) => p.site_id === id);
+  const steps = !fresh ? [] : [
+    ...(!fc.isInvoiceJob && !fc.schedItemsN ? [{ k: 'boq', t: 'Set Up The Bill Of Quantities', sub: 'The contract value and applications come from it.' }] : []),
+    ...(!hasPo ? [{ k: 'po', t: 'Add The Client’s PO', sub: 'Its number goes on every invoice and application.' }] : []),
+    ...(needsFin ? [{ k: 'fin', t: fc.isInvoiceJob ? 'Check The Contract Value, VAT And Payment Terms' : 'Check Retention, VAT And Application Dates', sub: 'Or keep the company defaults.' }] : []),
+  ];
   const { data: ovPick = {} } = useQuery({ queryKey: ['finOvPick'], queryFn: () => plainGet<Record<string, string>>('ophub.finOv2', {}) });
   // ⋯ Measure margin against (921 finMarginMenuHtml), kept on this device and shared with the job home's money strip.
   const { data: mBasis = 'auto' } = useQuery({ queryKey: ['finMarginBasis'], queryFn: () => plainGet<MarginBasis>('ophub.finMarginBasis', 'auto') });
@@ -146,17 +155,23 @@ function Overview({ id, fc, settings, invs, apps, book, askFinancials }: { id: s
   const ghost = (l: string, p: string) => <Pressable key={l} onPress={() => router.push(p as never)} style={{ borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#DFE3EA' }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: base.ink }}>{l}</Text></Pressable>;
   return (
     <View>
-      {needsFin && (
-        <View style={{ backgroundColor: '#fffaf0', borderWidth: 1, borderColor: '#f8e7c2', borderRadius: 10, padding: 12, marginBottom: 10, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-          <View style={{ flex: 1, minWidth: 220 }}>
-            <Text style={{ fontWeight: '500', color: '#111827' }}>Set up the project financials</Text>
-            <Text style={{ fontSize: 12, color: base.slate }}>Contract value, payment terms, retention, VAT and application date.</Text>
-          </View>
-          <Button small title="Set up" onPress={() => setFinOpen(true)} />
-          <Button small kind="ghost" title="Company defaults are fine" onPress={async () => { if (!me) return; await saveJobFinance(me, id, {}); void qcOv.invalidateQueries({ queryKey: ['finBook'] }); }} />
+      {!!steps.length && (
+        <View style={{ backgroundColor: '#fffaf0', borderWidth: 1, borderColor: '#f8e7c2', borderRadius: 10, padding: 12, marginBottom: 10 }}>
+          <Text style={{ fontWeight: '600', color: '#111827' }}>Getting Started</Text>
+          {steps.map((st, i) => (
+            <View key={st.k} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, paddingTop: 8, marginTop: i ? 8 : 4, borderTopWidth: i ? 1 : 0, borderTopColor: '#f8e7c2' }}>
+              <View style={{ flex: 1, minWidth: 200 }}>
+                <Text style={{ fontWeight: '500', color: '#111827' }}>{i + 1}. {st.t}</Text>
+                <Text style={{ fontSize: 12, color: base.slate }}>{st.sub}</Text>
+              </View>
+              {st.k === 'boq' ? <Button small title="Open BoQ" onPress={() => router.push(`/fin/job/${id}/boq` as never)} />
+                : st.k === 'po' ? <Button small title="Add PO" onPress={() => router.setParams({ tab: 'setup', po: 'new' })} />
+                : <><Button small title="Set Up" onPress={() => setFinOpen(true)} /><Button small kind="ghost" title="Company Defaults Are Fine" onPress={async () => { if (!me) return; await saveJobFinance(me, id, {}); void qcOv.invalidateQueries({ queryKey: ['finBook'] }); }} /></>}
+            </View>
+          ))}
         </View>
       )}
-      {finOpen && <Setup formOnly id={id} site={site as Row | undefined} jf={fc.jf} cpos={((book.cpos as Row[]) || []).filter((p) => p.site_id === id)} settings={settings} onDone={() => setFinOpen(false)} />}
+      {finOpen && <Setup formOnly id={id} site={site as Row | undefined} jf={fc.jf} cpos={((book.cpos as Row[]) || []).filter((p) => p.site_id === id)} settings={settings} appsN={apps.filter((a) => a.status !== 'void').length} boqN={fc.schedItemsN} onDone={() => setFinOpen(false)} />}
       <Pressable onPress={() => router.setParams({ tab: 'setup' })}>
         <Card>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -263,17 +278,19 @@ function RetentionPanel({ id, fc, settings, invs, apps }: { id: string; fc: Retu
   );
 }
 
-function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string; site: Row | undefined; jf: Row; cpos: Row[]; settings: Row; formOnly?: boolean; onDone?: () => void }) {
+function Setup({ id, site, jf, cpos, settings, formOnly, onDone, appsN = 0, boqN = 0, newPo }: { id: string; site: Row | undefined; jf: Row; cpos: Row[]; settings: Row; formOnly?: boolean; onDone?: () => void; appsN?: number; boqN?: number; newPo?: boolean }) {
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
-  const [edit, setEdit] = useState<'job' | 'po' | 'dates' | 'site' | null>(formOnly ? 'job' : null);
+  // Getting Started › Add PO comes here with ?po=new and opens the new PO form (the link is then cleared).
+  const [edit, setEdit] = useState<'job' | 'po' | 'dates' | 'site' | null>(formOnly ? 'job' : newPo ? 'po' : null);
+  useEffect(() => { if (newPo) router.setParams({ po: '' }); }, [newPo]);
   const [datesOver, setDatesOver] = useState(false); // the monthly dates, opened on top of Project Financials so nothing typed there is lost
   const { data: people } = usePeople();
   // Directory clients: the bill-to follows the client's Directory record (9219u — it lives on the client).
   const { data: dirClients = [] } = useQuery({ queryKey: ['finDirClients', me?.org_id], enabled: !!me, queryFn: async () => ((await fdb.from('fin_clients').select('id,name,email,address,postcode').eq('org_id', me?.org_id as string).order('name')).data as Row[] | null) ?? [] });
   const [po, setPo] = useState<Row | null>(null);
-  const [file, setFile] = useState<{ uri: string; name: string; mimeType?: string | null } | null>(null);
+  const [files, setFiles] = useState<{ uri: string; name: string; mimeType?: string | null; size?: number | null }[]>([]);
   // Once the job's estimating folder is linked, Link Estimating Folder goes (Andy, 7 Nov 2026).
   const { data: estLinked } = useQuery({ queryKey: ['estLinked', id], enabled: !!me, queryFn: async () => {
     if (((await fdb.from('sites').select('estimating_linked_at').eq('id', id).maybeSingle()).data as Row | null)?.estimating_linked_at) return true;
@@ -293,10 +310,10 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
   );
   // Client PO row: open the PO (or choose one, or add one).
   const openPo = async () => {
-    if (!cpos.length) { setPo(null); setFile(null); setEdit('po'); return; }
+    if (!cpos.length) { setPo(null); setFiles([]); setEdit('po'); return; }
     const k = await chooseAction('Client PO', [...cpos.map((p) => ({ key: String(p.id), label: `PO ${p.po_number}${p.is_primary ? ' (Main)' : ''}` })), { key: '+', label: '+ Add Client PO' }]);
     if (!k) return;
-    setFile(null);
+    setFiles([]);
     if (k === '+') { setPo(null); setEdit('po'); return; }
     setPo(cpos.find((p) => String(p.id) === k) || null); setEdit('po');
   };
@@ -380,8 +397,15 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
             const usesRates = !!site?.repair_contract && v.rates_q === 'yes', rd = n('rates_disc'), na = n('na_charge');
             if (usesRates && rd !== null && (isNaN(rd) || rd < 0 || rd > 100)) return 'The rates adjustment must be between 0 and 100%.';
             if (na !== null && (isNaN(na) || na < 0)) return 'Enter the no access charge as a number.';
+            // Changing how it's billed (918 setFinBillingType): asked first; existing applications stay as they are.
+            const btNew = String(v.billing_type || ''), btOld = String(jf.billing_type || '');
+            const btChanged = !!btOld && !!btNew && btNew !== btOld;
+            if (btChanged && !(await confirmAsk(btNew === 'invoice'
+              ? (appsN ? `This project has ${appsN} application${appsN === 1 ? '' : 's'}. ${appsN === 1 ? 'It stays as it is' : 'They stay as they are'}, but you’ll type the contract value from now on. Change to invoices?` : 'Change this project to invoices? You’ll type the contract value yourself.')
+              : 'Change this project to applications? The contract value will come from the Bill of Quantities.', btNew === 'invoice' ? 'Change To Invoices' : 'Change To Applications'))) return 'Not changed — Billed By is still as it was.';
             const e = await saveJobFinance(me, id, patch);
             if (e) return e;
+            if (btChanged && btNew === 'application' && !boqN) setTimeout(() => router.push(`/fin/job/${id}/boq` as never), 0);
             if (site?.repair_contract) {
               await setContractRates(id, { uses: usesRates, ...(usesRates ? { pct: rd ? (v.rates_sign === 'plus' ? -rd : rd) : null } : {}), online: v.online === 'yes', noAccess: na });
               void qc.invalidateQueries({ queryKey: ['repairQuoteSettings', id] });
@@ -464,22 +488,29 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
       {edit === 'po' && (
         <FinForm title={po ? `Client PO ${po.po_number}` : 'Client PO'} initial={po || { is_primary: !cpos.length }} onClose={() => setEdit(null)}
           note="No value on a client PO: the contract value lives in Project details."
+          extra={(
+            <View style={{ marginTop: 4, gap: 4 }}>
+              {po && (Array.isArray(po.files) ? po.files : po.file_path ? [{ path: po.file_path, name: po.file_name }] : []).map((f: Row) => (
+                <Pressable key={f.path} onPress={async () => { const u = await openDocLink('finance-docs', f.path); if (u) viewDoc(u); }}><Text style={{ color: base.blue }}>📄 {f.name}</Text></Pressable>
+              ))}
+              {files.map((f) => <Text key={f.uri} style={{ color: base.ink }}>📎 {f.name} <Text style={{ color: base.slate }}>(Uploads When Saved)</Text></Text>)}
+              <Pressable accessibilityRole="button" accessibilityLabel="Attach PO files" onPress={async () => {
+                const r = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, multiple: true });
+                if (r.canceled || !r.assets.length) return;
+                const big = r.assets.filter((a) => (a.size || 0) > CLIENT_PO_MAX_BYTES);
+                if (big.length) toast(`${big.map((a) => a.name).join(', ')} ${big.length === 1 ? 'is' : 'are'} over 20 MB, so ${big.length === 1 ? 'it wasn’t' : 'they weren’t'} added.`);
+                setFiles((o) => [...o, ...r.assets.filter((a) => (a.size || 0) <= CLIENT_PO_MAX_BYTES).map((a) => ({ uri: a.uri, name: a.name, mimeType: a.mimeType, size: a.size }))]);
+              }}><Text style={{ color: base.blue }}>📎 {files.length || (po && (po.files || po.file_path)) ? 'Attach More Files' : 'Attach The PO Files'}</Text></Pressable>
+            </View>
+          )}
           fields={[{ k: 'po_number', label: 'PO number' }, { k: 'po_date', label: 'PO date', kind: 'date' }, { k: 'description', label: 'Description' }, { k: 'is_primary', label: 'Main PO for this project', kind: 'check' }]}
           onSave={async (v) => {
             if (!String(v.po_number).trim()) return 'Enter the PO number.';
-            const e = await saveClientPo(me, id, po?.id || null, { po_number: String(v.po_number).trim(), po_date: String(v.po_date).trim() || null, description: String(v.description).trim() || null, is_primary: !!v.is_primary }, file);
+            const e = await saveClientPo(me, id, po?.id || null, { po_number: String(v.po_number).trim(), po_date: String(v.po_date).trim() || null, description: String(v.description).trim() || null, is_primary: !!v.is_primary }, files);
             if (e) return e;
             toast('PO saved'); refresh(); return null;
           }}
           onDelete={po ? async () => { if (!(await deleteClientPo(po.id))) return 'Could not delete.'; toast('PO deleted'); refresh(); return null; } : undefined} />
-      )}
-      {edit === 'po' && (
-        <View style={{ marginTop: 8 }}>
-          <Pressable onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) { setFile({ uri: r.assets[0].uri, name: r.assets[0].name, mimeType: r.assets[0].mimeType }); toast('File attached — Save to keep it'); } }}><Text style={{ color: base.blue }}>📎 {file ? file.name : 'Attach the PO file'}</Text></Pressable>
-          {po && (Array.isArray(po.files) ? po.files : po.file_path ? [{ path: po.file_path, name: po.file_name }] : []).map((f: Row) => (
-            <Pressable key={f.path} onPress={async () => { const u = await openDocLink('finance-docs', f.path); if (u) viewDoc(u); }}><Text style={{ color: base.blue }}>📄 {f.name}</Text></Pressable>
-          ))}
-        </View>
       )}
     </View>
   );

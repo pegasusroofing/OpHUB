@@ -14,10 +14,12 @@ import { AllocRow } from '@/components/FinSplit';
 import { FinFilterBar, ThinExportBar, type FilterSel } from '@/components/FinFilterBar';
 import { FinChip, FinRow } from '@/components/FinNav';
 import { Cell, FinTable } from '@/components/FinTable';
-import { confirmAsk, useToast } from '@/components/toast';
+import { useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
 import { useBook } from '@/data/finBook';
 import { fdb } from '@/data/finance';
+import { supabase } from '@/lib/supabase';
+import { siteStatusKey } from '@/lib/rules/checkin';
 import { useAuth } from '@/lib/auth';
 import { COST_CATS, forecast } from '@/lib/rules/finBook';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
@@ -38,6 +40,9 @@ export default function FinCosts() {
   const [sort, setSort] = useState<'new' | 'old' | 'big' | 'az'>('new');
   const { data: sites } = useSites();
   const [edit, setEdit] = useState<Record<string, any> | 'new' | null>(null);
+  // A yard-stock cost (9219zd yard_cost_edit, Andy 23 Oct): change its qty, rate, date or job; a changed qty puts the
+  // difference back in the yard (or takes it out).
+  const [yardEdit, setYardEdit] = useState<{ x: Record<string, any>; mv: Record<string, any> | null; st: Record<string, any> | null; qty: number | null; rate: number | null; ret: boolean } | null>(null);
   const toast = useToast();
   const qc = useQueryClient();
   // Arriving from a cost line on the Summary: open that line once the data is here.
@@ -53,8 +58,8 @@ export default function FinCosts() {
     .sort((a, b) => (sort === 'old' ? String(a.date || '').localeCompare(String(b.date || '')) : sort === 'big' ? b.net - a.net : sort === 'az' ? String(a.desc || '').localeCompare(String(b.desc || '')) : String(b.date || '').localeCompare(String(a.date || ''))));
   const shownTotal = list.reduce((t, l) => t + l.net, 0);
   const site = (sites ?? []).find((x) => x.id === id);
-  const table = () => ({ title: 'Costs ledger', site: site?.name || '', sub: site?.name || '', cols: [{ l: 'Date', w: 70 }, { l: 'Type', w: 90 }, { l: 'Description', w: 240 }, { l: 'Supplier / who', w: 130 }, { l: 'Ref', w: 90 }, { l: 'Net £', w: 80, money: true }],
-    rows: [...list.map((l) => [l.date ? fdate(l.date) : '', COST_CATS[l.cat] || (l.cat === 'committed' ? 'Ordered' : l.cat), l.desc || '', l.who || '', l.ref || '', round2(l.net)]), ['', '', 'Total', '', '', round2(shownTotal)]] });
+  const table = () => ({ title: 'Costs ledger', site: site?.name || '', sub: site?.name || '', cols: [{ l: 'Date', w: 70 }, { l: 'Type', w: 85 }, { l: 'Description', w: 220 }, { l: 'Supplier / who', w: 120 }, { l: 'Ref', w: 85 }, { l: 'Status', w: 70 }, { l: 'Net £', w: 80, money: true }],
+    rows: [...list.map((l) => [l.date ? fdate(l.date) : '', COST_CATS[l.cat] || (l.cat === 'committed' ? 'Ordered' : l.cat), l.desc || '', l.who || '', l.ref || '', l.status || '', round2(l.net)]), ['', '', 'Total', '', '', '', round2(shownTotal)]] });
   const tot = (k: string) => fc.lines.filter((l) => l.cat === k).reduce((t, l) => t + l.net, 0);
   const howMany = (n: number) => `${n} line${n === 1 ? '' : 's'}`;
   const waiting = list.filter((l) => l.waiting).reduce((t, l) => t + l.net, 0);
@@ -62,7 +67,15 @@ export default function FinCosts() {
   // A line from fin_job_costs ("jc:<id>:…") opens the form; a yard-stock cost is changed from the stock.
   const openCost = (key: string) => {
     const x = (data.book.extra || []).find((r) => r.id === key.split(':')[1]); if (!x) return;
-    if (x.supplier === 'Yard' && x.ref === 'YARD') { void confirmAsk(`This cost came from yard stock (${x.description || ''}). To change it, issue or return the stock in Yard stock (or the project’s Material Requests) — the cost updates itself.`, 'Open Yard stock', 'Close').then((go) => { if (go) router.push('/fin/yard' as never); }); return; }
+    if (x.supplier === 'Yard' && x.ref === 'YARD') {
+      void (async () => {
+        const mv = ((await fdb.from('yard_moves').select('*').eq('job_cost_id', x.id).limit(1)).data as Record<string, any>[] | null)?.[0] || null;
+        const st = mv ? (((await fdb.from('yard_stock').select('id,item,unit,qty').eq('id', mv.stock_id).maybeSingle()).data as Record<string, any> | null) ?? null) : null;
+        const qty = mv ? Math.abs(Number(mv.qty || 0)) : null;
+        setYardEdit({ x, mv, st, qty, rate: qty ? Math.round((Math.abs(Number(x.net || 0)) / qty) * 10000) / 10000 : null, ret: Number(x.net || 0) < 0 });
+      })();
+      return;
+    }
     setEdit(x);
   };
   openRef.current = openCost;
@@ -96,6 +109,31 @@ export default function FinCosts() {
           ]}
           footLabel={(rows) => howMany(rows.length)} />
       ) : list.length ? list.map((l) => <FinRow key={l.key} title={l.desc} sub={[l.date ? fdate(l.date) : '', COST_CATS[l.cat] || (l.cat === 'committed' ? `Ordered (${COST_CATS[l.ccat || 'materials']})` : l.cat), l.who, l.ref, l.status].filter(Boolean).join(' · ')} right={money(l.net)} onPress={l.go ? () => router.push(l.go as never) : l.key.startsWith('jc:') ? () => openCost(l.key) : undefined} />) : <Empty>No costs yet.</Empty>}
+      {yardEdit && (() => {
+        const E = yardEdit, unit = E.st?.unit ? ` (${E.st.unit})` : '';
+        const netOf = (v: Record<string, unknown>) => { const q = num(v.qty), r = num(v.rate); return round2((q !== null && !isNaN(q) ? q : E.qty || 1) * (r !== null && !isNaN(r) ? r : 0) * (E.ret ? -1 : 1)); };
+        const jobs = (sites ?? []).filter((s) => siteStatusKey(s) !== 'closed' || s.id === E.x.site_id).sort((a, b) => String(b.job_number || '').localeCompare(String(a.job_number || ''), undefined, { numeric: true }));
+        return (
+          <FinForm title="Yard Stock On This Job" onClose={() => setYardEdit(null)}
+            note={`${E.st ? E.st.item : E.x.description || ''}${E.st ? ` · ${Number(E.st.qty || 0)} ${E.st.unit || ''} left in the yard` : ''}${E.mv ? '. Changing the qty puts the difference back in the yard (or takes it out).' : ''}`}
+            initial={{ qty: E.qty != null ? String(E.qty) : '', rate: E.rate != null ? String(E.rate) : '', cost_date: E.x.cost_date || '', site: E.x.site_id || '' }}
+            fields={(v) => [
+              ...(E.mv ? [{ k: 'qty', label: `Qty${unit}`, kind: 'number' as const, half: true }] : []),
+              { k: 'rate', label: `Rate £ — Net ${money(netOf(v))}`, kind: 'number' as const, half: !!E.mv },
+              { k: 'cost_date', label: 'Date', kind: 'date' as const, half: true },
+              { k: 'site', label: 'Job', kind: 'choice' as const, half: true, options: jobs.map((s) => [s.id, `${s.job_number ? `${s.job_number} · ` : ''}${s.name}`] as [string, string]) },
+            ]}
+            onSave={async (v) => {
+              const q = E.mv ? num(v.qty) : null;
+              if (E.mv && (q === null || isNaN(q) || q <= 0)) return 'Enter the qty.';
+              const net = netOf(v);
+              const desc = E.st ? `${E.ret ? 'Returned to yard: ' : 'Yard stock: '}${E.st.item} × ${q !== null ? q : E.qty}${E.st.unit ? ` ${E.st.unit}` : ''}` : null;
+              const r = await supabase.rpc('yard_cost_edit' as never, { p_cost: E.x.id, p_qty: q, p_net: net, p_site: String(v.site || '') || null, p_date: String(v.cost_date || '') || null, p_desc: desc } as never);
+              if (r.error) return `Could not save — ${r.error.message}`;
+              ['finYard', 'yard', 'finYardMoves'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); refresh(); return null;
+            }} />
+        );
+      })()}
       {edit && (
         <FinForm title={cur ? 'Cost' : 'Add a cost'} note="For costs without a purchase invoice in OpHUB — skips, fuel, travel, accommodation, site set-up. (Company overheads are added automatically — Finance › Settings › Company overheads.)"
           initial={cur ? { ...cur } : { category: types.length === 1 && COST_CATS[types[0]] && types[0] !== 'labour' ? types[0] : 'overheads', cost_date: today() }} onClose={() => setEdit(null)}

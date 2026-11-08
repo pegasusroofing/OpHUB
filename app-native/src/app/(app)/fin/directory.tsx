@@ -10,6 +10,8 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { FinForm, type Field } from '@/components/FinForm';
 import { FinFilterBar } from '@/components/FinFilterBar';
 import { FinPage, finSettingsGo, FinRow } from '@/components/FinNav';
+import { useXeroStatus } from '@/components/FinXero';
+import { XeroWorkersButton } from '@/components/FinXeroWorkers';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { bankOk, sortCode } from '@/components/FinSubs';
 import { useToast } from '@/components/toast';
@@ -55,6 +57,8 @@ export default function FinDirectory() {
   const [pplSort, setPplSort] = useState('az');
   const [busy, setBusy] = useState(false);
   const desk = useDesk();
+  const { data: xst } = useXeroStatus();
+  const xeroOn = !!(xst?.data as Row | null | undefined)?.connected;
   const th = useTheme();
   const { data: sites = [] } = useSites();
   const { data: jd } = useJobsData(kind === 'client' ? me?.org_id : null);
@@ -146,7 +150,7 @@ export default function FinDirectory() {
             ))}
           </View>
         )}
-        <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ Add a person" onPress={() => setEdit({ key: '', name: '', r: { pay_type: 'subcontractor', cis_rate: 20 }, app: false })} /></View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: desk ? 'flex-end' : 'center', marginBottom: 10 }}>{xeroOn && <XeroWorkersButton />}<Button title="+ Add a person" onPress={() => setEdit({ key: '', name: '', r: { pay_type: 'subcontractor', cis_rate: 20 }, app: false })} /></View>
         <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search name or UTR' }} sel={pplSel} onChange={setPplSel} onClear={() => setPplSel({ show: [] })} sorts={[['az', 'Name A to Z'], ['za', 'Name Z to A']]} sort={pplSort} onSort={setPplSort}
           parts={[{ key: 'show', label: 'Show', items: [['subs', 'CIS subcontractors'], ['unver', 'Not verified'], ['paye', 'PAYE staff'], ['left', 'No longer working for us']].map(([v, l]) => ({ v, l, n: rows.filter(F[v]).length })) }]} />
         {/* A laptop gets the current app's table: Name, CIS, UTR, HMRC Check, Day Rate, Bank and a day-rate total (9219j; cmp-fin 5 Nov 2026). */}

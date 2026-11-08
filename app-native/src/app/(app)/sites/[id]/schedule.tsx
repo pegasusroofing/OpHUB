@@ -61,6 +61,9 @@ export default function Schedule() {
   const [pctPrompt, setPctPrompt] = useState<string | null>(null);
   const [selecting, setSelecting] = useState<Set<string> | null>(null);
   const [adding, setAdding] = useState<string | null>(null); // group key with the add-task box open
+  // Multi-site jobs (460 sectionFirstSubAddr): once a task is added with an address, later tasks added in the same section go
+  // to the same address, even after the box is closed and opened again (until you leave the job).
+  const [lastAddr, setLastAddr] = useState<Record<string, string>>({});
   const [pdfText, setPdfText] = useState<string | null>(null); // tasks read from a PDF, to check before adding
   // Main-contractor jobs: the job's subcontractors, for tagging tasks (460).
   const { data: subCos = [] } = useQuery({ queryKey: ['sowSubCos', site?.id], enabled: !!site?.acting_as_main_contractor, queryFn: async () => (((await supabase.from('subcontractor_companies' as never).select('id,name').eq('site_id', site?.id as string)).data as { id: string; name: string }[] | null) ?? []) });
@@ -129,7 +132,8 @@ export default function Schedule() {
   const canAdd = manager;
   const addBox = (key: string, sectionId: string | null) => canAdd && (adding === key
     ? <AddTaskBox addresses={site.multi_site ? data?.addresses ?? [] : []} onCancel={() => setAdding(null)}
-        onAdd={async (name, subId) => { if (await addTask(site.id, name, sectionId, subId)) { changed(); return true; } toast('Could not save — try again.'); return false; }} />
+        fixed={site.multi_site ? lastAddr[key] : undefined} onChangeFixed={() => setLastAddr((o) => { const n = { ...o }; delete n[key]; return n; })}
+        onAdd={async (name, subId) => { if (await addTask(site.id, name, sectionId, subId)) { if (subId) setLastAddr((o) => ({ ...o, [key]: subId })); changed(); return true; } toast('Could not save — try again.'); return false; }} />
     : <Pressable onPress={() => setAdding(key)} accessibilityRole="button" style={{ alignSelf: 'flex-start', marginTop: 4, borderWidth: 1.5, borderColor: t.brand1, borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 }}><Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.4, color: t.brand1 }}>+ ADD TASK</Text></Pressable>);
   const sectionMenu = async (sec: { id: string; name: string }) => {
     const k = await chooseAction(sec.name, [{ key: 'dup', label: '⧉ Duplicate section' }, { key: 'ren', label: '✎ Rename' }, { key: 'vis', label: '🔒 Who can see this' }, { key: 'del', label: '🗑 Delete', danger: true }]);
@@ -326,9 +330,11 @@ export default function Schedule() {
   );
 }
 
-function AddTaskBox({ addresses, onAdd, onCancel }: { addresses: { id: string; name: string }[]; onAdd: (name: string, subId: string | null) => Promise<boolean>; onCancel: () => void }) {
+function AddTaskBox({ addresses, onAdd, onCancel, fixed, onChangeFixed }: { addresses: { id: string; name: string }[]; onAdd: (name: string, subId: string | null) => Promise<boolean>; onCancel: () => void; fixed?: string; onChangeFixed?: () => void }) {
   const [name, setName] = useState('');
-  const [sub, setSub] = useState<string | null>(null);
+  const [sub0, setSub] = useState<string | null>(null);
+  const fixedAddr = fixed ? addresses.find((a) => a.id === fixed) : undefined;
+  const sub = fixedAddr ? fixedAddr.id : sub0;
   const [busy, setBusy] = useState(false);
   const add = async () => { if (!name.trim() || busy) return; setBusy(true); try { if (await onAdd(name.trim(), sub)) setName(''); } finally { setBusy(false); } };
   return (
@@ -343,7 +349,9 @@ function AddTaskBox({ addresses, onAdd, onCancel }: { addresses: { id: string; n
           <Text style={{ fontSize: 16, color: base.slate, fontWeight: '600' }}>✕</Text>
         </Pressable>
       </View>
-      {addresses.length > 0 && (
+      {fixedAddr ? (
+        <Text style={{ fontSize: 12.5, color: base.slate, marginTop: 6 }}>📍 Tagged to {fixedAddr.name} — same address as the last task added here. <Text accessibilityRole="button" onPress={() => { setSub(fixedAddr.id); onChangeFixed?.(); }} style={{ color: base.blue, fontWeight: '600' }}>Change</Text></Text>
+      ) : addresses.length > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
           {[{ id: '', name: 'Not on the list' }, ...addresses].map((a) => (
             <Pressable key={a.id} onPress={() => setSub(a.id || null)} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, borderWidth: 1, borderColor: (sub || '') === a.id ? live.brand1 : base.line, backgroundColor: (sub || '') === a.id ? live.brand1 : base.card }}>
