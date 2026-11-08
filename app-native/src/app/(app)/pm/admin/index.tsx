@@ -87,7 +87,7 @@ export default function AdminCentre() {
           {ADMIN_PAGES.company.show(me) && (
             <Group title="Company">
               <Row icon="brush" tint="grey" label="Company" sub="Logo, theme, integrations" onPress={go('company')} last={!od} />
-              {od && <Row icon="cloud" tint="grey" label="Integrations by project" sub="What each project can sync, and set it up" onPress={() => open(od)} last />}
+              {od && <Row icon="cloud" tint="grey" label="OneDrive" sub="New job folders, where things save, and each job's folders" onPress={() => open(od)} last />}
             </Group>
           )}
           {/* The current app's footer under the hub (260): who you are, My Signature, the Finance (trial) switch, Sign Out. */}
