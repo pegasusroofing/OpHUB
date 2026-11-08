@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OneDrive Admin Mock-Ups</title>
+<!-- Mock-ups for Andy (8 Nov 2026): the OneDrive area under Admin in Projects and Finance, where things save, adding
+     something to save, changing a folder, the New Project tick box, the client switch in the Directory, and the
+     super admin's set-up for a new company. Pictures only: nothing here works. -->
+<style>
+  :root { --ink:#101828; --slate:#667085; --line:#D0D5DD; --card:#fff; --cardline:#E4E7EC; --paper:#EEF0F3; --brand:#E3262B; --side:#17181C; --blue:#1D5FD1; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #ccc; font-family: "Inter", "Segoe UI", Arial, sans-serif; color: var(--ink); }
+  .screen { width: 1366px; min-height: 900px; display: flex; background: var(--paper); margin: 0 0 40px; position: relative; }
+  .side { width: 248px; background: var(--side); color: #fff; padding: 22px 12px; flex-shrink: 0; }
+  .logo { display: flex; gap: 10px; align-items: center; margin: 0 8px 22px; }
+  .logo b { display: block; font-size: 15px; } .logo small { font-size: 10px; letter-spacing: 1px; color: #9aa0aa; }
+  .logo i { width: 40px; height: 40px; border-radius: 10px; background: #F08A8A; display: block; }
+  .nav { padding: 9px 12px; border-radius: 8px; font-size: 14px; font-weight: 600; color: #e4e6ea; margin-bottom: 4px; }
+  .nav.on { background: #2A2C33; border-left: 3px solid var(--brand); }
+  .main { flex: 1; min-width: 0; }
+  .top { height: 80px; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; border-bottom: 1px solid var(--cardline); }
+  .top h1 { margin: 0; font-size: 24px; } .top small { color: var(--slate); font-size: 12px; }
+  .trail { padding: 14px 40px 6px; font-size: 13.5px; font-weight: 600; color: var(--brand); }
+  .trail span { color: #B8BDC6; margin: 0 6px; } .trail em { font-style: normal; color: var(--ink); }
+  .body { padding: 6px 40px 40px; max-width: 1118px; }
+  .card { background: var(--card); border: 1px solid var(--cardline); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+  .h { font-size: 11.5px; font-weight: 700; color: var(--slate); letter-spacing: .4px; margin-bottom: 8px; text-transform: uppercase; }
+  .muted { color: var(--slate); font-size: 13px; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid #EEF0F2; font-size: 13.5px; }
+  .row:first-of-type { border-top: 0; }
+  .what { width: 260px; flex-shrink: 0; } .what b { display: block; font-size: 14px; } .what span { color: var(--slate); font-size: 12px; }
+  .folder { flex: 1; min-width: 0; color: var(--blue); font-weight: 600; font-size: 13px; }
+  .folder small { color: var(--slate); font-weight: 400; }
+  .yn { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; font-size: 12.5px; font-weight: 600; flex-shrink: 0; }
+  .yn span { padding: 5px 12px; color: var(--ink); background: #fff; } .yn span.on { background: var(--ink); color: #fff; }
+  .btn { display: inline-block; padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 13.5px; background: var(--brand); color: #fff; }
+  .btn.ghost { background: #E2E5EA; color: var(--ink); } .btn.small { padding: 5px 12px; font-size: 12.5px; }
+  .btns { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
+  .chip { font-size: 11px; font-weight: 600; border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; color: var(--ink); background: #F6F7F9; white-space: nowrap; }
+  .tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--cardline); margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--slate); }
+  .tabs span { padding: 8px 0; } .tabs span.on { color: var(--ink); border-bottom: 2px solid var(--brand); }
+  .group { font-size: 13px; font-weight: 700; color: var(--ink); margin: 6px 0 2px; }
+  .field { margin-bottom: 10px; } .field label { display: block; font-size: 12.5px; color: var(--slate); font-weight: 500; margin-bottom: 3px; }
+  .box { border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; font-size: 14px; background: #fff; }
+  .two { display: flex; gap: 10px; } .two > * { flex: 1; }
+  .shade { position: absolute; inset: 0; background: rgba(0,0,0,.45); }
+  .pop { position: absolute; background: #fff; border-radius: 14px; padding: 16px; width: 520px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+  .pop .x { position: absolute; right: 14px; top: 12px; color: var(--slate); font-size: 18px; }
+  .pop h3 { margin: 0 0 10px; font-size: 16px; }
+  .crumbs { font-size: 13px; font-weight: 600; color: var(--blue); margin-bottom: 8px; } .crumbs span { color: #B8BDC6; margin: 0 4px; } .crumbs em { font-style: normal; color: var(--ink); }
+  .fold { display: flex; align-items: center; gap: 8px; padding: 8px 4px; border-top: 1px solid #F0F1F4; font-size: 14px; }
+  .fold::before { content: "📁"; }
+  .fold.sel { background: #F0F4FF; border-radius: 6px; font-weight: 600; }
+  .ok { color: #1E7A43; font-weight: 600; } .warn { color: #B45309; font-weight: 600; }
+  .note { background: #FFF7E6; border: 1px solid #F5D9A8; border-radius: 10px; padding: 9px 12px; font-size: 13px; margin-bottom: 12px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; padding: 11px 0; border-top: 1px solid #EEF0F2; }
+  .step:first-of-type { border-top: 0; }
+  .dot { width: 26px; height: 26px; border-radius: 13px; border: 1.5px solid #C9CDD3; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--slate); flex-shrink: 0; }
+  .dot.done { background: var(--ink); border-color: var(--ink); color: #fff; } .dot.now { border: 2px solid var(--brand); color: var(--brand); }
+  .step b { display: block; font-size: 14px; } .step .muted { margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<!-- 1. The OneDrive page: connection, new jobs, and where things save (Projects tab) -->
+<div class="screen" id="s1">
+  <div class="side"><div class="logo"><i></i><div><b>RTB Roofing Ltd</b><small>OPHUB</small></div></div>
+    <div class="nav">Home</div><div class="nav">Projects</div><div class="nav">Quotes</div><div class="nav">Deliveries</div><div class="nav">Calendar</div><div class="nav">OpHUB Finance</div><div class="nav on">Admin</div></div>
+  <div class="main">
+    <div class="top"><h1>OneDrive</h1><small>RTB Roofing Ltd</small></div>
+    <div class="trail">Admin<span>›</span><em>OneDrive</em></div>
+    <div class="body">
+      <div class="card" style="display:flex;align-items:center;gap:12px">
+        <div style="flex:1"><div class="h">Connection</div><span class="ok">● Connected</span> <span class="muted">· andy.cramp@rtbroofinglimited.com · Saving into “RTB Roofing Ltd”</span></div>
+        <span class="btn ghost small">Reconnect</span><span class="btn ghost small">Disconnect</span>
+      </div>
+      <div class="card">
+        <div class="h">New Jobs</div>
+        <div class="row"><div class="what"><b>Create A OneDrive Folder For Every New Job?</b><span>Can be unticked on a job, or turned off for a client</span></div><div style="flex:1"></div><div class="yn"><span class="on">Yes</span><span>No</span></div></div>
+        <div class="row"><div class="what"><b>New Job Folders Go In</b><span>Each job gets its own folder here</span></div><div class="folder">📁 RTB Roofing Ltd › Live Projects ▾</div></div>
+        <div class="row"><div class="what"><b>Built From</b><span>Your template folder, copied for each job</span></div><div class="folder">📁 Live Projects › - New Job Pack - Template ▾</div></div>
+      </div>
+      <div class="card">
+        <div class="h">Where Things Save</div>
+        <div class="tabs"><span class="on">Projects</span><span>Finance</span><span>Company</span></div>
+        <div class="muted" style="margin-bottom:6px">Inside each job’s folder. Tap a folder to change it; Yes / No turns the auto-save on or off.</div>
+        <div class="group">Schedule Of Works</div>
+        <div class="row"><div class="what"><b>Pre-Start Photos</b><span>When a pre-start photo is saved</span></div><div class="folder">Job › 5. OpHUB x Photos &amp; Inspections › 1. Pre Start ▾</div><div class="yn"><span class="on">Yes</span><span>No</span></div></div>
+        <div class="row"><div class="what"><b>Progress And Completed Photos</b><span>Into that week’s folder</span></div><div class="folder">Job › 5. OpHUB x Photos › Week 3 (w-c 9 Nov) ▾</div><div class="yn"><span class="on">Yes</span><span>No</span></div></div>
+        <div class="group">Health &amp; Safety</div>
+        <div class="row"><div class="what"><b>RAMS</b><span>When issued (old ones stay)</span></div><div class="folder">Job › 2. Health &amp; Safety › 1. RAMS ▾</div><div class="yn"><span class="on">Yes</span><span>No</span></div></div>
+        <div class="row"><div class="what"><b>Toolbox Talks</b><span>When issued on the job</span></div><div class="folder">Job › 2. Health &amp; Safety › 3. Toolbox Talks ▾</div><div class="yn"><span class="on">Yes</span><span>No</span></div></div>
+        <div class="row"><div class="what"><b>Signed Inductions</b><span>When an induction is signed</span></div><div class="folder">Job › Inductions › 1. Completed Inductions ▾</div><div class="yn"><span class="on">Yes</span><span>No</span></div></div>
+        <div class="row"><div class="what"><b>Accident / Near Miss Reports</b><span>When one is submitted</span></div><div class="folder"><small>Not saving</small></div><div class="yn"><span>Yes</span><span class="on">No</span></div></div>
+        <div class="group">Materials</div>
+        <div class="row"><div class="what"><b>Material PO’s</b><span>Out, and files dropped in come back</span></div><div class="folder">Job › 4. Subcontractors &amp; Suppliers › 4. Supplier Material Orders ▾</div><div class="yn"><span class="on">Yes</span><span>No</span></div></div>
+        <div class="btns"><span class="btn">+ Add Something To Save</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 2. + Add Something To Save: pick what, where, and auto-save -->
+<div class="screen" id="s2">
+  <div class="side"><div class="logo"><i></i><div><b>RTB Roofing Ltd</b><small>OPHUB</small></div></div>
+    <div class="nav">Home</div><div class="nav">Projects</div><div class="nav">Quotes</div><div class="nav">Deliveries</div><div class="nav">Calendar</div><div class="nav">OpHUB Finance</div><div class="nav on">Admin</div></div>
+  <div class="main">
+    <div class="top"><h1>OneDrive</h1><small>RTB Roofing Ltd</small></div>
+    <div class="trail">Admin<span>›</span><em>OneDrive</em></div>
+    <div class="body">
+      <div class="card" style="height:700px"><div class="h">Where Things Save</div><div class="tabs"><span>Projects</span><span class="on">Finance</span><span>Company</span></div></div>
+    </div>
+  </div>
+  <div class="shade"></div>
+  <div class="pop" style="left:520px;top:190px">
+    <span class="x">✕</span><h3>Add Something To Save</h3>
+    <div class="field"><label>What</label><div class="box">Applications For Payment ▾</div></div>
+    <div class="muted" style="margin:-4px 0 10px">Also not saving yet: Sales Invoices · Certificates · Statements · Subcontractor Payment Notices · Monthly Reports</div>
+    <div class="field"><label>When</label><div class="box">When It’s Sent To The Client ▾</div></div>
+    <div class="field"><label>Save It In</label><div class="two"><div class="box" style="font-weight:600">The Job’s Folder ▾</div><div class="box" style="color:var(--blue);font-weight:600">📁 1. Contract &amp; Commercial › 4. Applications ▾</div></div></div>
+    <div class="field"><label>Name The File</label><div class="box">Application 3 - J101 Studley Rd.pdf</div></div>
+    <div class="row" style="border:0;padding:4px 0 0"><div class="what"><b>Save Automatically?</b><span>No: a “Save To OneDrive” button instead</span></div><div style="flex:1"></div><div class="yn"><span class="on">Yes</span><span>No</span></div></div>
+    <div class="btns"><span class="btn">Add</span><span class="btn ghost">Cancel</span></div>
+  </div>
+</div>
+
+<!-- 3. Change the folder: browse the job pack's folders, pop-up near the tap -->
+<div class="screen" id="s3">
+  <div class="side"><div class="logo"><i></i><div><b>RTB Roofing Ltd</b><small>OPHUB</small></div></div>
+    <div class="nav">Home</div><div class="nav">Projects</div><div class="nav">Quotes</div><div class="nav">Deliveries</div><div class="nav">Calendar</div><div class="nav">OpHUB Finance</div><div class="nav on">Admin</div></div>
+  <div class="main">
+    <div class="top"><h1>OneDrive</h1><small>RTB Roofing Ltd</small></div>
+    <div class="trail">Admin<span>›</span><em>OneDrive</em></div>
+    <div class="body">
+      <div class="card">
+        <div class="h">Where Things Save</div>
+        <div class="tabs"><span class="on">Projects</span><span>Finance</span><span>Company</span></div>
+        <div class="group">Health &amp; Safety</div>
+        <div class="row"><div class="what"><b>RAMS</b><span>When issued (old ones stay)</span></div><div class="folder" style="background:#F0F4FF;border-radius:6px;padding:4px 6px">Job › 2. Health &amp; Safety › 1. RAMS ▾</div><div class="yn"><span class="on">Yes</span><span>No</span></div></div>
+        <div class="row"><div class="what"><b>Toolbox Talks</b><span>When issued on the job</span></div><div class="folder">Job › 2. Health &amp; Safety › 3. Toolbox Talks ▾</div><div class="yn"><span class="on">Yes</span><span>No</span></div></div>
+        <div class="row" style="height:420px;align-items:flex-start"><div class="what"><b>COSHH</b><span>When a sheet is added</span></div><div class="folder">Job › 2. Health &amp; Safety › 2. COSHH ▾</div><div class="yn"><span class="on">Yes</span><span>No</span></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="pop" style="left:600px;top:250px;width:470px">
+    <span class="x">✕</span><h3>RAMS Save In</h3>
+    <div class="crumbs">Job Folder<span>›</span><em>2. Health &amp; Safety</em></div>
+    <div class="fold sel">1. RAMS</div>
+    <div class="fold">2. COSHH</div>
+    <div class="fold">3. Toolbox Talks</div>
+    <div class="fold">4. Permits To Work</div>
+    <div class="muted" style="margin:8px 0 0">These are the folders in your template, so every job has them. A folder added here is added to the template too.</div>
+    <div class="btns"><span class="btn">Use “1. RAMS”</span><span class="btn ghost">+ New Folder</span></div>
+  </div>
+</div>
+
+<!-- 4. New Project: the Create OneDrive Folder tick box, following the client's setting -->
+<div class="screen" id="s4">
+  <div class="side"><div class="logo"><i></i><div><b>RTB Roofing Ltd</b><small>OPHUB</small></div></div>
+    <div class="nav">Home</div><div class="nav on">Projects</div><div class="nav">Quotes</div><div class="nav">Deliveries</div><div class="nav">Calendar</div><div class="nav">OpHUB Finance</div><div class="nav">Admin</div></div>
+  <div class="main">
+    <div class="top"><h1>Add A Project</h1><small>RTB Roofing Ltd</small></div>
+    <div class="trail">Projects<span>›</span><em>Add A Project</em></div>
+    <div class="body" style="max-width:760px">
+      <div class="card">
+        <div class="field"><label>Project Name</label><div class="box">Oak House Re-Roof</div></div>
+        <div class="two"><div class="field"><label>Job Number</label><div class="box">J118 (Next Automatic)</div></div><div class="field"><label>Start Date</label><div class="box">16 Nov 2026 📅</div></div></div>
+        <div class="field"><label>Client</label><div class="box">Sovereign Housing</div></div>
+        <div class="field"><label>Address</label><div class="box">Oak House, Banbury, OX16 9AA</div></div>
+        <div class="row" style="border-top:1px solid #EEF0F2;margin-top:4px"><div class="what" style="width:auto;flex:1"><b>Create A OneDrive Folder?</b><span>From your template, in Live Projects, with the Material PO’s and Inductions folders linked</span></div><div class="yn"><span class="on">Yes</span><span>No</span></div></div>
+        <div class="note" style="margin:10px 0 0">Sovereign Housing is set to “No OneDrive Folders” in the Directory, so this would normally start on No. Changing it here is for this job only.</div>
+        <div class="btns"><span class="btn">Add Project</span><span class="btn ghost">Cancel</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 5. Directory › Clients: OneDrive folders permanently off for a client -->
+<div class="screen" id="s5">
+  <div class="side"><div class="logo"><i></i><div><b>RTB Roofing Ltd</b><small>OPHUB</small></div></div>
+    <div class="nav">Home</div><div class="nav">Projects</div><div class="nav">Quotes</div><div class="nav">Deliveries</div><div class="nav">Calendar</div><div class="nav on">OpHUB Finance</div><div class="nav">Admin</div></div>
+  <div class="main">
+    <div class="top"><h1>Directory</h1><small>RTB Roofing Ltd</small></div>
+    <div class="trail">Finance<span>›</span>Directory<span>›</span><em>Clients</em></div>
+    <div class="body">
+      <div class="card" style="height:620px">
+        <div class="tabs"><span class="on">Clients</span><span>Suppliers</span><span>Labour</span></div>
+        <div class="row"><div class="what"><b>Bellway Homes</b><span>accounts@bellway.example</span></div><div style="flex:1"></div><span class="chip">3 Jobs</span></div>
+        <div class="row"><div class="what"><b>Sovereign Housing</b><span>repairs@sovereign.example</span></div><div style="flex:1"></div><span class="chip">No OneDrive Folders</span><span class="chip">12 Jobs</span></div>
+        <div class="row"><div class="what"><b>Persimmon</b><span>ap@persimmon.example</span></div><div style="flex:1"></div><span class="chip">1 Job</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="shade"></div>
+  <div class="pop" style="left:520px;top:150px;width:560px">
+    <span class="x">✕</span><h3>Sovereign Housing</h3>
+    <div class="two"><div class="field"><label>Email</label><div class="box">repairs@sovereign.example</div></div><div class="field"><label>Phone</label><div class="box">01295 000000</div></div></div>
+    <div class="two"><div class="field"><label>Payment Terms</label><div class="box">30 Days ▾</div></div><div class="field"><label>VAT</label><div class="box">Standard 20% ▾</div></div></div>
+    <div class="row" style="border-top:1px solid #EEF0F2"><div class="what" style="width:auto;flex:1"><b>Create OneDrive Folders For This Client’s Jobs?</b><span>No: their new jobs start with “Create A OneDrive Folder?” on No. Jobs already made keep their folders.</span></div><div class="yn"><span>Yes</span><span class="on">No</span></div></div>
+    <div class="btns"><span class="btn">Save</span><span class="btn ghost">Cancel</span></div>
+  </div>
+</div>
+
+<!-- 6. Super admin: setting up a new company, OneDrive steps included -->
+<div class="screen" id="s6">
+  <div class="side"><div class="logo"><i style="background:#9AA0AA"></i><div><b>OpHUB Platform</b><small>SUPER ADMIN</small></div></div>
+    <div class="nav">Companies</div><div class="nav">Billing</div><div class="nav">Usage</div></div>
+  <div class="main">
+    <div class="top"><h1>Hughes Roofing Ltd</h1><small>New company · Projects and Finance</small></div>
+    <div class="trail">Companies<span>›</span><em>Hughes Roofing Ltd</em></div>
+    <div class="body" style="max-width:860px">
+      <div class="card">
+        <div class="h">Setting Up The Company</div>
+        <div class="step"><div class="dot done">✓</div><div style="flex:1"><b>Company, Plan And First Admin</b><div class="muted">Projects and Finance · Admin: Dan Hughes (invite sent)</div></div></div>
+        <div class="step"><div class="dot done">✓</div><div style="flex:1"><b>Connect Their OneDrive</b><div class="muted">Done by their admin, signed in to their Microsoft account (we never see their password)</div></div></div>
+        <div class="step"><div class="dot now">3</div><div style="flex:1"><b>Choose Their Folders</b><div class="muted">Where new job folders go, and their template folder. No template? Copy OpHUB’s Standard Job Pack into their OneDrive.</div><div style="margin-top:8px;display:flex;gap:8px"><span class="btn small">Copy The Standard Job Pack</span><span class="btn ghost small">Use Their Own Template ▾</span></div></div></div>
+        <div class="step"><div class="dot">4</div><div style="flex:1"><b>Where Things Save</b><div class="muted">Starts with OpHUB’s standard list (RAMS, toolbox talks, photos, PO’s, applications…), matched to their template’s folders. Their admin changes it under Admin › OneDrive.</div></div></div>
+        <div class="step"><div class="dot">5</div><div style="flex:1"><b>Clients Without Folders</b><div class="muted">Any clients that never want OneDrive folders (Directory › Clients)</div></div></div>
+        <div class="step"><div class="dot">6</div><div style="flex:1"><b>Test Job</b><div class="muted">Make a test job, check its folder is built and a test PDF lands in the right place, then delete the test job</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

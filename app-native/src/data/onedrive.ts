@@ -25,7 +25,8 @@ export const useOneDriveStatus = (orgId: string | null | undefined) => useQuery(
 /** Starts the Microsoft sign-in: same tab on the web, the phone's browser in the app. */
 export async function connectOneDrive(): Promise<string | null> {
   const web = Platform.OS === 'web';
-  const r = await supabase.functions.invoke('onedrive-oauth-start', { body: { native: !web, origin: web ? window.location.origin : null } });
+  // ret: come back to this page after signing in to Microsoft (8 Nov 2026), not the current web app's /app.html.
+  const r = await supabase.functions.invoke('onedrive-oauth-start', { body: { native: !web, origin: web ? window.location.origin : null, ...(web ? { ret: window.location.pathname } : {}) } });
   const d = r.data as { url?: string; error?: string } | null;
   if (r.error || !d?.url) return d?.error || 'Could not start OneDrive connection.';
   if (web) window.location.href = d.url; else await Linking.openURL(d.url);
