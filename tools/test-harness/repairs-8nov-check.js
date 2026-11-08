@@ -50,7 +50,7 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   for (let i = 0; i < await wos.count(); i++) { const b = await wos.nth(i).boundingBox(); if (b && b.y > ly) { ly = b.y; lowest = wos.nth(i); } }
   await lowest.click(); await page.waitForTimeout(1500);
   check(!/box=/.test(page.url()) && /Tap a box to see its jobs/.test(await text()), 'Works Orders in the trail goes back to the boxes');
-  await page.getByText('+ New Job (Read Works Order)', {exact: true}).click(); await page.waitForTimeout(600);
+  await page.locator('text="+ New Job (Read Works Order)" >> visible=true').first().click(); await page.waitForTimeout(600);
   const up = page.getByRole('button', {name: '📎 Upload Works Order/Orders'});
   check(await up.count() === 1, 'New Job: one button, Upload Works Order/Orders');
   const ub = await up.boundingBox(), nb = await page.getByLabel('Works Order Number').boundingBox();
@@ -89,7 +89,7 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   await page.screenshot({path: 'shots/repairs-update-status.png'});
   await page.getByText('Save', {exact: true}).last().click(); await page.waitForTimeout(2000);
   j2 = db.repair_jobs.find((j) => j.id === 'j2');
-  check(j2.survey_required === 'Y' && !!j2.survey_date && j2.fault_description === 'Cracked lead to porch' && !!j2.surveyed_by, 'Update Status saves the visit');
+  check(j2.survey_required === 'Y' && !!j2.survey_date && j2.fault_description === 'Cracked lead to porch' && !j2.surveyed_by, 'Update Status saves the visit (Attended By left empty: no operative uploaded the photos)');
   t = await text();
   check(/REPORTS & PHOTOS/.test(t) && /Booking Visit Report/.test(t) && /Cracked lead to porch/.test(t) && !/Attendance Report/.test(t), 'Job tab: the report and the photos once in');
   await page.screenshot({path: 'shots/repairs-job-laptop.png', fullPage: true});
