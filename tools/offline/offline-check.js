@@ -4,7 +4,7 @@
 // sent to Supabase. Run offline/serve.js first, then: node tools/offline/offline-check.js
 const path = require('path');
 const {chromium} = require(path.join(__dirname, '..', 'test-harness', 'node_modules', 'playwright'));
-const B = 'http://localhost:8099', S4 = '44444444-4444-4444-4444-444444444444';
+const B = process.env.DEMO || 'http://localhost:8099', S4 = '44444444-4444-4444-4444-444444444444';
 const SHOTS = path.join(__dirname, '..', 'test-harness', 'shots');
 const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) process.exitCode = 1; };
 const signIn = async (page, email) => {
@@ -14,7 +14,8 @@ const signIn = async (page, email) => {
 };
 (async () => {
   const browser = await chromium.launch();
-  // ---- Laptop: nothing but this laptop ----
+  // ---- Laptop: nothing but this laptop (DEMO=<web link> checks only the phone, against the link) ----
+  if (!process.env.DEMO)
   {
     const ctx = await browser.newContext({viewport: {width: 1366, height: 900}});
     const outside = [], errs = [];

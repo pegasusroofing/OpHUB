@@ -16,7 +16,7 @@ ON THE LAPTOP
   3. Close the black window to stop it.
 
 ON THE PHONE (do this BEFORE the flight, with signal)
-  1. Open the demo's web link in Safari (iPhone) or Chrome (Android).
+  1. Open https://ophub-offline-demo.vercel.app in Safari (iPhone) or Chrome (Android).
   2. Wait about 30 seconds on the sign-in page while it saves itself onto the phone.
   3. iPhone: Share > Add To Home Screen. Android: menu > Add To Home Screen.
   4. On the plane, open "OpHUB Demo" from the home screen.
@@ -24,4 +24,6 @@ ON THE PHONE (do this BEFORE the flight, with signal)
 Not offline: maps, sending emails, Xero and OneDrive (they need the internet). Photos show a sample picture.
 
 To rebuild after changes: cd app-native, npx expo export --platform web --output-dir ../offline/app,
-then node tools/offline/make-offline.js
+then node tools/offline/make-offline.js. To update the phone link: copy offline/app to a folder named
+ophub-offline-demo and run npx vercel deploy --prod --yes --scope op-hub in it (Vercel project ophub-offline-demo).
+Check it: DEMO=https://ophub-offline-demo.vercel.app node tools/offline/offline-check.js
