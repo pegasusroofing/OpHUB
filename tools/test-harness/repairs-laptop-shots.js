@@ -39,9 +39,10 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   const page = await A.ctx.newPage(); await login(page);
   await page.goto('http://localhost:8081/sites/' + S1 + '/repairs'); await page.waitForTimeout(6000);
   await page.screenshot({path: 'shots/repair-worksorders-laptop.png'});
-  await page.getByLabel(/^Quotation Required, /).click(); await page.waitForTimeout(800);
-  const tile = await page.getByLabel(/^Quotation Required, /).boundingBox(), row = await page.getByText(/WO-1003/).first().boundingBox();
-  check(!!tile && !!row && row.x > tile.x + tile.width, 'laptop: a box open puts the boxes down the left, its jobs on the right');
+  // Tabs (Andy, 9 Nov 2026): a tab open, its jobs in the table under the tabs.
+  await page.getByRole('tab', {name: /^Quotation Required/}).click(); await page.waitForTimeout(800);
+  const tab = await page.getByRole('tab', {name: /^Quotation Required/}).boundingBox(), row = await page.getByText(/WO-1003/).first().boundingBox();
+  check(!!tab && !!row && row.y > tab.y, 'laptop: a tab open, its jobs under the tabs');
   await page.screenshot({path: 'shots/repair-worksorders-laptop-open.png'});
   A.db.profiles[0].finance_enabled = true;
   await page.goto('http://localhost:8081/fin/job/' + S1 + '/repairs'); await page.waitForTimeout(6000);

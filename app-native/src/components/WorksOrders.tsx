@@ -3,11 +3,12 @@
 // and Raise Invoice, and ticks done jobs in Completed Works - To Invoice to put them on one invoice. Finance's Costs By
 // Job and Schedule Of Rates are tabs beside Live Jobs (Andy, 8 Nov 2026).
 // Managers: + New Job (Read Works Order) across the top — the job number, address, call-out and resident are read from
-// the PDF — then a box for each stage (To Schedule, Scheduled - Awaiting Attendance, Quotation Required, Awaiting Client
-// Approval, Approved - Requires Booking Date, On Hold / Other Trades, Completed Works - To Invoice, Completed Works -
-// Paid, All Jobs), all the same size. Tapping a box opens its jobs on a page of their own, on the phone and the laptop,
-// with a drop-down to jump to another box (Andy, 8 Nov 2026); the jobs are in a table, as other lists are. The footer bar
-// has the number of jobs and Export Excel. No money here: the schedule of rates and quote pricing are in Finance.
+// the PDF — then a full-width search (address, postcode, works order number, resident…), then tabs (Andy, 9 Nov 2026, in
+// place of the boxes): All first, then Overdue, To Schedule, Scheduled - Awaiting Attendance, Quotation Required,
+// Awaiting Client Approval, Approved - Requires Booking Date, On Hold / Other Trades, Completed Works - To Invoice and
+// Completed Works - Paid, each with its count. Filter ▼ (stage on All; priority, operative, due) and Sort; the search and
+// the filter narrow every tab. The jobs are in a table, as other lists are. The footer bar has the number of jobs and
+// Export Excel, at the bottom of the page. No money here.
 // Operatives: their boxes (no Quotation Required or Paid; Completed Works without "To Invoice"), and their jobs, soonest
 // booking first, grouped by day, with Show All (all of them if nobody's booked on any).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -16,7 +17,9 @@ import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { usePageCrumbs } from '@/components/Crumbs';
-import { RepairTabs } from '@/components/FinNav';
+import { FinFilterBar, type FilterPart, type FilterSel } from '@/components/FinFilterBar';
+import { FinTabs, RepairTabs } from '@/components/FinNav';
+import { OphIcon } from '@/components/OphIcon';
 import { RepairNewJob } from '@/components/RepairNewJob';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
@@ -29,8 +32,8 @@ import { plainGet, plainSet } from '@/lib/kv';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { supabase } from '@/lib/supabase';
 import { exportRepairTracker } from '@/lib/repairExports';
-import { dueLabel, isOverdue } from '@/lib/rules/repairDue';
-import { BOXES, bookedFor, bookedTo, dayHeading, isOpen, noAccessOf, operativeJobs, otherTradesOf, repairStage, STAGE_LABEL, type Box, type RJob } from '@/lib/rules/repairStages';
+import { dueLabel, dueOf, isOverdue } from '@/lib/rules/repairDue';
+import { BOXES, bookedFor, bookedTo, dayHeading, isOpen, noAccessOf, operativeJobs, otherTradesOf, repairStage, STAGE_LABEL, type Box, type RJob, type Stage } from '@/lib/rules/repairStages';
 import type { RepairJob } from '@/lib/rules/repairs';
 import { isManager } from '@/lib/roles';
 import { base, page, radius, space, useTheme } from '@/theme/theme';
@@ -41,6 +44,13 @@ const chip = (txt: string, dark = false, amber = false) => (
   <Text key={txt} style={{ fontSize: 10.5, fontWeight: '600', color: dark ? '#fff' : amber ? '#B45309' : base.ink, backgroundColor: dark ? base.ink : amber ? '#FDF1E0' : '#F0F1F4', borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1, overflow: 'hidden' }}>{txt}</Text>
 );
 type J = RJob & RepairJob;
+/** Search (Andy, 9 Nov 2026): works order number, address and postcode, resident, phone, what's wrong, priority, stage.
+ *  Spaces don't matter, so "OX161AA" finds "OX16 1AA" and a phone number matches however it was typed. */
+const matches = (j: J, q: string) => {
+  const s = q.trim().toLowerCase(); if (!s) return true;
+  const hay = [j.job_number, j.address, j.tenant_name, j.tenant_phone, (j as Record<string, unknown>).tenant_no, j.description, j.priority, j.fault_description, j.repair_description, otherTradesOf(j), STAGE_LABEL[repairStage(j)]].filter(Boolean).join(' ').toLowerCase();
+  return hay.includes(s) || hay.replace(/\s+/g, '').includes(s.replace(/\s+/g, ''));
+};
 
 export function WorksOrders({ siteId: id, finance = false }: { siteId: string; finance?: boolean }) {
   const { me } = useAuth();
@@ -64,13 +74,17 @@ export function WorksOrders({ siteId: id, finance = false }: { siteId: string; f
   const sel = typeof boxParam === 'string' ? boxParam : '';
   const openBox = BOXES.find((b) => b.k === sel);
   const opView = !!me && !finance && !isManager(me) && me.role !== 'client';
-  usePageCrumbs(path, openBox ? [[finance ? 'Live Jobs' : 'Works Orders', path], [opView ? openBox.op || openBox.l : openBox.l, null]] : null);
+  // Operatives' boxes open a page of their own (in the trail); managers' tabs don't need it.
+  usePageCrumbs(path, openBox && opView ? [['Works Orders', path], [openBox.op || openBox.l, null]] : null);
   const wide = useWindowDimensions().width >= 900;
   const [showAll, setShowAll] = useState(false);
   const [adding, setAdding] = useState(false);
   const [find, setFind] = useState('');
   const [ticked, setTicked] = useState<string[]>([]);
   const [invBusy, setInvBusy] = useState(false);
+  // Managers' tabs (Andy, 9 Nov 2026): Filter ▼ and Sort.
+  const [fsel, setFsel] = useState<FilterSel>({});
+  const [sortBy, setSortBy] = useState('');
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const mgr = finance || isManager(me);
   const jobRoute = (jid: string) => (finance ? `/fin/job/${site.id}/repair/${jid}` : `/sites/${site.id}/repairs/job/${jid}`);
@@ -149,9 +163,8 @@ export function WorksOrders({ siteId: id, finance = false }: { siteId: string; f
   // A box's own page: a drop-down to jump to another box, search, the jobs.
   const boxPage = (boxes: Box[], pool: J[], label: (b: Box) => string, extra?: ReactNode, tick?: Parameters<typeof table>[1]) => {
     const def = boxes.find((b) => b.k === sel) || boxes[0];
-    const q = find.trim().toLowerCase();
     const inBox = pool.filter((j) => def.test(j, paid));
-    const shown = inBox.filter((j) => !q || `${j.job_number || ''} ${j.address || ''} ${j.tenant_name || ''} ${j.description || ''}`.toLowerCase().includes(q));
+    const shown = inBox.filter((j) => matches(j, find));
     const items = def.k === 'all' ? shown.slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))) : byBookingThenNewest(shown);
     return (
       <>
@@ -171,9 +184,19 @@ export function WorksOrders({ siteId: id, finance = false }: { siteId: string; f
     );
   };
 
-  // The footer bar, as on the other lists (Andy, 8 Nov 2026): how many jobs, and Export Excel, on one line.
+  // The search bar, full width (Andy, 9 Nov 2026).
+  const searchBar = (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, backgroundColor: base.card, paddingHorizontal: 12, marginBottom: 10 }}>
+      <OphIcon name="search" size={17} color={base.slate} />
+      <TextInput value={find} onChangeText={setFind} accessibilityLabel="Search jobs" placeholder={wide ? 'Search Address, Postcode, Works Order No. Or Resident' : 'Search Address, Postcode, WO No.'}
+        placeholderTextColor={base.slateLight} style={{ flex: 1, minWidth: 0, paddingVertical: 10, fontSize: 15, color: base.ink }} />
+      {!!find && <Pressable accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={10} onPress={() => setFind('')}><Text style={{ fontSize: 16, color: base.slate }}>✕</Text></Pressable>}
+    </View>
+  );
+  // The footer bar, as on the other lists (Andy, 8 Nov 2026): how many jobs, and Export Excel, on one line. It sits at the
+  // bottom of the page (Andy, 9 Nov 2026), and stays in view while a long list scrolls.
   const footer = (n: number) => (
-    <View style={{ position: 'sticky' as never, bottom: 10, marginTop: 10, marginBottom: space.xl, backgroundColor: t.brand1, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+    <View style={{ position: 'sticky' as never, bottom: 10, marginTop: 10, backgroundColor: t.brand1, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
       <Text style={{ flex: 1, color: t.brand1Text, fontSize: 12.5, fontWeight: '600' }}>{n} Job{n === 1 ? '' : 's'}</Text>
       <Pressable accessibilityRole="button" accessibilityLabel="Export Excel" onPress={async () => { if (!(await exportRepairTracker(site.name, jobs, finance))) toast('Could not make the file — try again.'); }}
         style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)', borderRadius: 7, paddingVertical: 3, paddingHorizontal: 10 }}>
@@ -181,7 +204,8 @@ export function WorksOrders({ siteId: id, finance = false }: { siteId: string; f
       </Pressable>
     </View>
   );
-  const shell = (el: ReactNode) => <ScrollView contentContainerStyle={page(wide ? 1180 : 720)} keyboardShouldPersistTaps="handled">{el}</ScrollView>;
+  // The page fills the screen, so the footer bar can sit at the bottom of it.
+  const shell = (el: ReactNode) => <ScrollView contentContainerStyle={[page(wide ? 1180 : 720), { flexGrow: 1, paddingBottom: space.m }]} keyboardShouldPersistTaps="handled">{el}</ScrollView>;
 
   if (me.role === 'client') {
     // The client: every job and where it's at; tap one for its hub (details, notes, the quote and reports).
@@ -249,12 +273,41 @@ export function WorksOrders({ siteId: id, finance = false }: { siteId: string; f
       <Button small kind="ghost" title={ticked.length === doneJobs.length ? 'Untick All' : 'Tick All'} onPress={() => setTicked(ticked.length === doneJobs.length ? [] : doneJobs.map((j) => j.id))} />
     </View>
   ) : null;
-  const inOpen = openBox ? all.filter((j) => openBox.test(j, paid)).length : jobs.length;
+  // Tabs in place of the boxes (Andy, 9 Nov 2026): All first, then each stage. The search and Filter ▼ narrow every tab
+  // and its count; Stage is a filter on All only (the other tabs are stages).
+  const TABS: Box[] = [...BOXES.filter((b) => b.k === 'all'), ...BOXES.filter((b) => b.k !== 'all')];
+  const tab = TABS.find((b) => b.k === sel) || TABS[0];
+  const dueIs = (j: J, d: string) => {
+    const due = dueOf(j); if (!due || !isOpen(j)) return false;
+    const now = new Date(), endToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1), week = new Date(+endToday + 6 * 86400000);
+    return d === 'overdue' ? +due < +now : d === 'today' ? +due >= +now && +due < +endToday : +due >= +now && +due < +week;
+  };
+  const keep = (j: J, withStage: boolean) => matches(j, find)
+    && (!fsel.prio?.length || fsel.prio.includes(j.priority || ''))
+    && (!fsel.op?.length || fsel.op.includes(bookedTo(j) || 'none'))
+    && (!fsel.due?.length || fsel.due.some((d) => dueIs(j, d)))
+    && (!withStage || !fsel.stage?.length || fsel.stage.includes(repairStage(j)));
+  const countOf = (b: Box) => all.filter((j) => keep(j, b.k === 'all') && b.test(j, paid)).length;
+  const inTab = all.filter((j) => keep(j, tab.k === 'all') && tab.test(j, paid));
+  const SORTS: [string, string][] = [['new', 'Newest First'], ['booked', 'Booking Date'], ['due', 'Due Date']];
+  const sortKey = sortBy || (tab.k === 'all' ? 'new' : 'booked');
+  const rows = sortKey === 'booked' ? byBookingThenNewest(inTab)
+    : sortKey === 'due' ? inTab.slice().sort((a, b) => (+(dueOf(a) || 8.64e15)) - (+(dueOf(b) || 8.64e15)))
+    : inTab.slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  const ops = [...new Set(all.map((j) => bookedTo(j)).filter(Boolean) as string[])];
+  const prios = [...new Set(all.map((j) => j.priority).filter(Boolean) as string[])].sort();
+  const parts: FilterPart[] = [
+    ...(tab.k === 'all' ? [{ key: 'stage', label: 'Stage', items: (Object.keys(STAGE_LABEL) as Stage[]).map((s) => ({ v: s, l: STAGE_LABEL[s], n: all.filter((j) => repairStage(j) === s).length })).filter((i) => i.n) }] : []),
+    { key: 'prio', label: 'Priority', items: prios.map((p) => ({ v: p, l: p, n: all.filter((j) => j.priority === p).length })) },
+    { key: 'op', label: 'Operative', items: [...ops.map((o) => ({ v: o, l: nameOf(people, o) })).sort((a, b) => a.l.localeCompare(b.l)), { v: 'none', l: 'Not Booked' }] },
+    { key: 'due', label: 'Due', items: [{ v: 'overdue', l: 'Overdue' }, { v: 'today', l: 'Due Today' }, { v: 'week', l: 'Due In The Next 7 Days' }] },
+  ];
+  const narrowed = !!find.trim() || Object.values(fsel).some((v) => v.length);
   return shell(
     <>
       {!finance && <Stack.Screen options={{ title: 'Works Orders' }} />}
       {finance && <RepairTabs id={id} on="repairs" />}
-      {siteStatusKey(site) === 'live' && assigned === 0 && !hideAssign && !openBox && (
+      {siteStatusKey(site) === 'live' && assigned === 0 && !hideAssign && tab.k === 'all' && (
         <Card style={{ backgroundColor: base.warnBg, paddingVertical: 10, flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
           <Pressable style={{ flex: 1 }} onPress={() => router.push(`/sites/${site.id}/admin` as never)}>
             <Text style={{ color: base.ink, fontSize: 13 }}><Text style={{ fontWeight: '600' }}>Nobody is assigned to this contract yet.</Text> Tap to assign operatives so they see its jobs and can check in.</Text>
@@ -264,16 +317,17 @@ export function WorksOrders({ siteId: id, finance = false }: { siteId: string; f
           </Pressable>
         </Card>
       )}
-      {openBox ? boxPage(BOXES, all, (b) => b.l, tickBar, canTick ? { on: (j) => ticked.includes(j.id), flip: (j) => setTicked(ticked.includes(j.id) ? ticked.filter((x) => x !== j.id) : [...ticked, j.id]) } : undefined) : (
-        <>
-          {/* + New Job across the top, then where every job is at: tap a box for its jobs (Andy, 7 Nov 2026). */}
-          <View style={{ marginBottom: 10 }}><Button title="+ New Job (Read Works Order)" onPress={() => setAdding(!adding)} /></View>
-          {adding && <RepairNewJob siteId={site.id} existing={jobs.map((j) => j.job_number || '')} onAdded={(jid) => { setAdding(false); if (jid) router.push(jobRoute(jid) as never); }} onCancel={() => setAdding(false)} />}
-          {tiles(BOXES, all)}
-          <Muted style={{ textAlign: 'center', marginBottom: 6 }}>Tap a box to see its jobs.</Muted>
-        </>
-      )}
-      {footer(inOpen)}
+      {/* + New Job across the top, the search, then the tabs (Andy, 7 and 9 Nov 2026). */}
+      <View style={{ marginBottom: 10 }}><Button title="+ New Job (Read Works Order)" onPress={() => setAdding(!adding)} /></View>
+      {adding && <RepairNewJob siteId={site.id} existing={jobs.map((j) => j.job_number || '')} onAdded={(jid) => { setAdding(false); if (jid) router.push(jobRoute(jid) as never); }} onCancel={() => setAdding(false)} />}
+      {searchBar}
+      <FinTabs items={TABS.map((b) => [b.k, b.k === 'all' ? 'All' : b.l, countOf(b)] as [string, string, number])} value={tab.k} onChange={(k) => { setTicked([]); router.setParams({ box: k } as never); }} />
+      <FinFilterBar parts={parts} sel={fsel} onChange={setFsel} onClear={() => setFsel({})} sorts={SORTS} sort={sortKey} onSort={setSortBy} />
+      {tickBar}
+      {rows.length ? table(rows, canTick ? { on: (j) => ticked.includes(j.id), flip: (j) => setTicked(ticked.includes(j.id) ? ticked.filter((x) => x !== j.id) : [...ticked, j.id]) } : undefined)
+        : <Muted style={{ textAlign: 'center', marginBottom: 10 }}>{narrowed ? (find.trim() ? `No jobs match “${find.trim()}”.` : 'No jobs match the filter.') : 'No jobs here.'}</Muted>}
+      <View style={{ flexGrow: 1 }} />
+      {footer(rows.length)}
     </>,
   );
 }

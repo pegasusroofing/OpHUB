@@ -55,7 +55,8 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   check(/Works Orders/.test(t) && /Health & Safety/.test(t) && /Calendar/.test(t) && /To Do List/.test(t) && !/Materials/.test(t), 'home: Works Orders, Calendar, To Do List, Health & Safety');
   {
     const wo = await page.getByLabel(/^Works Orders, /).boundingBox(), cal = await lowestBox(page, 'Calendar'), todo = await lowestBox(page, 'To Do List'), hs = await lowestBox(page, 'Health & Safety');
-    check(!!wo && !!cal && !!todo && !!hs && wo.y < cal.y && Math.abs(cal.y - todo.y) < 6 && hs.y > cal.y + 40, `home: Works Orders on top, Calendar and To Do List, Health & Safety a row down (${wo && cal && hs ? [wo.y, cal.y, hs.y].map(Math.round).join(' / ') : '?'})`);
+    // Rows, not tiles (Andy, 9 Nov 2026): Calendar, To Do List, Health & Safety one under another, under Works Orders.
+    check(!!wo && !!cal && !!todo && !!hs && wo.y < cal.y && cal.y < todo.y && todo.y < hs.y, `home: Works Orders on top, then rows: Calendar, To Do List, Health & Safety (${wo && cal && todo && hs ? [wo.y, cal.y, todo.y, hs.y].map(Math.round).join(' / ') : '?'})`);
     const vw = page.viewportSize().width;
     check(!!wo && wo.width > vw * 0.8, `home: Works Orders full width, like Live Projects (${wo ? Math.round(wo.width) : '?'} of ${vw})`);
     check(/\d+ open/.test(await page.getByLabel(/^Works Orders, /).innerText()), 'home: the Works Orders card says how many are open');
@@ -63,22 +64,20 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   await page.screenshot({path: 'shots/repair-home.png'});
   await page.goto(`http://localhost:8081/sites/${S1}/repairs`); await page.waitForTimeout(5000);
   t = await page.locator('body').innerText();
-  check(/To Schedule/.test(t) && /Scheduled - Awaiting Attendance/.test(t) && /Quotation Required/.test(t) && /Awaiting Client Approval/.test(t) && /Approved - Requires Booking Date/.test(t) && /On Hold \/ Other Trades/.test(t) && /Completed Works - To Invoice/.test(t) && /Completed Works - Paid/.test(t) && /All Jobs/.test(t), 'Works Orders: the boxes in Andy’s words, All Jobs a box too');
-  check(await page.getByLabel(/^Overdue, 1$/).count() === 1, 'Overdue box: the Emergency job past its 24 hours');
-  await page.getByLabel(/^Overdue, /).click(); await page.waitForTimeout(1200);
+  // Tabs in place of the boxes (Andy, 9 Nov 2026): All first, then each stage, with counts.
+  check(['Overdue', 'To Schedule', 'Scheduled - Awaiting Attendance', 'Quotation Required', 'Awaiting Client Approval', 'Approved - Requires Booking Date', 'On Hold / Other Trades', 'Completed Works - To Invoice', 'Completed Works - Paid'].every((l) => t.includes(l)) && /^All/.test((await page.getByRole('tab').first().innerText()).trim()), 'Works Orders: tabs in Andy’s words, All first');
+  check(/^Overdue\s*1$/.test((await page.getByRole('tab', {name: /^Overdue/}).innerText()).trim()), 'Overdue tab: the Emergency job past its 24 hours');
+  await page.getByRole('tab', {name: /^Overdue/}).click(); await page.waitForTimeout(1200);
   t = await page.locator('body').innerText();
-  check(/box=overdue/.test(page.url()) && /WO-1001/.test(t) && /Overdue \d+ (Hr|Day)/.test(t), 'Overdue: its own page, WO-1001 with how late it is');
-  await page.goBack(); await page.waitForTimeout(1200);
-  t = await page.locator('body').innerText();
-  check(!/WO-1001/.test(t) && /Tap a box to see its jobs/.test(t), 'Back: the boxes again, no list until one is tapped');
-  const plusBox = await page.getByRole('button', {name: '+ New Job (Read Works Order)'}).boundingBox(), firstTile = await page.getByLabel(/^To Schedule, /).boundingBox();
-  check(!!plusBox && !!firstTile && plusBox.y < firstTile.y && plusBox.width > 300, '+ New Job: full width, above the boxes');
-  await page.getByLabel(/^To Schedule, /).click(); await page.waitForTimeout(1200);
-  t = await page.locator('body').innerText();
-  check(/WO-1001/.test(t) && /Flat 4, Oak House/.test(t), 'tap To Schedule: lists WO-1001');
-  await page.getByLabel('Box: To Schedule').click(); await page.waitForTimeout(500);
-  await page.locator('text=/^Quotation Required \\(1\\)$/ >> visible=true').last().click(); await page.waitForTimeout(1200);
-  check(/box=quote_needed/.test(page.url()) && /WO-1003/.test(await page.locator('body').innerText()), 'the drop-down jumps to another box');
+  check(/box=overdue/.test(page.url()) && /WO-1001/.test(await page.getByLabel('Jobs table').innerText()) && /Overdue \d+ (Hr|Day)/.test(t), 'Overdue tab: WO-1001 with how late it is');
+  await page.getByRole('tab', {name: /^All/}).click(); await page.waitForTimeout(1000);
+  const plusBox = await page.getByRole('button', {name: '+ New Job (Read Works Order)'}).boundingBox(), firstTab = await page.getByRole('tab').first().boundingBox();
+  check(!!plusBox && !!firstTab && plusBox.y < firstTab.y && plusBox.width > 300, '+ New Job: full width, above the tabs');
+  await page.getByRole('tab', {name: /^To Schedule/}).click(); await page.waitForTimeout(1200);
+  t = await page.getByLabel('Jobs table').innerText();
+  check(/WO-1001/.test(t) && /Flat 4, Oak House/.test(t), 'To Schedule tab: lists WO-1001');
+  await page.getByRole('tab', {name: /^Quotation Required/}).click(); await page.waitForTimeout(1200);
+  check(/box=quote_needed/.test(page.url()) && /WO-1003/.test(await page.getByLabel('Jobs table').innerText()), 'another tab: Quotation Required');
   await page.goto(`http://localhost:8081/sites/${S1}/repairs`); await page.waitForTimeout(4000);
   const close = page.getByLabel('Close', {exact: true});
   if (await close.count()) { await close.first().click(); await page.waitForTimeout(400); check(!/Nobody is assigned/.test(await page.locator('body').innerText()), 'the assign-operatives banner closes with ✕'); }
@@ -98,7 +97,8 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   // A job needing a quote: hub, repair page, the quote.
   await page.goto(`http://localhost:8081/sites/${S1}/repairs/job/j3`); await page.waitForTimeout(5000);
   t = await page.locator('body').innerText();
-  check(/Quotation Required/.test(t) && /With Finance to price/.test(t), 'hub (Projects): the stage, and the quote is with Finance');
+  // A PM / admin prices it from Projects too (Andy, 9 Nov 2026).
+  check(/Quotation Required/.test(t) && /Next: price it/.test(t) && /Price It/.test(t), 'hub (Projects): the stage, and an admin can price it here');
   check(/Call-Out/.test(t) && /Resident/.test(t) && !/Tenant/.test(t) && /Booking Date/.test(t) && /Attended/.test(t) && /Completed/.test(t), 'hub: details (one resident) and the three dates');
   check(!/MONEY/.test(t) && !/£/.test(t), 'Projects: no money anywhere');
   await page.getByLabel(/^Booking Date: .*Change$/).click(); await page.waitForTimeout(600);
@@ -160,7 +160,8 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   check(Number(j3.variation_cost) === 282 && !!j3.variation_issued_at && j3.job_status === 'Surveyed - Variation Issued' && Array.isArray(j3.quote_lines) && j3.quote_lines.length === 2, 'Save & Send: net £282 saved, Awaiting Approval (old status kept in step)');
   await page.goto(`http://localhost:8081/sites/${S1}/repairs/job/j3`); await page.waitForTimeout(5000);
   t = await page.locator('body').innerText();
-  check(/Awaiting Client Approval/.test(t) && /Quote submitted/i.test(t) && !/£/.test(t), 'the hub: Awaiting Client Approval, “quote submitted”, no figures');
+  // PMs and admins quote from Projects (Andy, 9 Nov 2026), so the Quote line has its total here; still no costs or profit.
+  check(/Awaiting Client Approval/.test(t) && /Quote submitted/i.test(t) && /£338\.40/.test(t) && !/MONEY/.test(t), 'the hub: Awaiting Client Approval, “quote submitted”, the quote’s total (no costs or profit)');
   await page.getByText('Quote Update ▾', {exact: true}).last().click(); await page.waitForTimeout(600);
   await page.locator('text="Quote Approved" >> visible=true').last().click(); await page.waitForTimeout(2500);
   check(j3.quote_approved === true && j3.job_status === 'Approved - To Do', 'Quote Update ▾ › Quote Approved: the repair to book');
@@ -217,8 +218,8 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   A.db.profiles[0].finance_enabled = true;
   await page.goto(`http://localhost:8081/fin/job/${S1}/repairs`); await page.waitForTimeout(6000);
   t = await page.locator('body').innerText();
-  check(/Live Jobs/.test(t) && !/Bill Of Quantities/.test(t) && !/\bVariations\b/.test(t) && /To Schedule/.test(t) && /\+ New Job/.test(t), 'Finance: a Live Jobs tab (no BoQ or Variations), the same boxes as Projects');
-  await page.getByLabel(/^Completed Works - To Invoice, /).click(); await page.waitForTimeout(600);
+  check(/Live Jobs/.test(t) && !/Bill Of Quantities/.test(t) && !/\bVariations\b/.test(t) && /To Schedule/.test(t) && /\+ New Job/.test(t), 'Finance: a Live Jobs tab (no BoQ or Variations), the same tabs as Projects');
+  await page.getByRole('tab', {name: /^Completed Works - To Invoice/}).click(); await page.waitForTimeout(800);
   await page.getByLabel('Tick WO-1004').click(); await page.waitForTimeout(300);
   await page.screenshot({path: 'shots/repair-finance.png', fullPage: true});
   await page.getByText('Invoice Ticked Jobs (1)', {exact: true}).click(); await page.waitForTimeout(800);

@@ -2,8 +2,9 @@
 // the progress bar and what's next, the client and the works order (with a viewer), address, call-out, resident, the
 // booking / attended / completed dates, then the Work Summary — each stage of the works (booked in, attended, quote,
 // approved, works done) with its reports and photos — then for Finance a Money box (quoted, costs, margin, the
-// invoice), the quote, and notes everyone can add (the client too). Projects shows no money: pricing the quote and the
-// schedule of rates are Finance's (Andy, 7 Nov 2026). Managers get Update ▾; a client sees the details, their reports
+// invoice), the quote, and notes everyone can add (the client too). Projects shows no costs or profit; the schedule of
+// rates is Finance's (Andy, 7 Nov 2026). PMs and admins price the quote from Projects too, the same as every other step
+// (Andy, 9 Nov 2026), with or without Finance. Managers get Update ▾; a client sees the details, their reports
 // and photos, and the notes, without the money or the updates. Every action writes the old app's job_status too, as
 // the old app is still live for repairs.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -19,6 +20,7 @@ import { FinForm, type Field } from '@/components/FinForm';
 import { bookable, bookCostTo } from '@/components/FinBookCost';
 import { Pop, PopLine } from '@/components/Pop';
 import { RepairPhotos } from '@/components/RepairPhotos';
+import { SendQuoteForm } from '@/components/RepairQuoteScreen';
 import { StageBar } from '@/components/StageBar';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
@@ -81,12 +83,16 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
   const listAt = inProjects ? `/sites/${siteId}/repairs` : `/fin/job/${siteId}/repairs`;
   usePageCrumbs(path, job0 ? [[inProjects ? 'Works Orders' : 'Live Jobs', listAt], ...(inBox ? [[inBox.l, `${listAt}?box=${inBox.k}`] as Crumb] : []), [job0.job_number || job0.address || 'Repair Job', null]] : null);
   const [moneyPop, setMoneyPop] = useState<'' | 'quote' | 'costs'>('');
+  // Send To Client from the job's Quote step, when it hasn't been sent (Andy, 9 Nov 2026).
+  const [sendQuote, setSendQuote] = useState(false);
   if (!me) return null;
   if (isLoading || !data) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const job = job0 as (RepairJob & RJob & Row) | null;
   if (!job) return <Muted style={{ padding: space.l }}>This job no longer exists.</Muted>;
   const mgr = isManager(me), client = me.role === 'client';
   const canPo = isFinanceUser(me, org) && org?.has_finance !== false;
+  // Who prices the quote (Andy, 9 Nov 2026): Finance, and PMs and admins from Projects.
+  const canQuote = fin || (isFullManager(me) && !client);
   const st = repairStage(job), bar = barState(job, inv);
   const label = job.address || 'Repair job';
   const ops = people.filter((p) => p.role === 'operative' || p.role === 'site_manager' || p.role === 'pm');
@@ -109,6 +115,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
   const trades = tradesOf(job);
   const noAccess = noAccessOf(job);
   const due = dueLabel(job), late = isOverdue(job);
+  const savedLines: QuoteLine[] = Array.isArray(job.quote_lines) ? (job.quote_lines as QuoteLine[]) : job.variation_cost != null ? [{ description: job.priced_schedule_of_works || 'Works as described', qty: 1, rate: Number(job.variation_cost) }] : [];
   const quote = Array.isArray(job.quote_lines) ? quoteTotals(job.quote_lines as QuoteLine[], Number(job.quote_discount_pct || 0), qs?.vat) : job.variation_cost != null ? quoteTotals([{ description: 'Quote', qty: 1, rate: Number(job.variation_cost) }], 0, qs?.vat) : null;
 
   // Costs on this job (booked to the contract, then this job, like plots).
@@ -117,20 +124,22 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
   const ordered = fc ? fc.lines.filter((l) => l.sub === job.id && l.cat === 'committed').reduce((t, l) => t + l.net, 0) : 0;
   // Each job's costs by type, its value (invoiced, else quoted) and profit (Andy, 8 Nov 2026).
   const byCat = (c: string) => (fc ? fc.lines.filter((l) => l.sub === job.id && (c === 'other' ? !['materials', 'labour', 'plant', 'subcontract', 'committed'].includes(l.cat) : l.cat === c)).reduce((t, l) => t + l.net, 0) : 0);
+  // Not emailed to the client from OpHUB yet, and no answer from them: the Quote step offers Send To Client.
+  const unsent = !!quote && !job.quote_sent_to && job.quote_approved == null && !job.closed;
   const value = job.invoice_id && inv ? Number(inv.net || 0) : quote ? quote.net : null;
   const profit = value != null ? value - costs - ordered : null;
   const pct = value && profit != null ? Math.round((profit / value) * 1000) / 10 : null;
 
   const docs = [
-    // The quote document: Finance, and the client once it's been sent; not the Projects team (no money in Projects).
-    ...((fin && quote) || (client && job.variation_issued_at) ? [{ k: 'quote', l: 'Quote' }] : []),
+    // The quote document: whoever prices it, and the client once it's been sent.
+    ...((canQuote && quote) || (client && job.variation_issued_at) ? [{ k: 'quote', l: 'Quote' }] : []),
     ...(job.survey_required === 'Y' || job.survey_required === 'NA' ? [{ k: 'survey', l: 'Booking Visit Report' }] : []),
     ...(job.works_completed ? [{ k: 'completion', l: 'Completed Works' }] : []),
   ] as { k: 'quote' | 'survey' | 'completion'; l: string }[];
   const openDoc = async (k: 'quote' | 'survey' | 'completion') => { setBusy(k); const ok = await exportRepairReport(k, job, site, org, surveyor, qs?.vat).catch(() => false); setBusy(''); if (!ok) toast('Could not build the PDF.'); };
 
   const run = async (k: string) => {
-    if (k === 'quote') { router.push(`/fin/job/${siteId}/quote/${job.id}` as never); return; }
+    if (k === 'quote') { router.push((inProjects ? `/sites/${siteId}/repairs/quote/${job.id}` : `/fin/job/${siteId}/quote/${job.id}`) as never); return; }
     if (k === 'approve') { if (await confirmAsk('Has the client approved the quote?', 'Yes, Approved')) await save({ quote_approved: true, quote_approved_at: new Date().toISOString(), approved_by: me.id, self_authorized: false, job_status: 'Approved - To Do' }, 'Approved — book the works in'); return; }
     if (k === 'reject') { if (await confirmAsk('Has the client turned the quote down?', 'Yes, Rejected')) await save({ quote_approved: false, job_status: 'Rejected' }, 'Marked rejected'); return; }
     if (k === 'hold' && job.on_hold) { await save({ on_hold: false, on_hold_reason: null }, 'Off hold'); return; }
@@ -177,7 +186,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
     if (st === 'to_book' || st === 'booked') o.push({ key: 'book', label: st === 'booked' ? 'Change The Booking' : 'Book In' });
     if (st === 'booked' || st === 'to_book' || st === 'attended' || st === 'quote_needed') o.push({ key: 'attend', label: 'Update Status' });
     if (st === 'booked' || st === 'works_booked') o.push({ key: 'noaccess', label: 'Record No Access' });
-    if (fin && (st === 'attended' || st === 'quote_needed' || st === 'awaiting_approval')) o.push({ key: 'quote', label: st === 'awaiting_approval' ? 'Change The Quote' : 'Price It (Quote)' });
+    if (canQuote && (st === 'attended' || st === 'quote_needed' || st === 'awaiting_approval')) o.push({ key: 'quote', label: st === 'awaiting_approval' ? 'Change The Quote' : 'Price It (Quote)' });
     if (st === 'awaiting_approval') o.push({ key: 'quoteupd', label: 'Quote Update ▾' });
     if (st === 'approved' || st === 'works_booked') o.push({ key: 'works', label: st === 'works_booked' ? 'Change The Repair Booking' : 'Book The Repair' });
     if (st === 'attended' || st === 'approved' || st === 'works_booked') o.push({ key: 'done', label: 'Mark Job As Complete' });
@@ -233,8 +242,8 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
           {docs.some((d) => d.k === 'survey') && <View style={{ alignSelf: 'flex-start', marginTop: 8 }}><Button small kind="ghost" busy={busy === 'survey'} title="📄 Booking Visit Report" onPress={() => void openDoc('survey')} /></View>}
         </>
       ), btn('attend', 'Update Status', !!job.survey_date))}
-      {fin ? ladder(4, 'Quote', quote ? `${gbp(quote.total)}${job.variation_issued_at ? ` · sent ${fmt(job.variation_issued_at)}` : ' · not sent'}` : 'Not priced', quote ? <Muted>Net {gbp(quote.net)}{quote.vatPct ? ` + VAT ${gbp(quote.vat)}` : ''}</Muted> : undefined, <>{btn('quote', quote ? 'Open The Quote' : 'Price It', !!quote)}</>)
-        : ladder(4, 'Quote', job.variation_issued_at ? `Quote Submitted ${fmt(job.variation_issued_at)}` : st === 'quote_needed' ? 'With Finance to price' : '—')}
+      {canQuote ? ladder(4, 'Quote', quote ? `${gbp(quote.total)}${unsent ? ' · not sent' : job.variation_issued_at ? ` · sent ${fmt(job.variation_issued_at)}` : ''}` : 'Not priced', quote ? <Muted>Net {gbp(quote.net)}{quote.vatPct ? ` + VAT ${gbp(quote.vat)}` : ''}{job.quote_sent_to ? ` · sent to ${job.quote_sent_to}` : ''}</Muted> : undefined, <>{btn('quote', quote ? 'Open The Quote' : 'Price It', !!quote)}{unsent && <Button key="send" small title="Send To Client" onPress={() => setSendQuote(true)} />}{st === 'awaiting_approval' && btn('quoteupd', 'Quote Update ▾')}</>)
+        : ladder(4, 'Quote', job.variation_issued_at ? `Quote Submitted ${fmt(job.variation_issued_at)}` : st === 'quote_needed' ? 'With Finance to price' : '—', undefined, st === 'awaiting_approval' ? btn('quoteupd', 'Quote Update ▾') : undefined)}
       {ladder(5, 'Approved', job.quote_approved ? `${fmt(job.quote_approved_at)}${job.self_authorized ? ' · self-authorised' : ''}` : job.quote_approved === false ? 'Rejected' : 'Waiting', job.quote_decided_online_at ? <Muted>{job.quote_approved ? 'Approved' : 'Turned down'} online by the client{job.quote_decision_note ? ` — ${job.quote_decision_note}` : ''}</Muted> : undefined)}
       {/* Repair Booked (Andy, 7 Nov 2026): the repair's date, and any other trades with their booked dates and photos of their completed works. */}
       {ladder(6, 'Repair Booked', bookLine(job.works_booking_date, job.works_booking_slot, job.works_booking_assigned_to, job.quote_approved ? 'Not booked yet' : '—'), (
@@ -296,7 +305,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
           {!!otherTradesOf(job) && <Text style={{ fontSize: 11.5, fontWeight: '600', color: base.ink, backgroundColor: '#F0F1F4', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, overflow: 'hidden' }}>{otherTradesOf(job)}{job.other_trades_date ? ` ${fmt(job.other_trades_date)}` : ''}</Text>}
         </View>
       </Card>
-      <StageBar steps={fin ? BAR : BAR.slice(0, BAR_PROJECTS)} step={bar.step} skip={bar.skipQuote ? [4, 5, 6] : []} rejected={bar.rejected} rejectedLabel="Rejected by the client" next={client ? undefined : nextHint(job, mgr, fin)} />
+      <StageBar steps={fin ? BAR : BAR.slice(0, BAR_PROJECTS)} step={bar.step} skip={bar.skipQuote ? [4, 5, 6] : []} rejected={bar.rejected} rejectedLabel="Rejected by the client" next={client ? undefined : nextHint(job, mgr, canQuote)} />
 
       <>
           {/* Half and half (Andy, 8 Nov 2026): the client on the left, the works order on the right. */}
@@ -415,6 +424,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
         </View>
       )}
 
+      {sendQuote && <SendQuoteForm job={job} site={site as Row | undefined} lines={savedLines} discount={Number(job.quote_discount_pct || 0)} onClose={() => setSendQuote(false)} onSent={() => { setSendQuote(false); refresh(); }} />}
       {/* A booking (Andy, 8 Nov 2026): the date, the operative, a time slot and notes for the booking. */}
       {form === 'book' && (
         <FinForm title={job.survey_booking_date ? 'Change The Booking' : 'Book In'} initial={{ d: job.survey_booking_date || '', who: job.survey_booking_assigned_to || '', slot: job.survey_booking_slot || '', notes: job.survey_booking_notes || '' }} onClose={() => setForm(null)}

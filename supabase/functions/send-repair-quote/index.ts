@@ -3,8 +3,9 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 // Emails a repair job's quote to the client (Andy, 7 Nov 2026), from Finance › the quote › Save & Send To Client. The
 // app has already made the quote PDF and put it in the private finance-docs bucket. When the contract has "Client
 // Approves Quotes Online" switched on, the email has an Approve Or Reject Online button (operativehub.co.uk/quote.html,
-// answered by repair-quote-decision). Only people with OpHUB Finance switched on, only for their own company's jobs and
-// files. Daily limit as send-finance-email. The app holds it back during the Finance trial (not for Sandbox Roofing).
+// answered by repair-quote-decision). Only people with OpHUB Finance switched on, or PMs and admins quoting from the job
+// in Projects (9 Nov 2026; only jobs they can see), only for their own company's jobs and files. Daily limit as
+// send-finance-email. The app holds it back during the Finance trial (not for Sandbox Roofing).
 //   { repair_job_id, storage_path, filename, recipients[], cc[], body_text }
 const corsHeaders = { 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, pragma' };
 const OPHUB_ORIGINS = new Set(['https://operativehub.co.uk', 'https://www.operativehub.co.uk', 'https://ophub-ten.vercel.app', 'capacitor://localhost', 'https://localhost', 'http://localhost']);
@@ -60,12 +61,20 @@ Deno.serve(async (req) => {
     const { data: userData, error: userErr } = await createClient(SUPABASE_URL, ANON, { auth: { persistSession: false } }).auth.getUser(token);
     if (userErr || !userData?.user) return reply(req, { error: 'Not authenticated' }, 401);
     const admin = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { autoRefreshToken: false, persistSession: false } });
-    const { data: caller } = await admin.from('profiles').select('id, org_id, name, email, finance_enabled').eq('id', userData.user.id).maybeSingle();
-    if (!caller || !caller.finance_enabled || !caller.org_id) return reply(req, { error: 'OpHUB Finance is not switched on for your account.' }, 403);
+    const { data: caller } = await admin.from('profiles').select('id, org_id, name, email, finance_enabled, role').eq('id', userData.user.id).maybeSingle();
+    // Finance, or a PM / admin quoting from the job in Projects (Andy, 9 Nov 2026).
+    const pm = caller?.role === 'pm' || caller?.role === 'admin';
+    if (!caller || !caller.org_id || (!caller.finance_enabled && !pm)) return reply(req, { error: 'Only project managers, admins and OpHUB Finance users can send quotes.' }, 403);
 
     const body = await req.json().catch(() => ({}));
     const { data: job } = await admin.from('repair_jobs').select('id, org_id, site_id, job_number, address, quote_token').eq('id', String(body.repair_job_id || '')).maybeSingle();
     if (!job || job.org_id !== caller.org_id) return reply(req, { error: 'Forbidden' }, 403);
+    // A PM without Finance: only for a job they can see themselves.
+    if (!caller.finance_enabled) {
+      const asUser = createClient(SUPABASE_URL, ANON, { auth: { persistSession: false }, global: { headers: { Authorization: `Bearer ${token}` } } });
+      const { data: seen } = await asUser.from('repair_jobs').select('id').eq('id', job.id).maybeSingle();
+      if (!seen) return reply(req, { error: 'Forbidden' }, 403);
+    }
     const { data: site } = await admin.from('sites').select('id, org_id, name, job_number, repair_online_approval').eq('id', job.site_id).maybeSingle();
     if (!site || site.org_id !== caller.org_id) return reply(req, { error: 'Forbidden' }, 403);
 

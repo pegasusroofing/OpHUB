@@ -1,57 +1,59 @@
-// A job's home page. Ported from renderSiteHome (330): the job number and
-// on-site pill, the Finance money strip (921), three stat boxes (client,
-// today's calendar, snags / on site / tasks), the wide Check In / Out tile,
-// then the tiles — 2 across on a phone, 4 on a computer, centred icon and
-// label; an odd last tile fills its row. Clients get a cut-down view.
-import { OnSiteWeather } from '@/components/WeatherSwap';
+// A job's home page. Ported from renderSiteHome (330); laid out again with Andy, 9 Nov 2026 (his option B): one info bar
+// (the job number and client, today's calendar, on site and the weather, the on-site pill and Check In / Out), the
+// Finance money strip, then the job's areas as rows, one colour, with counts: two columns on a laptop, one on a phone.
+// Clients get a cut-down view (rows only).
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { HowTo } from '@/components/HowTo';
-import { MoneyStrip } from '@/components/MoneyStrip';
-import { JobSignPrompt } from '@/components/JobSignPrompt';
-import { OphIcon } from '@/components/OphIcon';
-import { Card, Muted, TINTS } from '@/components/ui';
 import { AssignList } from '@/components/AssignList';
+import { HowTo } from '@/components/HowTo';
+import { JobSignPrompt } from '@/components/JobSignPrompt';
+import { MoneyStrip } from '@/components/MoneyStrip';
+import { OphIcon } from '@/components/OphIcon';
+import { useToast } from '@/components/toast';
+import { Card, Muted } from '@/components/ui';
+import { WeatherLink } from '@/components/WeatherSwap';
+import { useRepairJobs } from '@/data/repairs';
 import { assignToSite, removeFromSite, useTeamData } from '@/data/siteAdmin';
 import { useSiteHome } from '@/data/siteHome';
-import { useToast } from '@/components/toast';
-import { useQueryClient } from '@tanstack/react-query';
 import { useSite } from '@/data/sites';
-import { useRepairJobs } from '@/data/repairs';
-import { BOXES, isOpen, operativeJobs, type RJob } from '@/lib/rules/repairStages';
 import { useAuth } from '@/lib/auth';
-import { heading, mono } from '@/lib/fonts';
+import { heading } from '@/lib/fonts';
 import { siteStatusKey } from '@/lib/rules/checkin';
+import { BOXES, isOpen, operativeJobs, type RJob } from '@/lib/rules/repairStages';
 import { overallPct } from '@/lib/rules/sow';
 import { isFinanceUser, isManager } from '@/lib/roles';
 import { base, page, space, useDesk, useTheme } from '@/theme/theme';
+import { useQueryClient } from '@tanstack/react-query';
 
-type T = { key: string; ic?: string; emoji?: string; bg: string; fg: string; title: string; sub: string; badge?: number | string; onPress: () => void };
+type R = { key: string; ic: string; title: string; sub: string; badge?: number | string; onPress: () => void };
 
 // Flat, as Finance (Andy, 3 Nov 2026).
-const shadow = { shadowOpacity: 0, elevation: 0 } as const;
-const cardBox = { backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, ...shadow } as const;
+const cardBox = { backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, shadowOpacity: 0, elevation: 0 } as const;
+const rule = '#EEF0F2';
 
-/** The .tilegrid.hometiles grid: an odd last tile stretches across its row. */
-function JobTiles({ tiles, cols, noStretch }: { tiles: T[]; cols: number; noStretch?: boolean }) {
+/** The job's areas as rows in one box (Andy, 9 Nov 2026): a plain icon, the name, its count or note, ›. On a laptop the
+ *  note sits on the right; on a phone it goes under the name. cols 2 = two columns of rows. */
+function JobRows({ rows, cols, desk }: { rows: R[]; cols: number; desk: boolean }) {
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5 }}>
-      {tiles.map((x, i) => (
-        <View key={x.key} style={{ width: !noStretch && tiles.length % 2 === 1 && i === tiles.length - 1 ? '100%' : `${100 / cols}%`, padding: 5 }}>
-          <Pressable onPress={x.onPress} accessibilityRole="button"
-            style={({ pressed }) => [cardBox, { borderRadius: 10, height: 122, alignItems: 'center', justifyContent: 'center', gap: 6.6, paddingHorizontal: 10 }, pressed && { opacity: 0.7 }]}>
-            <View style={{ width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: x.bg }}>
-              {x.ic ? <OphIcon name={x.ic} size={20} color={x.fg} /> : <Text style={{ fontSize: 18 }}>{x.emoji}</Text>}
-            </View>
-            <Text numberOfLines={2} style={[heading(700), { fontSize: 13.2, color: base.ink, textAlign: 'center' }]}>{x.title}</Text>
-            {!!x.sub && <Text numberOfLines={1} style={{ fontSize: 11.1, color: base.slateLight, textAlign: 'center' }}>{x.sub}</Text>}
-            {x.badge != null && x.badge !== 0 && (
-              <Text style={{ position: 'absolute', top: 8, right: 8, backgroundColor: base.red, color: '#fff', fontSize: 11, fontWeight: '600', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 4, overflow: 'hidden' }}>{x.badge}</Text>
-            )}
-          </Pressable>
-        </View>
+    <View style={[cardBox, { borderRadius: 10, flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: cols > 1 ? 4 : 0 }]}>
+      {rows.map((x, i) => (
+        <Pressable key={x.key} onPress={x.onPress} accessibilityRole="button" accessibilityLabel={`${x.title}, ${x.sub}`}
+          style={({ pressed }) => [{ width: `${100 / cols}%`, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, paddingHorizontal: 14, borderTopWidth: i >= cols ? 1 : 0, borderTopColor: rule }, pressed && { backgroundColor: '#F7F8FA' }]}>
+          <View style={{ width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: base.cardLine }}>
+            <OphIcon name={x.ic} size={17} color={base.ink} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text numberOfLines={1} style={[heading(600), { fontSize: 13.5, color: base.ink }]}>{x.title}</Text>
+            {!desk && !!x.sub && <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slateLight, marginTop: 1 }}>{x.sub}</Text>}
+          </View>
+          {desk && !!x.sub && <Text numberOfLines={1} style={{ flexShrink: 1, maxWidth: '45%', fontSize: 12, color: base.slateLight }}>{x.sub}</Text>}
+          {x.badge != null && x.badge !== 0 && (
+            <Text style={{ backgroundColor: base.red, color: '#fff', fontSize: 11, fontWeight: '600', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 5, overflow: 'hidden' }}>{x.badge}</Text>
+          )}
+          <OphIcon name="chevron" size={14} color={base.slateLight} />
+        </Pressable>
       ))}
     </View>
   );
@@ -62,7 +64,7 @@ function WorksOrdersCard({ sub, onPress }: { sub: string; onPress: () => void })
   const t = useTheme();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Works Orders, ${sub}`}
-      style={({ pressed }) => [{ backgroundColor: t.brand1, borderRadius: 22, paddingVertical: 18, paddingHorizontal: 20, marginBottom: 5 }, pressed && { opacity: 0.9 }]}>
+      style={({ pressed }) => [{ backgroundColor: t.brand1, borderRadius: 22, paddingVertical: 18, paddingHorizontal: 20, marginBottom: 10 }, pressed && { opacity: 0.9 }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}><OphIcon name="wrench" size={22} color={t.brand1Text} /></View>
         <OphIcon name="chevron" size={22} color={t.brand1Text} stroke={2.4} />
@@ -79,15 +81,17 @@ function worksSub(jobs: RJob[]): string {
   return [`${open} open`, toBook ? `${toBook} to book` : ''].filter(Boolean).join(' · ');
 }
 
-/** One .statrow box. */
-function StatBox({ children, onPress }: { children: ReactNode; onPress?: () => void }) {
+/** One part of the info bar: a bold line and a grey line under it; tappable when it opens something. Each part takes an
+ *  equal share of the row (Andy, 9 Nov 2026: spread across); centred on a laptop. */
+function InfoPart({ top, sub, label, onPress, line, center }: { top: string; sub: ReactNode; label: string; onPress?: () => void; line?: boolean; center?: boolean }) {
   return (
-    <Pressable disabled={!onPress} onPress={onPress} style={[cardBox, { flex: 1, minWidth: 0, height: 64, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 2, paddingHorizontal: 6 }]}>{children}</Pressable>
+    <Pressable disabled={!onPress} onPress={onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={label}
+      style={{ flex: 1, minWidth: 0, alignItems: center ? 'center' : 'flex-start', paddingHorizontal: 12, paddingVertical: 2, borderLeftWidth: line ? 1 : 0, borderLeftColor: rule }}>
+      <Text numberOfLines={1} style={[heading(600), { fontSize: 13.5, color: base.ink }]}>{top}</Text>
+      {typeof sub === 'string' ? <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slateLight, marginTop: 1 }}>{sub}</Text> : sub}
+    </Pressable>
   );
 }
-const statN = { ...mono(600), fontSize: 19, color: base.ink } as const;
-const statL = { fontSize: 10, color: base.slateLight, textTransform: 'uppercase', letterSpacing: 0.4, fontWeight: '600', textAlign: 'center' } as const;
-
 
 export default function SiteHome() {
   const [assignOpen, setAssignOpen] = useState(false);
@@ -103,7 +107,6 @@ export default function SiteHome() {
   const mgr = isManager(me);
   const client = me.role === 'client';
   const fin = isFinanceUser(me, org) && org?.has_finance !== false;
-  const cols = desk ? 4 : 2;
   const go = (p: string) => () => router.push(`/sites/${site.id}/${p}` as never);
   const done = h ? h.tasks.filter((x) => x.status === 'done').length : 0;
   const sowSub = h ? `${done} of ${h.tasks.length} done${h.tasks.length ? ` · ${overallPct(h.tasks)}%` : ''}` : '…';
@@ -122,14 +125,13 @@ export default function SiteHome() {
       <ScrollView contentContainerStyle={page(720)}>
         {header}
         <HowTo k="site_home" />
-        {/* Works Orders full width, as Live Projects on the home page; then Calendar and To Do List, then Health &
-            Safety on the row below (Andy, 9 Nov 2026). Two across on a phone and a laptop alike. */}
+        {/* Works Orders full width, as Live Projects on the home page (Andy, 9 Nov 2026); then the rest as rows. */}
         <WorksOrdersCard onPress={go('repairs')} sub={client ? 'Repair jobs on this contract' : mgr ? worksSub(rjobs) : (() => { const n = operativeJobs(rjobs, me.id, false).mine; return n ? `${n} job${n === 1 ? '' : 's'} for you` : 'Your repair jobs'; })()} />
-        <JobTiles cols={2} tiles={[
+        <JobRows desk={desk} cols={desk ? 2 : 1} rows={[
           // A client: Works Orders and Health & Safety only (their pages).
-          ...(client ? [] : [{ key: 'cal', ic: 'calendar', bg: '#E4EEFB', fg: TINTS.blue[1], title: 'Calendar', sub: 'Key dates', onPress: go('calendar') },
-          { key: 'todo', ic: 'check', bg: '#EFEAFB', fg: '#5B3FA6', title: 'To Do List', sub: 'Tasks', onPress: go('todos') }]),
-          { key: 'hs', ic: 'shield', bg: '#E7E9EE', fg: base.ink, title: 'Health & Safety', sub: 'RAMS · COSHH · TBT', onPress: go('hs') },
+          ...(client ? [] : [{ key: 'cal', ic: 'calendar', title: 'Calendar', sub: 'Key dates', onPress: go('calendar') },
+          { key: 'todo', ic: 'check', title: 'To Do List', sub: 'Tasks', onPress: go('todos') }]),
+          { key: 'hs', ic: 'shield', title: 'Health & Safety', sub: 'RAMS · COSHH · TBT', onPress: go('hs') },
         ]} />
         {footer}
       </ScrollView>
@@ -137,94 +139,93 @@ export default function SiteHome() {
   }
 
   const cal = h?.todayEvents ?? [];
-  const calLabel = !cal.length ? 'Nothing today' : cal.length === 1 ? cal[0] : `${cal[0]} +${cal.length - 1} more`;
+  const calLabel = !cal.length ? 'Nothing On' : cal.length === 1 ? cal[0] : `${cal[0]} +${cal.length - 1} more`;
   const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-  const clientLine = { fontSize: 11, color: base.ink, fontWeight: '500', textAlign: 'center' } as const;
-  const hasClient = site.client_name || site.client_contact_name || site.client_phone;
-  const clientBox = (
-    <StatBox key="client" onPress={mgr ? go('client') : undefined}>
-      {hasClient ? (
-        <>
-          <Text numberOfLines={1} style={clientLine}><Text style={{ fontWeight: '600' }}>Client:</Text> {site.client_name || '—'}</Text>
-          <Text numberOfLines={1} style={clientLine}><Text style={{ fontWeight: '600' }}>Contact:</Text> {[site.client_contact_name, site.client_phone].filter(Boolean).join(' · ') || '—'}</Text>
-        </>
-      ) : <Text style={{ fontSize: 12, color: base.slateLight, fontWeight: '600' }}>{mgr ? 'Add client info' : 'No client info yet'}</Text>}
-    </StatBox>
-  );
-  const calBox = (
-    <StatBox key="cal" onPress={go('calendar')}>
-      <Text style={statN}>{today}</Text>
-      <Text numberOfLines={2} style={{ fontSize: 10, color: base.slateLight, fontWeight: '600', textAlign: 'center' }}>{calLabel}</Text>
-    </StatBox>
-  );
   const snags = h?.openSnags ?? 0;
-  const tasksBox = <StatBox key="tasks" onPress={go('schedule')}><Text style={statN}>{done}/{h?.tasks.length ?? 0}</Text><Text style={statL}>Tasks done</Text></StatBox>;
-  const snagBox = <StatBox key="snags" onPress={go('snagging/list')}><Text style={[statN, !!snags && { color: base.warn }]}>{snags}</Text><Text style={statL}>Open snags</Text></StatBox>;
-  const swapBox = <OnSiteWeather key="swap" me={me} site={site} company={org?.name || ''} style={cardBox} count={h?.onSiteCount ?? 0} onSite={go('checkin')} />;
-  const stats = mgr ? [clientBox, calBox, swapBox] : client ? [tasksBox, calBox, snagBox] : [clientBox, calBox, tasksBox];
 
   // 510 getMcTiles: nine areas; operatives don't count the ones hidden from them.
   const mcAreas = 9 - (mgr ? 0 : new Set(((site as { mc_hidden_tiles?: string[] | null }).mc_hidden_tiles) ?? []).size);
-  const tiles: T[] = client ? [
-    { key: 'sow', ic: 'clipboard', bg: TINTS.blue[0], fg: TINTS.blue[1], title: 'Schedule of Works', sub: sowSub, onPress: go('schedule') },
-    { key: 'hs', ic: 'shield', bg: '#E7E9EE', fg: base.ink, title: 'Health & Safety', sub: 'RAMS · COSHH · TBT', onPress: go('hs') },
-    { key: 'snag', emoji: '🔧', bg: base.warnBg, fg: base.warn, title: 'Snagging', sub: h ? `${snags} open` : '…', onPress: go('snagging/list') },
+  const rows: R[] = client ? [
+    { key: 'sow', ic: 'clipboard', title: 'Schedule of Works', sub: sowSub, onPress: go('schedule') },
+    { key: 'hs', ic: 'shield', title: 'Health & Safety', sub: 'RAMS · COSHH · TBT', onPress: go('hs') },
+    { key: 'snag', ic: 'wrench', title: 'Snagging', sub: h ? `${snags} open` : '…', onPress: go('snagging/list') },
   ] : [
-    { key: 'sow', ic: 'clipboard', bg: TINTS.blue[0], fg: TINTS.blue[1], title: 'Schedule of Works', sub: sowSub, onPress: go('schedule') },
-    ...(site.acting_as_main_contractor ? [{ key: 'mc', ic: 'building', bg: '#E7E9EE', fg: base.ink, title: 'Main Contractor', sub: `${mcAreas} area${mcAreas === 1 ? '' : 's'}`, onPress: go('mc') }] : []),
-    { key: 'hs', ic: 'shield', bg: '#E7E9EE', fg: base.ink, title: 'Health & Safety', sub: h ? `${h.pendingRams} to sign` : '…', badge: mgr ? (h?.hsGap ? '!' : undefined) : h?.pendingRams || undefined, onPress: go('hs') },
-    { key: 'dwg', ic: 'pencil', bg: '#E7EFEA', fg: '#2F6B4A', title: "Drawings, Spec's & Programme", sub: 'View & upload', onPress: go('drawings') },
-    ...((me?.role === 'pm' || me?.role === 'admin') && (site as { onedrive_folder_id?: string | null }).onedrive_folder_id ? [{ key: 'docs', ic: 'pencil', bg: '#E7EDF4', fg: '#1F3A5F', title: 'Documents', sub: 'The job’s OneDrive folder', onPress: go('documents') }] : []),
-    { key: 'mat', ic: 'box', bg: base.okBg, fg: base.ok, title: 'Materials', sub: h ? `${h.pendingMaterials} pending` : '…', onPress: go('materials') },
-    { key: 'rep', ic: 'reports', bg: base.warnBg, fg: base.warn, title: mgr ? 'Inspections & Reports' : 'Snagging & Variations', sub: h ? `${snags} open` : '…', badge: snags || undefined, onPress: go('snagging') },
-    ...(h?.canSeePrice ? [{ key: 'price', emoji: '💷', bg: '#FFF3D9', fg: '#8A6300', title: 'Price', sub: h.priceWages ? `${h.priceWages} wage${h.priceWages > 1 ? 's' : ''} to book` : h.priceVars ? `${h.priceVars} variation${h.priceVars > 1 ? 's' : ''} pending` : 'Restricted access', badge: h.priceVars + h.priceWages || undefined, onPress: go('price') }] : []),
-    ...(mgr && siteStatusKey(site) === 'closed' ? [{ key: 'ho', emoji: '📘', bg: '#E3F4EA', fg: '#1E7A46', title: 'Handover', sub: 'O&M manual · data sheets · guarantees', onPress: go('handover') }]
-      : mgr ? [{ key: 'todo', ic: 'check', bg: '#EFEAFB', fg: '#5B3FA6', title: 'To Do List', sub: h ? (h.openTodos ? `${h.openTodos} open` : 'Nothing outstanding') : '…', onPress: go('todos') }] : []),
+    { key: 'sow', ic: 'clipboard', title: 'Schedule of Works', sub: sowSub, onPress: go('schedule') },
+    ...(site.acting_as_main_contractor ? [{ key: 'mc', ic: 'building', title: 'Main Contractor', sub: `${mcAreas} area${mcAreas === 1 ? '' : 's'}`, onPress: go('mc') }] : []),
+    { key: 'hs', ic: 'shield', title: 'Health & Safety', sub: h ? `${h.pendingRams} to sign` : '…', badge: mgr ? (h?.hsGap ? '!' : undefined) : h?.pendingRams || undefined, onPress: go('hs') },
+    { key: 'dwg', ic: 'layers', title: "Drawings, Spec's & Programme", sub: 'View & upload', onPress: go('drawings') },
+    ...((me?.role === 'pm' || me?.role === 'admin') && (site as { onedrive_folder_id?: string | null }).onedrive_folder_id ? [{ key: 'docs', ic: 'cloud', title: 'Documents', sub: 'The job’s OneDrive folder', onPress: go('documents') }] : []),
+    { key: 'mat', ic: 'box', title: 'Materials', sub: h ? `${h.pendingMaterials} pending` : '…', onPress: go('materials') },
+    { key: 'rep', ic: 'reports', title: mgr ? 'Inspections & Reports' : 'Snagging & Variations', sub: h ? `${snags} open` : '…', badge: snags || undefined, onPress: go('snagging') },
+    ...(h?.canSeePrice ? [{ key: 'price', ic: 'pound', title: 'Price', sub: h.priceWages ? `${h.priceWages} wage${h.priceWages > 1 ? 's' : ''} to book` : h.priceVars ? `${h.priceVars} variation${h.priceVars > 1 ? 's' : ''} pending` : 'Restricted access', badge: h.priceVars + h.priceWages || undefined, onPress: go('price') }] : []),
+    ...(mgr && siteStatusKey(site) === 'closed' ? [{ key: 'ho', ic: 'book', title: 'Handover', sub: 'O&M manual · data sheets · guarantees', onPress: go('handover') }]
+      : mgr ? [{ key: 'todo', ic: 'check', title: 'To Do List', sub: h ? (h.openTodos ? `${h.openTodos} open` : 'Nothing outstanding') : '…', onPress: go('todos') }] : []),
   ];
   // Calendar sits second to last, whatever comes before it.
-  if (!client) tiles.splice(Math.max(0, tiles.length - 1), 0, { key: 'cal', ic: 'calendar', bg: '#E4EEFB', fg: TINTS.blue[1], title: 'Calendar', sub: 'Key dates', onPress: go('calendar') });
-  // The HUB tile (phone only; Messages is in the left menu on a computer) goes last, so Calendar stays second to
+  if (!client) rows.splice(Math.max(0, rows.length - 1), 0, { key: 'cal', ic: 'calendar', title: 'Calendar', sub: 'Key dates', onPress: go('calendar') });
+  // The HUB row (phone only; Messages is in the left menu on a computer) goes last, so Calendar stays second to
   // last as in the current app (330), where Messages had no tile.
-  if (!client && !desk) tiles.push({ key: 'msg', ic: 'chat', bg: TINTS.blue[0], fg: TINTS.blue[1], title: 'HUB', sub: 'Team messages', onPress: go('messages') });
+  if (!client && !desk) rows.push({ key: 'msg', ic: 'chat', title: 'HUB', sub: 'Team messages', onPress: go('messages') });
 
-  // 330: a client gets a minimal, view-only home: no job bar, money or stat row, just the tiles (not stretched).
+  // 330: a client gets a minimal, view-only home: no job bar, money or stats, just the rows.
   if (client) return (
     <ScrollView contentContainerStyle={page(720)}>
       {header}
-      <JobTiles cols={cols} tiles={tiles} noStretch />
+      <JobRows desk={desk} cols={1} rows={rows} />
     </ScrollView>
+  );
+
+  const contact = [site.client_contact_name, site.client_phone].filter(Boolean).join(' · ');
+  const pill = (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingVertical: 4, paddingHorizontal: 8, backgroundColor: h?.meOnSite ? base.okBg : base.line }}>
+      <View style={{ width: 5.4, height: 5.4, borderRadius: 3, backgroundColor: h?.meOnSite ? base.ok : base.slate }} />
+      <Text style={{ fontSize: 9.9, fontWeight: '600', letterSpacing: 0.5, color: h?.meOnSite ? base.ok : base.slate }}>{h?.meOnSite ? 'ON SITE' : 'NOT CHECKED IN'}</Text>
+    </View>
+  );
+  // Check In / Out: the job's main button, red.
+  const checkBtn = (
+    <Pressable onPress={go('checkin')} accessibilityRole="button" accessibilityLabel="Check In / Out"
+      style={({ pressed }) => [{ backgroundColor: base.red, borderRadius: 10, paddingVertical: desk ? 8 : 11, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }, pressed && { opacity: 0.85 }]}>
+      <OphIcon name="clock" size={16} color="#fff" />
+      <Text style={[heading(700), { fontSize: 13.5, color: '#fff' }]}>Check In / Out</Text>
+    </Pressable>
+  );
+  const jobTop = [site.job_number, site.client_name].filter(Boolean).join(' · ') || site.name;
+  const clientPart = <InfoPart top={jobTop} sub={contact || (!mgr ? '' : site.client_name ? 'Add The Contact ›' : 'Add Client Info ›')} label={`Client: ${jobTop}`} onPress={mgr ? go('client') : undefined} center={desk} />;
+  const todayPart = <InfoPart line={desk} top={today} sub={calLabel} label={`Today: ${calLabel}`} onPress={go('calendar')} center={desk} />;
+  const thirdPart = mgr
+    ? <InfoPart line top={`${h?.onSiteCount ?? 0} On Site`} sub={site.postcode ? <WeatherLink me={me} site={site} company={org?.name || ''} small /> : 'Who’s Checked In'} label={`${h?.onSiteCount ?? 0} on site`} onPress={go('checkin')} center={desk} />
+    : <InfoPart line top={`${done} of ${h?.tasks.length ?? 0}`} sub="Tasks Done" label="Tasks done" onPress={go('schedule')} center={desk} />;
+  // On a laptop one line, spread evenly across; on a phone the job and the pill, then today and on site, then the button.
+  const info = desk ? (
+    <View style={[cardBox, { borderRadius: 10, flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingLeft: 2, paddingRight: 12, marginBottom: 10 }]}>
+      {clientPart}{todayPart}{thirdPart}
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10, borderLeftWidth: 1, borderLeftColor: rule, paddingLeft: 12 }}>{pill}{checkBtn}</View>
+    </View>
+  ) : (
+    <View style={[cardBox, { borderRadius: 10, paddingTop: 10, paddingBottom: 12, marginBottom: 10 }]}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingRight: 12 }}>{clientPart}{pill}</View>
+      <View style={{ flexDirection: 'row', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: rule }}>{todayPart}{thirdPart}</View>
+      <View style={{ paddingHorizontal: 12, marginTop: 12 }}>{checkBtn}</View>
+    </View>
+  );
+  const nobody = mgr && siteStatusKey(site) === 'live' && h?.assignedCount === 0 && (
+    <Pressable onPress={() => setAssignOpen(!assignOpen)}>
+      <Card style={{ backgroundColor: base.warnBg, paddingVertical: 10 }}>
+        <Text style={{ color: base.ink, fontSize: 13 }}><Text style={{ fontWeight: '600' }}>Nobody is assigned to this job yet.</Text> Tap to assign operatives so they can check in.</Text>
+        {assignOpen && <QuickAssign siteId={site.id} />}
+      </Card>
+    </Pressable>
   );
   return (
     <ScrollView contentContainerStyle={page(720)}>
       {header}
       <HowTo k="site_home" />
       <JobSignPrompt siteId={site.id} />
-      <View style={[cardBox, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderColor: base.line, borderRadius: 10, paddingVertical: 10.8, paddingHorizontal: 12.6, marginBottom: 10.6, shadowOpacity: 0 }]}>
-        <Text style={{ fontSize: 12.6, color: base.ink }}>{site.job_number ? <><Text style={{ fontWeight: '600' }}>Job No:</Text> {site.job_number}</> : ' '}</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingVertical: 4.5, paddingHorizontal: 8, backgroundColor: h?.meOnSite ? base.okBg : base.line }}>
-          <View style={{ width: 5.4, height: 5.4, borderRadius: 3, backgroundColor: h?.meOnSite ? base.ok : base.slate }} />
-          <Text style={{ fontSize: 9.9, fontWeight: '600', letterSpacing: 0.5, color: h?.meOnSite ? base.ok : base.slate }}>{h?.meOnSite ? 'ON SITE' : 'NOT CHECKED IN'}</Text>
-        </View>
-      </View>
-      {fin && !client && <MoneyStrip site={site} />}
-      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>{stats}</View>
-      {mgr && siteStatusKey(site) === 'live' && h?.assignedCount === 0 && (
-        <Pressable onPress={() => setAssignOpen(!assignOpen)}>
-          <Card style={{ backgroundColor: base.warnBg, paddingVertical: 10 }}>
-            <Text style={{ color: base.ink, fontSize: 13 }}><Text style={{ fontWeight: '600' }}>Nobody is assigned to this job yet.</Text> Tap to assign operatives so they can check in.</Text>
-            {assignOpen && <QuickAssign siteId={site.id} />}
-          </Card>
-        </Pressable>
-      )}
-      {!client && (
-        <Pressable onPress={go('checkin')} accessibilityRole="button"
-          style={({ pressed }) => [cardBox, { borderRadius: 10, minHeight: 59.8, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 5 }, pressed && { opacity: 0.7 }]}>
-          <View style={{ width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: base.red }}><OphIcon name="clock" size={18} color="#fff" /></View>
-          <Text style={[heading(700), { fontSize: 13.2, color: base.ink }]}>Check In / Out</Text>
-          <Text style={{ fontSize: 11.1, color: base.slateLight }}>Tap to log time</Text>
-        </Pressable>
-      )}
-      <JobTiles cols={cols} tiles={tiles} />
+      {info}
+      {fin && <MoneyStrip site={site} />}
+      {nobody}
+      <JobRows desk={desk} cols={desk ? 2 : 1} rows={rows} />
       {footer}
     </ScrollView>
   );

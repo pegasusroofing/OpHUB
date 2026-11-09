@@ -41,23 +41,18 @@ const setup = (db) => {
   await page.goto(`${BASE}/fin/job/${S1}/repairs`); await page.waitForTimeout(6000);
   let t = await text();
   check(/Live Jobs/.test(t) && /Costs By Job/.test(t) && /Schedule Of Rates/.test(t), 'phone: tabs Live Jobs, Costs By Job, Schedule Of Rates');
-  const hs = [];
-  for (const l of ['Overdue', 'To Schedule', 'Scheduled - Awaiting Attendance', 'Approved - Requires Booking Date', 'Completed Works - Paid', 'All Jobs']) { const b = await page.getByLabel(new RegExp(`^${l.replace(/[-/]/g, '.')}, `)).boundingBox(); if (b) hs.push([Math.round(b.width), Math.round(b.height)]); }
-  check(hs.length === 6 && hs.every(([w, h]) => Math.abs(w - hs[0][0]) <= 2 && Math.abs(h - hs[0][1]) <= 2), `phone: every box the same size (${hs.map((x) => x.join('×')).join(', ')})`);
+  // Tabs in place of the boxes (Andy, 9 Nov 2026): All first, the jobs listed under it straight away.
+  check(/^All/.test((await page.getByRole('tab').nth(3).innerText()).trim()) && /WO-1003/.test(await page.getByLabel('Jobs table').innerText()), 'phone: the stage tabs, All first, its jobs listed');
   check(await page.getByRole('button', {name: 'Export Excel'}).count() === 1 && /3 Jobs/.test(t), 'phone: footer is the jobs and Export Excel');
   const fb = await page.getByRole('button', {name: 'Export Excel'}).boundingBox();
   check(!!fb && fb.x + fb.width <= 375, 'phone: Export Excel fits on the screen');
   await page.screenshot({path: 'shots/fin-livejobs-phone.png'});
-  await page.getByLabel(/^Quotation Required, /).click(); await page.waitForTimeout(1500);
+  await page.getByRole('tab', {name: /^Quotation Required/}).click(); await page.waitForTimeout(1500);
   t = await text();
-  check(/box=quote_needed/.test(page.url()) && /ORDER NO ADDRESS BOOKED/.test(t) && /WO-1003/.test(t) && !(await page.getByLabel(/^Overdue, /).first().isVisible().catch(() => false)), 'phone: a box opens its own page, the jobs in a table, no boxes');
-  check(/Live Jobs › Quotation Required/.test(t), 'phone: the path shows Live Jobs › Quotation Required');
+  check(/box=quote_needed/.test(page.url()) && /ORDER NO ADDRESS BOOKED/.test(t) && /WO-1003/.test(await page.getByLabel('Jobs table').innerText()), 'phone: a tab shows its jobs in a table');
   await page.screenshot({path: 'shots/fin-box-phone.png'});
-  await page.getByLabel('Box: Quotation Required').click(); await page.waitForTimeout(500);
-  await page.locator('text=/^Awaiting Client Approval \\(1\\)$/ >> visible=true').last().click(); await page.waitForTimeout(1200);
-  check(/box=awaiting_approval/.test(page.url()) && /WO-1006/.test(await text()), 'phone: the drop-down jumps to Awaiting Client Approval');
-  await page.goBack(); await page.waitForTimeout(1500);
-  check(await page.getByLabel(/^Overdue, /).count() === 1, 'phone: Back returns to the boxes');
+  await page.getByRole('tab', {name: /^Awaiting Client Approval/}).click(); await page.waitForTimeout(1200);
+  check(/box=awaiting_approval/.test(page.url()) && /WO-1006/.test(await page.getByLabel('Jobs table').innerText()), 'phone: another tab, Awaiting Client Approval');
 
   // ---- Phone: a job's money ----
   await page.goto(`${BASE}/fin/job/${S1}/repair/j3`); await page.waitForTimeout(6000);
@@ -116,7 +111,7 @@ const setup = (db) => {
   await page.setViewportSize({width: 1366, height: 900});
   await page.goto(`${BASE}/fin/job/${S1}/repairs?box=all`); await page.waitForTimeout(5000);
   t = await text();
-  check(/WORKS ORDER/.test(t) && /STAGE/.test(t) && /OPERATIVE/.test(t) && /DUE/.test(t) && !(await page.getByLabel(/^Overdue, /).first().isVisible().catch(() => false)), 'laptop: a box’s own page too, the table with more columns');
+  check(/WORKS ORDER/.test(t) && /STAGE/.test(t) && /OPERATIVE/.test(t) && /DUE/.test(t), 'laptop: the All tab, the table with more columns');
   await page.screenshot({path: 'shots/fin-box-laptop.png'});
   await page.goto(`${BASE}/fin/job/${S1}/quote/j3`); await page.waitForTimeout(5000);
   const vq = await page.getByText('📄 View Quote', {exact: true}).boundingBox(), sv = await page.getByText('Save', {exact: true}).last().boundingBox();

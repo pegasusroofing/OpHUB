@@ -84,6 +84,25 @@ export function OnSiteWeather({ me, site, company, count, onSite, style }: { me:
   );
 }
 
+/** The weather as one line in the job's info bar (Andy, 9 Nov 2026): the same tap for today, the next 5 days and the
+ *  weather delay email. Nothing until the postcode finds it. */
+export function WeatherLink({ me, site, company, small }: { me: Profile; site: Site; company: string; small?: boolean }) {
+  const { data: w, isLoading } = useWeather(site.postcode);
+  const pmId = (site as Site & { responsible_pm_id?: string | null }).responsible_pm_id;
+  const { data: pm } = useQuery({ queryKey: ['jobPm', pmId], enabled: !!pmId, queryFn: async () => (await supabase.from('profiles').select('name,email').eq('id', pmId as string).maybeSingle()).data as { name?: string | null; email?: string | null } | null });
+  const [open, setOpen] = useState(false);
+  const say = w ? weatherWords(w.code) : null;
+  if (!w || !say) return <Text style={{ fontSize: small ? 11.5 : 13, color: base.slateLight }}>{!site.postcode ? 'No Postcode' : isLoading ? '…' : 'No Weather Found'}</Text>;
+  return (
+    <>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Weather: ${say.text}`} onPress={() => setOpen(true)} hitSlop={6}>
+        <Text numberOfLines={1} style={small ? { fontSize: 11.5, color: base.slateLight } : { fontSize: 13.5, fontWeight: '600', color: base.ink }}>{say.icon} {Number.isFinite(w.temp) ? `${w.temp}°` : ''}{w.rain != null ? ` · ${w.rain}% Rain` : ''} ›</Text>
+      </Pressable>
+      {open && <WeatherPopup me={me} site={site} company={company} pm={pm} lat={w.lat} lon={w.lon} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
 const hhmm = (t?: string) => (t ? t.slice(11, 16) : '');
 const dayName = (d: string, i: number) => (i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }));
 const tab = (on: boolean) => ({ flex: 1, paddingVertical: 8, borderRadius: 9, alignItems: 'center' as const, backgroundColor: on ? base.card : 'transparent', ...(on ? { shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } } : {}) });

@@ -41,15 +41,19 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   let t = await text();
   check(!/Bulk Add/.test(t), 'no Bulk Add button any more');
   check(/2 Jobs/.test(t) && await page.getByRole('button', {name: 'Export Excel'}).count() === 1, 'footer bar: how many jobs and Export Excel');
-  await page.getByLabel(/^Quotation Required, /).click(); await page.waitForTimeout(1200);
+  // Tabs (Andy, 9 Nov 2026): a job opened from a tab shows the tab in its trail, like a folder, and goes back to it.
+  await page.getByRole('tab', {name: /^Quotation Required/}).click(); await page.waitForTimeout(1200);
+  check(/box=quote_needed/.test(page.url()) && /WO-1003/.test(await page.getByLabel('Jobs table').innerText()), `the Quotation Required tab (${page.url().split('?')[1] || ''})`);
+  await page.getByRole('button', {name: /^WO-1003 /}).click(); await page.waitForTimeout(4000);
   t = await text();
-  check(/box=quote_needed/.test(page.url()) && /Works Orders › Quotation Required/.test(t) && /WO-1003/.test(t), `a box opened shows in the trail like a folder (${page.url().split('?')[1] || ''})`);
+  check(/Works Orders › Quotation Required › WO-1003/.test(t), 'the job’s trail: Works Orders › Quotation Required › WO-1003');
   await page.screenshot({path: 'shots/repairs-box-trail.png'});
-  // The trail's "Works Orders" (not the page title above it): the lowest one on the page.
-  const wos = page.locator('text="Works Orders" >> visible=true'); let lowest = null, ly = -1;
-  for (let i = 0; i < await wos.count(); i++) { const b = await wos.nth(i).boundingBox(); if (b && b.y > ly) { ly = b.y; lowest = wos.nth(i); } }
-  await lowest.click(); await page.waitForTimeout(1500);
-  check(!/box=/.test(page.url()) && /Tap a box to see its jobs/.test(await text()), 'Works Orders in the trail goes back to the boxes');
+  // The trail's "Quotation Required" (not the stage on the job card below it): the highest one on the page.
+  const qrs = page.locator('text="Quotation Required" >> visible=true'); let top = null, ty = 1e9;
+  for (let i = 0; i < await qrs.count(); i++) { const b = await qrs.nth(i).boundingBox(); if (b && b.y < ty) { ty = b.y; top = qrs.nth(i); } }
+  await top.click(); await page.waitForTimeout(1500);
+  check(/box=quote_needed/.test(page.url()) && await page.getByRole('tab').count() >= 9, 'the trail’s Quotation Required goes back to the list on that tab');
+  await page.goto(`${BASE}/sites/${S1}/repairs`); await page.waitForTimeout(4000);
   await page.locator('text="+ New Job (Read Works Order)" >> visible=true').first().click(); await page.waitForTimeout(600);
   const up = page.getByRole('button', {name: '📎 Upload Works Order/Orders'});
   check(await up.count() === 1, 'New Job: one button, Upload Works Order/Orders');
