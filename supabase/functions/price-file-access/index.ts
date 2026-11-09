@@ -6,9 +6,9 @@ const corsHeaders = {
 
 // Gate for the Price tile's file list: the price-files storage bucket is
 // PRIVATE — this is the only door in. Checks real access control (project
-// admin, the site's responsible PM, or someone explicitly tick-listed in
-// site_price_access) before handing back a short-lived signed URL for one
-// specific uploaded file.
+// admin, an estimator, the site's responsible PM, or someone explicitly
+// tick-listed in site_price_access) before handing back a short-lived signed
+// URL for one specific uploaded file.
 //
 // Body: {site_id, storage_path}
 // storage_path must match a row in price_files for that site — this stops
@@ -65,7 +65,7 @@ Deno.serve(withCors(async (req) => {
     if (userErr || !userData?.user) return new Response(JSON.stringify({ error: 'Not authenticated' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
-    const { data: callerProfile } = await admin.from('profiles').select('role, org_id').eq('id', userData.user.id).maybeSingle();
+    const { data: callerProfile } = await admin.from('profiles').select('role, org_id, is_estimator').eq('id', userData.user.id).maybeSingle();
     if (!callerProfile) return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     const body = await req.json().catch(() => ({}));
@@ -77,8 +77,10 @@ Deno.serve(withCors(async (req) => {
     if (!site.price_enabled) return new Response(JSON.stringify({ error: 'Price tile is not enabled for this site.' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     const isAdmin = callerProfile.role === 'admin' || callerProfile.role === 'superadmin';
+    // Estimators (a PM flagged is_estimator) see every project's price file, as admin does (Andy, 9 Nov 2026).
+    const isEstimator = callerProfile.role === 'pm' && callerProfile.is_estimator === true;
     const isResponsiblePm = site.responsible_pm_id && site.responsible_pm_id === userData.user.id;
-    let allowed = isAdmin || isResponsiblePm;
+    let allowed = isAdmin || isEstimator || isResponsiblePm;
     if (!allowed) {
       const { data: grant } = await admin.from('site_price_access').select('user_id').eq('site_id', site_id).eq('user_id', userData.user.id).maybeSingle();
       allowed = !!grant;
