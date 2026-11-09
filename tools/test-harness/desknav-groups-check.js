@@ -30,6 +30,16 @@ const menuText = (page) => page.evaluate(() => [...document.querySelectorAll('di
       await page.getByLabel('Show Projects pages').click(); await page.waitForTimeout(500);
       const m2 = await menuText(page);
       check(m2.includes('▴') && m2.includes('Sites Map'), `${name}: ▾ opens the list underneath (▴ when open)`);
+      // Clicking Dashboard itself opens its list (Company, Operatives, HR), not straight to Company (Andy, 9 Nov 2026).
+      await page.locator('text="Dashboard" >> visible=true').first().click(); await page.waitForTimeout(800);
+      const m4 = await menuText(page);
+      check(new URL(page.url()).pathname === '/home' && m4.includes('Company') && m4.includes('Operatives') && m4.includes('HR'), `${name}: clicking Dashboard shows Company, Operatives and HR (stays on ${new URL(page.url()).pathname})`);
+      await page.locator('text="Operatives" >> visible=true').first().click(); await page.waitForTimeout(2500);
+      check(new URL(page.url()).pathname === '/pm/operatives', `${name}: Operatives opens its dashboard`);
+      await page.locator('text="Deliveries" >> visible=true').first().click(); await page.waitForTimeout(800);
+      check(new URL(page.url()).pathname === '/pm/operatives' && (await menuText(page)).includes('Delivery Schedule'), `${name}: clicking Deliveries shows its list too`);
+      await page.screenshot({path: `shots/desknav-${name}-dashboard.png`});
+      await page.goto(`${BASE}/home`); await page.waitForTimeout(3000);
       await page.screenshot({path: `shots/desknav-${name}.png`});
       await page.goto(`${BASE}/sites/${S1}`); await page.waitForTimeout(5000);
       const m3 = await menuText(page);

@@ -70,8 +70,8 @@ export function DeskNav() {
   const site = siteId ? sites?.find((s) => s.id === siteId) : undefined;
   const isOn = (k: string) => (k === 'home' ? seg === 'home' || seg === '' : k === 'sites' ? seg === 'sites' || seg.startsWith('sites/') : seg === k || seg.startsWith(`${k}/`));
   // Charcoal menu (Andy, 6 Nov 2026: option 1): light text, the page you're on in white with a red edge.
-  const row = (i: Item, on: boolean, small = false) => (
-    <Pressable key={i.k + i.go} onPress={() => router.navigate(i.go as never)} accessibilityRole="link"
+  const row = (i: Item, on: boolean, small = false, press?: () => void) => (
+    <Pressable key={i.k + i.go} onPress={press ?? (() => router.navigate(i.go as never))} accessibilityRole={press ? 'button' : 'link'}
       style={(st) => [{ flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: small ? 7 : 9, paddingHorizontal: small ? 10 : 12, borderRadius: 10, flex: 1 },
         on ? { backgroundColor: NAV.on, borderLeftWidth: 3, borderLeftColor: t.brand1, paddingLeft: (small ? 10 : 12) - 3 } : (st as { hovered?: boolean }).hovered ? { backgroundColor: NAV.hover } : null]}>
       <OphIcon name={i.ic} size={small ? 15 : 18} color={on ? '#fff' : NAV.dim} />
@@ -83,11 +83,14 @@ export function DeskNav() {
     const kids = i.kids ?? [];
     if (!kids.length) return <View key={i.k}>{row(i, isOn(i.k) && !(siteId && i.k === 'sites' && false))}</View>;
     const kidOn = kids.some((c) => c.go !== i.go && isOn(c.k));
-    const shown = open[i.k] ?? kidOn;
+    // A list whose first page is the item's own (Dashboard › Company, Deliveries › Delivery Schedule): clicking the item
+    // opens its list rather than going straight to that page (Andy, 9 Nov 2026). Projects still opens the projects list.
+    const listOnly = kids.some((c) => c.go === i.go);
+    const shown = open[i.k] ?? (kidOn || (listOnly && kids.some((c) => isOn(c.k))));
     return (
       <View key={i.k}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-          {row(i, isOn(i.k) && !kidOn)}
+          {row(i, !listOnly && isOn(i.k) && !kidOn, false, listOnly ? () => setOpen({ ...open, [i.k]: !shown }) : undefined)}
           {/* ▾ where a list opens underneath (Andy's drop-down rule), ▴ when it's open. */}
           <Pressable onPress={() => setOpen({ ...open, [i.k]: !shown })} accessibilityLabel={`Show ${i.lbl} pages`} style={{ width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ fontSize: 15, color: NAV.dim }}>{shown ? '▴' : '▾'}</Text>
