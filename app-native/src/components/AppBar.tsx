@@ -105,6 +105,8 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   const area = areaHome(path);
   const titleGo = home || path.split('?')[0].replace(/\/$/, '') === area ? null : area;
   const copyable = !home && !!sub;
+  // What tapping the address copies (Andy, 9 Nov 2026): the site's name and its address together, on any page of the job.
+  const copyLine = site && !fin && site.name && !sub.toLowerCase().startsWith(site.name.toLowerCase()) ? `${site.name}, ${sub}` : sub;
   const [copied, setCopied] = useState(false);
   const settingsBtn = home && isFullManager(me);
   const noSelect = { userSelect: 'none' } as never;
@@ -176,7 +178,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
           </View>
           <View style={{ flex: 1, alignItems: fin ? 'flex-start' : 'center', minWidth: 0 }}>
             <Pressable disabled={!titleGo} onPress={() => { if (titleGo) router.navigate(titleGo as never); }} accessibilityRole={titleGo ? 'link' : undefined} style={noSelect}><Text numberOfLines={1} style={[brand(home ? 800 : 700), { fontSize: fin ? 21 : desk ? 22.8 : 19, color: home ? t.brand1 : fin ? '#111827' : base.ink, letterSpacing: -0.2 }]}>{main}</Text></Pressable>
-            {!!sub && <Pressable disabled={!copyable} onPress={async () => { if (await copyAddress(sub)) { setCopied(true); setTimeout(() => setCopied(false), 1300); } }} accessibilityRole={copyable ? 'button' : undefined} accessibilityHint={copyable ? 'Copies this text' : undefined} style={noSelect}><Text numberOfLines={1} style={[home ? brand(700) : {}, { fontSize: home ? 11 : 12.5, color: home ? base.slate : '#6b7280', marginTop: 3, letterSpacing: home ? 1 : 0, textTransform: home ? 'uppercase' : 'none' }]}>{sub}</Text></Pressable>}
+            {!!sub && <Pressable disabled={!copyable} onPress={async () => { if (await copyAddress(copyLine)) { setCopied(true); setTimeout(() => setCopied(false), 1300); } }} accessibilityRole={copyable ? 'button' : undefined} accessibilityHint={copyable ? 'Copies the site name and address' : undefined} style={noSelect}><Text numberOfLines={1} style={[home ? brand(700) : {}, { fontSize: home ? 11 : 12.5, color: home ? base.slate : '#6b7280', marginTop: 3, letterSpacing: home ? 1 : 0, textTransform: home ? 'uppercase' : 'none' }]}>{sub}</Text></Pressable>}
             {copied && <View pointerEvents="none" style={{ position: 'absolute', bottom: -8, alignSelf: 'center', backgroundColor: base.ink, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 2, zIndex: 5 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>Copied</Text></View>}
           </View>
           <View style={{ minWidth: 44, alignItems: 'flex-end' }}>
