@@ -87,7 +87,8 @@ export function tradesSummary(list: Trade[]): { other_trades: string | null; oth
 
 /** What happens next, in a line. */
 /** fin: Finance (who prices quotes); in Projects a quote is "with Finance to price" (Andy, 7 Nov 2026: no money in Projects). */
-export function nextHint(j: RJob, mgr: boolean, fin = false): string {
+/** manual: a company without OpHUB Finance types the quote figure in (Andy, 9 Nov 2026). */
+export function nextHint(j: RJob, mgr: boolean, fin = false, manual = false): string {
   const s = repairStage(j);
   const hold = j.on_hold ? ` On hold${j.on_hold_reason ? `: ${j.on_hold_reason}` : ''}.` : '';
   const trades = otherTradesOf(j) ? ` Waiting on ${otherTradesOf(j)}${j.other_trades_date ? ` (${j.other_trades_date})` : ''}.` : '';
@@ -95,7 +96,7 @@ export function nextHint(j: RJob, mgr: boolean, fin = false): string {
     to_book: mgr ? 'Next: book it in with the tenant and an operative.' : 'Waiting to be booked in.',
     booked: 'Next: attend, check in and go through the steps.',
     attended: j.completed_in_visit ? 'Next: completion photos and the works completed.' : 'Next: was the repair completed whilst in attendance? Yes, or it needs a quote.',
-    quote_needed: fin ? 'Next: price it from the attendance report and send the quote.' : mgr ? 'With Finance to price.' : 'With the office to price.',
+    quote_needed: manual ? 'Next: price it, send the quote to the client, then enter the quote figure here.' : fin ? 'Next: price it from the attendance report and send the quote.' : mgr ? 'With Finance to price.' : 'With the office to price.',
     awaiting_approval: 'Quote submitted. Waiting for the client to approve it.',
     approved: mgr ? 'Next: book the works in.' : 'Approved — waiting for a date.',
     works_booked: 'Next: attend and do the works.',

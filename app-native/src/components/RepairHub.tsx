@@ -29,7 +29,7 @@ import { useBook } from '@/data/finBook';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { raiseRepairInvoice } from '@/data/repairInvoice';
 import { repairReportsAfter, scheduleRepairReport, syncRepairPhotos } from '@/data/repairOneDrive';
-import { useContractQuoteSettings } from '@/data/repairQuote';
+import { saveRepairQuote, useContractQuoteSettings } from '@/data/repairQuote';
 import { addRepairNote, deleteRepairJob, geocodeRepairJob, hideRepairPhoto, patchRepairJob, recordNoAccess, syncRepairEvent, uploadWorkOrder, useRepairJob, useRepairNotes } from '@/data/repairs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -85,14 +85,19 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
   const [moneyPop, setMoneyPop] = useState<'' | 'quote' | 'costs'>('');
   // Send To Client from the job's Quote step, when it hasn't been sent (Andy, 9 Nov 2026).
   const [sendQuote, setSendQuote] = useState(false);
+  // A company without Finance types the quote figure in by hand (Andy, 9 Nov 2026).
+  const [figure, setFigure] = useState(false);
   if (!me) return null;
   if (isLoading || !data) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const job = job0 as (RepairJob & RJob & Row) | null;
   if (!job) return <Muted style={{ padding: space.l }}>This job no longer exists.</Muted>;
   const mgr = isManager(me), client = me.role === 'client';
   const canPo = isFinanceUser(me, org) && org?.has_finance !== false;
-  // Who prices the quote (Andy, 9 Nov 2026): Finance, and PMs and admins from Projects.
+  // Who prices the quote (Andy, 9 Nov 2026): Finance, and PMs and admins from Projects. Only a company with OpHUB Finance
+  // prices it on the quote screen and sends it from OpHUB; without Finance, the PM types in the figure that went to the client.
   const canQuote = fin || (isFullManager(me) && !client);
+  const finCo = org?.has_finance !== false;
+  const manualQuote = canQuote && !finCo;
   const st = repairStage(job), bar = barState(job, inv);
   const label = job.address || 'Repair job';
   const ops = people.filter((p) => p.role === 'operative' || p.role === 'site_manager' || p.role === 'pm');
@@ -125,7 +130,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
   // Each job's costs by type, its value (invoiced, else quoted) and profit (Andy, 8 Nov 2026).
   const byCat = (c: string) => (fc ? fc.lines.filter((l) => l.sub === job.id && (c === 'other' ? !['materials', 'labour', 'plant', 'subcontract', 'committed'].includes(l.cat) : l.cat === c)).reduce((t, l) => t + l.net, 0) : 0);
   // Not emailed to the client from OpHUB yet, and no answer from them: the Quote step offers Send To Client.
-  const unsent = !!quote && !job.quote_sent_to && job.quote_approved == null && !job.closed;
+  const unsent = finCo && !!quote && !job.quote_sent_to && job.quote_approved == null && !job.closed;
   const value = job.invoice_id && inv ? Number(inv.net || 0) : quote ? quote.net : null;
   const profit = value != null ? value - costs - ordered : null;
   const pct = value && profit != null ? Math.round((profit / value) * 1000) / 10 : null;
@@ -139,6 +144,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
   const openDoc = async (k: 'quote' | 'survey' | 'completion') => { setBusy(k); const ok = await exportRepairReport(k, job, site, org, surveyor, qs?.vat).catch(() => false); setBusy(''); if (!ok) toast('Could not build the PDF.'); };
 
   const run = async (k: string) => {
+    if (k === 'quote' && manualQuote) { setFigure(true); return; }
     if (k === 'quote') { router.push((inProjects ? `/sites/${siteId}/repairs/quote/${job.id}` : `/fin/job/${siteId}/quote/${job.id}`) as never); return; }
     if (k === 'approve') { if (await confirmAsk('Has the client approved the quote?', 'Yes, Approved')) await save({ quote_approved: true, quote_approved_at: new Date().toISOString(), approved_by: me.id, self_authorized: false, job_status: 'Approved - To Do' }, 'Approved — book the works in'); return; }
     if (k === 'reject') { if (await confirmAsk('Has the client turned the quote down?', 'Yes, Rejected')) await save({ quote_approved: false, job_status: 'Rejected' }, 'Marked rejected'); return; }
@@ -186,7 +192,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
     if (st === 'to_book' || st === 'booked') o.push({ key: 'book', label: st === 'booked' ? 'Change The Booking' : 'Book In' });
     if (st === 'booked' || st === 'to_book' || st === 'attended' || st === 'quote_needed') o.push({ key: 'attend', label: 'Update Status' });
     if (st === 'booked' || st === 'works_booked') o.push({ key: 'noaccess', label: 'Record No Access' });
-    if (canQuote && (st === 'attended' || st === 'quote_needed' || st === 'awaiting_approval')) o.push({ key: 'quote', label: st === 'awaiting_approval' ? 'Change The Quote' : 'Price It (Quote)' });
+    if (canQuote && (st === 'attended' || st === 'quote_needed' || st === 'awaiting_approval')) o.push({ key: 'quote', label: manualQuote ? (quote ? 'Change The Quote Figure' : 'Enter The Quote Figure') : st === 'awaiting_approval' ? 'Change The Quote' : 'Price It (Quote)' });
     if (st === 'awaiting_approval') o.push({ key: 'quoteupd', label: 'Quote Update ▾' });
     if (st === 'approved' || st === 'works_booked') o.push({ key: 'works', label: st === 'works_booked' ? 'Change The Repair Booking' : 'Book The Repair' });
     if (st === 'attended' || st === 'approved' || st === 'works_booked') o.push({ key: 'done', label: 'Mark Job As Complete' });
@@ -242,7 +248,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
           {docs.some((d) => d.k === 'survey') && <View style={{ alignSelf: 'flex-start', marginTop: 8 }}><Button small kind="ghost" busy={busy === 'survey'} title="📄 Booking Visit Report" onPress={() => void openDoc('survey')} /></View>}
         </>
       ), btn('attend', 'Update Status', !!job.survey_date))}
-      {canQuote ? ladder(4, 'Quote', quote ? `${gbp(quote.total)}${unsent ? ' · not sent' : job.variation_issued_at ? ` · sent ${fmt(job.variation_issued_at)}` : ''}` : 'Not priced', quote ? <Muted>Net {gbp(quote.net)}{quote.vatPct ? ` + VAT ${gbp(quote.vat)}` : ''}{job.quote_sent_to ? ` · sent to ${job.quote_sent_to}` : ''}</Muted> : undefined, <>{btn('quote', quote ? 'Open The Quote' : 'Price It', !!quote)}{unsent && <Button key="send" small title="Send To Client" onPress={() => setSendQuote(true)} />}{st === 'awaiting_approval' && btn('quoteupd', 'Quote Update ▾')}</>)
+      {canQuote ? ladder(4, 'Quote', quote ? `${gbp(quote.total)}${unsent ? ' · not sent' : job.variation_issued_at ? ` · sent ${fmt(job.variation_issued_at)}` : ''}` : manualQuote ? 'No figure yet' : 'Not priced', quote ? <Muted>Net {gbp(quote.net)}{quote.vatPct ? ` + VAT ${gbp(quote.vat)}` : ''}{job.quote_sent_to ? ` · sent to ${job.quote_sent_to}` : ''}</Muted> : undefined, <>{btn('quote', manualQuote ? (quote ? 'Change Quote Figure' : 'Enter Quote Figure') : quote ? 'Open The Quote' : 'Price It', !!quote)}{unsent && <Button key="send" small title="Send To Client" onPress={() => setSendQuote(true)} />}{st === 'awaiting_approval' && btn('quoteupd', 'Quote Update ▾')}</>)
         : ladder(4, 'Quote', job.variation_issued_at ? `Quote Submitted ${fmt(job.variation_issued_at)}` : st === 'quote_needed' ? 'With Finance to price' : '—', undefined, st === 'awaiting_approval' ? btn('quoteupd', 'Quote Update ▾') : undefined)}
       {ladder(5, 'Approved', job.quote_approved ? `${fmt(job.quote_approved_at)}${job.self_authorized ? ' · self-authorised' : ''}` : job.quote_approved === false ? 'Rejected' : 'Waiting', job.quote_decided_online_at ? <Muted>{job.quote_approved ? 'Approved' : 'Turned down'} online by the client{job.quote_decision_note ? ` — ${job.quote_decision_note}` : ''}</Muted> : undefined)}
       {/* Repair Booked (Andy, 7 Nov 2026): the repair's date, and any other trades with their booked dates and photos of their completed works. */}
@@ -305,7 +311,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
           {!!otherTradesOf(job) && <Text style={{ fontSize: 11.5, fontWeight: '600', color: base.ink, backgroundColor: '#F0F1F4', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, overflow: 'hidden' }}>{otherTradesOf(job)}{job.other_trades_date ? ` ${fmt(job.other_trades_date)}` : ''}</Text>}
         </View>
       </Card>
-      <StageBar steps={fin ? BAR : BAR.slice(0, BAR_PROJECTS)} step={bar.step} skip={bar.skipQuote ? [4, 5, 6] : []} rejected={bar.rejected} rejectedLabel="Rejected by the client" next={client ? undefined : nextHint(job, mgr, canQuote)} />
+      <StageBar steps={fin ? BAR : BAR.slice(0, BAR_PROJECTS)} step={bar.step} skip={bar.skipQuote ? [4, 5, 6] : []} rejected={bar.rejected} rejectedLabel="Rejected by the client" next={client ? undefined : nextHint(job, mgr, canQuote, manualQuote)} />
 
       <>
           {/* Half and half (Andy, 8 Nov 2026): the client on the left, the works order on the right. */}
@@ -424,6 +430,22 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
         </View>
       )}
 
+      {/* The quote figure, typed in by hand (a company without OpHUB Finance, Andy 9 Nov 2026): the net figure that went
+          to the client, what it's for and when it went. Saving makes it Awaiting Client Approval, as sending would. */}
+      {figure && (
+        <FinForm title={quote ? 'Change The Quote Figure' : 'Enter The Quote Figure'} saveLabel="Save" onClose={() => setFigure(false)}
+          note="Your company doesn’t have OpHUB Finance, so the quote is priced and sent outside OpHUB. Put in the figure that went to the client; saving makes the job Awaiting Client Approval."
+          initial={{ net: quote ? String(quote.net) : '', what: savedLines[0]?.description || job.repair_description || job.survey_notes || 'Works as described', d: (job.variation_issued_at || new Date().toISOString()).slice(0, 10) }}
+          fields={[{ k: 'net', label: 'Quote Figure £ (Excl. VAT)', kind: 'money', half: true }, { k: 'd', label: 'Date Sent To Client', kind: 'date', half: true }, { k: 'what', label: 'What It’s For', kind: 'multiline' }]}
+          onSave={async (v) => {
+            const net = Number(String(v.net || '').replace(/[£,\s]/g, ''));
+            if (!(net > 0)) return 'Enter the quote figure.';
+            const d = String(v.d || '').slice(0, 10);
+            const ok = await saveRepairQuote(job, [{ description: String(v.what || '').trim() || 'Works as described', qty: 1, rate: Math.round(net * 100) / 100 }], 0, qs?.vat ?? null, 'awaiting', me.id, d ? `${d}T12:00:00.000Z` : undefined);
+            if (!ok) return 'Could not save — try again.';
+            setFigure(false); refresh(); return null;
+          }} />
+      )}
       {sendQuote && <SendQuoteForm job={job} site={site as Row | undefined} lines={savedLines} discount={Number(job.quote_discount_pct || 0)} onClose={() => setSendQuote(false)} onSent={() => { setSendQuote(false); refresh(); }} />}
       {/* A booking (Andy, 8 Nov 2026): the date, the operative, a time slot and notes for the booking. */}
       {form === 'book' && (

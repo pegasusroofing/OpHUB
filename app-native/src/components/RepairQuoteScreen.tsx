@@ -142,11 +142,12 @@ export function RepairQuoteScreen() {
         <Button small kind="ghost" title="📄 View Quote" onPress={async () => { if (!(await exportRepairReport('quote', { ...job, quote_lines: lines, quote_discount_pct: discount, variation_cost: t.net } as never, site, org, '', qs?.vat).catch(() => false))) toast('Could not build the PDF.'); }} />
         <View style={{ flex: 1 }} />
         <Button kind="ghost" busy={busy} title="Save" onPress={() => void save('awaiting')} />
-        <Button busy={busy} title="Send To Client" onPress={() => setSending(true)} />
+        {/* Only a company with OpHUB Finance sends quotes from OpHUB (Andy, 9 Nov 2026). */}
+        {org?.has_finance !== false && <Button busy={busy} title="Send To Client" onPress={() => setSending(true)} />}
       </View>
       {/* Decided online by the client (Andy, 7 Nov 2026). */}
       {!!job.quote_decided_online_at && <Muted style={{ textAlign: 'center', marginBottom: 6 }}>{job.quote_approved ? 'Approved' : 'Turned down'} online {new Date(job.quote_decided_online_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}{job.quote_decision_note ? ` — ${job.quote_decision_note}` : ''}</Muted>}
-      {qs?.onlineApproval && <View style={{ alignItems: 'center', marginBottom: 6 }}><Button small kind="ghost" busy={busy} title="🔗 Copy Approval Link" onPress={() => void copyLink()} /></View>}
+      {qs?.onlineApproval && org?.has_finance !== false && <View style={{ alignItems: 'center', marginBottom: 6 }}><Button small kind="ghost" busy={busy} title="🔗 Copy Approval Link" onPress={() => void copyLink()} /></View>}
       {sending && <SendQuoteForm job={job} site={site as Row | undefined} lines={clean()} discount={discount} onClose={() => setSending(false)} onSent={() => router.back()} />}
       <View style={{ height: space.xl }} />
     </ScrollView>

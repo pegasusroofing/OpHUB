@@ -4,8 +4,9 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 // app has already made the quote PDF and put it in the private finance-docs bucket. When the contract has "Client
 // Approves Quotes Online" switched on, the email has an Approve Or Reject Online button (operativehub.co.uk/quote.html,
 // answered by repair-quote-decision). Only people with OpHUB Finance switched on, or PMs and admins quoting from the job
-// in Projects (9 Nov 2026; only jobs they can see), only for their own company's jobs and files. Daily limit as
-// send-finance-email. The app holds it back during the Finance trial (not for Sandbox Roofing).
+// in Projects (9 Nov 2026; only in a company with OpHUB Finance, only jobs they can see), only for their own company's
+// jobs and files. Daily limit as send-finance-email. The app holds it back during the Finance trial (not for Sandbox
+// Roofing).
 //   { repair_job_id, storage_path, filename, recipients[], cc[], body_text }
 const corsHeaders = { 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, pragma' };
 const OPHUB_ORIGINS = new Set(['https://operativehub.co.uk', 'https://www.operativehub.co.uk', 'https://ophub-ten.vercel.app', 'capacitor://localhost', 'https://localhost', 'http://localhost']);
@@ -69,8 +70,11 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { data: job } = await admin.from('repair_jobs').select('id, org_id, site_id, job_number, address, quote_token').eq('id', String(body.repair_job_id || '')).maybeSingle();
     if (!job || job.org_id !== caller.org_id) return reply(req, { error: 'Forbidden' }, 403);
-    // A PM without Finance: only for a job they can see themselves.
+    // A PM without Finance: only in a company that has OpHUB Finance (Andy, 9 Nov 2026: without it the quote figure is
+    // typed in by hand), and only for a job they can see themselves.
     if (!caller.finance_enabled) {
+      const { data: co } = await admin.from('organizations').select('has_finance').eq('id', caller.org_id).maybeSingle();
+      if (!co || co.has_finance === false) return reply(req, { error: 'Sending quotes from OpHUB needs OpHUB Finance for your company.' }, 403);
       const asUser = createClient(SUPABASE_URL, ANON, { auth: { persistSession: false }, global: { headers: { Authorization: `Bearer ${token}` } } });
       const { data: seen } = await asUser.from('repair_jobs').select('id').eq('id', job.id).maybeSingle();
       if (!seen) return reply(req, { error: 'Forbidden' }, 403);

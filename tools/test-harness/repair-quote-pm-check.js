@@ -76,6 +76,28 @@ const stubs = async (ctx) => ctx.route('**/rest/v1/rpc/repair_contract_vat', (r)
   check(j3().quote_approved === true && j3().job_status === 'Approved - To Do', 'Quote Update ▾ on the Quote line › Quote Approved');
   await ctx.close();
 
+  // ---- A company without OpHUB Finance: the PM types in the quote figure; nothing is sent from OpHUB ----
+  {
+    const N = await makeContext(browser, 'pm', [], {viewport: {width: 1366, height: 900}});
+    setup(N.db, false); N.db.organizations[0].has_finance = false; await stubs(N.ctx);
+    const np = await N.ctx.newPage(); np.on('pageerror', (e) => errs.push('no-fin co: ' + e.message));
+    await login(np);
+    await np.goto(`${BASE}/sites/${S1}/repairs/job/j3`); await np.waitForTimeout(5000);
+    let nt = await np.locator('body').innerText();
+    check(await np.getByText('Enter Quote Figure', {exact: true}).count() === 1 && await np.getByText('Price It', {exact: true}).count() === 0 && /enter the quote figure here/.test(nt), 'no Finance company: Enter Quote Figure on the Quote line (no quote screen)');
+    await np.getByText('Enter Quote Figure', {exact: true}).click(); await np.waitForTimeout(800);
+    check(/Enter The Quote Figure/.test(await np.locator('body').innerText()) && new URL(np.url()).pathname === `/sites/${S1}/repairs/job/j3`, 'it opens a pop-up on the job, not the quote screen');
+    await np.getByLabel('Quote Figure £ (Excl. VAT)').fill('450');
+    await np.screenshot({path: 'shots/repair-quote-figure.png'});
+    await np.getByText('Save', {exact: true}).last().click(); await np.waitForTimeout(2500);
+    const nj = N.db.repair_jobs.find((j) => j.id === 'j3');
+    check(Number(nj.variation_cost) === 450 && !!nj.variation_issued_at && nj.job_status === 'Surveyed - Variation Issued' && nj.quote_lines?.length === 1, 'Save: £450 on the job, Awaiting Client Approval');
+    nt = await np.locator('body').innerText();
+    check(/£540\.00 · sent /.test(nt) && await np.getByText('Send To Client', {exact: true}).count() === 0 && await np.getByText('Change Quote Figure', {exact: true}).count() === 1 && await np.getByText('Quote Update ▾', {exact: true}).count() >= 1, 'the Quote line: £540.00 with VAT, sent; Change Quote Figure and Quote Update ▾, no Send To Client');
+    await np.screenshot({path: 'shots/repair-quote-figure-job.png', fullPage: true});
+    await N.ctx.close();
+  }
+
   // ---- An operative: no Price It ----
   const O = await makeContext(browser, 'operative', [], {viewport: {width: 1366, height: 900}});
   setup(O.db, false); O.db.repair_jobs[0].survey_booking_assigned_to = O.db.profiles[0].id; await stubs(O.ctx);

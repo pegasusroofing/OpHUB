@@ -87,12 +87,13 @@ export type QuoteStatus = 'draft' | 'awaiting' | 'approved' | 'rejected';
 export const QUOTE_STATUS: [QuoteStatus, string][] = [['draft', 'Not Sent Yet'], ['awaiting', 'Awaiting Approval'], ['approved', 'Client Approved'], ['rejected', 'Client Rejected']];
 export const quoteStatusOf = (job: Row): QuoteStatus => (job.quote_approved === true ? 'approved' : job.quote_approved === false ? 'rejected' : job.variation_issued_at ? 'awaiting' : 'draft');
 /** Saves the quote on the job with where it stands. Sent to the client = Awaiting Approval. The old app's job_status
- *  is written alongside, as everywhere else. */
-export async function saveRepairQuote(job: Row, lines: QuoteLine[], discountPct: number, vat: string | null, status: QuoteStatus, by?: string): Promise<boolean> {
+ *  is written alongside, as everywhere else. at: when it went to the client, if not now (a figure typed in by hand,
+ *  Andy 9 Nov 2026). */
+export async function saveRepairQuote(job: Row, lines: QuoteLine[], discountPct: number, vat: string | null, status: QuoteStatus, by?: string, at?: string): Promise<boolean> {
   const t = quoteTotals(lines, discountPct, vat);
   const summary = lines.map((l) => `${l.code ? `${l.code} ` : ''}${l.description} × ${l.qty}`).join('\n');
   const patch: Row = { quote_lines: lines, quote_discount_pct: discountPct || null, variation_cost: t.net, priced_schedule_of_works: summary || null };
-  const now = new Date().toISOString();
+  const now = at || new Date().toISOString();
   if (status !== 'draft') {
     patch.variation_issued_at = status === 'awaiting' ? now : job.variation_issued_at || now;
     patch.completed_in_visit = job.completed_in_visit ?? false;
