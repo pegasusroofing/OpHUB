@@ -912,8 +912,8 @@ async function renderPriceTile(siteId){
       `;
     return `
       <div style="position:absolute;top:4px;left:4px;" data-rowactions-root onclick="event.stopPropagation();">
-        <span class="taskicon" title="Group this tile" style="background:transparent;" onclick="toggleRowActionsMenu('${key}')">⋮</span>
-        ${rowActionsMenuOpenFor===key ? `<div class="statusmenu" style="left:0;right:auto;">${items}</div>` : ''}
+        <span class="taskicon" title="Group or delete this tile" style="background:transparent;" onclick="toggleRowActionsMenu('${key}')">⋮</span>
+        ${rowActionsMenuOpenFor===key ? `<div class="statusmenu" style="left:0;right:auto;">${items}<div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deletePricingElement('${el.id}','${jsAttr(el.name)}')">🗑 Delete</div></div>` : ''}
       </div>
     `;
   }
