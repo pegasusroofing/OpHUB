@@ -14,6 +14,7 @@ import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-nat
 
 import { usePageCrumbs, type Crumb } from '@/components/Crumbs';
 import { viewDoc } from '@/components/DocViewer';
+import { RepairTradePo } from '@/components/RepairTradePo';
 import { FinForm, type Field } from '@/components/FinForm';
 import { bookable, bookCostTo } from '@/components/FinBookCost';
 import { Pop, PopLine } from '@/components/Pop';
@@ -71,6 +72,8 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
   const [busy, setBusy] = useState('');
   const [wNotes, setWNotes] = useState<string | null>(null);
   const [tradeEdit, setTradeEdit] = useState<Partial<Trade> | null>(null);
+  // The trade a PO is being raised for, and the trades list as just saved (Andy, 9 Nov 2026).
+  const [poFor, setPoFor] = useState<{ item: Trade; list: Trade[] } | null>(null);
   // The trail at the top (Andy, 8 Nov 2026): Projects › the contract › Works Orders › the box it's in › the job, as folders.
   const path = usePathname();
   const inProjects = path.startsWith('/sites/');
@@ -83,6 +86,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
   const job = job0 as (RepairJob & RJob & Row) | null;
   if (!job) return <Muted style={{ padding: space.l }}>This job no longer exists.</Muted>;
   const mgr = isManager(me), client = me.role === 'client';
+  const canPo = isFinanceUser(me, org) && org?.has_finance !== false;
   const st = repairStage(job), bar = barState(job, inv);
   const label = job.address || 'Repair job';
   const ops = people.filter((p) => p.role === 'operative' || p.role === 'site_manager' || p.role === 'pm');
@@ -243,6 +247,9 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
                 <Text style={{ flex: 1, fontSize: 13.5, fontWeight: '600', color: base.ink }}>{tr.trade}{tr.done ? '  ✓ Done' : ''}</Text>
                 <Text style={{ fontSize: 12.5, color: mgr ? base.blue : base.slate }}>{tr.date ? `Booked ${fmt(tr.date)}` : 'No date yet'}{mgr ? ' ›' : ''}</Text>
               </Pressable>
+              {!!tr.po_number && (canPo
+                ? <Text accessibilityRole="link" accessibilityLabel={`Purchase order ${tr.po_number}`} onPress={() => router.push(`/fin/po/${tr.po_id}` as never)} style={{ fontSize: 12.5, fontWeight: '600', color: base.blue, marginTop: 3 }}>PO {tr.po_number} ›</Text>
+                : <Text style={{ fontSize: 12.5, color: base.slate, marginTop: 3 }}>PO {tr.po_number}</Text>)}
               <View style={{ marginTop: 6 }}><RepairPhotos jobId={job.id} photos={data.photos} cats={['trade']} trade={tr.id} onChanged={refresh} canAdd={mgr} addLabel={`📷 ${tr.trade} Completed`} /></View>
             </View>
           )) : <Muted style={{ marginTop: 2 }}>None needed.</Muted>}
@@ -435,14 +442,24 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
       {tradeEdit && (
         // Another trade on the job (scaffold, electrician…): its booked date, and done once their works are complete.
         <FinForm title={tradeEdit.id ? tradeEdit.trade || 'Other Trade' : 'Add Other Trade'} initial={{ t: tradeEdit.trade || '', d: tradeEdit.date || '', done: tradeEdit.done ? 'yes' : 'no' }} onClose={() => setTradeEdit(null)}
-          fields={[{ k: 't', label: 'Trade', ph: 'E.g. Scaffold' }, { k: 'd', label: 'Booked For', kind: 'date', half: true }, { k: 'done', label: 'Their Works Complete?', kind: 'choice', half: true, options: [['no', 'No'], ['yes', 'Yes']] }]}
+          fields={[{ k: 't', label: 'Trade', ph: 'E.g. Scaffold' }, { k: 'd', label: 'Booked For', kind: 'date', half: true }, { k: 'done', label: 'Their Works Complete?', kind: 'choice', half: true, options: [['no', 'No'], ['yes', 'Yes']] }, ...(canPo && !tradeEdit.po_id ? [{ k: 'po', label: 'Raise A Purchase Order', kind: 'check' } as Field] : [])]}
+          note={tradeEdit.po_number ? `Purchase order ${tradeEdit.po_number} is raised for this trade.` : undefined}
           onSave={async (v) => {
             const name = String(v.t || '').trim(); if (!name) return 'Say which trade.';
-            const item: Trade = { id: tradeEdit.id || `t${Date.now().toString(36)}`, trade: name, date: String(v.d || '') || null, done: v.done === 'yes', done_at: v.done === 'yes' ? tradeEdit.done_at || new Date().toISOString() : null };
+            const item: Trade = { id: tradeEdit.id || `t${Date.now().toString(36)}`, trade: name, date: String(v.d || '') || null, done: v.done === 'yes', done_at: v.done === 'yes' ? tradeEdit.done_at || new Date().toISOString() : null, ...(tradeEdit.po_id ? { po_id: tradeEdit.po_id, po_number: tradeEdit.po_number } : {}) };
             const list = tradeEdit.id ? trades.map((x) => (x.id === tradeEdit.id ? item : x)) : [...trades, item];
-            return (await save({ trades: list, ...tradesSummary(list) })) ? null : 'Could not save.';
+            if (!(await save({ trades: list, ...tradesSummary(list) }))) return 'Could not save.';
+            if (v.po) setPoFor({ item, list });
+            return null;
           }}
           onDelete={tradeEdit.id ? async () => { const list = trades.filter((x) => x.id !== tradeEdit.id); return (await save({ trades: list, ...tradesSummary(list) })) ? null : 'Could not save.'; } : undefined} />
+      )}
+      {poFor && (
+        <RepairTradePo me={me} siteId={siteId} job={job} trade={poFor.item} onClose={() => setPoFor(null)}
+          onDone={async (po) => {
+            const list = poFor.list.map((x) => (x.id === poFor.item.id ? { ...x, po_id: po.id, po_number: po.number } : x));
+            return (await save({ trades: list, ...tradesSummary(list) })) ? null : `PO ${po.number} is raised, but it couldn’t be put on the trade.`;
+          }} />
       )}
       {form === 'hold' && (
         <FinForm title="Put On Hold" initial={{ r: '' }} onClose={() => setForm(null)} fields={[{ k: 'r', label: 'Why?', ph: 'E.g. Resident away until 20 Nov' }]}

@@ -73,7 +73,7 @@ export type NoAccess = { at: string; by?: string | null; by_name?: string | null
 export const noAccessOf = (j: RJob): NoAccess[] => (Array.isArray(j.no_access) ? (j.no_access as NoAccess[]) : []);
 
 /** Other trades on a job (scaffold, electrician…), each with its booked date; the jobs from before had one text field. */
-export type Trade = { id: string; trade: string; date?: string | null; done?: boolean; done_at?: string | null };
+export type Trade = { id: string; trade: string; date?: string | null; done?: boolean; done_at?: string | null; po_id?: string | null; po_number?: string | null }; // po_*: the PO raised for it (Andy, 9 Nov 2026)
 export function tradesOf(j: RJob & { trades?: unknown }): Trade[] {
   if (Array.isArray(j.trades)) return j.trades as Trade[];
   return j.other_trades ? [{ id: 'legacy', trade: j.other_trades, date: j.other_trades_date || null }] : [];
