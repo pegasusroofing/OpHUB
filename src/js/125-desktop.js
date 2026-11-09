@@ -236,6 +236,17 @@ function siteMapPinEl(p, mini){
   el.innerHTML = '<span></span>';
   return el;
 }
+// #(map-cluster) 2026-11-09 (Andy): the map opens on the main cluster of jobs
+// (e.g. London) rather than zooming out to the whole country for one or two
+// far-away jobs. Those pins are still on the map; zoom out to see them.
+function siteMapFocusPts(shown){
+  if(!shown || shown.length < 3) return shown;
+  const med = a => { const b = a.slice().sort((x,y)=>x-y); const m = b.length>>1; return b.length%2 ? b[m] : (b[m-1]+b[m])/2; };
+  const lat0 = med(shown.map(p=>p.lat)), lng0 = med(shown.map(p=>p.lng));
+  const km = p => { const dy = (p.lat-lat0)*111, dx = (p.lng-lng0)*111*Math.cos(lat0*Math.PI/180); return Math.sqrt(dx*dx+dy*dy); };
+  const near = shown.filter(p=>km(p) <= 60);
+  return near.length >= Math.max(2, Math.ceil(shown.length*0.5)) ? near : shown;
+}
 async function mountSiteMapGL(box, elId, mini, pts, missing){
   if(!webglOk() || !(await loadMapLibre())) return false;
   const shown = pts.filter(p=>mini ? p.st!=='closed' : siteMapShow[p.st]);
@@ -254,7 +265,7 @@ async function mountSiteMapGL(box, elId, mini, pts, missing){
   const fit = ()=>{
     if(!shown.length) return;
     if(shown.length===1){ map.jumpTo({center:[shown[0].lng, shown[0].lat], zoom:12}); return; }
-    const b = new maplibregl.LngLatBounds(); shown.forEach(p=>b.extend([p.lng, p.lat]));
+    const b = new maplibregl.LngLatBounds(); siteMapFocusPts(shown).forEach(p=>b.extend([p.lng, p.lat]));
     map.fitBounds(b, {padding: mini?40:70, maxZoom:13, duration:0});
   };
   fit();
@@ -304,7 +315,7 @@ async function mountSiteMap(elId, mini){
     m.addTo(map); markers[p.s.id] = m;
   });
   map._ophubMarkers = markers;
-  if(shown.length){ map.fitBounds(L.latLngBounds(shown.map(p=>[p.lat,p.lng])).pad(0.2), {maxZoom: 13}); }
+  if(shown.length){ map.fitBounds(L.latLngBounds(siteMapFocusPts(shown).map(p=>[p.lat,p.lng])).pad(0.2), {maxZoom: 13}); }
   else map.setView([52.6, -1.5], 6);
   if(mini){
     // click handled by the mini card's own onclick
