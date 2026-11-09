@@ -1,0 +1,27 @@
+OpHUB OFFLINE DEMO (no internet needed)
+
+This is the new app with a pretend company. Nothing you do in it touches RTB's real data.
+What you change is kept on that laptop or phone. To start again, add ?reset-demo to the address.
+
+SIGN IN (any password)
+  andy@demo.co.uk   Andy Admin (admin, with Finance)
+  paula@demo.co.uk  Paula PM (a PM without Finance)
+  jake@demo.co.uk   Jake Morris (an operative)
+  tom@demo.co.uk    Tom Hughes (an operative)
+  dave@demo.co.uk   Dave Driver (a driver)
+
+ON THE LAPTOP
+  1. Double-click "Start OpHUB Offline.bat" in this folder.
+  2. The browser opens at http://localhost:8099. Leave the black window open while you use it.
+  3. Close the black window to stop it.
+
+ON THE PHONE (do this BEFORE the flight, with signal)
+  1. Open the demo's web link in Safari (iPhone) or Chrome (Android).
+  2. Wait about 30 seconds on the sign-in page while it saves itself onto the phone.
+  3. iPhone: Share > Add To Home Screen. Android: menu > Add To Home Screen.
+  4. On the plane, open "OpHUB Demo" from the home screen.
+
+Not offline: maps, sending emails, Xero and OneDrive (they need the internet). Photos show a sample picture.
+
+To rebuild after changes: cd app-native, npx expo export --platform web --output-dir ../offline/app,
+then node tools/offline/make-offline.js
