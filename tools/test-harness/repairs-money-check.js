@@ -1,8 +1,8 @@
 // Repairs, Andy's later list of 8 Nov 2026, on the fake database, phone (375 wide) then laptop: Finance › Live Jobs has
 // tabs (Live Jobs | Costs By Job | Schedule Of Rates); the boxes are all the same size; a box opens a page of its own with
 // a drop-down to jump to another, the jobs in a table; Back returns to the boxes; the footer is one line (jobs, Export
-// Excel). A job: Quoted / Costs / Profit open pop-ups; a cost is booked to the job and one added from it; Work Summary has
-// ‹ Job Page; Quote Update ▾ (Rejected And Close Job closes it); Attended By comes from the operative who uploaded the
+// Excel). A job: Quoted / Costs / Profit open pop-ups; a cost is booked to the job and one added from it; the Work Summary
+// is on the job page (9 Nov: no tabs); Quote Update ▾ (Rejected And Close Job closes it); Attended By comes from the operative who uploaded the
 // visit photos. Costs By Job offers Book A Cost To It. node repairs-money-check.js
 const {chromium, makeContext, S1} = require('./harness');
 const seed = require('./fresh/seed');
@@ -76,19 +76,18 @@ const setup = (db) => {
   check(/Costs: £180\.00/.test((await page.getByLabel(/^Costs: /).getAttribute('aria-label')) || ''), 'its costs now show £180');
   await page.getByLabel(/^Quoted: /).click(); await page.waitForTimeout(800);
   t = await text();
-  check(/Quote/.test(t) && /Net/.test(t) && /Total/.test(t) && /Client’s Answer/.test(t) && await page.getByText('Open The Quote', {exact: true}).count() === 1, 'Quoted opens the quote: net, total, the client’s answer, Open The Quote');
+  check(/Quote/.test(t) && /Net/.test(t) && /Total/.test(t) && /Client’s Answer/.test(t) && await page.getByText('Open The Quote', {exact: true}).count() === 2, 'Quoted opens the quote: net, total, the client’s answer, Open The Quote (the Work Summary has one too)');
   await page.getByLabel('Close').last().click(); await page.waitForTimeout(400);
   await page.getByLabel(/^Profit: /).click(); await page.waitForTimeout(800);
   await page.getByText('+ Add A Cost', {exact: true}).click(); await page.waitForTimeout(4500);
   await page.getByLabel('Description').fill('Scaffold tower'); await page.getByLabel('Net £').fill('95');
   await page.getByText('Save', {exact: true}).last().click(); await page.waitForTimeout(2000);
   check(db.fin_job_costs.some((c) => c.description === 'Scaffold tower' && c.sub_job_id === 'j3'), '+ Add A Cost: added and booked to the job');
-  // Work Summary › ‹ Job Page
+  // One page (Andy, 9 Nov 2026): the Work Summary under the details, no tabs, no Reports & Photos box.
   await page.goto(`${BASE}/fin/job/${S1}/repair/j3`); await page.waitForTimeout(5000);
-  await page.getByRole('tab', {name: /^Work Summary/}).click(); await page.waitForTimeout(700);
-  check(await page.getByText('‹ Job Page', {exact: true}).count() === 1, 'Work Summary: ‹ Job Page beside Update');
-  await page.getByText('‹ Job Page', {exact: true}).click(); await page.waitForTimeout(700);
-  check(/WORKS ORDER/.test(await text()), '‹ Job Page goes back to the job');
+  t = await text();
+  check(await page.getByRole('tab', {name: /^Work Summary/}).count() === 0 && /WORKS ORDER/.test(t) && /WORK SUMMARY/.test(t) && /MONEY/.test(t) && !/REPORTS & PHOTOS/.test(t) && !/Job Page/.test(t), 'one page: the details, the Work Summary and the money, no tabs');
+  await page.screenshot({path: `shots/repairs-onepage-phone.png`, fullPage: true});
   // Quote Update ▾ on an awaiting job: Rejected And Close Job
   await page.goto(`${BASE}/fin/job/${S1}/repair/j6`); await page.waitForTimeout(5000);
   check(await page.getByText('Quote Update ▾', {exact: true}).count() >= 1, 'Quote Update ▾ on a job awaiting approval');

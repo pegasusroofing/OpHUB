@@ -20,13 +20,13 @@ import { useToast } from '@/components/toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSite } from '@/data/sites';
 import { useRepairJobs } from '@/data/repairs';
-import { BOXES, operativeJobs } from '@/lib/rules/repairStages';
+import { BOXES, isOpen, operativeJobs, type RJob } from '@/lib/rules/repairStages';
 import { useAuth } from '@/lib/auth';
 import { heading, mono } from '@/lib/fonts';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { overallPct } from '@/lib/rules/sow';
 import { isFinanceUser, isManager } from '@/lib/roles';
-import { base, page, space, useDesk } from '@/theme/theme';
+import { base, page, space, useDesk, useTheme } from '@/theme/theme';
 
 type T = { key: string; ic?: string; emoji?: string; bg: string; fg: string; title: string; sub: string; badge?: number | string; onPress: () => void };
 
@@ -55,6 +55,28 @@ function JobTiles({ tiles, cols, noStretch }: { tiles: T[]; cols: number; noStre
       ))}
     </View>
   );
+}
+
+/** A repair contract's Works Orders, as the red Live Projects card on the home page (Andy, 9 Nov 2026). */
+function WorksOrdersCard({ sub, onPress }: { sub: string; onPress: () => void }) {
+  const t = useTheme();
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Works Orders, ${sub}`}
+      style={({ pressed }) => [{ backgroundColor: t.brand1, borderRadius: 22, paddingVertical: 18, paddingHorizontal: 20, marginBottom: 5 }, pressed && { opacity: 0.9 }]}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}><OphIcon name="wrench" size={22} color={t.brand1Text} /></View>
+        <OphIcon name="chevron" size={22} color={t.brand1Text} stroke={2.4} />
+      </View>
+      <Text style={[heading(800), { color: t.brand1Text, fontSize: 20, letterSpacing: -0.2 }]}>Works Orders</Text>
+      <Text style={{ color: t.brand1Text, opacity: 0.92, marginTop: 4, fontSize: 13, fontWeight: '500' }}>{sub}</Text>
+    </Pressable>
+  );
+}
+/** A manager's line on it: how many are open, and how many to book. */
+function worksSub(jobs: RJob[]): string {
+  const open = jobs.filter(isOpen).length;
+  const toBook = jobs.filter((j) => BOXES.some((b) => b.k === 'to_book' && b.test(j))).length;
+  return [`${open} open`, toBook ? `${toBook} to book` : ''].filter(Boolean).join(' · ');
 }
 
 /** One .statrow box. */
@@ -100,13 +122,14 @@ export default function SiteHome() {
       <ScrollView contentContainerStyle={page(720)}>
         {header}
         <HowTo k="site_home" />
-        {/* Four tiles (Andy, 7 Nov 2026): Works Orders, Health & Safety, Calendar, To Do List. */}
-        <JobTiles cols={cols} tiles={[
-          { key: 'jobs', ic: 'wrench', bg: TINTS.red[0], fg: TINTS.red[1], title: 'Works Orders', sub: mgr || client ? 'Repair jobs on this contract' : 'Your repair jobs', badge: client ? undefined : mgr ? rjobs.filter((j) => BOXES.some((b) => b.k === 'to_book' && b.test(j))).length : operativeJobs(rjobs, me.id, false).mine, onPress: go('repairs') },
-          { key: 'hs', ic: 'shield', bg: '#E7E9EE', fg: base.ink, title: 'Health & Safety', sub: 'RAMS · COSHH · TBT', onPress: go('hs') },
+        {/* Works Orders full width, as Live Projects on the home page; then Calendar and To Do List, then Health &
+            Safety on the row below (Andy, 9 Nov 2026). Two across on a phone and a laptop alike. */}
+        <WorksOrdersCard onPress={go('repairs')} sub={client ? 'Repair jobs on this contract' : mgr ? worksSub(rjobs) : (() => { const n = operativeJobs(rjobs, me.id, false).mine; return n ? `${n} job${n === 1 ? '' : 's'} for you` : 'Your repair jobs'; })()} />
+        <JobTiles cols={2} tiles={[
           // A client: Works Orders and Health & Safety only (their pages).
           ...(client ? [] : [{ key: 'cal', ic: 'calendar', bg: '#E4EEFB', fg: TINTS.blue[1], title: 'Calendar', sub: 'Key dates', onPress: go('calendar') },
           { key: 'todo', ic: 'check', bg: '#EFEAFB', fg: '#5B3FA6', title: 'To Do List', sub: 'Tasks', onPress: go('todos') }]),
+          { key: 'hs', ic: 'shield', bg: '#E7E9EE', fg: base.ink, title: 'Health & Safety', sub: 'RAMS · COSHH · TBT', onPress: go('hs') },
         ]} />
         {footer}
       </ScrollView>

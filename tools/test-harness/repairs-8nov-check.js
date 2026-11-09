@@ -2,9 +2,9 @@
 // Works Orders — no Bulk Add button (New Job's "Upload Works Order/Orders" takes one or several), Export Excel in a footer
 // bar, a box opened shows in the trail like a folder (Works Orders › Quotation Required) and the trail closes it again;
 // a job — the trail (Works Orders › its box › the job), Client and Works Order half and half, Booking Date opens the booking
-// pop-up (date, time slot, operative, notes), Attended opens Update Status (date, who, fault, repair, photos), Reports &
-// Photos on the Job tab, the Work Summary tab with the booking's slot and notes, Resident (not Tenant), Booking Visit
-// Report, and a PM's Delete Visit. node repairs-8nov-check.js
+// pop-up (date, time slot, operative, notes), Attended opens Update Status (date, who, fault, repair, photos), the Work
+// Summary on the job page (9 Nov: no tabs, no Reports & Photos box) with the booking's slot and notes, the report and the
+// photos, Resident (not Tenant), Booking Visit Report, and a PM's Delete Visit. node repairs-8nov-check.js
 const fs = require('fs');
 const path = require('path');
 const {chromium, makeContext, S1} = require('./harness');
@@ -91,9 +91,8 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   j2 = db.repair_jobs.find((j) => j.id === 'j2');
   check(j2.survey_required === 'Y' && !!j2.survey_date && j2.fault_description === 'Cracked lead to porch' && !j2.surveyed_by, 'Update Status saves the visit (Attended By left empty: no operative uploaded the photos)');
   t = await text();
-  check(/REPORTS & PHOTOS/.test(t) && /Booking Visit Report/.test(t) && /Cracked lead to porch/.test(t) && !/Attendance Report/.test(t), 'Job tab: the report and the photos once in');
+  check(!/REPORTS & PHOTOS/.test(t) && /WORK SUMMARY/.test(t) && /Booking Visit Report/.test(t) && /Cracked lead to porch/.test(t) && !/Attendance Report/.test(t), 'job page: the report and photos in the Work Summary, no separate Reports & Photos box');
   await page.screenshot({path: 'shots/repairs-job-laptop.png', fullPage: true});
-  await page.getByRole('tab', {name: /^Work Summary/}).click(); await page.waitForTimeout(700);
   t = await text();
   check(/Booking/.test(t) && /Notes For The Booking Key safe 1234/.test(t) && /AM/.test(t) && !/Survey Photos/.test(t), 'Work Summary: the booking with its slot and notes; photos are added in Update Status');
   await page.screenshot({path: 'shots/repairs-work-summary.png', fullPage: true});

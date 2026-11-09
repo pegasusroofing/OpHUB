@@ -1,11 +1,11 @@
-// The repair job hub (Andy, 7 Nov 2026; docs/claude-code/REPAIRS-PLAN.md). One page per job, two tabs:
-//  Job — the progress bar and what's next, the works order (with a viewer), address, call-out, tenant, the booked /
-//        attended / completed dates, the documents (quote, attendance report, completed works), notes everyone can add
-//        (the client too), and for Finance a Money box (quoted, costs, margin, the invoice). Projects shows no money:
-//        pricing the quote and the schedule of rates are Finance's (Andy, 7 Nov 2026).
-//  Repair — each stage of the works (booked in, attended, quote, approved, works done), opened up to update it.
-// Managers get Update ▾; a client sees the Job tab without the money or the updates. Every action writes the old
-// app's job_status too, as the old app is still live for repairs.
+// The repair job hub (Andy, 7 Nov 2026; docs/claude-code/REPAIRS-PLAN.md). One page per job, no tabs (Andy, 9 Nov 2026):
+// the progress bar and what's next, the client and the works order (with a viewer), address, call-out, resident, the
+// booking / attended / completed dates, then the Work Summary — each stage of the works (booked in, attended, quote,
+// approved, works done) with its reports and photos — then for Finance a Money box (quoted, costs, margin, the
+// invoice), the quote, and notes everyone can add (the client too). Projects shows no money: pricing the quote and the
+// schedule of rates are Finance's (Andy, 7 Nov 2026). Managers get Update ▾; a client sees the details, their reports
+// and photos, and the notes, without the money or the updates. Every action writes the old app's job_status too, as
+// the old app is still live for repairs.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { router, Stack, usePathname } from 'expo-router';
@@ -16,7 +16,6 @@ import { usePageCrumbs, type Crumb } from '@/components/Crumbs';
 import { viewDoc } from '@/components/DocViewer';
 import { FinForm, type Field } from '@/components/FinForm';
 import { bookable, bookCostTo } from '@/components/FinBookCost';
-import { FinTabs } from '@/components/FinNav';
 import { Pop, PopLine } from '@/components/Pop';
 import { RepairPhotos } from '@/components/RepairPhotos';
 import { StageBar } from '@/components/StageBar';
@@ -67,7 +66,6 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
   const job0 = data?.job as (RepairJob & Row) | null | undefined;
   const { data: inv } = useQuery({ queryKey: ['repairInv', job0?.invoice_id], enabled: fin && !!job0?.invoice_id, queryFn: async () => (await fdb.from('fin_invoices').select('id,number,status,net,total').eq('id', job0?.invoice_id as string).maybeSingle()).data as Row | null });
   const { data: book } = useBook(fin ? me?.org_id : null, fin ? siteId : null);
-  const [tab, setTab] = useState<'job' | 'repair'>('job');
   const [form, setForm] = useState<Form>(null);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState('');
@@ -233,8 +231,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
       ), btn('attend', 'Update Status', !!job.survey_date))}
       {fin ? ladder(4, 'Quote', quote ? `${gbp(quote.total)}${job.variation_issued_at ? ` · sent ${fmt(job.variation_issued_at)}` : ' · not sent'}` : 'Not priced', quote ? <Muted>Net {gbp(quote.net)}{quote.vatPct ? ` + VAT ${gbp(quote.vat)}` : ''}</Muted> : undefined, <>{btn('quote', quote ? 'Open The Quote' : 'Price It', !!quote)}</>)
         : ladder(4, 'Quote', job.variation_issued_at ? `Quote Submitted ${fmt(job.variation_issued_at)}` : st === 'quote_needed' ? 'With Finance to price' : '—')}
-      {ladder(5, 'Approved', job.quote_approved ? `${fmt(job.quote_approved_at)}${job.self_authorized ? ' · self-authorised' : ''}` : job.quote_approved === false ? 'Rejected' : 'Waiting', job.quote_decided_online_at ? <Muted>{job.quote_approved ? 'Approved' : 'Turned down'} online by the client{job.quote_decision_note ? ` — ${job.quote_decision_note}` : ''}</Muted> : undefined,
-        <>{st === 'awaiting_approval' && btn('quoteupd', 'Quote Update ▾', false)}</>)}
+      {ladder(5, 'Approved', job.quote_approved ? `${fmt(job.quote_approved_at)}${job.self_authorized ? ' · self-authorised' : ''}` : job.quote_approved === false ? 'Rejected' : 'Waiting', job.quote_decided_online_at ? <Muted>{job.quote_approved ? 'Approved' : 'Turned down'} online by the client{job.quote_decision_note ? ` — ${job.quote_decision_note}` : ''}</Muted> : undefined)}
       {/* Repair Booked (Andy, 7 Nov 2026): the repair's date, and any other trades with their booked dates and photos of their completed works. */}
       {ladder(6, 'Repair Booked', bookLine(job.works_booking_date, job.works_booking_slot, job.works_booking_assigned_to, job.quote_approved ? 'Not booked yet' : '—'), (
         <>
@@ -293,10 +290,8 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
         </View>
       </Card>
       <StageBar steps={fin ? BAR : BAR.slice(0, BAR_PROJECTS)} step={bar.step} skip={bar.skipQuote ? [4, 5, 6] : []} rejected={bar.rejected} rejectedLabel="Rejected by the client" next={client ? undefined : nextHint(job, mgr, fin)} />
-      {!client && <FinTabs items={[['job', 'Job'], ['repair', 'Work Summary']]} value={tab} onChange={(k) => setTab(k as 'job' | 'repair')} />}
 
-      {tab === 'repair' && !client ? repairTab : (
-        <>
+      <>
           {/* Half and half (Andy, 8 Nov 2026): the client on the left, the works order on the right. */}
           <Card style={{ flexDirection: 'row', gap: 10 }}>
             <Pressable disabled={!mgr || client || !inProjects} accessibilityRole={mgr && !client && inProjects ? 'button' : undefined} accessibilityLabel="Client" onPress={() => router.push(`/sites/${siteId}/client` as never)}
@@ -332,6 +327,13 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
               ))}
             </View>
           </Card>
+          {/* The Work Summary on the job page, under the details (Andy, 9 Nov 2026): no separate tab. */}
+          {!client && (
+            <View accessibilityLabel="Work Summary">
+              <Text style={{ fontSize: 11.5, fontWeight: '700', color: base.slate, letterSpacing: 0.4, marginTop: 2, marginBottom: 8, marginLeft: 2 }}>WORK SUMMARY</Text>
+              {repairTab}
+            </View>
+          )}
           {fin && (
             <Card>
               <Text style={{ fontSize: 11.5, fontWeight: '700', color: base.slate, letterSpacing: 0.4, marginBottom: 8 }}>MONEY</Text>
@@ -351,8 +353,8 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
               </View>
             </Card>
           )}
-          {/* The visit's report and photos, once they're in (Andy, 8 Nov 2026); then the completed works. */}
-          {(docs.some((d) => d.k === 'survey') || visitPhotos.length > 0 || !!job.works_completed) && (
+          {/* A client's reports and photos (Andy, 9 Nov 2026: the team see them in the Work Summary). */}
+          {client && (docs.some((d) => d.k === 'survey') || visitPhotos.length > 0 || !!job.works_completed) && (
             <Card>
               <Text style={{ fontSize: 11.5, fontWeight: '700', color: base.slate, letterSpacing: 0.4, marginBottom: 8 }}>REPORTS & PHOTOS</Text>
               {(docs.some((d) => d.k === 'survey') || visitPhotos.length > 0) && (
@@ -398,15 +400,11 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
               <Button small title="Add" busy={busy === 'note'} onPress={async () => { if (!note.trim()) return; setBusy('note'); const ok = await addRepairNote(me, job.id, note); setBusy(''); if (ok) { setNote(''); refresh(); } else toast('Could not add the note — try again.'); }} />
             </View>
           </Card>
-        </>
-      )}
+      </>
       {mgr && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: space.xl }}>
           {st === 'awaiting_approval' && <Button title="Quote Update ▾" onPress={() => void run('quoteupd')} />}
           <Button title="Update ▾" busy={!!busy && busy !== 'note'} onPress={async () => { const k = await chooseAction('Update', updates()); if (k) void run(k); }} />
-          {tab === 'job' && <Button kind="ghost" title="Work Summary ›" onPress={() => setTab('repair')} />}
-          {/* Back to the job page from the Work Summary (Andy, 8 Nov 2026). */}
-          {tab === 'repair' && <Button kind="ghost" title="‹ Job Page" onPress={() => setTab('job')} />}
         </View>
       )}
 

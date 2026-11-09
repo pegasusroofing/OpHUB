@@ -10,6 +10,7 @@
 // Access, Save & Send To Client's pop-up, the client's approval link, Less / Plus on the rates. node repairs-check.js
 const {chromium, makeContext, S1} = require('./harness');
 const seed = require('./fresh/seed');
+const lowestBox = async (page, label) => { const l = page.locator(`text="${label}" >> visible=true`); let b = null; for (let i = 0; i < await l.count(); i++) { const x = await l.nth(i).boundingBox(); if (x && (!b || x.y > b.y)) b = x; } return b; };
 const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) process.exitCode = 1; };
 const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 const setup = (db, opId) => {
@@ -51,7 +52,14 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   await login(page);
   await page.goto(`http://localhost:8081/sites/${S1}`); await page.waitForTimeout(5000);
   let t = await page.locator('body').innerText();
-  check(/Works Orders/.test(t) && /Health & Safety/.test(t) && /Calendar/.test(t) && /To Do List/.test(t) && !/Materials/.test(t), 'home: four tiles — Works Orders, Health & Safety, Calendar, To Do List');
+  check(/Works Orders/.test(t) && /Health & Safety/.test(t) && /Calendar/.test(t) && /To Do List/.test(t) && !/Materials/.test(t), 'home: Works Orders, Calendar, To Do List, Health & Safety');
+  {
+    const wo = await page.getByLabel(/^Works Orders, /).boundingBox(), cal = await lowestBox(page, 'Calendar'), todo = await lowestBox(page, 'To Do List'), hs = await lowestBox(page, 'Health & Safety');
+    check(!!wo && !!cal && !!todo && !!hs && wo.y < cal.y && Math.abs(cal.y - todo.y) < 6 && hs.y > cal.y + 40, `home: Works Orders on top, Calendar and To Do List, Health & Safety a row down (${wo && cal && hs ? [wo.y, cal.y, hs.y].map(Math.round).join(' / ') : '?'})`);
+    const vw = page.viewportSize().width;
+    check(!!wo && wo.width > vw * 0.8, `home: Works Orders full width, like Live Projects (${wo ? Math.round(wo.width) : '?'} of ${vw})`);
+    check(/\d+ open/.test(await page.getByLabel(/^Works Orders, /).innerText()), 'home: the Works Orders card says how many are open');
+  }
   await page.screenshot({path: 'shots/repair-home.png'});
   await page.goto(`http://localhost:8081/sites/${S1}/repairs`); await page.waitForTimeout(5000);
   t = await page.locator('body').innerText();
@@ -97,7 +105,11 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   check(/Book In/.test(await page.locator('body').innerText()) && await page.getByLabel('Operative').count() > 0, 'Booking Date: tap to change the booking');
   await page.getByText('Cancel', {exact: true}).last().click(); await page.waitForTimeout(300);
   await page.screenshot({path: 'shots/repair-hub.png', fullPage: true});
-  await page.getByRole('tab', {name: /^Work Summary/}).click(); await page.waitForTimeout(600);
+  // One page (Andy, 9 Nov 2026): the Work Summary under the details, no tabs.
+  {
+    const res = await lowestBox(page, 'Resident'), ws = await lowestBox(page, 'WORK SUMMARY');
+    check(await page.getByRole('tab', {name: /^Work Summary/}).count() === 0 && !!res && !!ws && ws.y > res.y, 'the Work Summary is on the job page, under the address and resident (no tabs)');
+  }
   t = await page.locator('body').innerText();
   check(/Description Of Fault Found/.test(t) && /Slipped tiles at the chimney/.test(t) && /Description Of Repair Required/.test(t) && /Booking Visit Report/.test(t), 'repair page: fault found, repair required, the booking visit report');
   check(/Repair Booked/.test(t) && /OTHER TRADES/.test(t) && /Works Done/.test(t), 'repair page: Repair Booked (with other trades) after Approved');

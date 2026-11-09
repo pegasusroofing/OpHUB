@@ -148,6 +148,8 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
 
 56. Repairs, later list of 8 Nov: box pages with the drop-down and table, equal boxes, one-line footer; Finance tabs (Costs By Job, Schedule Of Rates), Costs By Plot; money pop-ups, booking and adding costs to a job; quote View / Save / Send To Client; Quote Update ▾; ‹ Job Page; Attended By from the operative's photos. Fake database (25 checks); his test list is at the bottom of SUMMARY-2026-11-08.md.
 
+57. Repairs, 9 Nov: a repair contract's home has Works Orders as a full-width red card (like Live Projects), then Calendar and To Do List, then Health & Safety on the row below (phone and laptop). A job is one page: the Work Summary sits under Address / Call-Out / Resident, with no Job / Work Summary tabs, no ‹ Job Page, and no Reports & Photos box (the reports and photos are in the Work Summary). A client, who has no Work Summary, still gets the Reports & Photos box. All three repair tests pass on the fake database; not yet tried by Andy.
+
 ## To discuss with Andy
 - ~~OneDrive and the full job set-up~~: talked through and built 8 Nov 2026 (item 55).
 - Sort out plots: how multi-site (multi-plot) jobs should work (Andy, 2 Nov 2026; asked again 5 Nov 2026: "we need to discuss and sort plots out"). Bring this up before Finance is signed off. Plots show today on BoQ lines and as a column on PO lines (only when the project has plots).
