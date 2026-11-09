@@ -36,7 +36,7 @@ function ramsDefaultDetails(site){
   return {
     raNumber: String(st.nextRa).padStart(10,'0'), msNumber: String(st.nextMs),
     date: today, reviewDate: localISODate(review), author: ME.name||'',
-    project: site ? site.name : '', startDate:'', duration:'', clientContact: ramsSiteClientContact(site), description:'',
+    project: site ? site.name : '', startDate: (site && site.start_date) ? String(site.start_date).slice(0,10) : '', duration:'', clientContact: ramsSiteClientContact(site), description:'',
     address: site ? fullSiteAddress(site) : '', notes:'', mainContractor:'', groups:[],
     emergencyName: ME.name||'', emergencyPhone:'', includeDynamic:false,
   };
@@ -262,6 +262,8 @@ function ramsField(label, key, type, extra){
 }
 function ramsDetailsHtml(b){
   const d = b.details;
+  // 9 Nov 2026 (Andy): the start date comes from the job's own start date (set when the job was made).
+  if(d && !d.startDate){ const st = SITES.find(x=>x.id===b.site_id); if(st && st.start_date){ d.startDate = String(st.start_date).slice(0,10); try{ ramsQueueSave(); }catch(e){} } }
   return `
     <div class="card" style="padding:12px 14px;">
       <p class="sectiontitle" style="margin-top:0;">Document details</p>
