@@ -2347,3 +2347,19 @@ html.finmode .finsecnav button{flex:0 0 auto !important;padding-left:0 !importan
 
 /* 9 Nov 2026 (Andy): a ticked H&S row (RAMS / COSHH / TBT) shows the tick, not just the highlight. */
 .hsdoc.sel .pmrep-box{background:var(--brand1);border-color:var(--brand1);color:#fff;}
+/* #(new-app-tiles) 9 Nov 2026 (Andy): project tiles match the new app.
+   Flat white card, thin light-grey border, 10px corners, no shadow; icon in a
+   38px pale-tinted square; name in IBM Plex Sans semi-bold 13px near-black;
+   grey 11px line under it; red count top-right. Job home tiles 122px tall. */
+.tile,.tilegrid .tile{background:#fff;border:1px solid #E5E7EB;border-radius:10px;box-shadow:none;}
+html.desk .tile:hover{box-shadow:none;transform:none;border-color:#CBD0D6;}
+.tile .icon{width:38px;height:38px;border-radius:10px;}
+.tile .lbl{font-family:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-weight:600;font-size:13px;line-height:1.25;color:#1E2124;letter-spacing:0;}
+.tile .sub{font-family:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:11px;color:#88909B;}
+.hometiles .tile:not(.tile-wide){height:122px;gap:8px;}
+.tilegrid:not(.admintiles):not(.moretiles):not(.hstiles) > .tile:not(.tile-wide){min-height:122px;}
+.tile .badge-count{top:8px;right:8px;min-width:18px;height:18px;border-radius:9px;font-size:10.5px;background:var(--red);color:#fff;}
+.hometiles .tile .icon,.tilegrid:not(.admintiles):not(.moretiles) .tile .icon{width:38px;height:38px;border-radius:10px;font-size:17px;}
+.hometiles .tile .icon .ophic,.tilegrid:not(.admintiles):not(.moretiles) .tile .icon .ophic{width:20px;height:20px;}
+.hometiles .tile .lbl,.tilegrid:not(.admintiles):not(.moretiles) .tile .lbl{font-size:13px;}
+.hometiles .tile .sub,.tilegrid:not(.admintiles):not(.moretiles) .tile .sub{font-size:11px;}
