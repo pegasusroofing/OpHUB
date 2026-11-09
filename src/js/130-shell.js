@@ -11,6 +11,13 @@ window.copyHeaderSubtitle = async function(text, title){
   try{ await navigator.clipboard.writeText(text); toast('Copied'); }
   catch(e){ toast('Could not copy — try again.'); }
 };
+// #(copy-prefix) 2026-11-09 (Andy): inside a project the copied address is
+// led by the PROJECT name, never the page heading (it used to copy
+// "Check In / Out, <address>"). Outside a project the heading is used.
+function headerCopyPrefix(opts){
+  try{ if(opts && opts.siteId && typeof SITES!=='undefined'){ const s = (SITES||[]).find(x=>x.id===opts.siteId); if(s && s.name) return s.name; } }catch(e){}
+  return (opts && opts.title) || '';
+}
 // #(back-to-origin) A page opened straight from Home (or the Dashboard
 // chooser) goes back there, wherever its normal back arrow points. Coming
 // back up from one of its own sub-pages keeps that; arriving from anywhere
@@ -146,7 +153,7 @@ function shell(innerHtml, opts){
           <div style="flex:1;min-width:0;min-height:59.4px;display:flex;flex-direction:column;justify-content:center;text-align:center;padding-top:4px;">
             ${!opts.back ? `<div class="brandline" style="cursor:pointer;" onclick="goHome()">OpHUB${ORG && ORG.name ? ` <span style="color:var(--brand1);">- ${escapeHtml(ORG.name)}</span>` : ''}</div>` : ''}
             <h2 style="cursor:pointer;${opts.titleTwoLine ? 'white-space:normal;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.2;' : ''}" onclick="goHome()">${escapeHtml(opts.title||'')}</h2>
-            ${opts.subtitle ? `<div class="meta" style="cursor:pointer;" onclick="event.stopPropagation();copyHeaderSubtitle('${jsAttr(opts.subtitle)}','${jsAttr(opts.title||'')}')" title="Tap to copy">${escapeHtml(opts.subtitle)}</div>` : ''}
+            ${opts.subtitle ? `<div class="meta" style="cursor:pointer;" onclick="event.stopPropagation();copyHeaderSubtitle('${jsAttr(opts.subtitle)}','${jsAttr(headerCopyPrefix(opts))}')" title="Tap to copy">${escapeHtml(opts.subtitle)}</div>` : ''}
           </div>
           <div style="flex:0 0 auto;min-width:72px;display:flex;align-items:center;justify-content:flex-end;gap:6px;">
             ${typeof qsTopBtnHtml==='function' ? qsTopBtnHtml() : ''}${ME && opts.showRoleChip ? `<span class="plaintag" style="margin-left:auto;">${personRoleLabel(ME)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' && !(typeof isFinanceOnly==='function' && isFinanceOnly()) ? `<span class="homebtn" title="Site home" onclick="go('${jsAttr('#/site/'+opts.siteId+'/home')}')">🏠</span>` : '')}
