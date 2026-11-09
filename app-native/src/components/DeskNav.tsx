@@ -15,7 +15,8 @@ import { brand } from '@/lib/fonts';
 import { homeKind, isFinanceUser, isFullManager, isManager, roleLabel } from '@/lib/roles';
 import { base, useTheme } from '@/theme/theme';
 
-type Item = { k: string; ic: string; lbl: string; go: string; badge?: number; kids?: Item[] };
+// sec: the heading a manager's item sits under (Andy, 9 Nov 2026, option A): Work, Team, Office.
+type Item = { k: string; ic: string; lbl: string; go: string; badge?: number; kids?: Item[]; sec?: string };
 
 /** The menu's colours: charcoal, light grey text, the page you're on in white with a red edge (Andy, 6 Nov 2026). */
 const NAV = { bg: '#16181D', text: '#C9CDD3', dim: '#8A9099', on: '#2A2D35', hover: '#20232A', line: '#2A2D35', search: '#23262D', avatar: '#3A3E47' };
@@ -36,26 +37,26 @@ export function DeskNav() {
     : me.role === 'driver' ? [{ k: 'home', ic: 'home', lbl: 'Home', go: '/home' }, { k: 'driver/schedule', ic: 'truck', lbl: 'My schedule', go: '/driver/schedule' }, { k: 'account', ic: 'gear', lbl: 'Settings', go: '/account' }]
     : mgr ? [
       ...(isFullManager(me) ? [{ k: 'home', ic: 'home', lbl: 'Home', go: '/home' }] : []),
-      { k: 'sites', ic: 'projects', lbl: 'Projects', go: '/sites', kids: [
+      { k: 'sites', ic: 'projects', lbl: 'Projects', go: '/sites', sec: 'Work', kids: [
         ...(isFullManager(me) ? [{ k: 'onsite', ic: 'users', lbl: 'On Site Now', go: '/onsite' }] : []),
         ...(isManager(me) ? [{ k: 'pm/sitemap', ic: 'pin', lbl: 'Sites Map', go: '/pm/sitemap' }] : []),
         ...(isFullManager(me) ? [{ k: 'pm/reports', ic: 'reports', lbl: 'Reports & Surveys', go: '/pm/reports' }] : []),
       ] },
-      ...(isFullManager(me) ? [{ k: 'pm/quotes', ic: 'reports', lbl: 'Quotes', go: '/pm/quotes' }] : []),
+      ...(isFullManager(me) ? [{ k: 'pm/quotes', ic: 'reports', lbl: 'Quotes', go: '/pm/quotes', sec: 'Work' }] : []),
       // Deliveries opens out like Projects: the delivery schedule, and the yard and plant register (Andy, 5 Nov 2026; it was under Projects).
-      { k: 'pm/deliveries', ic: 'truck', lbl: 'Deliveries', go: '/pm/deliveries', kids: [
+      { k: 'pm/deliveries', ic: 'truck', lbl: 'Deliveries', go: '/pm/deliveries', sec: 'Work', kids: [
         { k: 'pm/deliveries', ic: 'truck', lbl: 'Delivery Schedule', go: '/pm/deliveries' },
         ...(isManager(me) ? [{ k: 'pm/yard', ic: 'tools', lbl: 'Yard & Plant', go: '/pm/yard' }] : []),
       ] },
-      { k: 'pm/calendar', ic: 'calendar', lbl: 'Calendar', go: '/pm/calendar' },
-      { k: 'pm/hub', ic: 'bell', lbl: 'Hub', go: '/pm/hub', badge: hubN },
-      { k: 'pm/dashboard', ic: 'chart', lbl: 'Dashboard', go: '/pm/dashboard', kids: [
+      { k: 'pm/calendar', ic: 'calendar', lbl: 'Calendar', go: '/pm/calendar', sec: 'Work' },
+      { k: 'pm/hub', ic: 'bell', lbl: 'Hub', go: '/pm/hub', badge: hubN, sec: 'Team' },
+      { k: 'pm/dashboard', ic: 'chart', lbl: 'Dashboard', go: '/pm/dashboard', sec: 'Team', kids: [
         { k: 'pm/dashboard', ic: 'chart', lbl: 'Company', go: '/pm/dashboard' },
         { k: 'pm/operatives', ic: 'admin', lbl: 'Operatives', go: '/pm/operatives' },
         { k: 'pm/hr', ic: 'users', lbl: 'HR', go: '/pm/hr' },
       ] },
-      ...(isFinanceUser(me, org) ? [{ k: 'fin', ic: 'pound', lbl: 'OpHUB Finance', go: '/fin' }] : []),
-      { k: 'pm/admin', ic: 'gear', lbl: 'Admin', go: '/pm/admin' },
+      ...(isFinanceUser(me, org) ? [{ k: 'fin', ic: 'pound', lbl: 'Finance', go: '/fin', sec: 'Office' }] : []),
+      { k: 'pm/admin', ic: 'gear', lbl: 'Admin', go: '/pm/admin', sec: 'Office' },
     ]
     : [
       ...(me.role === 'operative' ? [{ k: 'home', ic: 'home', lbl: 'Home', go: '/home' }] : []),
@@ -87,8 +88,9 @@ export function DeskNav() {
       <View key={i.k}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
           {row(i, isOn(i.k) && !kidOn)}
-          <Pressable onPress={() => setOpen({ ...open, [i.k]: !shown })} accessibilityLabel={`Show ${i.lbl} pages`} style={{ width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: shown ? '90deg' : '0deg' }] }}>
-            <OphIcon name="chevron" size={16} color={NAV.dim} />
+          {/* ▾ where a list opens underneath (Andy's drop-down rule), ▴ when it's open. */}
+          <Pressable onPress={() => setOpen({ ...open, [i.k]: !shown })} accessibilityLabel={`Show ${i.lbl} pages`} style={{ width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 15, color: NAV.dim }}>{shown ? '▴' : '▾'}</Text>
           </Pressable>
         </View>
         {shown && <View style={{ marginLeft: 18, marginTop: 2, marginBottom: 4, paddingLeft: 8, borderLeftWidth: 1.5, borderLeftColor: NAV.line }}>{kids.map((c) => <View key={c.k + c.go} style={{ flexDirection: 'row' }}>{row(c, isOn(c.k))}</View>)}</View>}
@@ -115,7 +117,6 @@ export function DeskNav() {
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text numberOfLines={2} style={[brand(700), { fontSize: 14, color: '#fff', lineHeight: 17 }]}>{org?.name || 'OpHUB'}</Text>
-            <Text style={{ fontSize: 11, fontWeight: '600', color: NAV.dim, letterSpacing: 0.9 }}>OPHUB</Text>
           </View>
         </Pressable>
         {kind !== 'finance' && kind !== 'superadmin' && (
@@ -125,7 +126,13 @@ export function DeskNav() {
             <Text style={{ fontSize: 10.5, fontWeight: '600', color: NAV.dim, borderWidth: 1, borderColor: NAV.line, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 }}>Ctrl K</Text>
           </Pressable>
         )}
-        <View style={{ gap: 2, marginTop: 4 }}>{items.map(group)}</View>
+        {/* A manager's items under Work, Team and Office headings (Andy, 9 Nov 2026, option A). */}
+        <View style={{ gap: 2, marginTop: 4 }}>{items.map((i, n) => (
+          <View key={`${i.k}-wrap`}>
+            {!!i.sec && i.sec !== items[n - 1]?.sec && <Text style={{ marginTop: 12, marginBottom: 2, marginHorizontal: 12, fontSize: 10.5, fontWeight: '600', letterSpacing: 1, color: NAV.dim }}>{i.sec.toUpperCase()}</Text>}
+            {group(i)}
+          </View>
+        ))}</View>
         {sub.length > 0 && (
           <>
             <Text style={{ marginTop: 18, marginHorizontal: 12, marginBottom: 4, fontSize: 10.5, fontWeight: '600', letterSpacing: 1, color: NAV.dim }}>THIS PROJECT</Text>
