@@ -27,6 +27,8 @@ import { base, radius, useDesk } from '@/theme/theme';
 type Row = Record<string, any>;
 type Item = YardItem & { notes?: string | null };
 type Kind = 'in' | 'issue' | 'return' | 'adjust';
+// An item opens as a page of its own, so Back (and Yard Stock in the trail) comes back to the list (Andy, 9 Nov 2026).
+const openItem = (stockId: string) => router.push({ pathname: '/fin/yard', params: { id: stockId } } as never);
 const YARD_CATS = ['Slates & tiles', 'Membranes & felt', 'Timber & battens', 'Lead & metals', 'Insulation', 'Fixings', 'Sealants & adhesives', 'Rainwater goods', 'Safety & PPE', 'Tools & sundries', 'Other'];
 const YARD_KIND: Record<string, string> = { in: 'Booked in', issue: 'Issued', return: 'Returned', adjust: 'Count adjusted' };
 const MOVE_TITLE: Record<Kind, string> = { in: 'Book stock into the yard', issue: 'Issue from the yard to a job', return: 'Return to the yard from a job', adjust: 'Adjust the yard count' };
@@ -58,6 +60,14 @@ export default function FinYard() {
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['finYard'] }); void qc.invalidateQueries({ queryKey: ['yard'] }); void qc.invalidateQueries({ queryKey: ['finYardMoves'] }); };
   const live = sites.filter((s) => finStatus(s) !== 'closed').sort((a, b) => String(b.job_number || '').localeCompare(String(a.job_number || ''), undefined, { numeric: true }));
   const jobName = (sid: string | null) => { const s = sites.find((x) => x.id === sid); return s ? `${s.job_number ? `${s.job_number} · ` : ''}${s.name}` : ''; };
+  // What issuing will cost the job: the qty × the item's rate, as the database puts it on the job's costs.
+  const issueCost = (stockId: string, q: unknown) => {
+    const s = items.find((x) => x.id === stockId); if (!s) return 'Choose the item to see what it costs the job.';
+    const rate = rateBy[s.id];
+    if (rate == null) return 'No rate on this item, so nothing goes on the job’s costs. Add a rate to the item first.';
+    const n = yardNum(q as string);
+    return `${rateMoney(rate)} per ${s.unit || 'unit'} · ${n ? `Cost To The Job ${money(round2(n * rate))}` : 'enter the qty to see the cost'}`;
+  };
 
   const saveItem = async (v: Record<string, string | boolean>) => {
     const item = String(v.item || '').trim(); if (!item) return 'Enter the item.';
@@ -124,9 +134,10 @@ export default function FinYard() {
       {move && (
         <FinForm title={MOVE_TITLE[move.kind]} saveLabel={MOVE_SAVE[move.kind]} onClose={() => setMove(null)} onSave={saveMove} initial={{ stock: move.stockId }}
           note={move.kind === 'issue' ? 'Issued stock with a rate goes on the job’s costs (qty × rate).' : undefined}
-          fields={([
+          fields={(v) => ([
             { k: 'stock', label: 'Item', kind: 'choice', options: items.filter((s) => s.active !== false).map((s): [string, string] => [s.id, `${s.item} — ${yardQty(s.qty)} ${s.unit || ''} in yard${yardLow(s) ? ' (low)' : ''}`]) },
-            { k: 'qty', label: move.kind === 'adjust' ? 'Counted qty (what’s actually there)' : 'Qty', kind: 'number', half: true },
+            // Issuing: the rate and what it will cost the job, as the qty is typed (Andy, 9 Nov 2026).
+            { k: 'qty', label: move.kind === 'adjust' ? 'Counted qty (what’s actually there)' : 'Qty', kind: 'number', half: true, note: move.kind === 'issue' ? issueCost(String(v.stock || ''), v.qty) : undefined },
             ...(move.kind === 'issue' || move.kind === 'return' ? [{ k: 'site', label: 'Job', kind: 'choice', options: live.map((s): [string, string] => [s.id, jobName(s.id)]), half: true }] : []),
             { k: 'note', label: 'Note (optional)', ph: move.kind === 'in' ? 'e.g. delivery from SIG, leftover from 2653' : 'e.g. collected by Sam' },
           ] as Field[])} />
@@ -134,17 +145,20 @@ export default function FinYard() {
     </>
   );
 
+  // The Purchases tabs stay on every yard page, an item's too (Andy, 9 Nov 2026: "I also lose the tabs").
+  const onSub = (k: string) => (k === 'yard' ? (id ? router.replace('/fin/yard' as never) : undefined) : k === 'statements' ? router.replace('/fin/statements' as never) : router.replace(`/fin/purchases?tab=${k}` as never));
   if (id) {
     const s = items.find((x) => x.id === id);
     return (
-      <FinPage title={s?.item || 'Yard stock'} section="purchases" sub="yard">
+      <FinPage title={s?.item || 'Yard stock'} section="purchases" badges={badges} sub="yard" onSub={onSub}>
+        <YardSubTabs on="stock" />
         {isLoading ? <Muted>Loading…</Muted> : !s ? <Muted>Item not found.</Muted> : <ItemView s={s} rate={rateBy[s.id]} jobName={jobName} onEdit={() => setEdit(s)} onMove={(k) => openMove(k, s.id)} />}
         {forms}
       </FinPage>
     );
   }
   return (
-    <FinPage title="Purchases" section="purchases" badges={badges} sub="yard" top={<PurchasesStats />} onSub={(k) => (k === 'yard' ? undefined : k === 'statements' ? router.replace('/fin/statements' as never) : router.replace(`/fin/purchases?tab=${k}` as never))}>
+    <FinPage title="Purchases" section="purchases" badges={badges} sub="yard" top={<PurchasesStats />} onSub={onSub}>
       <YardSubTabs on={sub === 'plant' ? 'plant' : 'stock'} />
       {sub === 'plant' ? <PlantRegister /> : <><YardLeftovers />
       <YardList items={items} rateBy={rateBy} loading={isLoading} onNew={() => setEdit('new')} onMove={openMove} /></>}
@@ -184,7 +198,7 @@ function YardList({ items, rateBy, loading, onNew, onMove }: { items: Item[]; ra
           { key: 'cat', label: 'Category', items: cats.map((c) => ({ v: c, l: c })) },
         ]} />
       {loading ? <Muted>Loading…</Muted> : desk && list.length ? (
-        <FinTable rows={list} keyOf={(s) => s.id} onRow={(s) => router.setParams({ id: s.id })}
+        <FinTable rows={list} keyOf={(s) => s.id} onRow={(s) => openItem(s.id)}
           cols={[
             { k: 'i', l: 'Item', flex: 1.6, min: 160, render: (s: Item) => <Cell bold>{s.item}</Cell> },
             { k: 'c', l: 'Category', render: (s: Item) => <Cell>{s.category || '—'}</Cell> },
@@ -198,7 +212,7 @@ function YardList({ items, rateBy, loading, onNew, onMove }: { items: Item[]; ra
           footLabel={(rows) => `${rows.length} shown`} />
       ) : list.length ? list.map((s) => (
         <FinRow compact key={s.id} title={s.item} sub={[`${yardQty(s.qty)} ${s.unit || ''} in yard${yardLow(s) ? ' · LOW' : ''}`, s.min_qty != null ? `min ${yardQty(s.min_qty)}` : '', s.category || '', s.location || '', rateBy[s.id] != null ? `${money(rateBy[s.id])}${s.unit ? ` / ${s.unit}` : ''}` : 'No rate'].filter(Boolean).join(' · ')}
-          right={val(s) ? money(val(s)) : '—'} tone={yardLow(s) ? '#C0392B' : undefined} onPress={() => router.setParams({ id: s.id })} />
+          right={val(s) ? money(val(s)) : '—'} tone={yardLow(s) ? '#C0392B' : undefined} onPress={() => openItem(s.id)} />
       )) : <Empty>{f === 'low' ? 'Nothing is below its minimum level.' : 'No yard stock yet — add the first item.'}</Empty>}
       {list.length > 0 && <Muted style={{ marginTop: 4 }}>{desk ? `Stock value ${money(total)} (items with a rate).` : `${list.length} item${list.length === 1 ? '' : 's'} · ${money(list.reduce((x, s) => x + val(s), 0))}`}</Muted>}
     </>

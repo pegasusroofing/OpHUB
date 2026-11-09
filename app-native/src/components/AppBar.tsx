@@ -56,7 +56,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   const qc = useQueryClient();
   const insets = useSafeAreaInsets();
   const path = usePathname();
-  const { tab: qTab, kind: qKind } = useGlobalSearchParams<{ tab?: string; kind?: string }>();
+  const { tab: qTab, kind: qKind, id: qId, sub: qSub } = useGlobalSearchParams<{ tab?: string; kind?: string; id?: string; sub?: string }>();
   const { data: sites } = useSites();
   const siteId = (path.match(/^\/sites\/([0-9a-f-]{36})/) || [])[1];
   const site = siteId ? sites?.find((s) => s.id === siteId) : undefined;
@@ -86,6 +86,9 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
       ...(jobTab && jobTab !== 'Overview' ? [[jobTab, null] as [string, null]] : []),
       ...(jobPage ? [[jobPage, inside ? `/fin/job/${finJob}${FIN_JOB_UP[finRest[0]] ?? `/${finRest[0]}`}` : null] as [string, string | null]] : []),
       ...(inside ? [[inside, null] as [string, null]] : [])]
+      // Yard stock is a tab of Purchases (Andy, 9 Nov 2026): Finance › Purchases › Yard Stock › the item (or Plant, or Book In).
+      : finSec === 'yard' || finSec === 'yardin' ? [['Finance', '/fin'], ['Purchases', '/fin/purchases'], ['Yard Stock', finSec === 'yard' && !qId && qSub !== 'plant' ? null : '/fin/yard'],
+        ...(finSec === 'yardin' ? [[title ? titleCase(title) : 'Book In', null] as [string, null]] : qSub === 'plant' ? [['Plant', null] as [string, null]] : qId && title ? [[titleCase(title), null] as [string, null]] : [])]
       : FIN_PARENT[finSec] ? [['Finance', '/fin'], FIN_PARENT[finSec], ...(title && titleCase(title) !== FIN_PARENT[finSec][0] ? [[titleCase(title), null] as [string, null]] : [])]
       : finSec === 'reports' && title && title !== 'Reports' ? [['Finance', '/fin'], ['Reports', '/fin/reports'], [titleCase(title), null]]
       : finSec === 'directory' && qKind === 'codes' ? [['Finance', '/fin'], ['Settings', '/fin/settings'], ['Cost Codes', null]]
