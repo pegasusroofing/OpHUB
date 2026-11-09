@@ -56,7 +56,7 @@ async function renderSiteHome(siteId){
   const pricePromise = (async ()=>{
     let can = false;
     if(site.price_enabled){
-      if(ME.role==='admin' || site.responsible_pm_id===ME.id) can = true;
+      if(ME.role==='admin' || isEstimator(ME) || site.responsible_pm_id===ME.id) can = true;
       else {
         const grant = await dbSelect('site_price_access', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&select=user_id&limit=1');
         can = grant.length>0;

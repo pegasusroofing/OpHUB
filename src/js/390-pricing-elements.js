@@ -651,7 +651,7 @@ async function renderPriceHome(siteId){
   const site = SITES.find(s=>s.id===siteId);
   let canSeePrice = false;
   if(site.price_enabled){
-    if(ME.role==='admin' || site.responsible_pm_id===ME.id) canSeePrice = true;
+    if(ME.role==='admin' || isEstimator(ME) || site.responsible_pm_id===ME.id) canSeePrice = true;
     else {
       const grant = await dbSelect('site_price_access', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&select=user_id&limit=1');
       canSeePrice = grant.length>0;
