@@ -67,7 +67,7 @@ export function useRecipients(siteId: string | undefined, enabled: boolean) {
   });
 }
 
-export type Draft = { title: string; date: string; private: boolean; remind: boolean; timing: Timing; custom: string; recipients: string[]; repeat: Repeat; roles: string[] | null; hidden: string[] };
+export type Draft = { title: string; date: string; private: boolean; remind: boolean; timing: Timing; custom: string; recipients: string[]; repeat: Repeat; roles: string[] | null; hidden: string[]; tagged?: string[] };
 /** The old app's private flag stays true to the new setting: on when nobody but managers can see it. */
 const isPrivate = (d: Pick<Draft, 'roles'>) => !!d.roles && !d.roles.some((r) => ['operative', 'driver', 'client'].includes(r));
 
@@ -82,6 +82,8 @@ export async function addEvent(me: Profile, site: Site & { closed_at?: string | 
     reminder_recipient_ids: remind ? d.recipients : [], reminder_timing: remind ? d.timing : null,
     reminder_date: remind ? reminderDate(date, d.timing, d.custom) : null, reminder_sent: false, created_by: me.id,
     repeat_freq: repeat !== 'none' ? repeat : null, recurrence_group_id: group,
+    // People tagged on it (Andy, 11 Nov 2026); left out when nobody is, so nothing changes for older entries.
+    ...(d.tagged?.length ? { tagged: d.tagged } : {}),
   }));
   const r = await db.from('site_calendar_events').insert(rows as never);
   if (r.error) return null;
@@ -93,6 +95,7 @@ export async function saveEvent(id: string, d: Draft): Promise<boolean> {
   return !mustHit(await db.from('site_calendar_events').update({
     title: d.title, event_date: d.date, is_private: isPrivate(d), visible_roles: d.roles, hidden_user_ids: d.hidden.length ? d.hidden : null, reminder_recipient_ids: remind ? d.recipients : [],
     reminder_timing: remind ? d.timing : null, reminder_date: remind ? reminderDate(d.date, d.timing, d.custom) : null, reminder_sent: false,
+    ...(d.tagged ? { tagged: d.tagged } : {}),
   } as never).eq('id', id).select('id')).error;
 }
 

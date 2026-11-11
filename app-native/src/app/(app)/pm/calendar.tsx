@@ -3,16 +3,20 @@
 // supplier deliveries (9219zr) and, if switched on, the driver diary. Filter by
 // PM or site. Month view is the grid (on a computer, the chosen day's items sit
 // beside it); Week / 2 Weeks list the days from today.
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { CalTools, MonthGrid, type CalView, type GridItem } from '@/components/MonthGrid';
-import { chooseAction } from '@/components/toast';
-import { Card, Muted } from '@/components/ui';
+import { DateBox } from '@/components/DateField';
+import { Pop } from '@/components/Pop';
+import { QBox, QPick } from '@/components/QuoteForm';
+import { TagLine, tellTagged } from '@/components/TagPeople';
+import { chooseAction, useToast } from '@/components/toast';
+import { Button, Card, Muted } from '@/components/ui';
 import { HowTo } from '@/components/HowTo';
-import { appDateLines, deliveryDateLines } from '@/data/calendar';
+import { addEvent, appDateLines, deliveryDateLines } from '@/data/calendar';
 import { nameOf, usePeople } from '@/data/hs';
 import { useSites } from '@/data/sites';
 import { usePmList } from '@/data/todos';
@@ -26,7 +30,7 @@ import { supabase } from '@/lib/supabase';
 import { base, page, radius, space, useDesk, useTheme } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
-type Ev = { id: string; site_id: string | null; title: string; event_date: string; is_private?: boolean; recurrence_group_id?: string | null; created_by?: string | null; reminder_recipient_ids?: string[] | null; reminder_timing?: string | null; reminder_date?: string | null; kind: 'event' | 'start' | 'driver' | 'app' | 'delivery'; colour: string; where?: string };
+type Ev = { id: string; site_id: string | null; title: string; event_date: string; is_private?: boolean; tagged?: string[] | null; recurrence_group_id?: string | null; created_by?: string | null; reminder_recipient_ids?: string[] | null; reminder_timing?: string | null; reminder_date?: string | null; kind: 'event' | 'start' | 'driver' | 'app' | 'delivery'; colour: string; where?: string };
 const addDays = (iso: string, n: number) => { const d = new Date(`${iso}T00:00:00`); d.setDate(d.getDate() + n); return localISODate(d); };
 
 /** The small uppercase filter buttons (Filter by PM ▼ …). */
@@ -54,6 +58,11 @@ export default function AllCalendar() {
   const [siteF, setSiteF] = useState<string[]>([]);
   const [driver, setDriver] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  // + Add To Calendar (Andy, 11 Nov 2026): as on a project's calendar, choosing the project here, and people can be tagged.
+  const [adding, setAdding] = useState<{ site: string; title: string; date: string; tagged: string[] } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
+  const qc = useQueryClient();
   const grid = monthGrid(month.y, month.m);
   const days = view === 'month' ? [sel] : Array.from({ length: view === 'week' ? 7 : 14 }, (_, i) => addDays(today, i));
   const from = view === 'month' ? grid[0] : today;
@@ -124,6 +133,7 @@ export default function AllCalendar() {
             {e.is_private && <Muted>Visibility: Private — PMs/admins only</Muted>}
             {!!e.recurrence_group_id && <Muted>Repeats: Yes</Muted>}
             {!!e.reminder_recipient_ids?.length && <Muted>Reminder: {e.reminder_timing === 'day_of' ? 'Day of' : e.reminder_timing === 'custom' && e.reminder_date ? new Date(`${e.reminder_date}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Day before'} → {e.reminder_recipient_ids.map((u) => nameOf(people, u)).filter(Boolean).join(', ')}</Muted>}
+            {!!e.tagged?.length && <Muted>Tagged: {e.tagged.map((u) => nameOf(people, u)).filter(Boolean).join(', ')}</Muted>}
             {!!e.created_by && <Muted>Added by {nameOf(people, e.created_by)}</Muted>}
             <Pressable onPress={() => setOpenId(null)}><Text style={{ color: base.slate, marginTop: 6 }}>Close</Text></Pressable>
           </Card>
@@ -181,6 +191,7 @@ export default function AllCalendar() {
         <View style={{ flex: 1 }} />
         <CalTools view={view} onView={setView} />
       </View>
+      <View style={{ marginBottom: 12 }}><Button title="+ Add To Calendar" onPress={() => setAdding({ site: siteF.length === 1 ? siteF[0] : '', title: '', date: sel, tagged: [] })} /></View>
       {view === 'month' ? (
         desk ? (
           <View style={{ flexDirection: 'row', gap: 20, alignItems: 'flex-start' }}>
@@ -203,6 +214,29 @@ export default function AllCalendar() {
           {days.map(dayRow)}
         </>
       )}
+      {adding && (() => {
+        const site = (sites ?? []).find((x) => x.id === adding.site);
+        const team = ((people ?? []) as { id: string; name: string | null; role?: string | null }[]).filter((p) => p.role !== 'client');
+        return (
+          <Pop title="Add To Calendar" onClose={() => setAdding(null)} footer={<View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 10 }}><Button busy={saving} title="Add" onPress={async () => {
+            if (!site) { toast('Which project is it for?'); return; }
+            if (!adding.title.trim()) { toast('What is it?'); return; }
+            setSaving(true);
+            const ok = await addEvent(me, site, { title: adding.title.trim(), date: adding.date, private: false, remind: false, timing: 'day_before', custom: '', recipients: [], repeat: 'none', roles: null, hidden: [], tagged: adding.tagged }, true);
+            setSaving(false);
+            if (!ok) { toast('Could not save — try again.'); return; }
+            void tellTagged(me, adding.tagged, `${me.name || 'Someone'} tagged you in the calendar: "${adding.title.trim()}" on ${new Date(`${adding.date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} (${site.name})`, site.id, 'calendar_tagged');
+            setAdding(null); setSel(adding.date); void qc.invalidateQueries({ queryKey: ['allCalendar'] });
+          }} /><Button kind="ghost" title="Cancel" onPress={() => setAdding(null)} /></View>}>
+            <QPick label="Project *" value={site ? `${site.job_number ? `${site.job_number} ` : ''}${site.name}` : ''} onPress={async () => { const k = await chooseAction('Which Project', (sites ?? []).filter((x) => siteStatusKey(x) !== 'closed').map((x) => ({ key: x.id, label: `${x.job_number ? `${x.job_number} ` : ''}${x.name}` }))); if (k) setAdding({ ...adding, site: k }); }} />
+            <QBox label="What Is It? *" value={adding.title} onChangeText={(v) => setAdding({ ...adding, title: v })} placeholder="e.g. Scaffold delivery" />
+            <Text style={{ fontSize: 12, fontWeight: '600', color: base.slate, marginBottom: 4 }}>Date</Text>
+            <DateBox value={adding.date} onChange={(v) => setAdding({ ...adding, date: v || adding.date })} clearable={false} title="Date" style={{ marginBottom: 12 }} />
+            <TagLine people={team} value={adding.tagged} onChange={(ids) => setAdding({ ...adding, tagged: ids })} />
+            <Muted style={{ fontSize: 12 }}>For reminders, who can see it and repeats, add it from the project’s own calendar.</Muted>
+          </Pop>
+        );
+      })()}
     </ScrollView>
   );
 }

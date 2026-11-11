@@ -11,6 +11,7 @@ import { CalTools, MonthGrid, type GridItem } from '@/components/MonthGrid';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted } from '@/components/ui';
 import { DateBox } from '@/components/DateField';
+import { TagLine, tellTagged } from '@/components/TagPeople';
 import { addEvent, addToDeliverySchedule, deleteEvent, saveEvent, useCalendar, useRecipients, type CalEvent, type CalLine, type Draft } from '@/data/calendar';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -26,7 +27,7 @@ import { base, page, radius, space, useTheme, live } from '@/theme/theme';
 
 type View_ = 'week' | 'twoweek' | 'month';
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
-const blank = (date: string): Draft => ({ title: '', date, private: false, remind: false, timing: 'day_before', custom: '', recipients: [], repeat: 'none', roles: null, hidden: [] });
+const blank = (date: string): Draft => ({ title: '', date, private: false, remind: false, timing: 'day_before', custom: '', recipients: [], repeat: 'none', roles: null, hidden: [], tagged: [] });
 // Who a key date can be limited to. A company admin and whoever added it always see it.
 const VIS_ROLES: [string, string][] = [['pm', 'Project managers'], ['site_manager', 'Site managers'], ['operative', 'Operatives'], ['driver', 'Drivers'], ['client', 'Clients']];
 const addDays = (iso: string, n: number) => { const d = new Date(`${iso}T00:00:00`); d.setDate(d.getDate() + n); return localISODate(d); };
@@ -49,7 +50,7 @@ export default function SiteCalendar() {
   const to = view === 'month' ? grid[grid.length - 1] : days[days.length - 1];
   const { data: byDate } = useCalendar(id, from, to, !!me && (['pm', 'admin'].includes(me.role) || isFinanceUser(me, org)));
   const { data: recipients } = useRecipients(id, mgr);
-  const [form, setForm] = useState<{ at: string; editId: string | null; d: Draft } | null>(null);
+  const [form, setForm] = useState<{ at: string; editId: string | null; d: Draft; was?: string[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const [visOpen, setVisOpen] = useState(false);
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
@@ -68,6 +69,9 @@ export default function SiteCalendar() {
     const msg = form.editId ? ((await saveEvent(form.editId, clean)) ? 'Updated' : null) : await addEvent(me, site, clean, mgr);
     setBusy(false);
     if (!msg) { toast('Could not save — try again.'); return; }
+    // Whoever's newly tagged hears about it (Andy, 11 Nov 2026).
+    const before = form.was ?? [];
+    void tellTagged(me, (d.tagged ?? []).filter((u) => !before.includes(u)), `${me.name || 'Someone'} tagged you in the calendar: "${clean.title}" on ${new Date(`${date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} (${site.name})`, site.id, 'calendar_tagged');
     toast(msg); setForm(null); refresh();
   };
 
@@ -77,6 +81,7 @@ export default function SiteCalendar() {
       <TextInput value={form.d.title} onChangeText={(t) => setForm({ ...form, d: { ...form.d, title: t } })} placeholder="e.g. Scaffold delivery" style={box} />
       <Muted style={{ fontWeight: '600' }}>Date</Muted>
       <DateBox value={form.d.date} onChange={(t) => setForm({ ...form, d: { ...form.d, date: t } })} clearable={false} title="Date" style={{ marginBottom: 8 }} />
+      {mgr && <TagLine people={(recipients ?? []).map((p) => ({ id: p.id, name: p.name, role: p.role }))} value={form.d.tagged ?? []} onChange={(ids) => setForm({ ...form, d: { ...form.d, tagged: ids } })} />}
       {mgr && !form.editId && (
         <>
           <Muted style={{ fontWeight: '600' }}>Repeats</Muted>
@@ -156,7 +161,7 @@ export default function SiteCalendar() {
         <Pressable hitSlop={6} onPress={async () => {
           const e = l as CalEvent;
           const k = await chooseAction(e.title, [{ key: 'edit', label: '✎ Edit' }, { key: 'del', label: '🗑 Delete', danger: true }]);
-          if (k === 'edit') setForm({ at: e.event_date, editId: e.id, d: { title: e.title, date: e.event_date, private: e.is_private, roles: e.visible_roles ?? (e.is_private ? ['pm', 'site_manager'] : null), hidden: e.hidden_user_ids ?? [], remind: !!e.reminder_recipient_ids?.length, timing: e.reminder_timing || 'day_before', custom: e.reminder_timing === 'custom' ? e.reminder_date || '' : '', recipients: e.reminder_recipient_ids || [], repeat: 'none' } });
+          if (k === 'edit') setForm({ at: e.event_date, editId: e.id, d: { title: e.title, date: e.event_date, private: e.is_private, roles: e.visible_roles ?? (e.is_private ? ['pm', 'site_manager'] : null), hidden: e.hidden_user_ids ?? [], remind: !!e.reminder_recipient_ids?.length, timing: e.reminder_timing || 'day_before', custom: e.reminder_timing === 'custom' ? e.reminder_date || '' : '', recipients: e.reminder_recipient_ids || [], repeat: 'none', tagged: (e as { tagged?: string[] | null }).tagged ?? [] }, was: (e as { tagged?: string[] | null }).tagged ?? [] });
           else if (k === 'del') {
             let whole = false;
             if (e.recurrence_group_id) {
