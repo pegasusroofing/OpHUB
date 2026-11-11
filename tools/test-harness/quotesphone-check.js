@@ -49,7 +49,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(await page.locator('[aria-label$=", overdue"] >> visible=true').count() === 1, 'the past Due Back date has the red border (one quote)');
   const red = await page.locator('[aria-label$=", overdue"] >> visible=true').first().evaluate((e) => getComputedStyle(e).borderTopColor);
   check(red === 'rgb(200, 16, 46)', `and it is red (${red})`);
-  check(await align('DUE BACK') === 'center' && await align('STATUS') === 'right', 'Due Back centred, Status at the right');
+  check(await align('DUE BACK') === 'center' && await align('STATUS') === 'center', 'Due Back centred, Status centred in its column');
   check(await page.getByLabel('View', {exact: true}).count() === 0, 'no View drop-down');
   const ex = await page.locator('[aria-label="Export"] >> visible=true').first().boundingBox();
   const st = await page.locator('[aria-label="Quote Settings"] >> visible=true').first().boundingBox();
@@ -60,14 +60,27 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByRole('tab', {name: /^Quoted/}).first().click(); await page.waitForTimeout(1000);
   t = await table();
   check(/VALUE/.test(t) && /CHASE/.test(t) && !/RETURNED/.test(t), 'Quoted: Project, Value, Chase, Status');
-  check(/£84k/.test(t) && /1 Dec/.test(t) && !/1 Dec 26/.test(t) && /Off/.test(t), 'Value short (£84k), Chase short with no year (1 Dec), Off when the chaser is off');
-  check(await align('CHASE') === 'center' && await align('VALUE') === 'center' && await align('STATUS') === 'right', 'Value and Chase centred, Status at the right');
+  check(/£84k/.test(t) && /1 Dec/.test(t) && !/1 Dec 26/.test(t) && /Auto/.test(t), 'Value short (£84k), Chase short with no year (1 Dec), Auto under it when the chaser sends it');
+  check(await align('CHASE') === 'center' && await align('VALUE') === 'center' && await align('STATUS') === 'center', 'Value and Chase centred, Status centred');
   await page.screenshot({path: path.join(SHOTS, 'qp-quoted.png'), fullPage: true});
+  // Tap the chase date: a calendar, and the date saved.
+  await page.locator('[aria-label="Chase date: Ashford School"] >> visible=true').click(); await page.waitForTimeout(800);
+  await page.locator('[aria-label="25 Nov 2026"] >> visible=true').last().click(); await page.waitForTimeout(1800);
+  const q2 = db.quotes.find((x) => x.id === 'q2');
+  check(q2.next_chase_date === '2026-11-25' && q2.chase_on === true, `the chase date is set from the table (${q2.next_chase_date})`);
+  check(/25 Nov/.test(await table()), 'and shows in the table');
+  // With the chaser off, a date can still be set: no Auto under it.
+  q2.chase_on = false; await page.reload(); await page.waitForTimeout(4500);
+  await page.getByRole('tab', {name: /^Quoted/}).first().click(); await page.waitForTimeout(1000);
+  const cell = await page.locator('[aria-label="Chase date: Ashford School"] >> visible=true').innerText();
+  check(/25 Nov/.test(cell) && !/Auto/.test(cell), `chaser off: the date stays, no Auto (${cell.replace(/\s+/g, ' ')})`);
+  check(/—/.test(await page.locator('[aria-label="Croydon Depot: no chase"] >> visible=true').innerText()), 'a won quote has no chase date');
+  await page.screenshot({path: path.join(SHOTS, 'qp-quoted-chase.png'), fullPage: true});
 
   // ---- All ----
   await page.getByRole('tab', {name: /^All/}).first().click(); await page.waitForTimeout(1000);
   t = await table();
-  check(/DATE/.test(t) && await align('DATE') === 'center' && await align('STATUS') === 'right', 'All: Date centred, Status at the right');
+  check(/DATE/.test(t) && await align('DATE') === 'center' && await align('STATUS') === 'center', 'All: Date and Status centred');
   await page.screenshot({path: path.join(SHOTS, 'qp-all.png'), fullPage: true});
 
   // ---- Directory › Estimating ----

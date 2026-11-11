@@ -325,6 +325,13 @@ export default function QuotePage() {
             </View>
           </>
         )}
+        {!q.chase_on && quoted && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+            <Text style={{ fontSize: 13, color: base.ink, width: 70 }}>Chase Date</Text>
+            <DateBox value={q.next_chase_date || ''} onChange={async (d) => { if (await saveQuote(me, q.id, { next_chase_date: d || null })) refresh(); }} title="Chase Date" style={{ flex: 1, minWidth: 130, paddingVertical: 7 }} />
+            <Muted style={{ width: '100%', fontSize: 12 }}>For you to chase. Nothing is emailed while the chaser is off.</Muted>
+          </View>
+        )}
         <Muted style={{ fontSize: 12.5, marginBottom: 8 }}>
           {chaseTo.length ? `Goes to ${q.contact_name ? `${q.contact_name} at ` : ''}${q.client_name}${chaseTo.length > 1 ? ` and ${chaseTo.length - 1} more` : ''} (from the Directory).` : 'Add a contact email (Edit) to chase.'}
           {!settings?.chase_enabled ? ' Automatic chasing is off for the company (Settings).' : !quoted ? ' It starts once the quote is submitted.' : ''}

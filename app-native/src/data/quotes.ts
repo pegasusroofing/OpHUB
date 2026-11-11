@@ -112,7 +112,8 @@ export async function saveQuote(me: Profile, id: string | null, patch: Partial<Q
 export const setQuoteStatus = (me: Profile, q: Quote, to: string, firstDays: number) => saveQuote(me, q.id, statusPatch(to, q, localISODate(new Date()), firstDays) as Partial<Quote>);
 /** Switching the chaser back on picks up from today if there's no date waiting. */
 export function chasePatch(q: Quote, on: boolean, firstDays: number): Partial<Quote> {
-  if (!on) return { chase_on: false, next_chase_date: null };
+  // Off keeps the date: it becomes the date for you to chase yourself (Andy, 11 Nov 2026). Nothing is emailed.
+  if (!on) return { chase_on: false };
   const d = new Date(); d.setDate(d.getDate() + (q.status === 'returned' && !q.chase_count ? firstDays : 7));
   return { chase_on: true, next_chase_date: q.status === 'returned' ? localISODate(d) : null };
 }

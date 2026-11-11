@@ -6,17 +6,19 @@
 // Phone table (Andy, 11 Nov 2026, evening): Live = Project (client below) · Due Back (a red border once it's past) · Status;
 // Quoted = Project · Value · Chase (short date, no year) · Status; All = Project · Date · Status. Dates and values centred
 // under their headings, Status at the right. The View drop-down went: the filter narrows the list, the summaries are in Export.
+import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { askDate } from '@/components/DateField';
 import { FinFilterBar, ThinExportBar, type FilterSel } from '@/components/FinFilterBar';
 import { FinTabs } from '@/components/FinNav';
 import { Cell, FinTable } from '@/components/FinTable';
 import { pickExport } from '@/components/FootBar';
 import { useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
-import { receivedOn, useQuotes, type Quote } from '@/data/quotes';
+import { receivedOn, saveQuote, useQuotes, type Quote } from '@/data/quotes';
 import { useAuth } from '@/lib/auth';
 import { localISODate } from '@/lib/rules/driver';
 import { quoteReport, REPORTS, type ReportKey } from '@/lib/rules/quoteReports';
@@ -40,6 +42,7 @@ const returnedOn = (x: Quote) => x.returned_at || x.return_date;
 export default function Quotes() {
   const { me, org } = useAuth();
   const toast = useToast();
+  const qc = useQueryClient();
   const desk = useDesk();
   const params = useLocalSearchParams<{ tab?: string; out?: string }>();
   const { data, isLoading } = useQuotes(me?.org_id);
@@ -96,8 +99,9 @@ export default function Quotes() {
   );
 
   // The quotes as table rows (phone): a header row, then a row per quote. Dates, values and chase centred under their
-  // headings; Status at the right (Andy, 11 Nov 2026).
-  const W = { d: 74, v: 52, c: 50, s: 80 };
+  // headings; Status centred in its column at the right (Andy, 11 Nov 2026). On Quoted, tap the chase date to set it:
+  // "Auto" under it when the email chaser sends it; otherwise it's the date for you to chase (nothing is sent).
+  const W = { d: 74, v: 56, c: 56, s: 68 };
   const head = (l: string, w?: number, align: 'left' | 'center' | 'right' = 'left') => <Text numberOfLines={1} style={{ ...(w ? { width: w } : { flex: 1 }), textAlign: align, fontSize: 10.5, fontWeight: '700', color: base.slate, letterSpacing: 0.3 }}>{l.toUpperCase()}</Text>;
   const mid = (t: string, w: number, opts: { sub?: string; late?: boolean; bold?: boolean } = {}) => (
     <View style={{ width: w, alignItems: 'center' }}>
@@ -110,26 +114,40 @@ export default function Quotes() {
   // Past its Due Back date and not returned yet: a red border round the date.
   const late = (x: Quote) => !isQuoted(x) && !!x.return_date && x.return_date.slice(0, 10) < today;
   const who = (x: Quote) => x.client_name + (x.others?.length ? ` +${x.others.length}` : '');
+  // A chase date only means something while the outcome's open (No News, Negotiating).
+  const canChase = (x: Quote) => x.status === 'returned' || x.status === 'negotiating';
+  const setChase = async (x: Quote) => {
+    const d = await askDate(`Chase ${x.title}`);
+    if (!d || !me) return;
+    if (await saveQuote(me, x.id, { next_chase_date: d })) void qc.invalidateQueries({ queryKey: ['quotes'] }); else toast('Could not save. Try again.');
+  };
   const phoneTable = (
     <View accessibilityLabel="Quotes table" style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, overflow: 'hidden' }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 9, paddingHorizontal: 10, backgroundColor: '#F6F7F9' }}>
         {head('Project')}
         {tab === 'live' ? head('Due Back', W.d, 'center') : tab === 'quoted' ? <>{head('Value', W.v, 'center')}{head('Chase', W.c, 'center')}</> : head('Date', W.d, 'center')}
-        {head('Status', W.s, 'right')}
+        {head('Status', W.s, 'center')}
       </View>
       {list.slice(0, shown).map((x) => (
-        <Pressable key={x.id} accessibilityRole="button" accessibilityLabel={x.title} onPress={() => go(x)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 9, paddingHorizontal: 10, borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '600', color: base.ink }}>{x.title}</Text>
-            <Text numberOfLines={1} style={{ fontSize: 11, color: base.slate, marginTop: 1 }}>
-              {tab === 'quoted' ? [who(x), x.profit_pct != null ? `${pct(x.profit_pct)} mark-up` : ''].filter(Boolean).join(' · ') : who(x)}
-            </Text>
-          </View>
-          {tab === 'live' ? mid(ukd(x.return_date), W.d, { late: late(x) })
-            : tab === 'quoted' ? <>{mid(kMoney(x.value), W.v)}{x.chase_on ? mid(x.next_chase_date ? dm(x.next_chase_date) : 'On', W.c, { sub: chaseStatus(x, today).startsWith('Due') ? 'Due' : '', bold: false }) : mid('Off', W.c, { bold: false })}</>
-              : mid(ukd(isQuoted(x) ? returnedOn(x) : x.return_date), W.d, { sub: isQuoted(x) ? 'Returned' : 'Due Back', late: late(x) })}
-          <Text numberOfLines={2} style={{ width: W.s, textAlign: 'right', fontSize: 11.5, fontWeight: '600', color: x.status === 'won' ? base.ink : base.slate }}>{statusWord(x)}</Text>
-        </Pressable>
+        <View key={x.id} style={{ flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={x.title} onPress={() => go(x)} style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 9, paddingLeft: 10 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '600', color: base.ink }}>{x.title}</Text>
+              <Text numberOfLines={1} style={{ fontSize: 11, color: base.slate, marginTop: 1 }}>
+                {tab === 'quoted' ? [who(x), x.profit_pct != null ? `${pct(x.profit_pct)} mark-up` : ''].filter(Boolean).join(' · ') : who(x)}
+              </Text>
+            </View>
+            {tab === 'live' ? mid(ukd(x.return_date), W.d, { late: late(x) })
+              : tab === 'quoted' ? mid(kMoney(x.value), W.v)
+                : mid(ukd(isQuoted(x) ? returnedOn(x) : x.return_date), W.d, { sub: isQuoted(x) ? 'Returned' : 'Due Back', late: late(x) })}
+          </Pressable>
+          {tab === 'quoted' && (canChase(x)
+            ? <Pressable accessibilityRole="button" accessibilityLabel={`Chase date: ${x.title}`} onPress={() => void setChase(x)} style={{ marginLeft: 6, alignSelf: 'stretch', justifyContent: 'center' }}>{mid(x.next_chase_date ? dm(x.next_chase_date) : 'Set', W.c, { sub: x.chase_on ? 'Auto' : '', bold: false })}</Pressable>
+            : <Pressable accessibilityRole="button" accessibilityLabel={`${x.title}: no chase`} onPress={() => go(x)} style={{ marginLeft: 6, alignSelf: 'stretch', justifyContent: 'center' }}>{mid('—', W.c, { bold: false })}</Pressable>)}
+          <Pressable accessibilityRole="button" accessibilityLabel={`${x.title}: ${statusWord(x)}`} onPress={() => go(x)} style={{ marginLeft: 6, paddingRight: 10, alignSelf: 'stretch', justifyContent: 'center' }}>
+            <Text numberOfLines={2} style={{ width: W.s, textAlign: 'center', fontSize: 11.5, fontWeight: '600', color: x.status === 'won' ? base.ink : base.slate }}>{statusWord(x)}</Text>
+          </Pressable>
+        </View>
       ))}
     </View>
   );
