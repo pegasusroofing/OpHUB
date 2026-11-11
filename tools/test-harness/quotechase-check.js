@@ -22,7 +22,9 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
   await page.goto(B + '/pm/quotes/q1'); await page.waitForTimeout(4000);
-  check(await page.getByText(/Chases bob@bellway\.example/).count() > 0, 'before: only the main contact can be chased');
+  // 11 Nov 2026: the chaser says who it goes to; the other clients are in Client And Project (folded once quoted).
+  check(await page.getByText(/Goes to Bob at Bellway Homes \(from/).count() > 0, 'before: only the main contact can be chased');
+  await page.getByRole('button', {name: 'Client And Project'}).click(); await page.waitForTimeout(500);
   await page.getByText(/^Persimmon/).first().click(); await page.waitForTimeout(600);
   await page.getByText('✉ Add The Contact To Chase').click(); await page.waitForTimeout(600);
   const box = page.locator('input').last();
@@ -30,8 +32,8 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.locator('input').last().fill('sue@persimmon.example'); await page.keyboard.press('Enter'); await page.waitForTimeout(1500);
   const c = db.quote_clients.find((x) => x.id === 'qc1');
   check(c.contact_name === 'Sue' && c.contact_email === 'sue@persimmon.example', `contact saved on Persimmon (${c.contact_name}, ${c.contact_email})`);
-  check(await page.getByText(/Chases all 2 clients/).count() > 0, 'after: the chaser covers both clients');
-  await page.getByText('✉ Chase now').click(); await page.waitForTimeout(600);
+  check(await page.getByText(/and 1 more/).count() > 0, 'after: the chaser covers both clients');
+  await page.getByText('✉ Chase Now').click(); await page.waitForTimeout(600);
   const t = await page.evaluate(() => document.body.innerText);
   check(t.includes('bob@bellway.example, sue@persimmon.example'), 'Chase Now asks with both emails');
   await page.screenshot({path: path.join(__dirname, 'shots', 'job', 'quotechase-confirm.png')});

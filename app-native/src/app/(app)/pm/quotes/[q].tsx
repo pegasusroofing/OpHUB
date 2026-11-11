@@ -159,6 +159,8 @@ export default function QuotePage() {
     if (already && !(await confirmAsk(`${q.site_id ? 'This quote already has a project' : 'There’s already a project with this name'}: ${already.job_number ? `${already.job_number} ` : ''}${already.name}. Make another one anyway?`, 'Yes, Make Another', 'No'))) return;
     if (!already && !(await confirmAsk(`Mark "${q.title}" as won and make it a project?`, 'Won, Convert To Project', 'No'))) return;
     const qw = await winner(); if (!qw) return;
+    // Won from another client: Create Project must load the quote as it now stands.
+    await qc.invalidateQueries({ queryKey: ['quote', q.id] });
     router.push({ pathname: '/sites/new', params: { quote: q.id } } as never);
   };
   // Won – Link To Job: the job's already in OpHUB; the quote's folder moves into its files.

@@ -19,9 +19,9 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
   await page.goto(B + '/pm/quotes/q1'); await page.waitForTimeout(4000);
-  check(await page.getByText('Won: Link To Existing Job').count() > 0, 'button shows on a quote not yet won');
+  check(await page.getByText('Won – Link To Job').count() > 0, 'button shows on a quote not yet won');
   await page.screenshot({path: path.join(__dirname, 'shots', 'job', 'quotelink-button.png')});
-  await page.getByText('Won: Link To Existing Job').click(); await page.waitForTimeout(800);
+  await page.getByText('Won – Link To Job').click(); await page.waitForTimeout(800);
   await page.getByText(/J101 Studley Rd/).last().click(); await page.waitForTimeout(800);
   await page.getByText('Yes, Link It', {exact: true}).click(); await page.waitForTimeout(3000);
   const won = fns.find(([n, b]) => n === 'quote-tracker' && b.action === 'won');

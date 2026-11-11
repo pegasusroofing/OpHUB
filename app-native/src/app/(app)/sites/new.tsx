@@ -44,7 +44,7 @@ export default function NewProject() {
   const [d, setD] = useState<NewSite>(EMPTY);
   const qq = fromQuote?.quote ?? null;
   // Filled in from the quote once it's loaded.
-  useEffect(() => { if (qq) setD((x) => ({ ...x, name: titleCase(qq.title), address: qq.address || x.address, postcode: (qq.postcode || x.postcode).toUpperCase(), client_name: qq.client_name, client_phone: qq.contact_phone || '', client_email: qq.contact_email || '' })); }, [qq?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (qq) setD((x) => ({ ...x, name: titleCase(qq.title), address: qq.address || x.address, postcode: (qq.postcode || x.postcode).toUpperCase(), client_name: qq.client_name, client_phone: qq.contact_phone || '', client_email: qq.contact_email || '' })); }, [qq?.id, qq?.client_name]); // eslint-disable-line react-hooks/exhaustive-deps
   const [chosen, setChosen] = useState(false); // Active / Upcoming must be picked
   const [busy, setBusy] = useState(false);
   // Create OneDrive folder (Andy, 8 Nov 2026): ticked unless the company or the client says no; the tick wins once touched.

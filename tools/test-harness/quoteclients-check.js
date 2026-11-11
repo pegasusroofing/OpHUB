@@ -27,17 +27,28 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
 
   await page.goto(B + '/pm/quotes/q1'); await page.waitForTimeout(4000);
-  check(await page.getByText('Clients Tendering').count() > 0 && await page.getByText(/Persimmon/).count() > 0, 'quote shows the other client');
-  await page.getByPlaceholder('Start typing to search your Directory').first().fill('Barr'); await page.waitForTimeout(1500);
-  await page.getByText('+ Barratt').click(); await page.waitForTimeout(2000);
+  // 11 Nov 2026: Client And Project (folded once quoted) lists the others; + Clients picks more from the Directory.
+  await page.getByRole('button', {name: 'Client And Project'}).click(); await page.waitForTimeout(500);
+  check(await page.getByText('Also Tendering').count() > 0 && await page.getByText(/Persimmon/).count() > 0, 'quote shows the other client');
+  await page.getByText('+ Clients', {exact: true}).click(); await page.waitForTimeout(600);
+  await page.getByLabel('Search clients').fill('Barr'); await page.waitForTimeout(1500);
+  await page.getByText('Barratt', {exact: true}).last().click(); await page.waitForTimeout(300);
+  await page.getByText('Add 1 Client', {exact: true}).click(); await page.waitForTimeout(2000);
   check(db.quote_clients.some((c) => c.quote_id === 'q1' && c.client_name === 'Barratt'), 'adds a client from the Directory');
   await page.screenshot({path: shot('card')});
 
-  await page.getByText('🏆 Won: Convert To Job').click(); await page.waitForTimeout(800);
-  check(await page.getByText('Which client did you win it from?').count() > 0, 'asks which client it was won from');
+  // Won – Convert To Project (11 Nov 2026): Yes / No, which client, then Create Project filled in from the quote.
+  await page.getByText('🏆 Won – Convert To Project').click(); await page.waitForTimeout(800);
+  await page.getByText('Won, Convert To Project', {exact: true}).last().click(); await page.waitForTimeout(800);
+  check(await page.getByText('Which Client Did You Win It From?').count() > 0, 'asks which client it was won from');
   await page.screenshot({path: shot('which')});
-  await page.getByText('Persimmon', {exact: true}).last().click(); await page.waitForTimeout(800);
-  await page.getByText('Won, make the job', {exact: true}).click(); await page.waitForTimeout(5000);
+  await page.getByText('Persimmon', {exact: true}).last().click(); await page.waitForTimeout(4000);
+  await page.locator('input >> visible=true').nth(1).fill('1 High Street, Hove');
+  await page.locator('input >> visible=true').nth(3).fill('J778');
+  check(await page.locator('input >> visible=true').nth(4).inputValue() === 'Persimmon', 'Create Project is filled in for the client it was won from');
+  await page.locator('text="Upcoming" >> visible=true').last().click();
+  await page.locator('text="Choose a date" >> visible=true').last().click({force: true}); await page.waitForTimeout(600); await page.getByText('Today', {exact: true}).last().click(); await page.waitForTimeout(400);
+  await page.locator('text="Create Project" >> visible=true').last().click(); await page.waitForTimeout(5000);
   const q = db.quotes.find((x) => x.id === 'q1');
   const site = (db.sites || []).find((s) => s.id === q.site_id);
   check(q.status === 'won' && q.client_name === 'Persimmon', `quote won from Persimmon (${q.status}, ${q.client_name})`);
@@ -45,8 +56,8 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(db.quote_clients.some((c) => c.quote_id === 'q1' && c.client_name === 'Bellway Homes'), 'Bellway stays on the quote as another client');
 
   await page.goto(B + '/pm/quotes'); await page.waitForTimeout(4000);
-  await page.getByText('All', {exact: true}).first().click(); await page.waitForTimeout(800);
-  await page.locator('text=List').first().click(); await page.waitForTimeout(600);
+  await page.getByRole('tab', {name: /^All/}).first().click(); await page.waitForTimeout(800);
+  await page.getByLabel('View', {exact: true}).first().click(); await page.waitForTimeout(600);
   await page.getByText('By Customer', {exact: true}).last().click(); await page.waitForTimeout(1500);
   const t = await page.evaluate(() => document.body.innerText);
   check(/Persimmon/.test(t) && /Bellway Homes/.test(t) && /Barratt/.test(t), 'By Customer lists every client on the quote');
