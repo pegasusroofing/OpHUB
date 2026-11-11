@@ -46,7 +46,8 @@ export default function AppLayout() {
   // Operatives, subcontractor logins and clients: no general bar at all; the old app's bar only on Projects and on a job (Andy, 5 Nov 2026).
   const opBar = !!me && ['operative', 'subcontractor', 'client'].includes(homeKind(me, org));
   const projBar = usesPhoneBar(path.replace(/\/$/, ''), isFullManager(me) && !isFinanceController(me) && !isFinanceOnlyOrg(org), opBar);
-  const hubAll = useHubAll(siteMgr || (projBar && isFullManager(me) && !/^\/sites\/[0-9a-f-]{36}/.test(path)) ? me : null, org, allSites, ''); // Projects, Finance and the Company Chat (7 Nov 2026)
+  // The HUB count shows on a job's bar too (Andy, 11 Nov 2026: a manager's fourth button there is the HUB now).
+  const hubAll = useHubAll(siteMgr || (projBar && isFullManager(me)) ? me : null, org, allSites, ''); // Projects, Finance and the Company Chat (7 Nov 2026)
   const opChat = useChatUnread(me && !isManager(me) && me.role !== 'client' ? me : null);
   const { data: ownBadge } = useOutstanding(me && !siteMgr && !isManager(me) && hasSites ? allSites : undefined);
   // The job's Inbox badge on a manager's phone bar: unread messages for this job (it never showed, found 5 Nov 2026).

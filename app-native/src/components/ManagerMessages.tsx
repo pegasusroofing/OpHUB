@@ -9,6 +9,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { MentionBox, mentionedIn } from '@/components/MentionBox';
+import { TodoPop } from '@/components/TodoPop';
 import { SelectBox } from '@/components/SelectBox';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
@@ -34,6 +35,7 @@ export function ManagerMessages({ siteId }: { siteId: string }) {
   const [sendTo, setSendTo] = useState<SendTo>('site');
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [todoFrom, setTodoFrom] = useState<Message | null>(null);
   const [reply, setReply] = useState('');
   const [threads, setThreads] = useState<Set<string>>(new Set());
   const [receiptsFor, setReceiptsFor] = useState<string | null>(null);
@@ -110,7 +112,12 @@ export function ManagerMessages({ siteId }: { siteId: string }) {
               <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => { setReplyTo(null); setReply(''); }} /></View>
             </View>
           </View>
-        ) : <Pressable onPress={() => { setReplyTo(m.id); setReply(''); }} style={{ marginTop: 8 }}><Text style={{ color: base.blue }}>↩ Reply</Text></Pressable>)}
+        ) : (
+          <View style={{ flexDirection: 'row', gap: 18, marginTop: 8 }}>
+            <Pressable onPress={() => { setReplyTo(m.id); setReply(''); }}><Text style={{ color: base.blue }}>↩ Reply</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Make It A To Do" onPress={() => setTodoFrom(m)}><Text style={{ color: base.blue }}>☐ Make It A To Do</Text></Pressable>
+          </View>
+        ))}
       </Card>
     );
   };
@@ -147,6 +154,7 @@ export function ManagerMessages({ siteId }: { siteId: string }) {
       {isLoading ? <Muted>Loading…</Muted> : tab === 'fromTeam'
         ? (data?.fromTeam.length ? data.fromTeam.map(row) : <Empty>Nothing from the crew yet.</Empty>)
         : (data?.sent.length ? data.sent.map(row) : <Empty>No messages sent yet.</Empty>)}
+      {todoFrom && <TodoPop start={todoFrom.body} siteId={siteId} messageId={todoFrom.id} onClose={() => setTodoFrom(null)} />}
     </View>
   );
 }

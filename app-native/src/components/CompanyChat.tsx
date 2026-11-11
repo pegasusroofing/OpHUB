@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { FlatList, Platform, Pressable, Text, TextInput, View } from 'react-native';
 
+import { TodoPop } from '@/components/TodoPop';
 import { useToast } from '@/components/toast';
 import { usePeople } from '@/data/hs';
 import { markChatRead, sendChat, useCompanyChat, type ChatMsg } from '@/data/companyChat';
@@ -35,6 +36,7 @@ export function CompanyChat() {
   const t = useTheme();
   const toast = useToast();
   const qc = useQueryClient();
+  const [todoFrom, setTodoFrom] = useState<ChatMsg | null>(null);
   const { data: msgs, isLoading, refetch } = useCompanyChat(me, true);
   const { data: people = [] } = usePeople();
   const [text, setText] = useState('');
@@ -87,11 +89,14 @@ export function CompanyChat() {
                 {showDay && <Text style={{ textAlign: 'center', fontSize: 11.5, fontWeight: '600', color: base.slate, marginVertical: 6 }}>{dayWord(m.created_at)}</Text>}
                 <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, justifyContent: mine ? 'flex-end' : 'flex-start' }}>
                   {!mine && <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 11, fontWeight: '700', color: base.ink }}>{initials(who)}</Text></View>}
-                  <View accessibilityLabel={`${who}: ${m.body}`} style={{ maxWidth: '78%', borderRadius: 14, paddingVertical: 7, paddingHorizontal: 11, backgroundColor: mine ? base.ink : base.card, borderWidth: 1, borderColor: mine ? base.ink : base.cardLine }}>
+                  {/* Hold a message, or tap ☐ beside it, to make it a to-do (Andy, 11 Nov 2026). */}
+                  {mine && <Pressable accessibilityRole="button" accessibilityLabel="Make It A To Do" hitSlop={8} onPress={() => setTodoFrom(m)} style={{ paddingBottom: 6 }}><Text style={{ fontSize: 14, color: base.slate }}>☐</Text></Pressable>}
+                  <Pressable onLongPress={() => setTodoFrom(m)} delayLongPress={350} accessibilityLabel={`${who}: ${m.body}`} style={{ maxWidth: '78%', borderRadius: 14, paddingVertical: 7, paddingHorizontal: 11, backgroundColor: mine ? base.ink : base.card, borderWidth: 1, borderColor: mine ? base.ink : base.cardLine }}>
                     {!mine && <Text style={{ fontSize: 11.5, fontWeight: '600', color: base.slate, marginBottom: 2 }}>{who}</Text>}
                     <Body m={m} names={names} mine={mine} />
                     <Text style={{ fontSize: 10.5, color: mine ? '#C9CDD2' : base.slate, marginTop: 3, textAlign: 'right' }}>{time(m.created_at)}</Text>
-                  </View>
+                  </Pressable>
+                  {!mine && <Pressable accessibilityRole="button" accessibilityLabel="Make It A To Do" hitSlop={8} onPress={() => setTodoFrom(m)} style={{ paddingBottom: 6 }}><Text style={{ fontSize: 14, color: base.slate }}>☐</Text></Pressable>}
                 </View>
               </View>
             );
@@ -121,6 +126,7 @@ export function CompanyChat() {
           <Text style={{ color: t.brand1Text, fontWeight: '600', fontSize: 14 }}>Send</Text>
         </Pressable>
       </View>
+      {todoFrom && <TodoPop start={todoFrom.body} messageId={todoFrom.id} onClose={() => setTodoFrom(null)} />}
     </View>
   );
 }

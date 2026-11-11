@@ -2,7 +2,9 @@
 // Everything, Projects, Finance and Company Chat — each with a red count. Filter by site, due date and whose jobs
 // (me / all PMs / a colleague), all drop-downs on one row. Tap a row to go straight to it; each item drops off by itself
 // once it's dealt with (a message once it's opened). The Company Chat is the whole company in one chat.
-import { useQueryClient } from '@tanstack/react-query';
+// To Do comes first (Andy, 11 Nov 2026): your to-dos (assigned to you, tagged or made by you) as three-line rows: what it
+// is; the project, when it's due and whether it came from a message; then who's tagged. Tick one to finish it.
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
@@ -10,18 +12,22 @@ import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { CompanyChat } from '@/components/CompanyChat';
 import { KeepInView } from '@/components/FinNav';
 import { HowTo } from '@/components/HowTo';
-import { chooseAction } from '@/components/toast';
-import { Empty, Muted } from '@/components/ui';
+import { TodoPop } from '@/components/TodoPop';
+import { chooseAction, useToast } from '@/components/toast';
+import { Button, Empty, Muted } from '@/components/ui';
 import { useHubAll, type HubArea, type HubItem } from '@/data/hub';
 import { markMessagesRead } from '@/data/inbox';
 import { useSites } from '@/data/sites';
-import { usePmList } from '@/data/todos';
+import { nameOf, usePeople } from '@/data/hs';
+import { setTodoDone, usePmList } from '@/data/todos';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { money } from '@/lib/rules/finance';
 import { base, page, radius, useTheme } from '@/theme/theme';
 
-type Tab = 'all' | HubArea;
-const TABS: [Tab, string][] = [['all', 'Everything'], ['projects', 'Projects'], ['finance', 'Finance'], ['chat', 'Company Chat']];
+type Tab = 'todo' | 'all' | HubArea;
+const TABS: [Tab, string][] = [['todo', 'To Do'], ['all', 'Everything'], ['projects', 'Projects'], ['finance', 'Finance'], ['chat', 'Company Chat']];
+type HubTodo = { id: string; site_id: string | null; text: string; assigned_to: string | null; tagged: string[] | null; date_required_by: string | null; created_by: string | null; message_id: string | null; created_at: string };
 const AREA: Record<HubArea, string> = { projects: 'Projects', finance: 'Finance', chat: 'Company Chat' };
 const DUE = [['all', 'Any Time'], ['overdue', 'Overdue'], ['week', 'Due Within 7 Days'], ['nodate', 'No Due Date']] as const;
 const DUE_SHORT: Record<string, string> = { all: 'Any', overdue: 'Overdue', week: '7 Days', nodate: 'None' };
@@ -33,7 +39,7 @@ export default function Hub() {
   const qc = useQueryClient();
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
   // The tab you tapped; a link with ?tab=… (e.g. from a "tagged you" notification) wins until you tap another.
-  const fromLink: Tab = TABS.some(([k]) => k === tabParam) ? (tabParam as Tab) : 'all';
+  const fromLink: Tab = TABS.some(([k]) => k === tabParam) ? (tabParam as Tab) : 'todo';
   const [picked, setPicked] = useState<{ link?: string; tab: Tab } | null>(null);
   const tab: Tab = picked && picked.link === tabParam ? picked.tab : fromLink;
   const setTab = (k: Tab) => setPicked({ link: tabParam, tab: k });
@@ -44,6 +50,16 @@ export default function Hub() {
   const [due, setDue] = useState<string>('all');
   const [finPick, setFinPick] = useState<string | null>(null); // the Finance tile opened
   const hub = useHubAll(me, org, sites, pm);
+  const toast = useToast();
+  const { data: people } = usePeople();
+  const [adding, setAdding] = useState(false);
+  // Your open to-dos: assigned to you, tagged on, or made by you.
+  const { data: todos = [], refetch: refetchTodos } = useQuery({
+    queryKey: ['hubTodos', me?.id], enabled: !!me,
+    queryFn: async () => ((await (supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }).from('todos').select('id,site_id,text,assigned_to,tagged,date_required_by,created_by,message_id,created_at')
+      .eq('done', false).or(`assigned_to.eq.${me?.id},created_by.eq.${me?.id},tagged.cs.{${me?.id}}`)
+      .order('date_required_by', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true }).limit(300)).data as HubTodo[] | null) ?? [],
+  });
   // Coming back from dealing with something: look again, so it has dropped off.
   const first = useRef(true);
   useFocusEffect(useCallback(() => {
@@ -55,9 +71,29 @@ export default function Hub() {
   const now = new Date(); const week = new Date(now.getTime() + 7 * 864e5);
   const filtered = hub.items.filter((it) => (!site || it.siteId === site)
     && (due === 'all' || (due === 'overdue' ? !!it.due && it.due < now : due === 'week' ? !!it.due && it.due >= now && it.due <= week : !it.due)));
-  const count: Record<Tab, number> = { all: filtered.length, projects: 0, finance: 0, chat: hub.chatUnread };
+  const todoDay = (d: string | null) => (d ? new Date(`${d}T23:59:59`) : null);
+  const todosShown = todos.filter((x) => (!site || x.site_id === site) && (due === 'all' || (due === 'overdue' ? !!x.date_required_by && todoDay(x.date_required_by)! < now : due === 'week' ? !!x.date_required_by && todoDay(x.date_required_by)! >= now && todoDay(x.date_required_by)! <= week : !x.date_required_by)));
+  const count: Record<Tab, number> = { todo: todosShown.length, all: filtered.length, projects: 0, finance: 0, chat: hub.chatUnread };
   filtered.forEach((it) => { if (it.area !== 'chat') count[it.area] += 1; });
-  const shown = tab === 'all' ? filtered : filtered.filter((it) => it.area === tab);
+  const siteName = (id: string | null) => { const x = (sites ?? []).find((y) => y.id === id); return x ? `${x.job_number ? `${x.job_number} ` : ''}${x.name}` : 'No Project'; };
+  // One to-do: three lines (Andy, 11 Nov 2026).
+  const todoRow = (x: HubTodo, i: number) => {
+    const who = [...new Set([x.assigned_to, ...(x.tagged ?? [])].filter(Boolean) as string[])];
+    const late = !!x.date_required_by && todoDay(x.date_required_by)! < now;
+    return (
+      <View key={x.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderTopWidth: i ? 1 : 0, borderTopColor: '#EEF0F2' }}>
+        <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: false }} accessibilityLabel={`Done: ${x.text}`} hitSlop={8} onPress={async () => { if (await setTodoDone(x.id, true)) { void refetchTodos(); void qc.invalidateQueries({ queryKey: ['pmTodos'] }); } else toast('Could not save — try again.'); }}
+          style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: '#C9CDD3', backgroundColor: '#fff', marginTop: 1 }} />
+        <Pressable accessibilityRole="button" accessibilityLabel={x.text} onPress={() => router.push((x.site_id ? `/sites/${x.site_id}/todos` : '/pm/todos') as never)} style={{ flex: 1, minWidth: 0 }}>
+          <Text numberOfLines={2} style={{ fontSize: 14, fontWeight: '700', color: base.ink }}>{x.text}</Text>
+          <Text numberOfLines={1} style={{ fontSize: 12, color: late ? RED : base.slate, marginTop: 2 }}>{[siteName(x.site_id), x.date_required_by ? `${late ? 'Overdue · ' : ''}Due ${fmt(todoDay(x.date_required_by)!)}` : 'No Due Date', x.message_id ? 'From A Message' : ''].filter(Boolean).join(' · ')}</Text>
+          {who.length > 0 && <Text numberOfLines={2} style={{ fontSize: 12, fontWeight: '600', color: base.ink, marginTop: 3 }}>{who.map((u) => `@${(nameOf(people, u) || 'Someone').split(' ')[0]}`).join('  ')}</Text>}
+        </Pressable>
+        <Text style={{ fontSize: 18, color: base.slate }}>›</Text>
+      </View>
+    );
+  };
+  const shown = tab === 'all' || tab === 'todo' ? filtered : filtered.filter((it) => it.area === tab);
   const others = (pms ?? []).filter((p) => p.id !== me.id);
   const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -162,17 +198,24 @@ export default function Hub() {
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
             {drop('Site', site ? hub.sites.find((s) => s.id === site)?.name ?? 'Site' : 'All', async () => { const k = await chooseAction('Site', [{ key: '', label: 'All Sites' }, ...hub.sites.map((s) => ({ key: s.id, label: s.name }))]); if (k !== null) setSite(k); })}
             {drop('Due', DUE_SHORT[due] ?? 'Any', async () => { const k = await chooseAction('Due', DUE.map(([key, label]) => ({ key, label }))); if (k) setDue(k); })}
-            {others.length > 0 && drop('Viewing', pm === '' ? 'Me' : pm === 'all' ? 'All PMs' : others.find((p) => p.id === pm)?.name ?? '', async () => {
+            {others.length > 0 && tab !== 'todo' && drop('Viewing', pm === '' ? 'Me' : pm === 'all' ? 'All PMs' : others.find((p) => p.id === pm)?.name ?? '', async () => {
               const k = await chooseAction('Viewing', [{ key: '', label: `Me (${me.name})` }, { key: 'all', label: 'All PMs' }, ...others.map((p) => ({ key: p.id, label: p.name }))]);
               if (k !== null) { setPm(k); setSite(''); }
             })}
           </View>
+          {tab === 'todo' ? (
+            <>
+              <View style={{ marginBottom: 10 }}><Button title="+ Add A To Do" onPress={() => setAdding(true)} /></View>
+              {todosShown.length ? <View style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, overflow: 'hidden', marginBottom: 10 }}>{todosShown.map(todoRow)}</View> : <Empty>No to-dos for you. Add one, or make one from a message.</Empty>}
+            </>
+          ) : null}
           {/* Finance as tiles; Projects grouped by task; Everything one list (Andy, 7 Nov 2026). */}
-          {hub.isLoading ? <Muted>Loading…</Muted> : shown.length ? (
+          {tab === 'todo' ? null : hub.isLoading ? <Muted>Loading…</Muted> : shown.length ? (
             tab === 'finance' ? finTiles() : tab === 'projects' ? projGroups() : listBox(shown, true)
           ) : <Empty>{tab === 'finance' ? 'Nothing from Finance waiting for you.' : 'Nothing waiting for you here.'}</Empty>}
         </ScrollView>
       )}
+      {adding && <TodoPop onClose={() => setAdding(false)} onDone={() => void refetchTodos()} />}
     </View>
   );
 }

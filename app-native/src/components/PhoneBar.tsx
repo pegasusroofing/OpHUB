@@ -31,7 +31,8 @@ export function PhoneBar({ hubCount, inboxCount, outstanding }: { hubCount?: num
       { k: 'home', icon: 'home', label: 'Home', href: sub ? `/sites/${id}` : '/sites', on: !sub },
       isManager(me) ? { k: 'deliveries', icon: 'truck', label: 'Deliveries', href: '/pm/deliveries' } : { k: 'sow', icon: 'list', label: 'SOW', href: `/sites/${id}/schedule`, on: sub.startsWith('schedule') },
       { k: 'checkin', icon: 'pin', label: 'Check In', href: `/sites/${id}/checkin`, emph: true, on: sub.startsWith('checkin') },
-      { k: 'inbox', icon: 'chat', label: 'Inbox', href: `/sites/${id}/messages`, badge: inboxCount, on: sub.startsWith('messages') },
+      // A manager's fourth button opens the HUB (Andy, 11 Nov 2026: it was the job's Inbox); everyone else keeps the job's Inbox.
+      isFullManager(me) ? { k: 'hub', icon: 'bell', label: 'HUB', href: '/pm/hub', badge: hubCount } : { k: 'inbox', icon: 'chat', label: 'Inbox', href: `/sites/${id}/messages`, badge: inboxCount, on: sub.startsWith('messages') },
       { k: 'more', icon: 'gear', label: 'Settings', href: isManager(me) ? `/sites/${id}/admin` : '/account', on: sub.startsWith('admin') },
     ];
   } else if (isFullManager(me)) {

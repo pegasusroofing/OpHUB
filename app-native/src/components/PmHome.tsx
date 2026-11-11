@@ -7,6 +7,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { AdminGuide } from '@/components/AdminGuide';
 import { HomePrompts } from '@/components/HomePrompts';
+import { HomeWeek } from '@/components/HomeWeek';
 import { HowTo } from '@/components/HowTo';
 import { OphIcon } from '@/components/OphIcon';
 import { SearchButton } from '@/components/SearchButton';
@@ -124,6 +125,8 @@ export function PmHome() {
           {!!sites?.length && <SitesMapCard sites={sites} />}
         </>
       )}
+      {/* The next five working days (Andy, 11 Nov 2026): tap a day to add to it. */}
+      <HomeWeek sites={sites} />
       {/* Yard & Plant is under Deliveries now, not a tile (Andy, 5 Nov 2026). */}
       <TileGrid cols={desk ? 4 : 2}>
         {isFinanceUser(me, org) && <Tile plain ic="pound" tint="" title="OpHUB Finance" sub="Money in & out" onPress={go('/fin')} />}

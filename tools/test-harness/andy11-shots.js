@@ -29,6 +29,8 @@ const PAGES = [
     db.quote_clients = [{id: 'qc1', org_id: org, quote_id: 'q1', client_name: 'Persimmon', created_at: '2026-10-21T08:00:00Z'}];
     db.quote_settings = [{org_id: org, chase_enabled: true, chase_first_days: 30, chase_every_days: 14, chase_max: 3}];
     db.quote_chases = [];
+    db.todos = [{id: 'td1', org_id: org, site_id: 'S1X', text: 'Chase scaffold for the rear elevation', done: false, assigned_to: 'me', tagged: ['o1'], date_required_by: '2026-11-14', created_by: 'me', created_at: '2026-11-10T08:00:00Z'}, {id: 'td2', org_id: org, site_id: null, text: 'Price variation 3 from the client email', done: false, assigned_to: null, tagged: ['me'], date_required_by: null, created_by: 'o1', message_id: 'm1', created_at: '2026-11-11T08:00:00Z'}];
+    db.todos[0].site_id = require('./harness').S1;
     const page = await ctx.newPage(); page.on('pageerror', (e) => errs.push(e.message));
     await page.goto(B + '/login'); await page.waitForTimeout(5000);
     await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
