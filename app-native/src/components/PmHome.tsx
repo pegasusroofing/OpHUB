@@ -174,7 +174,7 @@ function TodayBar({ rows, go, first }: { rows: TodayRow[]; go: (p: string) => ()
   const tw = w ? (w - 10) / 2 : 170;
   return (
     <View style={{ marginBottom: space.m }} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
-      <Text style={{ fontWeight: '600', color: base.ink, fontSize: 13, marginBottom: 6 }}>Today</Text>
+      <Text style={{ fontWeight: '700', color: base.ink, fontSize: 16, marginBottom: 8 }}>Today</Text>
       <ScrollView horizontal testID="today-bar" showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
         {first?.(tw)}
         {rows.map((r, k) => (

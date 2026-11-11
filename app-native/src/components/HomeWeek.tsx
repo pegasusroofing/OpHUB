@@ -1,5 +1,6 @@
 // Home: the next five working days as a little calendar (Andy, 11 Nov 2026). Each day shows what's on the project
-// calendars; tap a day to add something to it (and tag people), or the heading for the full calendar.
+// calendars; tap a day to add something to it (and tag people), or the Calendar button for the full calendar. Bigger
+// heading and day text, and Calendar as a proper button (Andy, 11 Nov 2026).
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
@@ -31,21 +32,24 @@ export function HomeWeek({ sites }: { sites: Site[] | undefined }) {
   const on = (d: string) => events.filter((e) => e.event_date === d && ids.has(e.site_id));
   return (
     <View style={{ marginBottom: 14 }}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Open the calendar" onPress={() => router.push('/pm/calendar' as never)} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-        <Text style={{ flex: 1, fontWeight: '600', color: base.ink, fontSize: 13 }}>Next 5 Days</Text>
-        <Text style={{ fontSize: 12.5, fontWeight: '600', color: base.slate }}>Calendar ›</Text>
-      </Pressable>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+        <Text style={{ flex: 1, fontWeight: '700', color: base.ink, fontSize: 16 }}>Next 5 Days</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Open the calendar" onPress={() => router.push('/pm/calendar' as never)} hitSlop={6}
+          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: base.line, backgroundColor: pressed ? '#F1F2F4' : base.card, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 14 })}>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: base.ink }}>Calendar ›</Text>
+        </Pressable>
+      </View>
       <View style={{ flexDirection: 'row', gap: 6 }}>
         {days.map((d) => {
           const list = on(d), dt = new Date(`${d}T00:00:00`), isToday = d === today;
           return (
             <Pressable key={d} accessibilityRole="button" accessibilityLabel={`${dt.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}: ${list.length} on. Tap to add.`}
               onPress={() => router.push({ pathname: '/pm/calendar', params: { date: d, add: '1' } } as never)}
-              style={{ flex: 1, minWidth: 0, minHeight: 84, backgroundColor: base.card, borderWidth: isToday ? 1.5 : 1, borderColor: isToday ? t.brand1 : base.cardLine, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 6 }}>
-              <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '700', color: isToday ? t.brand1 : base.slate }}>{dt.toLocaleDateString('en-GB', { weekday: 'short' })} {dt.getDate()}</Text>
-              {list.slice(0, 2).map((e) => <Text key={e.id} numberOfLines={2} style={{ fontSize: 11, color: base.ink, marginTop: 3 }}>{e.title}</Text>)}
-              {list.length > 2 && <Text style={{ fontSize: 10.5, fontWeight: '600', color: base.slate, marginTop: 2 }}>+{list.length - 2} More</Text>}
-              {!list.length && <Text style={{ fontSize: 16, color: base.slateLight, marginTop: 6, textAlign: 'center' }}>+</Text>}
+              style={{ flex: 1, minWidth: 0, minHeight: 92, backgroundColor: base.card, borderWidth: isToday ? 1.5 : 1, borderColor: isToday ? t.brand1 : base.cardLine, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 6 }}>
+              <Text numberOfLines={1} style={{ fontSize: 12.5, fontWeight: '700', color: isToday ? t.brand1 : base.slate }}>{dt.toLocaleDateString('en-GB', { weekday: 'short' })} {dt.getDate()}</Text>
+              {list.slice(0, 2).map((e) => <Text key={e.id} numberOfLines={2} style={{ fontSize: 12, color: base.ink, marginTop: 3 }}>{e.title}</Text>)}
+              {list.length > 2 && <Text style={{ fontSize: 11.5, fontWeight: '600', color: base.slate, marginTop: 2 }}>+{list.length - 2} More</Text>}
+              {!list.length && <Text style={{ fontSize: 18, color: base.slateLight, marginTop: 6, textAlign: 'center' }}>+</Text>}
             </Pressable>
           );
         })}
