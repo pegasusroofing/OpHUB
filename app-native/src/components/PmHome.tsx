@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { AdminGuide } from '@/components/AdminGuide';
 import { HomePrompts } from '@/components/HomePrompts';
 import { HowTo } from '@/components/HowTo';
 import { OphIcon } from '@/components/OphIcon';
@@ -83,6 +84,7 @@ export function PmHome() {
       <Text style={[heading(800), { fontSize: 21, color: base.ink, marginBottom: 10, letterSpacing: -0.2 }]}>{greeting()}{first ? `, ${first}` : ''}</Text>
       {!desk && <SearchButton />}
       <HowTo k="home" />
+      <AdminGuide />
       <HomePrompts />
       {(tbInv > 0 || tbWages > 0) && (
         <Pressable onPress={go('/pm/tobook')} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.warnBg, borderRadius: 16, padding: 14, marginBottom: space.m }}>

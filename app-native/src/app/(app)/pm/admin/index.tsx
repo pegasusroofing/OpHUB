@@ -7,6 +7,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { reopenGuide } from '@/components/AdminGuide';
 import { ListGroup, ListRow } from '@/components/ListRows';
 import { OphIcon } from '@/components/OphIcon';
 import { useToast } from '@/components/toast';
@@ -101,6 +102,7 @@ export default function AdminCentre() {
                 void refresh();
               }}><Text style={{ fontSize: 12, fontStyle: 'italic', color: base.slate, textDecorationLine: 'underline' }}>💷 Finance (Trial): {me.finance_hidden ? 'Off — Turn On' : 'On — Turn Off'}</Text></Pressable>
             )}
+            {me.role === 'admin' && <Pressable onPress={async () => { await reopenGuide(me); await refresh(); router.push('/home' as never); }}><Text style={{ fontSize: 12, fontStyle: 'italic', color: base.slate, textDecorationLine: 'underline' }}>Set-Up Guide</Text></Pressable>}
             <Pressable onPress={() => void signOut()}><Text style={{ fontSize: 12, fontStyle: 'italic', color: base.slate, textDecorationLine: 'underline' }}>Sign Out</Text></Pressable>
           </View>
         </>
