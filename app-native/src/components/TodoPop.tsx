@@ -37,7 +37,7 @@ export function TodoPop({ start, siteId, messageId, onClose, onDone }: { start?:
   const save = async () => {
     if (!text.trim()) { toast('What needs doing?'); return; }
     setBusy(true);
-    const r = await db.from('todos').insert({ org_id: me.org_id, site_id: site, text: text.trim(), date_required_by: date || null, assigned_to: tagged[0] ?? null, tagged, created_by: me.id, ...(messageId ? { message_id: messageId } : {}) } as never).select('id').single();
+    const r = await db.from('todos').insert({ org_id: me.org_id, site_id: site, text: text.trim(), done: false, date_required_by: date || null, assigned_to: tagged[0] ?? null, tagged, created_by: me.id, ...(messageId ? { message_id: messageId } : {}) } as never).select('id').single();
     setBusy(false);
     if (r.error) { toast('Could not save — try again.'); return; }
     void tellTagged(me, tagged, `${me.name || 'Someone'} tagged you in a to-do${site ? ` on ${sname(site)}` : ''}: "${text.trim()}"${date ? ` (due ${new Date(`${date}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })})` : ''}`, site, 'todo_tagged', (r.data as { id: string }).id);

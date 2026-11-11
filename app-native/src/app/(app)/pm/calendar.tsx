@@ -61,7 +61,7 @@ export default function AllCalendar() {
   // + Add To Calendar (Andy, 11 Nov 2026): as on a project's calendar, choosing the project here, and people can be tagged.
   // From a day on the home page's five days (?date=…&add=1): that day, with Add To Calendar open.
   const params = useLocalSearchParams<{ date?: string; add?: string }>();
-  const startDay = /^d{4}-d{2}-d{2}$/.test(String(params.date || '')) ? String(params.date) : null;
+  const startDay = /^\d{4}-\d{2}-\d{2}$/.test(String(params.date || '')) ? String(params.date) : null;
   const [adding, setAdding] = useState<{ site: string; title: string; date: string; tagged: string[] } | null>(() => (startDay && params.add ? { site: '', title: '', date: startDay, tagged: [] } : null));
   const [saving, setSaving] = useState(false);
   const toast = useToast();

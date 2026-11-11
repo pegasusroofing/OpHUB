@@ -281,7 +281,7 @@ export default function Schedule() {
           )}
 
           {/* Option A (Andy, 11 Nov 2026): + Add Task and + Section ▾, then the tasks not in a section, with no box round them. */}
-          {manager && (
+          {manager && filter !== 'done' && (
             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
               <Pressable accessibilityRole="button" accessibilityLabel="Add Task" onPress={() => setAdding(adding === '__ungrouped__' ? null : '__ungrouped__')} style={{ flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 9, borderWidth: 1, borderColor: base.line, backgroundColor: base.card }}>
                 <Text style={{ fontSize: 13, fontWeight: '700', color: base.ink }}>+ Add Task</Text>

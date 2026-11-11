@@ -101,7 +101,8 @@ export function ManagerMessages({ siteId }: { siteId: string }) {
             ))}
           </View>
         )}
-        {m.audience !== 'single' && (replyTo === m.id ? (
+        {/* A message to you alone has no Reply here, but can still be made a to-do (Andy, 11 Nov 2026). */}
+        {m.audience !== 'single' && replyTo === m.id ? (
           <View style={{ marginTop: 8 }}>
             <MentionBox value={reply} onChangeText={setReply} people={people ?? []} placeholder="Write a reply... type @ to mention someone" style={box} />
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
@@ -114,10 +115,10 @@ export function ManagerMessages({ siteId }: { siteId: string }) {
           </View>
         ) : (
           <View style={{ flexDirection: 'row', gap: 18, marginTop: 8 }}>
-            <Pressable onPress={() => { setReplyTo(m.id); setReply(''); }}><Text style={{ color: base.blue }}>↩ Reply</Text></Pressable>
+            {m.audience !== 'single' && <Pressable onPress={() => { setReplyTo(m.id); setReply(''); }}><Text style={{ color: base.blue }}>↩ Reply</Text></Pressable>}
             <Pressable accessibilityRole="button" accessibilityLabel="Make It A To Do" onPress={() => setTodoFrom(m)}><Text style={{ color: base.blue }}>☐ Make It A To Do</Text></Pressable>
           </View>
-        ))}
+        )}
       </Card>
     );
   };

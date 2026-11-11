@@ -40,12 +40,12 @@ export function VisibilityEditor({ table, id, siteId, orgId, onClose }: { table:
     const e = !(await db.from(table).update(patch as never).eq('id', id).select('id')).data?.length;
     setBusy(false);
     if (e) { toast('Could not save — try again.'); return; }
-    toast('Visibility updated'); onClose(true);
+    onClose(true);
   };
   return (
     <Card style={{ backgroundColor: base.paper }}>
-      <SectionTitle>Who can see this</SectionTitle>
-      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}><FinChip on={cur.all} label="All" onPress={() => set({ all: true })} /><FinChip on={!cur.all} label="Only the people ticked" onPress={() => set({ all: false })} /></View>
+      <SectionTitle>Who Can See This</SectionTitle>
+      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}><FinChip on={cur.all} label="All" onPress={() => set({ all: true })} /><FinChip on={!cur.all} label="Only The People Ticked" onPress={() => set({ all: false })} /></View>
       {!cur.all && <>
         <Check label="Project Managers" value={cur.pmOn} onChange={(x) => set({ pmOn: x })} />
         {cur.pmOn && <View style={{ paddingLeft: 18, marginBottom: 6 }}>{pms.length ? pms.map((p) => <Check key={p.id} label={p.name} value={cur.pm.includes(p.id)} onChange={() => flip('pm', p.id)} />) : <Muted>No project managers.</Muted>}</View>}

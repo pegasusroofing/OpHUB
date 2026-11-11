@@ -199,7 +199,7 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
                 <Pressable hitSlop={8} onPress={async () => {
                   const k = await chooseAction(f.name, [
                     ...(i > 0 ? [{ key: 'up', label: '▲ Move Up' }] : []), ...(i < data.folders.length - 1 ? [{ key: 'down', label: '▼ Move Down' }] : []),
-                    { key: 'rename', label: '✏️ Rename' }, { key: 'vis', label: '🔒 Who can see this' }, { key: 'del', label: '🗑 Delete', danger: true },
+                    { key: 'rename', label: '✏️ Rename' }, { key: 'vis', label: '🔒 Who Can See This' }, { key: 'del', label: '🗑 Delete', danger: true },
                   ]);
                   if (k === 'vis') { setVis(f.id); return; }
                   if (k === 'up' || k === 'down') { if (!(await moveFolder(data.folders, f.id, k === 'up' ? -1 : 1))) toast('Move failed — could not save the new order, try again.'); refresh(); }

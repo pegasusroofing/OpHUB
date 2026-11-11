@@ -35,7 +35,7 @@ const ago = (mins) => new Date(Date.now() - mins * 60000).toISOString();
   await page.goto('http://localhost:8081/login'); await page.waitForTimeout(4000);
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
-  const hub = async (tab) => { await page.goto('http://localhost:8081/pm/hub' + (tab ? '?tab=' + tab : '')); await page.waitForTimeout(5000); };
+  const hub = async (tab) => { await page.goto('http://localhost:8081/pm/hub?tab=' + (tab || 'all')); await page.waitForTimeout(5000); };
   const tabLabel = async (name) => (await page.getByRole('tab', {name: new RegExp('^' + name)}).first().getAttribute('aria-label')) || '';
   const body = async () => page.locator('body').innerText();
 

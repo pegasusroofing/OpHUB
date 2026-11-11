@@ -18,7 +18,7 @@ const isImg = (r: DocReq) => /\.(jpe?g|png|gif|webp|heic)$/i.test(r.name) || /\.
 function nameFromUrl(u: string) {
   let n = u.split('?')[0].split('#')[0].split('/').pop() || 'Document';
   try { n = decodeURIComponent(n); } catch { /* keep */ }
-  return n.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i, '').replace(/^d{10,}-/, '').replace(/_/g, ' ');
+  return n.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i, '').replace(/^\d{10,}-/, '').replace(/_/g, ' ');
 }
 
 /** Open a stored file in the viewer (falls back to the phone / browser for other file types). */

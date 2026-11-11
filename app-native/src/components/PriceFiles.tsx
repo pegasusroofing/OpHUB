@@ -113,7 +113,7 @@ export function PriceFiles({ me, site, el, mgr, canPrice, canLabour }: { me: Pro
       )}
       {mgr && (
         <>
-          <SectionTitle>Who can see this price</SectionTitle>
+          <SectionTitle>Who Can See This Price</SectionTitle>
           <Card>
             {data.ops.length ? data.ops.map((o) => { const on = data.access.has(o.id); return (
               <Check key={o.id} label={o.name} value={on} onChange={async () => {

@@ -1,4 +1,4 @@
-// Schedule of Works: menu beside the tap, add-section pop-up, add-task row, pre-start photos label, slider to 70%, Complete tab has no Add.
+// Schedule of Works (option A since 11 Nov: + Add Task and + Section ▾ above the loose tasks): the + Section menu, add-section pop-up, add-task row, pre-start photos label, slider to 70%, Complete tab has no Add.
 const {chromium, makeContext, S1} = require('./harness');
 (async()=>{
   const BASE = 'http://localhost:8081';
@@ -14,12 +14,12 @@ const {chromium, makeContext, S1} = require('./harness');
   const t0 = Date.now(); await page.goto(BASE+'/sites/'+S1+'/schedule'); await page.getByText('Clear gutters').first().waitFor({timeout:20000}); console.log('loaded in', Date.now()-t0, 'ms');
   await page.waitForTimeout(1000);
   await page.screenshot({path:'shots/sow-1.png'});
-  await page.getByLabel('More').click(); await page.waitForTimeout(600); await page.screenshot({path:'shots/sow-2-more.png'});
+  await page.getByLabel('Section', {exact: true}).click(); await page.waitForTimeout(600); await page.screenshot({path:'shots/sow-2-more.png'});
   await page.getByText('📁 Add Section').click(); await page.waitForTimeout(600);
   await page.getByText('➕ New section', {exact:true}).click(); await page.waitForTimeout(600); await page.screenshot({path:'shots/sow-3-section.png'});
   await page.getByPlaceholder('Section name, e.g. Roof Level 1').fill('Front roof'); await page.getByText('Add section', {exact:true}).click(); await page.waitForTimeout(1500);
   console.log('section added:', (db.schedule_sections||[]).map(x=>x.name).join(', '));
-  await page.getByText('+ ADD TASK').first().click(); await page.waitForTimeout(500); await page.screenshot({path:'shots/sow-4-addtask.png'});
+  await page.getByText('+ Add Task', {exact: true}).first().click(); await page.waitForTimeout(500); await page.screenshot({path:'shots/sow-4-addtask.png'});
   await page.getByPlaceholder('New task, e.g. Fit lead flashing').fill('Fit ridge'); await page.getByText('Add', {exact:true}).click(); await page.waitForTimeout(1500);
   console.log('tasks:', db.schedule_tasks.map(x=>x.name).join(', '));
   // slider: click at 70% of the track
@@ -29,7 +29,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.screenshot({path:'shots/sow-5-slider.png'});
   await page.getByText('Complete', {exact:true}).first().click(); await page.waitForTimeout(800);
   const txt = (await page.evaluate(()=>document.body.innerText));
-  console.log('complete tab has add task:', /ADD TASK/.test(txt));
+  console.log('complete tab has add task:', /Add Task/.test(txt));
   await page.screenshot({path:'shots/sow-6-complete.png'});
   console.log('errors', errs.join(' / ').slice(0,400) || 'none', '| console', cons.slice(0,4).join(' / '));
   await browser.close(); process.exit(0);

@@ -15,7 +15,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.goto('http://localhost:8081/login'); await page.waitForTimeout(5000);
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
-  await page.goto('http://localhost:8081/pm/hub'); await page.waitForTimeout(7000);
+  await page.goto('http://localhost:8081/pm/hub?tab=all'); await page.waitForTimeout(7000);
   console.log('hub: delivery problem', await page.getByText('2 slates broken on delivery').count(), '| time off', await page.getByText('Time off request: Fri 7 Nov').count(), '| read one', await page.getByText('Already read one').count());
   await page.screenshot({path:'shots/hubdm.png'});
   await page.getByText('Time off request: Fri 7 Nov').first().click(); await page.waitForTimeout(3000);
