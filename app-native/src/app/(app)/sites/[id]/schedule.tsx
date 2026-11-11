@@ -220,7 +220,7 @@ export default function Schedule() {
   const toggle = (k: string, dflt = true) => setOpen({ ...open, [k]: !isOpen(k, dflt) });
 
   return (
-    <ScrollView contentContainerStyle={page(820)}
+    <ScrollView contentContainerStyle={[page(820), { flexGrow: 1 }]}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={changed} />}>
       <Stack.Screen options={{ title: 'Schedule of Works' }} />
       <HowTo k="schedule" />
@@ -313,7 +313,7 @@ export default function Schedule() {
                 changed();
               }} />
           )}
-          {!!view?.allTasks.length && <View style={{ marginTop: space.m }}><SowExport site={site} tab={filter} /></View>}
+          {!!view?.allTasks.length && <><View style={{ flexGrow: 1 }} /><SowExport site={site} tab={filter} left={`${view.allTasks.filter((t) => t.status === 'done').length} Of ${view.allTasks.length} Tasks Done`} /></>}
         </>
       )}
       {pdfText !== null && (

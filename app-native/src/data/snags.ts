@@ -14,6 +14,7 @@ export type Snag = {
   id: string; site_id: string; title: string; location: string | null; status: string;
   photo_path: string | null; photo_paths: string[] | null; pdf_path: string | null;
   closed_photo_path: string | null; closed_by: string | null; closed_at: string | null; created_at: string | null;
+  tagged?: string[] | null; // people tagged on it (Andy, 11 Nov 2026)
 };
 export const snagPhotos = (s: Snag) => (s.photo_paths?.length ? s.photo_paths : s.photo_path ? [s.photo_path] : []);
 
@@ -57,18 +58,31 @@ export async function closeSnag(me: Profile, site: Site, snag: Snag, p: Picked):
     void db.from('messages').insert({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'managers', kind: 'snag_closed', body: `${me.name} closed a snag: "${snag.title || 'Untitled'}"` } as never).then(undefined, () => undefined);
     void db.from('site_activity_log').insert({ site_id: site.id, org_id: me.org_id, actor_id: me.id, action: 'snag_closed', description: `Closed snag "${snag.title || 'Untitled'}"` } as never).then(undefined, () => undefined);
   }
-  return 'Snag closed';
+  return '';
 }
 
-/** Managers: add a snag with photos; the operatives on the job are told. */
-export async function addSnag(me: Profile, site: Site, title: string, location: string, picked: Picked[]): Promise<string> {
+/** Managers: add a snag with photos; the operatives on the job are told, and anyone tagged gets their own message. */
+export async function addSnag(me: Profile, site: Site, title: string, location: string, picked: Picked[], tagged: string[] = []): Promise<string> {
   const paths: string[] = []; let failed = 0;
   for (const p of picked) { const path = await upload(`${site.id}/snags/${rid()}.jpg`, p); if (path) paths.push(path); else failed++; }
-  const r = await db.from('snags').insert({ site_id: site.id, title, location, photo_path: paths[0] || null, photo_paths: paths.length ? paths : null, status: 'open', created_by: me.id } as never);
+  const r = await db.from('snags').insert({ site_id: site.id, title, location, photo_path: paths[0] || null, photo_paths: paths.length ? paths : null, status: 'open', created_by: me.id, ...(tagged.length ? { tagged } : {}) } as never).select('id').single();
   if (r.error) return 'Could not save — try again.';
-  if (failed) return `Snag added, but ${failed} photo${failed > 1 ? 's' : ''} failed to upload — check your connection.`;
   if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'operatives', kind: 'snag_raised', body: `New snag raised: "${title}"` } as never).then(undefined, () => undefined);
-  return 'Snag added';
+  void tellTagged(me, site, (r.data as { id: string }).id, title, tagged);
+  if (failed) return `Snag added, but ${failed} photo${failed > 1 ? 's' : ''} failed to upload — check your connection.`;
+  return '';
+}
+/** Tag people on a snag (Andy, 11 Nov 2026): saved on the snag, and each new person gets a message. */
+export async function tagSnag(me: Profile, site: Site, snag: Snag, tagged: string[]): Promise<boolean> {
+  const r = await db.from('snags').update({ tagged } as never).eq('id', snag.id);
+  if (r.error) return false;
+  void tellTagged(me, site, snag.id, snag.title, tagged.filter((u) => !(snag.tagged ?? []).includes(u)));
+  return true;
+}
+async function tellTagged(me: Profile, site: Site, snagId: string, title: string, ids: string[]) {
+  const to = ids.filter((u) => u && u !== me.id);
+  if (!me.org_id || !to.length) return;
+  await db.from('messages').insert(to.map((u) => ({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'single', recipient_id: u, kind: 'snag_tagged', body: `${me.name || 'Someone'} tagged you in a snag on ${site.name}: "${title || 'Untitled'}"`, related_id: snagId })) as never).then(undefined, () => undefined);
 }
 
 /* ---------- Snagging Report PDF (500 exportSnaggingPDF / emailSnaggingPDF) ---------- */

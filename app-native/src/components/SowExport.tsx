@@ -1,11 +1,10 @@
 // Export PDF / Email Report on the Schedule of Works (480 / 500): pick the full
 // project or a period (today, this week, last week, chosen dates); the report
-// covers the tab being looked at.
+// covers the tab being looked at. In the footer bar, as Finance (Andy, 11 Nov 2026): Export ▾ › PDF or Email Report.
 import { useState } from 'react';
-import { View } from 'react-native';
 
 import { chooseAction, showAlert, useToast } from '@/components/toast';
-import { Button } from '@/components/ui';
+import { FootBar, FootButton } from '@/components/FootBar';
 import { promptEmail } from '@/components/EmailPrompt';
 import { useTeam } from '@/data/admin';
 import { askDate } from '@/components/DateField';
@@ -15,7 +14,7 @@ import { localISODate } from '@/lib/rules/driver';
 import { buildSowPdf, emailSowPdf, sowPeriod, type SowPeriod, type SowTab } from '@/lib/sowPdf';
 import type { Site } from '@/lib/types';
 
-export function SowExport({ site }: { site: Site; tab: SowTab }) {
+export function SowExport({ site, left }: { site: Site; tab: SowTab; left?: string }) {
   const { me, org } = useAuth();
   const { data: people } = useTeam(me?.org_id);
   const toast = useToast();
@@ -45,25 +44,27 @@ export function SowExport({ site }: { site: Site; tab: SowTab }) {
     if (typeof r === 'string') { toast(r); return null; }
     return r;
   };
+  const pdf = async () => {
+    const p = await askPeriod(); if (p === undefined) return;
+    setBusy('pdf'); const b = await build(p); if (b && !(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); setBusy(null);
+  };
+  const email = async () => {
+    // 500 openScheduleEmailPrompt: tick PMs / admins (you're ticked), or add any address; CC the client.
+    const pick = (people ?? []).filter((p) => (p.role === 'pm' || p.role === 'admin') && p.email && !(p.role === 'pm' && p.is_estimator)).map((p) => ({ name: p.name || p.email as string, email: p.email as string }));
+    const r = await promptEmail('Email Schedule of Works Report', { pick, ticked: me.email && pick.some((p) => p.email === me.email) ? [me.email] : [], clientEmail: site.client_email });
+    if (!r) return;
+    const list = r.to.split(',');
+    const p = await askPeriod(); if (p === undefined) return;
+    const cc: string | null = r.clientCc ?? null;
+    setBusy('email');
+    const b = await build(p);
+    if (b) { const err = await emailSowPdf(site.id, b.bytes, b.filename, list, cc); if (err) showAlert(err); else toast(`Emailed to ${list.length} recipient${list.length > 1 ? 's' : ''}`); }
+    setBusy(null);
+  };
   return (
-    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
-      <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'pdf'} title="📄 Export" onPress={async () => {
-        const p = await askPeriod(); if (p === undefined) return;
-        setBusy('pdf'); const b = await build(p); if (b && !(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); setBusy(null);
-      }} /></View>
-      <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'email'} title="✉ Email Report" onPress={async () => {
-        // 500 openScheduleEmailPrompt: tick PMs / admins (you're ticked), or add any address; CC the client.
-        const pick = (people ?? []).filter((p) => (p.role === 'pm' || p.role === 'admin') && p.email && !(p.role === 'pm' && p.is_estimator)).map((p) => ({ name: p.name || p.email as string, email: p.email as string }));
-        const r = await promptEmail('Email Schedule of Works Report', { pick, ticked: me.email && pick.some((p) => p.email === me.email) ? [me.email] : [], clientEmail: site.client_email });
-        if (!r) return;
-        const list = r.to.split(',');
-        const p = await askPeriod(); if (p === undefined) return;
-        const cc: string | null = r.clientCc ?? null;
-        setBusy('email');
-        const b = await build(p);
-        if (b) { const err = await emailSowPdf(site.id, b.bytes, b.filename, list, cc); if (err) showAlert(err); else toast(`Emailed to ${list.length} recipient${list.length > 1 ? 's' : ''}`); }
-        setBusy(null);
-      }} /></View>
-    </View>
+    <FootBar left={left || 'Schedule Of Works'} right={<FootButton label={busy ? 'Making…' : '⬇ Export ▾'} a11y="Export" onPress={async () => {
+      const k = await chooseAction('Export', [{ key: 'pdf', label: '📄 Export PDF' }, { key: 'email', label: '✉ Email Report' }]);
+      if (k === 'pdf') await pdf(); else if (k === 'email') await email();
+    }} />} />
   );
 }

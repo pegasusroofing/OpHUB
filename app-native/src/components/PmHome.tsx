@@ -2,6 +2,7 @@
 // projects, on site now, to do, notifications), the sites map with a Today panel beside it, then plain tiles
 // (2 across on a phone, 4 on a laptop), "Pick up where you left off", and name / role / Sign out.
 import { router } from 'expo-router';
+import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { HomePrompts } from '@/components/HomePrompts';
@@ -9,6 +10,7 @@ import { HowTo } from '@/components/HowTo';
 import { OphIcon } from '@/components/OphIcon';
 import { SearchButton } from '@/components/SearchButton';
 import { SitesMapCard } from '@/components/SitesMap';
+import { WeatherTile } from '@/components/WeatherSwap';
 import { Card, Muted, Screen, SectionTitle, Stat, Tile, TileGrid, TINTS } from '@/components/ui';
 import { useHubAll } from '@/data/hub';
 import { useDeliveryRequests } from '@/data/deliveries';
@@ -54,9 +56,12 @@ export function PmHome() {
     ...(dlvN ? [{ ic: 'truck', t: `${dlvN} deliver${dlvN === 1 ? 'y' : 'ies'} to schedule`, sub: 'Delivery schedule', go: '/pm/deliveries' }] : []),
     ...(open.length ? [{ ic: 'reports', t: `${open.length} report${open.length === 1 ? '' : 's'} in progress`, sub: open[0] ? `${open[0].template_name || 'Report'} · ${where(open[0])}` : '', go: '/pm/reports' }] : []),
   ];
+  // Today's weather first (Andy, 11 Nov 2026), for the first live project with a postcode; tap it for the week.
+  const wxSite = live.find((s2) => !!s2.postcode) ?? (sites ?? []).find((s2) => !!s2.postcode);
   const todayCard = (
     <Card style={{ paddingHorizontal: 0, paddingVertical: 10, marginBottom: desk ? 0 : space.m, ...(desk ? { flex: 1, minWidth: 0 } : {}) }}>
       <Text style={{ fontWeight: '600', color: base.ink, fontSize: 14, paddingHorizontal: 14, paddingBottom: 6 }}>Today</Text>
+      {!!me && !!wxSite && <View style={{ paddingHorizontal: 14, paddingBottom: 8 }}><WeatherTile me={me} site={wxSite} company={org?.name || ''} width="100%" /></View>}
       {todayRows.map((r, k) => (
         <Pressable key={k} onPress={go(r.go)} style={(st) => [{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 14, borderTopWidth: 1, borderTopColor: '#f0f1f3' }, (st as { hovered?: boolean }).hovered && { backgroundColor: '#F7F8FA' }]}>
           <OphIcon name={r.ic} size={18} color={base.ink} />
@@ -70,7 +75,7 @@ export function PmHome() {
     </Card>
   );
 
-  const todayBar = <TodayBar rows={todayRows} go={go} />;
+  const todayBar = <TodayBar rows={todayRows} go={go} first={me && wxSite ? (w: number) => <WeatherTile me={me} site={wxSite} company={org?.name || ''} width={w} /> : undefined} />;
 
   return (
     <Screen>
@@ -158,14 +163,18 @@ export function PmHome() {
 
 type TodayRow = { ic: string; t: string; sub: string; go: string };
 
-/** Phone: Today as a bar you swipe sideways (Andy, 7 Nov 2026: the drifting one was jumpy on an iPhone). */
-function TodayBar({ rows, go }: { rows: TodayRow[]; go: (p: string) => () => void }) {
+/** Phone: Today as a bar you swipe sideways (Andy, 7 Nov 2026: the drifting one was jumpy on an iPhone). Each tile is
+ *  as wide as a tile below, so they line up (Andy, 11 Nov 2026); the weather comes first. */
+function TodayBar({ rows, go, first }: { rows: TodayRow[]; go: (p: string) => () => void; first?: (width: number) => ReactNode }) {
+  const [w, setW] = useState(0);
+  const tw = w ? (w - 10) / 2 : 170;
   return (
-    <View style={{ marginBottom: space.m }}>
+    <View style={{ marginBottom: space.m }} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
       <Text style={{ fontWeight: '600', color: base.ink, fontSize: 13, marginBottom: 6 }}>Today</Text>
-      <ScrollView horizontal testID="today-bar" showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 8 }}>
+      <ScrollView horizontal testID="today-bar" showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+        {first?.(tw)}
         {rows.map((r, k) => (
-          <Pressable key={k} onPress={go(r.go)} accessibilityRole="button" style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 10, width: 210, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 12, paddingVertical: 9, paddingHorizontal: 12 }, pressed && { opacity: 0.85 }]}>
+          <Pressable key={k} onPress={go(r.go)} accessibilityRole="button" style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 10, width: tw, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 12, paddingVertical: 9, paddingHorizontal: 12 }, pressed && { opacity: 0.85 }]}>
             <OphIcon name={r.ic} size={17} color={base.ink} />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text numberOfLines={1} style={{ fontWeight: '600', color: base.ink, fontSize: 13 }}>{r.t}</Text>

@@ -9,10 +9,11 @@ import { useState } from 'react';
 import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { ClientChip, ClientStage } from '@/components/ClientStage';
+import { FootBar, FootButton } from '@/components/FootBar';
 import { MarkupEditor } from '@/components/MarkupEditor';
 import { StorageImage } from '@/components/StorageImage';
 import { pickCameraOrLibrary } from '@/components/pickSource';
-import { showAlert, useToast } from '@/components/toast';
+import { chooseAction, showAlert, useToast } from '@/components/toast';
 import { VariationManagerActions } from '@/components/VariationManagerActions';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
@@ -67,7 +68,7 @@ export default function Variations() {
   };
 
   return (
-    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={[page(720), { flexGrow: 1 }]} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Variations' }} />
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12, alignItems: 'center' }}>
         {([['live', 'Live'], ['closed', 'Closed']] as const).map(([k, l]) => (
@@ -134,23 +135,22 @@ export default function Variations() {
         </Card>
       )}
       {marking && !!photo && <MarkupEditor photo src={photo.uri} onClose={(out) => { setMarking(false); if (out) setPhoto({ ...photo, uri: out.image }); }} />}
-      <SectionTitle>Export</SectionTitle>
-      <View style={{ flexDirection: 'row', gap: 6 }}>
-        {([['live', 'Export Live'], ['closed', 'Export Closed'], ['all', 'Export All']] as [SnagScope, string][]).map(([sc, label]) => (
-          <View key={sc} style={{ flex: 1 }}><Button kind="ghost" busy={pdfBusy === sc} title={label} onPress={async () => {
-            setPdfBusy(sc);
-            try {
-              let q = (supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }).from('variations').select('description,status,created_by,created_at,closed_at,photo_path').eq('site_id', site.id);
-              q = sc === 'live' ? q.eq('status', 'live') : sc === 'closed' ? q.eq('status', 'closed') : q.in('status', ['live', 'closed']);
-              const vars = ((await q.order('created_at')).data as Parameters<typeof buildVariationsPdf>[0] | null) ?? [];
-              if (!vars.length) { toast('No variations to export for that filter.'); return; }
-              toast('Building PDF…');
-              const b = await buildVariationsPdf(vars, site, org, sc, (u) => nameOf(people, u));
-              if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.');
-            } catch { toast('Could not build the PDF.'); } finally { setPdfBusy(null); }
-          }} /></View>
-        ))}
-      </View>
+      {/* Exports in the footer bar, as Finance (Andy, 11 Nov 2026). */}
+      <View style={{ flexGrow: 1 }} />
+      <FootBar left="Variations" right={<FootButton label={pdfBusy ? 'Making…' : '⬇ Export ▾'} a11y="Export variations" onPress={async () => {
+        const k = await chooseAction('What To Export', [{ key: 'live', label: 'Live Variations (PDF)' }, { key: 'closed', label: 'Closed Variations (PDF)' }, { key: 'all', label: 'All Variations (PDF)' }]);
+        if (!k) return;
+        const sc = k as SnagScope;
+        setPdfBusy(sc);
+        try {
+          let q = (supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }).from('variations').select('description,status,created_by,created_at,closed_at,photo_path').eq('site_id', site.id);
+          q = sc === 'live' ? q.eq('status', 'live') : sc === 'closed' ? q.eq('status', 'closed') : q.in('status', ['live', 'closed']);
+          const vars = ((await q.order('created_at')).data as Parameters<typeof buildVariationsPdf>[0] | null) ?? [];
+          if (!vars.length) { toast('No variations to export for that filter.'); return; }
+          const b = await buildVariationsPdf(vars, site, org, sc, (u) => nameOf(people, u));
+          if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.');
+        } catch { toast('Could not build the PDF.'); } finally { setPdfBusy(null); }
+      }} />} />
     </ScrollView>
   );
 }

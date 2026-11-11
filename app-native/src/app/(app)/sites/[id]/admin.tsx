@@ -213,7 +213,7 @@ export default function SiteAdmin() {
       {full && (
         <>
           <SectionTitle>Job status</SectionTitle>
-          <SelectBox title="Job status" value={sk} options={[['live', '🟢 Live'], ['upcoming', '🗓 Upcoming'], ['closed', '🔒 Closed']]} style={{ maxWidth: 320 }} onChange={async (k) => {
+          <SelectBox title="Job Status" value={sk} options={[['live', '🟢 Live'], ['upcoming', '🗓 Upcoming'], ['closed', '🔒 Closed']]} onChange={async (k) => {
             if (k === sk) return;
             if (k === 'closed' && !(await confirmAsk(`Close "${site.name}"? Operatives lose access to it, and the Handover tile (O&M manual) appears on the job. You can reopen it any time from here or the Closed list.`, 'Close job'))) return;
             if (!(await setSiteStatus(qc, me, id, k))) toast('Could not save — try again.');

@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Linking, Pressable, Text, TextInput, View } from 'react-native';
 
+import { FootBar, FootButton, pickExport } from '@/components/FootBar';
 import { OphIcon } from '@/components/OphIcon';
 import { SelectBox } from '@/components/SelectBox';
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
@@ -32,6 +33,7 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
   const [histOpen, setHistOpen] = useState(false);
   const [pmOpen, setPmOpen] = useState(false);
   const [exporting, setExporting] = useState<'week' | 'all' | null>(null);
+  const [fenceOpen, setFenceOpen] = useState(false);
   const [modal, setModal] = useState<null | 'choose' | 'manual'>(null);
   const [lat, setLat] = useState('');
   const [lon, setLon] = useState('');
@@ -73,7 +75,17 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
     <View>
       {/* One compact row (Andy, 3 Nov 2026): set location, distance, Save, bin to take it off. Clear of the button above. */}
       <View style={{ marginTop: 18 }}><SectionTitle>{sub ? 'Address Geofence' : 'Site Geofence'}</SectionTitle></View>
+      {fence.geofence_lat != null && fence.geofence_lon != null && !fenceOpen ? (
+        // Once it's set it folds into one line (Andy, 11 Nov 2026); tap to see or change it.
+        <Pressable accessibilityRole="button" accessibilityLabel="Geofence: set, tap to change" onPress={() => setFenceOpen(true)}>
+          <Card style={{ paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={{ flex: 1, fontSize: 13.5, color: base.ink }}><Text style={{ fontWeight: '600' }}>Set</Text> · Check-ins within {fence.geofence_radius_m ?? 100}m</Text>
+            <Text style={{ color: base.slate, fontSize: 12 }}>▾</Text>
+          </Card>
+        </Pressable>
+      ) : (
       <Card style={{ paddingVertical: 10 }}>
+        {fence.geofence_lat != null && fence.geofence_lon != null && <Pressable accessibilityRole="button" accessibilityLabel="Fold the geofence away" onPress={() => setFenceOpen(false)} style={{ alignSelf: 'flex-end', marginBottom: 2 }}><Text style={{ color: base.slate, fontSize: 12 }}>▴</Text></Pressable>}
         {fence.geofence_lat != null && fence.geofence_lon != null ? (
           <Text style={{ fontSize: 13, color: base.slate, marginBottom: 6 }}>
             Set at <Text style={{ fontFamily: 'monospace', color: base.ink }}>{fence.geofence_lat.toFixed(5)}, {fence.geofence_lon.toFixed(5)}</Text>
@@ -82,12 +94,13 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
         ) : <Muted style={{ marginBottom: 6, fontSize: 13 }}>Not set — check-ins won&apos;t be distance-checked.</Muted>}
         <FenceRow key={String(fence.geofence_radius_m)} set={fence.geofence_lat != null && fence.geofence_lon != null} place={place} current={fence.geofence_radius_m}
           onLocate={() => setModal('choose')}
-          onSave={async (r) => { if (await setFenceRadius(target, r)) { toast(`Check-in distance set to ${r}m`); refresh(); } else toast('Could not save — try again.'); }}
+          onSave={async (r) => { if (await setFenceRadius(target, r)) { setFenceOpen(false); refresh(); } else toast('Could not save — try again.'); }}
           onRemove={async () => {
             if (!(await confirmAsk(`Remove the ${place} geofence? Check-ins won't be distance-checked.`))) return;
-            if (await clearFence(target)) { toast('Geofence removed'); refresh(); } else toast('Could not remove — try again.');
+            if (await clearFence(target)) { refresh(); } else toast('Could not remove — try again.');
           }} />
       </Card>
+      )}
 
       <View style={{ marginTop: 14 }}><SectionTitle>Site Team — Live Status</SectionTitle></View>
       {status.length ? status.map((c) => (
@@ -121,29 +134,25 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
           )) : <Empty>{site.responsible_pm_id ? 'No check-ins yet.' : 'No project manager assigned to this project yet.'}</Empty>)}
         </>
       )}
-      {/* Every manager can export, as the current app (440). */}
+      {/* Every manager can export, as the current app (440): in the footer bar, as Finance (Andy, 11 Nov 2026). */}
       {!!me && isManager(me) && !sub && (
-        <>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 18, paddingTop: 10, borderTopWidth: 1, borderTopColor: base.line }}>
-            <Muted style={{ fontSize: 12 }}>Export check-ins:</Muted>
-            {(['week', 'all'] as const).map((scope) => (
-              <View key={scope}><Button kind="ghost" small busy={exporting === scope} title={scope === 'week' ? '📊 This week (Excel)' : '📊 Full history (Excel)'} onPress={async () => {
-                setExporting(scope);
-                try {
-                  const rows = await checkinsForExport(site.id, scope);
-                  if (!rows) { toast('Could not load all the check-ins — check your signal and try again.'); return; }
-                  if (!rows.length) { toast('No check-ins in that range.'); return; }
-                  const ok = await exportTableExcel({
-                    title: scope === 'week' ? 'Check-ins (This Week)' : 'Check-ins (All Time)', site: site.name,
-                    cols: [{ l: 'Name', w: 18 }, { l: 'Type', w: 11 }, { l: 'Date', w: 11 }, { l: 'Time', w: 8 }, { l: 'Latitude', num: true, w: 11 }, { l: 'Longitude', num: true, w: 11 }, { l: 'Accuracy (m)', num: true, w: 11 }],
-                    rows: rows.map((c) => [nameOf(people, c.user_id), c.type === 'in' ? 'Check In' : 'Check Out', new Date(c.ts).toLocaleDateString('en-GB'), new Date(c.ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), c.lat, c.lon, c.accuracy_m ?? '']),
-                  }, org);
-                  if (!ok) toast('Could not make the file — try again.');
-                } finally { setExporting(null); }
-              }} /></View>
-            ))}
-          </View>
-        </>
+        <FootBar left={`${status.filter((c) => c.type === 'in').length} On Site`} right={<FootButton label={exporting ? 'Making…' : '⬇ Export ▾'} a11y="Export check-ins" onPress={async () => {
+          const pick = await pickExport<'week' | 'all'>([{ key: 'week', label: 'Check-Ins This Week' }, { key: 'all', label: 'Full History' }], false);
+          if (!pick) return;
+          const scope = pick.key;
+          setExporting(scope);
+          try {
+            const rows = await checkinsForExport(site.id, scope);
+            if (!rows) { toast('Could not load all the check-ins — check your signal and try again.'); return; }
+            if (!rows.length) { toast('No check-ins in that range.'); return; }
+            const ok = await exportTableExcel({
+              title: scope === 'week' ? 'Check-ins (This Week)' : 'Check-ins (All Time)', site: site.name,
+              cols: [{ l: 'Name', w: 18 }, { l: 'Type', w: 11 }, { l: 'Date', w: 11 }, { l: 'Time', w: 8 }, { l: 'Latitude', num: true, w: 11 }, { l: 'Longitude', num: true, w: 11 }, { l: 'Accuracy (m)', num: true, w: 11 }],
+              rows: rows.map((c) => [nameOf(people, c.user_id), c.type === 'in' ? 'Check In' : 'Check Out', new Date(c.ts).toLocaleDateString('en-GB'), new Date(c.ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), c.lat, c.lon, c.accuracy_m ?? '']),
+            }, org);
+            if (!ok) toast('Could not make the file — try again.');
+          } finally { setExporting(null); }
+        }} />} />
       )}
 
       {!!modal && (

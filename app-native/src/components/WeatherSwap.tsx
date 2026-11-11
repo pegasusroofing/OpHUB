@@ -103,14 +103,35 @@ export function WeatherLink({ me, site, company, small }: { me: Profile; site: S
   );
 }
 
+/** Home › Today (Andy, 11 Nov 2026): today's weather as a tile the width of the tiles below; tapping it opens the week.
+ *  For the first live project with a postcode, named on the tile. */
+export function WeatherTile({ me, site, company, width }: { me: Profile; site: Site; company: string; width: number | '100%' }) {
+  const { data: w, isLoading } = useWeather(site.postcode);
+  const [open, setOpen] = useState(false);
+  const say = w ? weatherWords(w.code) : null;
+  return (
+    <>
+      <Pressable accessibilityRole="button" accessibilityLabel={say ? `Weather: ${say.text}` : 'Weather'} disabled={!w} onPress={() => setOpen(true)}
+        style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 10, width, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 12, paddingVertical: 9, paddingHorizontal: 12 }, pressed && { opacity: 0.85 }]}>
+        <Text style={{ fontSize: 17 }}>{say?.icon || '🌤'}</Text>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text numberOfLines={1} style={{ fontWeight: '600', color: base.ink, fontSize: 13 }}>{w && say ? `${Number.isFinite(w.temp) ? `${w.temp}° ` : ''}${say.text}` : isLoading ? 'Weather…' : 'No Weather Found'}</Text>
+          <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate }}>{w?.rain != null ? `${w.rain}% Rain · ` : ''}{site.name}</Text>
+        </View>
+      </Pressable>
+      {open && w && <WeatherPopup me={me} site={site} company={company} lat={w.lat} lon={w.lon} start="week" onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
 const hhmm = (t?: string) => (t ? t.slice(11, 16) : '');
 const dayName = (d: string, i: number) => (i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }));
 const tab = (on: boolean) => ({ flex: 1, paddingVertical: 8, borderRadius: 9, alignItems: 'center' as const, backgroundColor: on ? base.card : 'transparent', ...(on ? { shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } } : {}) });
 
 /** Tapping the weather (Andy, 4 Nov 2026): today's weather, a button for the next 5 days, and Email Weather Delay. */
-function WeatherPopup({ me, site, company, pm, lat, lon, onClose }: { me: Profile; site: Site; company: string; pm?: { name?: string | null; email?: string | null } | null; lat: number; lon: number; onClose: () => void }) {
+function WeatherPopup({ me, site, company, pm, lat, lon, onClose, start = 'today' }: { me: Profile; site: Site; company: string; pm?: { name?: string | null; email?: string | null } | null; lat: number; lon: number; onClose: () => void; start?: 'today' | 'week' }) {
   const { data: f, isLoading } = useForecast(lat, lon);
-  const [view, setView] = useState<'today' | 'week' | 'email'>('today');
+  const [view, setView] = useState<'today' | 'week' | 'email'>(start);
   if (view === 'email') return <RainDelay me={me} site={site} company={company} pm={pm} onClose={onClose} onBack={() => setView('today')} />;
   const nowHr = new Date().getHours();
   const today = f?.days[0]?.d;

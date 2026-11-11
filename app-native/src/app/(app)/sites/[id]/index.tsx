@@ -194,18 +194,25 @@ export default function SiteHome() {
   const clientPart = <InfoPart top={jobTop} sub={contact || (!mgr ? '' : site.client_name ? 'Add The Contact ›' : 'Add Client Info ›')} label={`Client: ${jobTop}`} onPress={mgr ? go('client') : undefined} center={desk} />;
   const todayPart = <InfoPart line={desk} top={today} sub={calLabel} label={`Today: ${calLabel}`} onPress={go('calendar')} center={desk} />;
   const thirdPart = mgr
-    ? <InfoPart line top={`${h?.onSiteCount ?? 0} On Site`} sub={site.postcode ? <WeatherLink me={me} site={site} company={org?.name || ''} small /> : 'Who’s Checked In'} label={`${h?.onSiteCount ?? 0} on site`} onPress={go('checkin')} center={desk} />
+    ? <InfoPart line top={`${h?.onSiteCount ?? 0} On Site`} sub="Who’s Checked In" label={`${h?.onSiteCount ?? 0} on site`} onPress={go('checkin')} center={desk} />
     : <InfoPart line top={`${done} of ${h?.tasks.length ?? 0}`} sub="Tasks Done" label="Tasks done" onPress={go('schedule')} center={desk} />;
-  // On a laptop one line, spread evenly across; on a phone the job and the pill, then today and on site, then the button.
+  // The weather in its own box, so a tap opens it (Andy, 11 Nov 2026: it was inside the On Site box and went to Check In).
+  const weatherPart = site.postcode && me ? (
+    <View style={{ flex: 1, minWidth: 0, alignItems: desk ? 'center' : 'flex-start', paddingHorizontal: 12, paddingVertical: 2, borderLeftWidth: 1, borderLeftColor: rule }}>
+      <WeatherLink me={me} site={site} company={org?.name || ''} />
+      <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slateLight, marginTop: 1 }}>Weather · Tap For More</Text>
+    </View>
+  ) : null;
+  // On a laptop one line, spread evenly across; on a phone the job and the pill, then today, on site and the weather, then the button.
   const info = desk ? (
     <View style={[cardBox, { borderRadius: 10, flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingLeft: 2, paddingRight: 12, marginBottom: 10 }]}>
-      {clientPart}{todayPart}{thirdPart}
+      {clientPart}{todayPart}{thirdPart}{weatherPart}
       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10, borderLeftWidth: 1, borderLeftColor: rule, paddingLeft: 12 }}>{pill}{checkBtn}</View>
     </View>
   ) : (
     <View style={[cardBox, { borderRadius: 10, paddingTop: 10, paddingBottom: 12, marginBottom: 10 }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingRight: 12 }}>{clientPart}{pill}</View>
-      <View style={{ flexDirection: 'row', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: rule }}>{todayPart}{thirdPart}</View>
+      <View style={{ flexDirection: 'row', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: rule }}>{todayPart}{thirdPart}{weatherPart}</View>
       <View style={{ paddingHorizontal: 12, marginTop: 12 }}>{checkBtn}</View>
     </View>
   );

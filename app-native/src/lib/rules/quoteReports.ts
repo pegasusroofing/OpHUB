@@ -61,6 +61,7 @@ export const everyText = (a: AutoExport) => (a.every === 'daily' ? 'Every weekda
 export function autoDue(a: AutoExport, today: string, lastSent: string | undefined): { due: boolean; period: string } {
   const d = new Date(`${today}T12:00:00Z`), dow = d.getUTCDay(), dom = d.getUTCDate();
   const period = a.every === 'monthly' ? today.slice(0, 7) : a.every === 'weekly' ? `${today}-w` : today;
-  const on = a.every === 'daily' ? dow >= 1 && dow <= 5 : a.every === 'weekly' ? dow === (a.day ?? 1) : dom === Math.min(a.day ?? 1, 28);
+  // Monthly: the first run on or after its day (the morning run is weekdays only, so a weekend day still goes).
+  const on = a.every === 'daily' ? dow >= 1 && dow <= 5 : a.every === 'weekly' ? dow === (a.day ?? 1) : dom >= Math.min(a.day ?? 1, 28);
   return { due: on && lastSent !== period, period };
 }
