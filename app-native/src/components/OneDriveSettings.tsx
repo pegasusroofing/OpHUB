@@ -15,11 +15,15 @@ import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { syncSiteFolder } from '@/data/drawings';
 import { saveJobPackSettings, setupJobPack, useJobPackSettings } from '@/data/jobPack';
 import { connectOneDrive, disconnectOneDrive, listFolders, setQuickLinks, unlinkFolder, useOdSites, useOneDriveStatus, useQuickLinks, type OdFolder, type OdTarget } from '@/data/onedrive';
+import { saveQuoteSettings, useQuoteSettings } from '@/data/quotes';
 import { useAuth } from '@/lib/auth';
 import { cleanFolder, folderLabel, foldersUnder, PACK_RULES, ruleTab, startingPack, WEEK_MARK, type PackConfig } from '@/lib/rules/jobPack';
 import { base, page, radius, space } from '@/theme/theme';
 
 type Tab = 'projects' | 'finance' | 'company';
+// Tenders (Andy, 11 Nov 2026): where enquiries go, their template, a folder per work status, and where finished ones are filed.
+type QKey = 'open_path' | 'template_path' | 'archive_path' | 'awaiting' | 'checking';
+const Q_TITLES: Record<QKey, string> = { open_path: 'Open Tenders Go In', template_path: 'New Enquiry Template', awaiting: 'Awaiting Information Folder', checking: 'Ready For Checking Folder', archive_path: 'Finished Quotes Go In (A Year Folder)' };
 // Every word capitalised, as across the app (Andy's rule).
 const caps = (t: string) => t.replace(/(^|\s)([a-z])/g, (_m, a: string, c: string) => a + c.toUpperCase());
 const head = (t: string) => <Text style={{ fontSize: 11.5, fontWeight: '700', color: base.slate, letterSpacing: 0.4, marginBottom: 8 }}>{t.toUpperCase()}</Text>;
@@ -122,7 +126,8 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
   const [busy, setBusy] = useState('');
   const [q, setQ] = useState('');
   const [open, setOpen] = useState<string | null>(null);
-  const [pick, setPick] = useState<{ kind: 'rule'; key: string } | { kind: 'parent' | 'template' } | null>(null);
+  const [pick, setPick] = useState<{ kind: 'rule'; key: string } | { kind: 'parent' | 'template' } | { kind: 'quote'; key: QKey } | null>(null);
+  const { data: qs } = useQuoteSettings(hasPm ? me?.org_id : null);
   const [adding, setAdding] = useState<{ key: string; folder: string; on: boolean; extra?: string[] } | null>(null);
   if (!me) return null;
   if (me.role !== 'admin' && me.role !== 'superadmin') return <Muted style={{ padding: space.l }}>Admins only.</Muted>;
@@ -188,6 +193,27 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
           </>
         )}
       </Card>
+
+      {/* ---- Tenders (Andy, 11 Nov 2026) ---- */}
+      {hasPm && (() => {
+        const sf = { awaiting: '- Awaiting More Information', checking: '- Ready For Checking', ...(qs?.status_folders || {}) } as Record<string, string>;
+        const shown2 = (k: QKey) => {
+          const p = k === 'awaiting' || k === 'checking' ? (sf[k].startsWith('/') ? sf[k].slice(1) : `${qs?.open_path || 'Open Tenders'}/${sf[k]}`) : (qs?.[k] as string | null | undefined);
+          return p ? `📁 ${p.split('/').join(' › ')}` : 'Choose A Folder';
+        };
+        return (
+          <Card>
+            {head('Tenders (Quotes)')}
+            <Muted style={{ marginBottom: 4 }}>A new enquiry gets its own folder from the template (1. Tender Documents, 2. Estimating, 3. Quotation). It moves with its status, and once it’s submitted it’s filed in that year’s folder.</Muted>
+            {(['open_path', 'template_path', 'awaiting', 'checking', 'archive_path'] as QKey[]).map((k) => (
+              <Row key={k} title={Q_TITLES[k]} sub={k === 'archive_path' ? 'Pick this year’s folder: next year’s is made in January' : k === 'awaiting' || k === 'checking' ? 'Inside Open Tenders' : undefined}>
+                <FolderLink label={shown2(k)} onPress={() => setPick({ kind: 'quote', key: k })} />
+              </Row>
+            ))}
+            <View style={{ alignItems: 'center', marginTop: 6 }}><Text onPress={() => router.push('/pm/quotes/settings' as never)} style={{ color: base.blue, fontWeight: '600', fontSize: 13 }}>Quote Settings (Chaser, Copy-To, Auto Export) ›</Text></View>
+          </Card>
+        );
+      })()}
 
       {/* ---- Where Things Save ---- */}
       <Card>
@@ -289,6 +315,21 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
       {(pick?.kind === 'parent' || pick?.kind === 'template') && cfg && (
         <DrivePathPop title={pick.kind === 'parent' ? 'New Job Folders Go In' : 'Your Template Folder'} onClose={() => setPick(null)}
           onPick={(p) => { void save(pick.kind === 'parent' ? { ...cfg, parent_path: p } : { ...cfg, template_path: p }); setPick(null); }} />
+      )}
+      {pick?.kind === 'quote' && (
+        <DrivePathPop title={Q_TITLES[pick.key]} onClose={() => setPick(null)} onPick={async (p) => {
+          const k = pick.key; setPick(null);
+          let patch: Record<string, unknown>;
+          if (k === 'awaiting' || k === 'checking') {
+            // Inside Open Tenders it's kept as the folder's name, so it follows if Open Tenders moves; elsewhere, the whole path.
+            const open = (qs?.open_path || '').replace(/\/+$/, '');
+            const rel = open && p.toLowerCase().startsWith(`${open.toLowerCase()}/`) ? p.slice(open.length + 1) : `/${p}`;
+            patch = { status_folders: { awaiting: '- Awaiting More Information', checking: '- Ready For Checking', ...(qs?.status_folders || {}), [k]: rel } };
+          } else if (k === 'archive_path') patch = { archive_path: p.replace(/(19|20)\d\d(?!.*(19|20)\d\d)/, '{year}') };
+          else patch = { [k]: p };
+          if (!(await saveQuoteSettings({ org_id: me.org_id as string, ...patch } as never))) toast('Could not save. Try again.');
+          void qc.invalidateQueries({ queryKey: ['quoteSettings'] });
+        }} />
       )}
       {adding && cfg && (() => {
         const r = PACK_RULES.find((x) => x.key === adding.key);

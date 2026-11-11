@@ -5,7 +5,11 @@ import { listOneDriveLevel, type OdItem } from '@/data/drawings';
 import { clientWantsFolders, hasJobPack, setupJobPack } from '@/data/jobPack';
 import { createSite } from '@/data/siteList';
 import { localISODate } from '@/lib/rules/driver';
+import { quoteReport, type AutoExport } from '@/lib/rules/quoteReports';
 import { readTenderLog, statusPatch, type ImportRow, type QuoteRow } from '@/lib/rules/quotes';
+import { makeXlsx } from '@/lib/rules/xlsx';
+import { tableSheets } from '@/lib/tableExport';
+import type { Organization } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 import { invokeAsUser } from '@/lib/userFunctions';
@@ -17,12 +21,17 @@ const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => 
 export type Quote = QuoteRow & {
   id: string; org_id: string; client_id: string | null; contact_name: string | null; contact_email: string | null; contact_phone: string | null; address: string | null; postcode: string | null;
   profit_pct: number | null; guide_markup_pct: number | null; priced_by: string | null; received_date: string | null; returned_at: string | null; notes: string | null; chase_count: number; last_chased_at: string | null;
-  folder_id: string | null; folder_drive_id: string | null; folder_name: string | null; filed_at: string | null; site_id: string | null; created_at: string;
+  folder_id: string | null; folder_drive_id: string | null; folder_name: string | null; filed_at: string | null; site_id: string | null; created_at: string; updated_at?: string | null;
   // The other clients tendering the same job (Andy, 4 Nov 2026).
   others?: QuoteClient[];
 };
 export type QuoteClient = { id: string; quote_id: string; client_id: string | null; client_name: string; contact_name: string | null; contact_email: string | null; contact_phone: string | null };
-export type QuoteSettings = { org_id: string; chase_enabled: boolean; chase_first_days: number; chase_every_days: number; chase_max: number; chase_subject: string | null; chase_body: string | null; open_path: string | null; template_path: string | null; archive_path: string | null; won_folder: string | null };
+export type QuoteSettings = {
+  org_id: string; chase_enabled: boolean; chase_first_days: number; chase_every_days: number; chase_max: number; chase_subject: string | null; chase_body: string | null; open_path: string | null; template_path: string | null; archive_path: string | null; won_folder: string | null;
+  // Andy, 11 Nov 2026: a folder under Open Tenders for each work status, and one per estimator; the preset CC on Submit
+  // Quotation; the auto exports; the tender tracker kept up to date in OneDrive.
+  status_folders?: Record<string, string> | null; person_folders?: Record<string, string> | null; cc_email?: string | null; auto_exports?: AutoExport[] | null; tracker_on?: boolean | null; tracker_name?: string | null;
+};
 export type ClientHit = { id: string; name: string; email: string | null; phone: string | null; markup?: number | null };
 
 export const useQuotes = (orgId: string | null | undefined) => useQuery({
@@ -103,7 +112,62 @@ const call = (action: string, quoteId: string, more: object = {}) => invokeAsUse
 export const makeQuoteFolder = (id: string) => call('folder', id);
 export const fileQuoteFolder = (id: string) => call('file', id);
 export const chaseNow = (id: string) => call('chase', id);
-export const sendQuote = (id: string, m: { to: string; subject: string; body: string; files: { id: string; driveId?: string | null; name: string }[] }) => call('send', id, m);
+export const sendQuote = (id: string, m: { to: string; cc?: string[]; subject: string; body: string; files: { id: string; driveId?: string | null; name: string }[] }) => call('send', id, m);
+/** A new work status moves the enquiry's folder into that status's folder under Open Tenders (Andy, 11 Nov 2026). */
+export const moveToStatusFolder = (id: string, status: string) => call('status', id, { status });
+
+/** The enquiry's folder, its sub-folders and their files, for Submit Quotation's tick list (several folders at once). */
+export type FolderFiles = { folder: string; id: string; driveId: string | null; files: OdItem[] };
+export async function quoteFolderFiles(folder: { id: string; driveId: string | null }): Promise<{ groups: FolderFiles[]; error?: string }> {
+  const top = await listOneDriveLevel(folder);
+  if (top.error) return { groups: [], error: top.error };
+  const groups: FolderFiles[] = [];
+  if (top.files.length) groups.push({ folder: 'This Folder', id: folder.id, driveId: folder.driveId, files: top.files });
+  for (const f of top.folders) {
+    const lvl = await listOneDriveLevel({ id: f.id, driveId: f.driveId || folder.driveId });
+    groups.push({ folder: f.name, id: f.id, driveId: f.driveId || folder.driveId, files: lvl.files });
+  }
+  return { groups };
+}
+/** Add Documents: files into one of the enquiry's folders (Tender Documents unless another is chosen). */
+export async function uploadToFolder(to: { id: string; driveId: string | null }, files: { uri: string; name: string }[]): Promise<number> {
+  let n = 0;
+  for (const f of files) {
+    const bytes = new Uint8Array(await (await fetch(f.uri)).arrayBuffer());
+    const u = await invokeAsUser<{ ok?: boolean }>('onedrive-upload', { filename: f.name, content_base64: b64(bytes), folder_id: to.id, drive_id: to.driveId || undefined });
+    if (u.data?.ok) n++;
+  }
+  return n;
+}
+/** A new folder inside the enquiry's folder (Add Documents › New Folder). */
+export async function makeSubFolder(parent: { id: string; driveId: string | null }, name: string): Promise<boolean> {
+  const r = await invokeAsUser<{ ok?: boolean; id?: string }>('quote-tracker', { action: 'subfolder', parent_id: parent.id, drive_id: parent.driveId, name });
+  return !!r.data?.ok;
+}
+
+/** The tender tracker (Andy, 11 Nov 2026): after a change in the app, an up-to-date spreadsheet of every quote is saved in
+ *  the Open Tenders folder in OneDrive. It's its own file, so the old Tender Tracker.xlsm is never written over. */
+let trackerTimer: ReturnType<typeof setTimeout> | null = null;
+export function syncTracker(orgId: string, org: Organization | null) {
+  if (trackerTimer) clearTimeout(trackerTimer);
+  trackerTimer = setTimeout(() => { trackerTimer = null; void writeTracker(orgId, org); }, 4000);
+}
+export async function writeTracker(orgId: string, org: Organization | null): Promise<boolean> {
+  try {
+    const s = (await db.from('quote_settings').select('tracker_on,tracker_name,open_path').eq('org_id', orgId).maybeSingle()).data as Pick<QuoteSettings, 'tracker_on' | 'tracker_name' | 'open_path'> | null;
+    if (!s?.open_path || s.tracker_on === false) return false;
+    const root = await estimatingRoot();
+    if (!root) return false;
+    const all = ((await db.from('quotes').select('*').eq('org_id', orgId).order('return_date', { ascending: false, nullsFirst: false }).limit(5000)).data as Quote[] | null) ?? [];
+    const extra = ((await db.from('quote_clients').select('quote_id,client_name').eq('org_id', orgId).limit(20000)).data as { quote_id: string; client_name: string }[] | null) ?? [];
+    const rows = all.map((q) => ({ ...q, others: extra.filter((c) => c.quote_id === q.id) }));
+    const today = localISODate(new Date());
+    const sheets = tableSheets(quoteReport('tracker', rows, today), org, [quoteReport('live', rows, today), quoteReport('quoted', rows, today)]);
+    const bytes = makeXlsx(sheets);
+    const u = await invokeAsUser<{ ok?: boolean }>('onedrive-upload', { filename: s.tracker_name || 'Tender Tracker - OpHUB.xlsx', content_base64: b64(bytes), folder_id: root.id, drive_id: root.driveId || undefined });
+    return !!u.data?.ok;
+  } catch { return false; }
+}
 const b64 = (u: Uint8Array) => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s); };
 /** The tender documents picked with a new enquiry go in its Tender Documents folder (the top of it, if there isn't one). */
 export async function uploadTenderDocs(folder: { id: string; driveId: string | null }, files: { uri: string; name: string }[]): Promise<number> {
@@ -127,9 +191,14 @@ export async function quotationFiles(folder: { id: string; driveId: string | nul
   return { files: lvl.files, error: lvl.error };
 }
 /** Send & submit: records it as sent with its value and date, then files the folder to that year's Estimating folder. */
-export async function submitQuote(me: Profile, q: Quote, f: { value: number; profit: number | null; sent: string }, firstDays: number): Promise<{ error?: string; note: string }> {
+export async function submitQuote(me: Profile, q: Quote, f: { value: number; profit: number | null; sent: string; pricedBy?: { id: string; name: string | null } | null; chaseDate?: string | null }, firstDays: number): Promise<{ error?: string; note: string }> {
   const base = { ...q, return_date: f.sent, returned_at: f.sent };
-  const saved = await saveQuote(me, q.id, { ...(statusPatch('returned', base, localISODate(new Date()), firstDays) as Partial<Quote>), value: f.value, profit_pct: f.profit, return_date: f.sent, returned_at: f.sent, priced_by: q.priced_by || me.id, priced_by_name: q.priced_by_name || me.name });
+  // Who priced it: the person submitting, unless another was picked (Andy, 11 Nov 2026). The mark-up given here is the
+  // quote's profit mark-up from now on.
+  const by = f.pricedBy ?? { id: me.id, name: me.name };
+  const patch = statusPatch('returned', base, localISODate(new Date()), firstDays) as Partial<Quote>;
+  if (f.chaseDate !== undefined && q.chase_on) patch.next_chase_date = f.chaseDate;
+  const saved = await saveQuote(me, q.id, { ...patch, value: f.value, profit_pct: f.profit, return_date: f.sent, returned_at: f.sent, priced_by: by.id, priced_by_name: by.name });
   if (!saved) return { error: 'Could not save. Try again.', note: '' };
   if (!q.folder_id) return { note: '' };
   const m = await fileQuoteFolder(q.id);

@@ -2,16 +2,19 @@
 // automatic one), client (typing suggests Directory clients and past clients; free text is fine),
 // contact number and email, multi-site or repair contract, Active or Upcoming, and a start date.
 // Client, address and start date are required (Andy). PMs / admins only.
-import { setupNewJobPack, useNewJobFolderDefault } from '@/data/jobPack';
+// From a won quote (?quote=, Andy 11 Nov 2026): filled in from the quote; making it makes the OneDrive folders, moves the
+// quote's folder across and marks the quote won, with a line saying what it's doing, then opens the new project.
+import { setupJobPack, setupNewJobPack, useNewJobFolderDefault } from '@/data/jobPack';
+import { linkToJob, syncTracker, useQuote, useQuoteSettings } from '@/data/quotes';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { router, Stack } from 'expo-router';
-import { useState } from 'react';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
 import { FinChip } from '@/components/FinNav';
 import { DateField } from '@/components/DateField';
 import { SuggestField } from '@/components/SuggestField';
-import { useToast } from '@/components/toast';
+import { showAlert, useToast } from '@/components/toast';
 import { Button, Card, Check, Field, Muted } from '@/components/ui';
 import { createSite, type NewSite } from '@/data/siteList';
 import { useSites } from '@/data/sites';
@@ -27,14 +30,21 @@ const EMPTY: NewSite = { name: '', address: '', postcode: '', job_number: '', cl
 
 export default function NewProject() {
   const desk = useDesk();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
+  const { quote: quoteId } = useLocalSearchParams<{ quote?: string }>();
+  const { data: fromQuote } = useQuote(quoteId);
+  const { data: qSettings } = useQuoteSettings(quoteId ? me?.org_id : null);
+  const [step, setStep] = useState('');
   const qc = useQueryClient();
   const { data: sites = [] } = useSites();
   const { data: nums } = useQuery({ queryKey: ['orgNums', me?.org_id], enabled: !!me, queryFn: async () => (await supabase.from('organizations').select('auto_job_numbers,job_number_prefix,next_job_number').eq('id', me?.org_id as string).maybeSingle()).data as { auto_job_numbers?: boolean; job_number_prefix?: string | null; next_job_number?: number | null } | null });
   // Directory clients (Finance) — PMs without Finance just get past clients.
   const { data: dir = [] } = useQuery({ queryKey: ['dirClients', me?.org_id], enabled: !!me, queryFn: async () => ((await supabase.from('fin_clients').select('id,name,email,phone').eq('org_id', me?.org_id as string).order('name')).data as { id: string; name: string; email?: string | null; phone?: string | null }[] | null) ?? [] });
   const [d, setD] = useState<NewSite>(EMPTY);
+  const qq = fromQuote?.quote ?? null;
+  // Filled in from the quote once it's loaded.
+  useEffect(() => { if (qq) setD((x) => ({ ...x, name: titleCase(qq.title), address: qq.address || x.address, postcode: (qq.postcode || x.postcode).toUpperCase(), client_name: qq.client_name, client_phone: qq.contact_phone || '', client_email: qq.contact_email || '' })); }, [qq?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [chosen, setChosen] = useState(false); // Active / Upcoming must be picked
   const [busy, setBusy] = useState(false);
   // Create OneDrive folder (Andy, 8 Nov 2026): ticked unless the company or the client says no; the tick wins once touched.
@@ -62,15 +72,27 @@ export default function NewProject() {
     if (d.client_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.client_email.trim())) { toast('Enter a valid client email address.'); return; }
     setBusy(true);
     const r = await createSite(me, { ...d, name: d.name.trim(), address: d.address.trim(), postcode: d.postcode.trim(), job_number: d.job_number.trim(), client_name: d.client_name.trim(), client_phone: d.client_phone.trim(), client_email: d.client_email.trim(), start_date: d.start_date }, auto);
+    if ('error' in r) { setBusy(false); toast(r.error); return; }
+    if (qq) {
+      // A won quote: the folders first, then the quote's folder moves into them and the quote is marked won.
+      const notes: string[] = [];
+      if (wantFolder) { setStep('Making the OneDrive folders…'); const p = await setupJobPack(r.id); if ('error' in p) notes.push(`No OneDrive folder: ${p.error}`); }
+      setStep(qq.folder_id ? 'Moving the quote’s folder across…' : 'Marking the quote won…');
+      const w = await linkToJob(me, qq, r.id, qSettings?.chase_first_days ?? 30);
+      if ('error' in w) notes.push(w.error); else if (w.note) notes.push(w.note);
+      setStep('');
+      syncTracker(me.org_id as string, org);
+      if (notes.length) showAlert(`The project is made. ${notes.join('. ')}.`);
+    } else void setupNewJobPack(me.org_id, r.id, wantFolder);
     setBusy(false);
-    if ('error' in r) { toast(r.error); return; }
-    void setupNewJobPack(me.org_id, r.id, wantFolder);
     await qc.invalidateQueries({ queryKey: ['sites'] });
+    await qc.invalidateQueries({ queryKey: ['quotes'] });
     router.replace(`/sites/${r.id}` as never);
   };
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'Add a Project' }} />
+      <Stack.Screen options={{ title: qq ? 'Convert To Project' : 'Add a Project' }} />
+      {!!qq && <Muted style={{ marginBottom: 10 }}>Won: {qq.title}. Filled in from the quote. Check it, choose Active or Upcoming and the start date, then Create Project.</Muted>}
       <Card>
         <Field label="Site name *" value={d.name} onChangeText={(v) => set({ name: titleCase(v) })} />
         <Field label="Address *" value={d.address} onChangeText={(v) => set({ address: titleCase(v) })} />
@@ -94,7 +116,7 @@ export default function NewProject() {
         </View>
         <DateField label="Start date *" value={d.start_date} onChange={(v) => set({ start_date: v })} clearable={false} />
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-          <View style={{ flex: 2 }}><Button busy={busy} title="Create Project" onPress={() => void save()} /></View>
+          <View style={{ flex: 2 }}><Button busy={busy} title={step || 'Create Project'} onPress={() => void save()} /></View>
           <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => router.back()} /></View>
         </View>
       </Card>

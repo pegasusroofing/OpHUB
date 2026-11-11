@@ -1,14 +1,33 @@
 // Quote tracker rules: statuses, the chaser's dates, reports by customer / discipline / who priced it, and reading
 // Andy's Tender Tracker.xlsm. No app or database code here, so it can be tested on its own.
 export const QUOTE_STATUS = [
-  { key: 'pricing', label: 'Pricing' }, { key: 'awaiting', label: 'Awaiting more information' }, { key: 'checking', label: 'Ready for checking' }, { key: 'returned', label: 'Returned' },
-  { key: 'negotiating', label: 'Tender stage' }, { key: 'won', label: 'Won' }, { key: 'lost', label: 'Lost' },
-  { key: 'no_reply', label: 'No reply' }, { key: 'declined', label: 'Declined' },
+  { key: 'pricing', label: 'Pricing' }, { key: 'awaiting', label: 'Awaiting Information' }, { key: 'checking', label: 'Ready For Checking' }, { key: 'returned', label: 'Returned' },
+  { key: 'negotiating', label: 'Negotiating' }, { key: 'won', label: 'Won' }, { key: 'lost', label: 'Lost' },
+  { key: 'no_reply', label: 'No Reply' }, { key: 'declined', label: 'Declined' },
 ] as const;
 export type QuoteStatus = (typeof QUOTE_STATUS)[number]['key'];
 export const statusLabel = (s: string) => QUOTE_STATUS.find((x) => x.key === s)?.label ?? s;
 export const isClosed = (s: string) => ['won', 'lost', 'no_reply', 'declined'].includes(s);
 export const DISCIPLINES = ['Flat Roofing', 'Pitched Roofing', 'Mixed', 'Repairs', 'NHF Rates', 'Other'];
+
+// Live and Quoted (Andy, 11 Nov 2026). A quote is Quoted once it's been returned (the figures put in and sent), and it
+// leaves the Live tab then. Live quotes are still being priced, and carry a work status; Quoted ones an outcome.
+export const WORK_STATUS = [['pricing', 'Pricing'], ['awaiting', 'Awaiting Information'], ['checking', 'Ready For Checking']] as const;
+export const isQuoted = (q: { status: string; returned_at?: string | null }) => !!q.returned_at || !['pricing', 'awaiting', 'checking'].includes(q.status);
+export type Outcome = 'no_news' | 'negotiating' | 'won' | 'lost';
+export const OUTCOMES: [Outcome, string][] = [['no_news', 'No News'], ['negotiating', 'Negotiating'], ['won', 'Won'], ['lost', 'Lost']];
+/** A quoted job's outcome: no word back yet (returned, or no reply) is No News; declined counts as Lost. */
+export const outcomeOf = (s: string): Outcome => (s === 'won' ? 'won' : s === 'negotiating' ? 'negotiating' : s === 'lost' || s === 'declined' ? 'lost' : 'no_news');
+export const outcomeLabel = (s: string) => OUTCOMES.find(([k]) => k === outcomeOf(s))?.[1] ?? '';
+/** The Status column: a live quote's work status, a quoted one's outcome. */
+export const statusWord = (q: { status: string; returned_at?: string | null }) => (isQuoted(q) ? outcomeLabel(q.status) : statusLabel(q.status));
+/** Chase Status: whether the chaser is on, and how far it's got. */
+export function chaseStatus(q: { status: string; chase_on: boolean; next_chase_date: string | null; chase_count?: number | null }, today: string): string {
+  const n = q.chase_count || 0;
+  if (!q.chase_on) return n ? `Off · Chased ×${n}` : 'Off';
+  if (q.next_chase_date && q.next_chase_date <= today) return n ? `Due · Chased ×${n}` : 'Due';
+  return n ? `On · Chased ×${n}` : 'On';
+}
 
 export type QuoteRow = {
   client_name: string; title: string; discipline: string | null; value: number | null; status: string; return_date: string | null;

@@ -1,5 +1,8 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { encodeBase64 } from 'jsr:@std/encoding@1/base64';
+// Copies of the app's own report code (app-native/src/lib/rules), so an auto export matches Export in the app.
+import { autoDue, quoteReport, reportLabel, type AutoExport } from './quoteReports.ts';
+import { makeXlsx, reportSheet, type XCell } from './xlsx.ts';
 
 // Quote tracker (1 Nov 2026). Called by a PM / admin from the app, or by the daily cron with x-cron-secret.
 //   { action: 'folder', quote_id }  makes the enquiry's OneDrive folder by copying the company's New Enquiry template.
@@ -11,6 +14,13 @@ import { encodeBase64 } from 'jsr:@std/encoding@1/base64';
 //   { action: 'estimating_root' } / { action: 'link_folder', site_id, folder_id, drive_id }  a job's estimating folder
 //     chosen from OneDrive (Finance jobs), see below.
 //   cron: every company with chase_enabled, returned quotes with chase_on whose date has come.
+// Added 11 Nov 2026 (Andy):
+//   { action: 'status', quote_id, status }  a new work status moves the folder into that status's folder under Open
+//     Tenders (Awaiting More Information, Ready For Checking; Pricing goes to the estimator's own folder, if set).
+//   { action: 'subfolder', parent_id, drive_id, name }  a new folder inside an enquiry's folder (Add Documents).
+//   send takes cc: the company's preset CC (on by default) as well as the sender.
+//   cron: each company's auto exports that are due (Quote Settings › Auto Export), emailed as Excel and / or saved in
+//     the Open Tenders folder under Reports.
 // Folders are only ever moved or copied, never deleted, and are held by id so a move by hand in OneDrive doesn't lose them.
 const corsHeaders = { 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-token, x-cron-secret, cache-control, pragma' };
 const OPHUB_ORIGINS = new Set(['https://operativehub.co.uk', 'https://www.operativehub.co.uk', 'https://ophub-ten.vercel.app', 'capacitor://localhost', 'https://localhost', 'http://localhost']);
@@ -108,6 +118,61 @@ async function sendChase(admin: any, q: any, settings: any, sender: { id: string
   return sent < people.length ? `Sent to ${sent} of ${people.length} — the email service didn’t accept the rest.` : null;
 }
 
+// ---- Auto exports (Andy, 11 Nov 2026) ----
+const ukDay = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+function reportXlsx(kind: string, rows: any[], today: string, company: string): Uint8Array {
+  const t = quoteReport(kind as never, rows, today);
+  const cell = (c: { money?: boolean }, v: unknown, bold = false): XCell => (c.money && typeof v === 'number' ? { v, s: 'money' } : bold ? { v: v as string, s: 'bold' } : (v as string | number | null));
+  const body = t.rows.map((r) => t.cols.map((c, i) => cell(c, r[i])));
+  if (t.totals) body.push(t.cols.map((c, i) => cell(c, t.totals?.[i], true)));
+  return makeXlsx([reportSheet(t.title, `${company} — ${t.title}`, t.cols.map((c) => c.l), body, t.cols.map((c, i) => (c.w ? c.w / 6 : i === 0 ? 30 : 14)), `${t.sub || ''} · ${ukDay(today)}`)]);
+}
+async function runAutoExports(admin: any, today: string): Promise<number> {
+  const { data: all } = await admin.from('quote_settings').select('*');
+  const KEY = Deno.env.get('RESEND_API_KEY');
+  let n = 0;
+  for (const s of all || []) {
+    const list: AutoExport[] = Array.isArray(s.auto_exports) ? s.auto_exports : [];
+    if (!list.length) continue;
+    const sent: Record<string, string> = { ...(s.auto_exports_sent || {}) };
+    const due = list.map((a) => ({ a, ...autoDue(a, today, sent[a.id]) })).filter((x) => x.due);
+    if (!due.length) continue;
+    const { data: org } = await admin.from('organizations').select('name').eq('id', s.org_id).maybeSingle();
+    const { data: qs } = await admin.from('quotes').select('*').eq('org_id', s.org_id).order('return_date', { ascending: false, nullsFirst: false }).limit(5000);
+    const { data: extra } = await admin.from('quote_clients').select('quote_id, client_name').eq('org_id', s.org_id).limit(20000);
+    const rows = (qs || []).map((q: any) => ({ ...q, others: (extra || []).filter((c: any) => c.quote_id === q.id) }));
+    const { data: conn } = await admin.from('onedrive_connections').select('*').eq('org_id', s.org_id).maybeSingle();
+    for (const { a, period } of due) {
+      const name = `${reportLabel(a.report)} ${today}.xlsx`.replace(/[\\/:*?"<>|]+/g, '-');
+      const bytes = reportXlsx(a.report, rows, today, org?.name || '');
+      let ok = false;
+      const to = String(a.to || '').split(/[,;\s]+/).map((e) => e.trim()).filter((e) => EMAIL_OK.test(e)).slice(0, 5);
+      if (to.length && KEY) {
+        const m = /<([^>]+)>/.exec(Deno.env.get('ORDERS_FROM_EMAIL') || '');
+        const address = (m ? m[1] : Deno.env.get('ORDERS_FROM_EMAIL') || 'orders@ophub.app').trim();
+        const subject = `${reportLabel(a.report)} — ${ukDay(today)}`;
+        const text = `Your ${reportLabel(a.report).toLowerCase()} report from OpHUB is attached.\n\n${org?.name || ''}`;
+        const res = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: `"${`OpHUB - ${org?.name || ''}`.replace(/"/g, "'")}" <${address}>`, to, subject, text, attachments: [{ filename: name, content: encodeBase64(bytes) }] }) });
+        if (res.ok) { ok = true; for (const e of to) await admin.from('edge_email_log').insert({ fn: 'quote-tracker', sender_id: null, org_id: s.org_id, to_email: e.toLowerCase(), cc: [], subject }).then(undefined, () => undefined); }
+        else console.error('quote-tracker: auto export email refused', res.status);
+      }
+      if (a.onedrive && conn?.access_token && s.open_path) {
+        try {
+          const g = await tokenFor(admin, conn);
+          const dir = await walk(g, ROOT, cleanPath(`${s.open_path}/Reports`), true);
+          if (dir) {
+            const r = await fetch(`${at(dir)}:/${encodeURIComponent(name)}:/content`, { method: 'PUT', headers: { Authorization: `Bearer ${g}`, 'Content-Type': 'application/octet-stream' }, body: bytes });
+            if (r.ok) ok = true; else console.error('quote-tracker: auto export save failed', r.status);
+          }
+        } catch (e) { console.error('quote-tracker: auto export save failed', e); }
+      }
+      if (ok) { sent[a.id] = period; n++; }
+    }
+    await admin.from('quote_settings').update({ auto_exports_sent: sent }).eq('org_id', s.org_id);
+  }
+  return n;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return reply(req, { ok: true });
   try {
@@ -126,7 +191,18 @@ Deno.serve(async (req) => {
           if (!err) sent++; else console.error('quote-tracker: chase skipped', q.id, err);
         }
       }
-      return reply(req, { ok: true, sent });
+      const exported = await runAutoExports(admin, today);
+      // The year's Estimating folder is there from the start of January (Andy, 11 Nov 2026), not only once a quote is filed.
+      if (today.slice(5, 7) === '01') {
+        const { data: yr } = await admin.from('quote_settings').select('org_id, archive_path').not('archive_path', 'is', null);
+        for (const s of yr || []) {
+          try {
+            const { data: cn } = await admin.from('onedrive_connections').select('*').eq('org_id', s.org_id).maybeSingle();
+            if (cn?.access_token) await walk(await tokenFor(admin, cn), ROOT, cleanPath(String(s.archive_path).replace('{year}', today.slice(0, 4))), true);
+          } catch (e) { console.error('quote-tracker: year folder', e); }
+        }
+      }
+      return reply(req, { ok: true, sent, exported });
     }
 
     const token = req.headers.get('X-User-Token') || (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
@@ -141,11 +217,18 @@ Deno.serve(async (req) => {
     //   { action: 'estimating_root' }  where open enquiries live (Quote settings), so the picker can start there.
     //   { action: 'link_folder', site_id, folder_id, drive_id }  moves that folder into the job's Contract & Commercial ›
     //     Estimating folder; a quote using that folder is marked won and linked to the job.
-    if (body.action === 'estimating_root' || body.action === 'link_folder') {
+    if (body.action === 'estimating_root' || body.action === 'link_folder' || body.action === 'subfolder') {
       const { data: st } = await admin.from('quote_settings').select('*').eq('org_id', me.org_id).maybeSingle();
       const { data: cn } = await admin.from('onedrive_connections').select('*').eq('org_id', me.org_id).maybeSingle();
       if (!cn?.access_token) return reply(req, { error: 'OneDrive isn’t connected.' });
       const g = await tokenFor(admin, cn);
+      if (body.action === 'subfolder') {
+        const name = seg(body.name), pid = String(body.parent_id || ''), pdrive = String(body.drive_id || '');
+        if (!name || !pid || !pdrive) return reply(req, { error: 'Name the folder.' }, 400);
+        const r = await fetch(`${at({ drive: pdrive, id: pid })}/children`, { method: 'POST', headers: { Authorization: `Bearer ${g}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name, folder: {}, '@microsoft.graph.conflictBehavior': 'rename' }) });
+        if (!r.ok) { console.error('quote-tracker: new folder failed', r.status); return reply(req, { error: 'Could not make the folder.' }); }
+        return reply(req, { ok: true, id: (await r.json().catch(() => ({})))?.id ?? null });
+      }
       if (body.action === 'estimating_root') {
         const path = cleanPath(st?.open_path || '');
         const r = path ? await walk(g, ROOT, path, false) : null;
@@ -224,15 +307,36 @@ Deno.serve(async (req) => {
       const text = String(body.body || '').slice(0, 5000);
       const m = /<([^>]+)>/.exec(Deno.env.get('ORDERS_FROM_EMAIL') || '');
       const address = (m ? m[1] : Deno.env.get('ORDERS_FROM_EMAIL') || 'orders@ophub.app').trim();
+      // Copied in: the sender, and the company's preset CC when it's left on (Andy, 11 Nov 2026), at most 5.
+      const cc = [...new Set([...(me.email ? [String(me.email)] : []), ...(Array.isArray(body.cc) ? body.cc : [])].map((e) => String(e || '').trim().toLowerCase()).filter((e) => EMAIL_OK.test(e) && e !== to.toLowerCase()))].slice(0, 5);
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST', headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: `"${`${me.name || 'Estimating'} - ${org?.name || ''}`.replace(/"/g, "'")}" <${address}>`, to: [to], ...(me.email && me.email.toLowerCase() !== to.toLowerCase() ? { cc: [me.email], reply_to: [me.email] } : {}), subject, text, html: `<div style="font-family:'Segoe UI',Arial,sans-serif;font-size:15px;line-height:1.5;color:#101114;white-space:pre-wrap;">${esc(text)}</div>`, attachments }),
+        body: JSON.stringify({ from: `"${`${me.name || 'Estimating'} - ${org?.name || ''}`.replace(/"/g, "'")}" <${address}>`, to: [to], ...(cc.length ? { cc } : {}), ...(me.email ? { reply_to: [me.email] } : {}), subject, text, html: `<div style="font-family:'Segoe UI',Arial,sans-serif;font-size:15px;line-height:1.5;color:#101114;white-space:pre-wrap;">${esc(text)}</div>`, attachments }),
       });
       if (!res.ok) { console.error('quote-tracker: send refused', res.status, await res.text()); return reply(req, { error: 'The email service didn’t accept the email.' }); }
-      await admin.from('edge_email_log').insert({ fn: 'quote-tracker', sender_id: me.id, org_id: me.org_id, to_email: to.toLowerCase(), cc: me.email && me.email.toLowerCase() !== to.toLowerCase() ? [me.email.toLowerCase()] : [], subject }).then(undefined, () => undefined);
+      await admin.from('edge_email_log').insert({ fn: 'quote-tracker', sender_id: me.id, org_id: me.org_id, to_email: to.toLowerCase(), cc, subject }).then(undefined, () => undefined);
       return reply(req, { ok: true });
     }
     if (!folder) return reply(req, { ok: true, skipped: 'no folder' });
+
+    if (body.action === 'status') {
+      if (q.filed_at || q.site_id) return reply(req, { ok: true, skipped: 'already filed' });
+      if (!settings?.open_path) return reply(req, { ok: true, skipped: 'no open tenders folder set' });
+      const st = String(body.status || q.status);
+      const sf: Record<string, string> = { awaiting: '- Awaiting More Information', checking: '- Ready For Checking', ...(settings.status_folders || {}) };
+      const own = q.priced_by ? String((settings.person_folders || {})[q.priced_by] || '') : '';
+      const sub = st === 'pricing' ? own || sf.pricing || '' : sf[st] || '';
+      if (!['pricing', 'awaiting', 'checking'].includes(st)) return reply(req, { ok: true, skipped: 'not a work status' });
+      // A folder starting "/" is a whole path from the top of OneDrive; otherwise it's inside Open Tenders.
+      const to = await walk(graph, ROOT, sub.startsWith('/') ? cleanPath(sub) : cleanPath(`${settings.open_path}/${sub}`), true);
+      if (!to) return reply(req, { error: 'Could not find that status’s folder in OneDrive.' }, 502);
+      const cur = await (await fetch(`${at(folder)}?select=parentReference`, { headers: { Authorization: `Bearer ${graph}` } })).json().catch(() => ({}));
+      if (cur?.parentReference?.id === to.id) return reply(req, { ok: true, how: 'already' });
+      // Moved only within the same library, so a status change never leaves two copies about.
+      if (to.drive && folder.drive && to.drive !== folder.drive) return reply(req, { ok: true, skipped: 'different library' });
+      const how = await moveFolder(graph, folder, to);
+      return reply(req, how === 'failed' ? { error: 'Could not move the folder.' } : { ok: true, how });
+    }
 
     if (body.action === 'file') {
       if (q.filed_at) return reply(req, { ok: true, skipped: 'already filed' });
