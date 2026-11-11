@@ -1,0 +1,43 @@
+{"route":"/inbox","role":"operative","load":true,"land":"/inbox","blocked":false,"buttons":3,"words":179,"problems":[],"did":[]}
+{"route":"/inbox","role":"operative","note":"3 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/driver/schedule","role":"operative","load":true,"land":"/driver/schedule","blocked":false,"buttons":4,"words":148,"problems":[],"did":[]}
+{"route":"/driver/schedule","role":"operative","note":"4 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/fin/inbox/fi1","role":"operative","load":true,"land":"/home","blocked":true,"buttons":11,"words":448,"problems":[],"did":[]}
+{"route":"/fin/settings","role":"operative","load":true,"land":"/home","blocked":true,"buttons":11,"words":448,"problems":[],"did":[]}
+{"route":"/fin/labour/w1","role":"operative","load":true,"land":"/home","blocked":true,"buttons":11,"words":448,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"operative","load":true,"land":"/home","blocked":true,"buttons":11,"words":448,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/quotes","role":"operative","load":true,"land":"/home","blocked":true,"buttons":11,"words":448,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=purchases","role":"operative","load":true,"land":"/home","blocked":true,"buttons":11,"words":448,"problems":[],"did":[]}
+{"route":"/pm/admin/companylibrary","role":"operative","load":true,"land":"/home","blocked":false,"buttons":10,"words":396,"problems":[],"did":[]}
+{"route":"/pm/admin/expensesemail","role":"operative","load":true,"land":"/home","blocked":false,"buttons":10,"words":396,"problems":[],"did":[]}
+{"route":"/pm/admin/ramslibrary","role":"operative","load":true,"land":"/home","blocked":false,"buttons":10,"words":396,"problems":[],"did":[]}
+{"route":"/pm/admin/subapps/ap1","role":"operative","load":true,"land":"/home","blocked":false,"buttons":10,"words":396,"problems":[],"did":[]}
+{"route":"/pm/quotes","role":"operative","load":true,"land":"/home","blocked":false,"buttons":10,"words":396,"problems":[],"did":[]}
+{"route":"/pm/deliveries","role":"operative","load":true,"land":"/home","blocked":false,"buttons":10,"words":396,"problems":[],"did":[]}
+{"route":"/pm/onedrive-pick","role":"operative","load":true,"land":"/home","blocked":false,"buttons":10,"words":396,"problems":[],"did":[]}
+{"route":"/pm/sitemap","role":"operative","load":true,"land":"/home","blocked":false,"buttons":10,"words":396,"problems":[],"did":[]}
+{"route":"/sites","role":"operative","load":true,"land":"/sites","blocked":false,"buttons":8,"words":341,"problems":[],"did":[]}
+{"route":"/sites","role":"operative","note":"8 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/calendar","role":"operative","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/calendar","blocked":false,"buttons":22,"words":336,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/calendar","role":"operative","note":"22 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/expenses","role":"operative","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/materials","blocked":false,"buttons":9,"words":253,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"operative","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/schedule","blocked":false,"buttons":22,"words":388,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"operative","note":"22 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh","role":"operative","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh","blocked":false,"buttons":11,"words":307,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh","role":"operative","note":"11 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents","role":"operative","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents","blocked":false,"buttons":10,"words":254,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents","role":"operative","note":"10 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","role":"operative","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","blocked":false,"buttons":9,"words":266,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","role":"operative","note":"9 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt","role":"operative","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt","blocked":false,"buttons":10,"words":220,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt","role":"operative","note":"10 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/requests","role":"operative","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/materials/requests","blocked":false,"buttons":12,"words":310,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/requests","role":"operative","note":"12 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/layout","role":"operative","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/mc/layout","blocked":false,"buttons":11,"words":324,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/layout","role":"operative","note":"11 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/docs","role":"operative","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/docs","blocked":false,"buttons":8,"words":175,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/docs","role":"operative","note":"8 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/e1","role":"operative","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/price/e1","blocked":false,"buttons":8,"words":161,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/e1","role":"operative","note":"8 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging","role":"operative","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/snagging","blocked":false,"buttons":9,"words":174,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging","role":"operative","note":"9 buttons, 0 distinct pressed","problems":[],"did":[]}

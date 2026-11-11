@@ -34,7 +34,7 @@ export default function ToBook() {
   const wBy: Record<string, Row[]> = {}; (data?.wages ?? []).forEach((w) => { (wBy[w.site_id] ||= []).push(w); });
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'To book' }} />
+      <Stack.Screen options={{ title: 'To Book' }} />
       <Muted style={{ marginBottom: 12 }}>Things the office has sent you to put against a job.</Muted>
       <SectionTitle>Purchase invoices to book{data?.inv.length ? ` (${data.inv.length})` : ''}</SectionTitle>
       {isLoading ? <Muted>Loading…</Muted> : data?.inv.length ? data.inv.map((it) => {

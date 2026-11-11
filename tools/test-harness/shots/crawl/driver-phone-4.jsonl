@@ -1,0 +1,31 @@
+{"route":"/inbox","role":"driver","load":true,"land":"/inbox","blocked":false,"buttons":5,"words":193,"problems":[],"did":[]}
+{"route":"/inbox","role":"driver","note":"5 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/driver/schedule","role":"driver","load":true,"land":"/driver/schedule","blocked":false,"buttons":6,"words":162,"problems":[],"did":[]}
+{"route":"/driver/schedule","role":"driver","note":"6 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/fin/inbox/fi1","role":"driver","load":true,"land":"/home","blocked":true,"buttons":8,"words":319,"problems":[],"did":[]}
+{"route":"/fin/settings","role":"driver","load":true,"land":"/home","blocked":true,"buttons":8,"words":319,"problems":[],"did":[]}
+{"route":"/fin/labour/w1","role":"driver","load":true,"land":"/home","blocked":true,"buttons":8,"words":319,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"driver","load":true,"land":"/home","blocked":true,"buttons":8,"words":319,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/quotes","role":"driver","load":true,"land":"/home","blocked":true,"buttons":8,"words":319,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=purchases","role":"driver","load":true,"land":"/home","blocked":true,"buttons":8,"words":319,"problems":[],"did":[]}
+{"route":"/pm/admin/companylibrary","role":"driver","load":true,"land":"/home","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/pm/admin/expensesemail","role":"driver","load":true,"land":"/home","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/pm/admin/ramslibrary","role":"driver","load":true,"land":"/home","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/pm/admin/subapps/ap1","role":"driver","load":true,"land":"/home","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/pm/quotes","role":"driver","load":true,"land":"/home","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/pm/deliveries","role":"driver","load":true,"land":"/home","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/pm/onedrive-pick","role":"driver","load":true,"land":"/home","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/pm/sitemap","role":"driver","load":true,"land":"/home","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites","role":"driver","load":true,"land":"/home","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/calendar","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/expenses","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/requests","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/layout","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/docs","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111&co=sc1","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/e1","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111&el=e1","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}

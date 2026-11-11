@@ -1,23 +1,59 @@
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/todos","blocked":false,"buttons":17,"words":228,"problems":[],"did":[]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed","said: RTB Roofing Ltd / All (3) ▼ / PM ▼","wrote rpc sow_photo_alerts"],"problems":[]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Studley Rd / Job No: J101 / NOT CHECKED IN"],"problems":[]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"Overdue","trail":[],"did":["changed","said: Nothing overdue."],"problems":[]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"This week","trail":[],"did":["changed"],"problems":[]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"Live","trail":[],"did":[],"problems":["nothing happened"]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"Closed","trail":[],"did":["changed","said: No closed to-dos."],"problems":[]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"+ ADD TO DO","trail":[],"did":["changed","said: CLOSE / Comments (optional) / Required by (optional)"],"problems":[]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"+ ADD TO DO","trail":["(reopen)"],"did":["changed","said: CLOSE / Comments (optional) / Required by (optional)"],"problems":[]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"CLOSE","trail":["+ ADD TO DO"],"did":["changed","said: + ADD TO DO"],"problems":[]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"+ ADD TO DO","trail":["(reopen)"],"did":["changed","said: CLOSE / Comments (optional) / Required by (optional)"],"problems":[]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"Required by","trail":["+ ADD TO DO"],"did":["changed","said: Required by / ✕ / November 2026"],"problems":[]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"CLOSE","trail":["+ ADD TO DO","Required by"],"did":[],"problems":["covered: something sits on top of it"]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"+ ADD TO DO","trail":["(reopen)"],"did":["changed","said: CLOSE / Comments (optional) / Required by (optional)"],"problems":[]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"▶ Assign to a PM (optional)","trail":["+ ADD TO DO"],"did":["changed","said: Assign to a project manager / ✕ / Unassigned"],"problems":[]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"CLOSE","trail":["+ ADD TO DO","▶ Assign to a PM (optional)"],"did":[],"problems":["covered: something sits on top of it"]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"+ ADD TO DO","trail":["(reopen)"],"did":["changed","said: CLOSE / Comments (optional) / Required by (optional)"],"problems":[]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"📎 Photos / documents (optional)","trail":["+ ADD TO DO"],"did":["changed","file picker"],"problems":[]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"CLOSE","trail":["+ ADD TO DO","📎 Photos / documents (optional)"],"did":["changed","said: + ADD TO DO"],"problems":[]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"+ ADD TO DO","trail":["(reopen)"],"did":["changed","said: CLOSE / Comments (optional) / Required by (optional)"],"problems":[]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"Add To Do","trail":["+ ADD TO DO"],"did":["changed","filled 2","said: 2 / Test / No date · Unassigned · 💬 1","wrote POST todos,POST todo_comments"],"problems":[]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"CLOSE","trail":["+ ADD TO DO","Add To Do"],"did":["changed","said: + ADD TO DO"],"problems":[]}
-{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","note":"ran out of time on this screen","problems":[],"did":[]}
+{"route":"/home","role":"admin","load":true,"land":"/home","blocked":false,"buttons":26,"words":736,"problems":[],"did":[]}
+{"route":"/home","role":"admin","note":"26 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/search","role":"admin","load":true,"land":"/search","blocked":false,"buttons":8,"words":213,"problems":[],"did":[]}
+{"route":"/search","role":"admin","note":"8 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/driver/vehicle","role":"admin","load":true,"land":"/driver/vehicle","blocked":false,"buttons":45,"words":1602,"problems":[],"did":[]}
+{"route":"/driver/vehicle","role":"admin","note":"45 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/fin/newjob","role":"admin","load":true,"land":"/fin/newjob","blocked":false,"buttons":2,"words":193,"problems":[],"did":[]}
+{"route":"/fin/newjob","role":"admin","note":"2 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/fin/subs","role":"admin","load":true,"land":"/fin/subs","blocked":false,"buttons":23,"words":635,"problems":[],"did":[]}
+{"route":"/fin/subs","role":"admin","note":"23 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/fin/plant/h1","role":"admin","load":true,"land":"/fin/plant/h1","blocked":false,"buttons":11,"words":308,"problems":[],"did":[]}
+{"route":"/fin/plant/h1","role":"admin","note":"11 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/costs","role":"admin","load":true,"land":"/fin/job/11111111-1111-1111-1111-111111111111/costs","blocked":false,"buttons":24,"words":744,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/costs","role":"admin","note":"24 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/variations","role":"admin","load":true,"land":"/fin/job/11111111-1111-1111-1111-111111111111/variations","blocked":false,"buttons":34,"words":681,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/variations","role":"admin","note":"34 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=setup","role":"admin","load":true,"land":"/fin/job/11111111-1111-1111-1111-111111111111?tab=setup","blocked":false,"buttons":15,"words":625,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=setup","role":"admin","note":"15 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/pm/admin/coshh","role":"admin","load":true,"land":"/pm/admin/coshh","blocked":false,"buttons":13,"words":721,"problems":[],"did":[]}
+{"route":"/pm/admin/coshh","role":"admin","note":"13 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/pm/admin/hspolicy","role":"admin","load":true,"land":"/pm/admin/hspolicy","blocked":false,"buttons":3,"words":129,"problems":[],"did":[]}
+{"route":"/pm/admin/hspolicy","role":"admin","note":"3 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/pm/admin/signtemplates","role":"admin","load":true,"land":"/pm/admin/signtemplates","blocked":false,"buttons":3,"words":419,"problems":[],"did":[]}
+{"route":"/pm/admin/signtemplates","role":"admin","note":"3 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/pm/admin/tbt","role":"admin","load":true,"land":"/pm/admin/tbt","blocked":false,"buttons":4,"words":298,"problems":[],"did":[]}
+{"route":"/pm/admin/tbt","role":"admin","note":"4 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/pm/quotes/settings","role":"admin","load":true,"land":"/pm/quotes/settings","blocked":false,"buttons":8,"words":444,"problems":[],"did":[]}
+{"route":"/pm/quotes/settings","role":"admin","note":"8 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/pm/hr","role":"admin","load":true,"land":"/pm/hr","blocked":false,"buttons":2,"words":123,"problems":[],"did":[]}
+{"route":"/pm/hr","role":"admin","note":"2 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/pm/operatives/matrix","role":"admin","load":true,"land":"/pm/operatives/matrix","blocked":false,"buttons":4,"words":323,"problems":[],"did":[]}
+{"route":"/pm/operatives/matrix","role":"admin","note":"4 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/pm/tbts","role":"admin","load":true,"land":"/pm/tbts","blocked":false,"buttons":0,"words":61,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":23,"words":651,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","note":"23 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/client","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/client","blocked":false,"buttons":9,"words":272,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/client","role":"admin","note":"9 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/messages","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/messages","blocked":false,"buttons":10,"words":173,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/messages","role":"admin","note":"10 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs","blocked":false,"buttons":23,"words":372,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","note":"23 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","blocked":false,"buttons":12,"words":342,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","note":"12 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","blocked":false,"buttons":11,"words":204,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","note":"11 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","blocked":false,"buttons":11,"words":230,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","note":"11 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/materials","blocked":false,"buttons":15,"words":244,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","note":"15 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/mc","blocked":false,"buttons":25,"words":436,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","note":"25 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/permits/pm1","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/mc/permits/pm1","blocked":false,"buttons":9,"words":260,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/permits/pm1","role":"admin","note":"9 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","blocked":false,"buttons":13,"words":579,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","note":"13 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","blocked":false,"buttons":21,"words":560,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","note":"21 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","blocked":false,"buttons":14,"words":336,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","note":"14 buttons, 0 distinct pressed","problems":[],"did":[]}

@@ -1,0 +1,32 @@
+{"route":"/dashboard","role":"driver","load":true,"land":"/dashboard","blocked":false,"buttons":7,"words":495,"problems":[],"did":[]}
+{"route":"/dashboard","role":"driver","note":"7 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/subform","role":"driver","load":true,"land":"/subform","blocked":false,"buttons":59,"words":2297,"problems":[],"did":[]}
+{"route":"/subform","role":"driver","note":"59 buttons, 0 distinct pressed","problems":[],"did":[]}
+{"route":"/fin","role":"driver","load":true,"land":"/home","blocked":true,"buttons":8,"words":319,"problems":[],"did":[]}
+{"route":"/fin/reports","role":"driver","load":true,"land":"/home","blocked":true,"buttons":8,"words":319,"problems":[],"did":[]}
+{"route":"/fin/yard","role":"driver","load":true,"land":"/home","blocked":true,"buttons":8,"words":319,"problems":[],"did":[]}
+{"route":"/fin/sub/sc1","role":"driver","load":true,"land":"/home","blocked":true,"buttons":8,"words":319,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/monthly","role":"driver","load":true,"land":"/home","blocked":true,"buttons":8,"words":319,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"driver","load":true,"land":"/home","blocked":true,"buttons":8,"words":319,"problems":[],"did":[]}
+{"route":"/pm/admin/branding","role":"driver","load":true,"land":"/home","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/pm/admin/devicelocks","role":"driver","load":true,"land":"/home","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/pm/admin/onedrive","role":"driver","load":true,"land":"/home","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/pm/admin/sowlibrary","role":"driver","load":true,"land":"/home","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/pm/admin/templates/tp1","role":"driver","load":true,"land":"/home","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/pm/calendar","role":"driver","load":true,"land":"/home","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/pm/hr/policies","role":"driver","load":true,"land":"/home","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/pm/piquery/pi1","role":"driver","load":true,"land":"/home","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/pm/todos","role":"driver","load":true,"land":"/home","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/admin","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings/import","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/plant","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/briefings/rs1","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111&sub=rs1","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/havs","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/loler/fill/rs2","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111&sub=rs2","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/boxes/rd1","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111&doc=rd1","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/pos","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/inductions","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111&co=sc1","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/tbt","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111&co=sc1","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs/job/rj1","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111&job=rj1","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports/fill/rs2","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111&sub=rs2","blocked":false,"buttons":7,"words":267,"problems":[],"did":[]}

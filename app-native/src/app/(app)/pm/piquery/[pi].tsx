@@ -43,12 +43,13 @@ export default function PiQuery() {
   const done = !!d0 && (d0.status !== 'query' || lastBy === me?.id);
   useEffect(() => { if (done && me && pi) void clearFromHub(me.id, pi).then(() => qc.invalidateQueries({ queryKey: ['hub'] })); }, [done, me, pi, qc]);
   if (!me) return null;
-  if (isLoading || !data) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
-  if ('error' in data) return <Muted style={{ padding: space.l }}>{data.error}</Muted>;
+  // The heading shows while loading and when the query can't be opened, not the file name (11 Nov 2026).
+  if (isLoading || !data) return <><Stack.Screen options={{ title: 'Invoice Query' }} /><Muted style={{ padding: space.l }}>Loading…</Muted></>;
+  if ('error' in data) return <><Stack.Screen options={{ title: 'Invoice Query' }} /><Muted style={{ padding: space.l }}>{data.error}</Muted></>;
   const d = data.d, thread = (Array.isArray(d.query_thread) ? d.query_thread : []).filter((x: Row) => x && x.text) as Row[];
   return (
     <ScrollView contentContainerStyle={page(640)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'Invoice query' }} />
+      <Stack.Screen options={{ title: 'Invoice Query' }} />
       <Muted style={{ marginBottom: 10 }}>The office needs your help with this supplier invoice.</Muted>
       <Card>
         {[['Supplier', d.supplier_name], ['Invoice no.', d.invoice_no], ['Date', d.invoice_date ? fdate(String(d.invoice_date).slice(0, 10)) : ''], ['Project', d.site_name], ['PO', d.po_number], ['For', d.description], ['Net', d.net != null ? money(d.net) : ''], ['Total', d.total != null ? money(d.total) : '']]

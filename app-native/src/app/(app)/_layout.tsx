@@ -100,7 +100,7 @@ export default function AppLayout() {
       <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: icon('home') }} />
       <Tabs.Screen name="sites" options={{ title: 'Projects', href: hasSites ? undefined : null, tabBarIcon: icon('projects'), headerShown: false }} />
       <Tabs.Screen name="account" options={{ title: 'Settings', tabBarIcon: icon('gear') }} />
-      <Tabs.Screen name="onsite" options={{ ...hidden, title: 'On site now' }} />
+      <Tabs.Screen name="onsite" options={{ ...hidden, title: 'On Site Now' }} />
       <Tabs.Screen name="dashboard" options={{ ...(extra && !desk ? { tabBarIcon: icon('reports') } : hidden), title: 'My Dashboard' }} />
       <Tabs.Screen name="driver" options={{ ...hidden, title: 'Driver', headerShown: false }} />
       <Tabs.Screen name="inbox" options={{ ...(extra && !desk ? { tabBarIcon: icon('chat'), tabBarLabel: 'Inbox', tabBarBadge: inboxN || undefined } : hidden), title: 'Messages & tasks' }} />

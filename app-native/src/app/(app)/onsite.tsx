@@ -26,7 +26,7 @@ export default function OnSiteNow() {
   return (
     <ScrollView contentContainerStyle={page(720)}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
-      <Title>On site now</Title>
+      <Title>On Site Now</Title>
       <Muted style={{ marginBottom: 10 }}>{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</Muted>
       <Card>
         <Text style={{ fontSize: 26, fontWeight: '600', color: base.ink }}>{rows.length}</Text>
