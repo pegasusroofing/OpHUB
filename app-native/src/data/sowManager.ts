@@ -34,6 +34,18 @@ export async function addVariationWork(me: Profile, siteId: string, taskName: st
   return name;
 }
 
+/** Moves a section up or down the page (Andy, 11 Nov 2026): the sections are numbered again in their new order. */
+export async function moveScheduleSection(siteId: string, sectionId: string, dir: -1 | 1): Promise<string | null> {
+  const all = await db.from('schedule_sections').select('id,position').eq('site_id', siteId).order('position', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true });
+  if (all.error) return 'Could not load the sections — try again.';
+  const list = ((all.data as { id: string; position: number | null }[] | null) ?? []).slice();
+  const i = list.findIndex((x) => x.id === sectionId), j = i + dir;
+  if (i < 0) return 'Section not found.';
+  if (j < 0 || j >= list.length) return dir < 0 ? 'Already at the top.' : 'Already at the bottom.';
+  const [me] = list.splice(i, 1); list.splice(j, 0, me);
+  const res = await Promise.all(list.map((x, k) => (x.position === k ? null : db.from('schedule_sections').update({ position: k } as never).eq('id', x.id))).filter(Boolean));
+  return res.some((x) => x && (x as { error: unknown }).error) ? 'Could not save the new order — please try again.' : null;
+}
 export async function renameSection(id: string, name: string): Promise<boolean> {
   return !!(await db.from('schedule_sections').update({ name } as never).eq('id', id).select('id')).data?.length;
 }

@@ -1,7 +1,7 @@
 // A job's Materials. Operatives (725): their collection list as a tick list, what's
 // coming to site, their waiting requests and "Request materials". Managers (720):
-// tiles for Material Requests, Material PO's, Plant and Expenses (PMs / admins choose
-// who else sees Plant and Expenses on this job from the tile's ⋮).
+// big rows for Material Requests, Material PO's, Plant and Expenses (Andy, 11 Nov 2026: option A; PMs / admins choose
+// who else sees Plant and Expenses on this job from the row's ⋯). Subcontract Orders is its own row on the job page.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -9,7 +9,8 @@ import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'reac
 
 import { GrnForm } from '@/components/Grn';
 import { useToast } from '@/components/toast';
-import { Button, Card, Empty, JobGrid, Muted, SectionTitle, Tile } from '@/components/ui';
+import { OphIcon } from '@/components/OphIcon';
+import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { collectPickups, useCollectionsOpenCount, useMaterialRequests, useOfficeOrders, useOpMaterials } from '@/data/materials';
 import { HowTo } from '@/components/HowTo';
 import { useMyPlantHere } from '@/data/plant';
@@ -48,13 +49,12 @@ function ManagerTiles({ siteId, vis, role, me, site }: { siteId: string; vis: Pa
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <HowTo k="materials" />
-      <JobGrid>
-      <Tile icon="🙋" tint="#F1E4FA" title="Material Requests" sub={sub} badge={pending?.length || undefined} onPress={go('materials/requests')} />
-      <Tile icon="📄" tint="#FBEFE0" title="Material PO's" sub="" onPress={go('materials/pos')} />
-      <Tile icon="👷" tint="#E8EEF8" title="Subcontract Orders" sub="" onPress={go('materials/subcontracts')} />
-      {canSeeMatTile(vis, 'plant', role) && <Tile icon="🏗" tint="#EAF3EC" title="Plant" sub="" onPress={go('plant')} {...visProps('plant', 'Plant')} />}
-      {canSeeMatTile(vis, 'expenses', role) && <Tile icon="🧾" tint="#FDF1DE" title="Expenses" sub="" onPress={go('expenses')} {...visProps('expenses', 'Expenses')} />}
-      </JobGrid>
+      <BigRows rows={[
+        { k: 'req', ic: 'chat', t: 'Material Requests', s: sub || 'Nothing waiting', badge: pending?.length || 0, go: go('materials/requests') },
+        { k: 'po', ic: 'reports', t: "Material PO's", s: office?.length ? `${office.length} raised by the office` : 'Orders to suppliers', go: go('materials/pos') },
+        ...(canSeeMatTile(vis, 'plant', role) ? [{ k: 'plant', ic: 'truck', t: 'Plant', s: 'Hired plant on this job', go: go('plant'), ...visProps('plant', 'Plant') }] : []),
+        ...(canSeeMatTile(vis, 'expenses', role) ? [{ k: 'exp', ic: 'pound', t: 'Expenses', s: 'Receipts for this job', go: go('expenses'), ...visProps('expenses', 'Expenses') }] : []),
+      ]} />
       {!!office?.length && (
         <Card style={{ marginTop: space.m }}>
           <SectionTitle>Ordered By The Office</SectionTitle>
@@ -84,6 +84,31 @@ function ManagerTiles({ siteId, vis, role, me, site }: { siteId: string; vis: Pa
         </Card>
       )}
     </ScrollView>
+  );
+}
+
+type BigRow = { k: string; ic: string; t: string; s: string; badge?: number; go: () => void; dim?: boolean; onMenu?: () => void };
+/** Big rows (Andy, 11 Nov 2026, option A): an icon, the name and a line under it, a count, ⋯ for who can see it, and ›. */
+function BigRows({ rows }: { rows: BigRow[] }) {
+  return (
+    <View style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, overflow: 'hidden' }}>
+      {rows.map((r, i) => (
+        <View key={r.k} style={{ flexDirection: 'row', alignItems: 'center', borderTopWidth: i ? 1 : 0, borderTopColor: '#EEF0F2' }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={r.t} onPress={r.go}
+          style={({ pressed }) => [{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 68, paddingVertical: 12, paddingLeft: 14, paddingRight: r.onMenu ? 4 : 14, opacity: r.dim ? 0.6 : 1 }, pressed && { backgroundColor: '#F7F8FA' }]}>
+          <View style={{ width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: base.cardLine }}><OphIcon name={r.ic} size={19} color={base.ink} /></View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: '600', color: base.ink }}>{r.t}</Text>
+            <Text numberOfLines={1} style={{ fontSize: 12.5, color: base.slate, marginTop: 2 }}>{r.s}</Text>
+          </View>
+          {!!r.badge && <Text style={{ minWidth: 22, textAlign: 'center', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 11, overflow: 'hidden', backgroundColor: base.red, color: '#fff', fontSize: 12, fontWeight: '700' }}>{r.badge}</Text>}
+          {!r.onMenu && <OphIcon name="chevron" size={16} color={base.slate} stroke={2.2} />}
+        </Pressable>
+        {r.onMenu && <Pressable accessibilityRole="button" accessibilityLabel={`Who can see ${r.t}`} hitSlop={10} onPress={r.onMenu} style={{ paddingHorizontal: 10, paddingVertical: 12 }}><Text style={{ fontSize: 18, fontWeight: '700', color: base.slate }}>⋯</Text></Pressable>}
+        {r.onMenu && <Pressable accessibilityRole="button" accessibilityLabel={`Open ${r.t}`} onPress={r.go} style={{ paddingRight: 14, paddingVertical: 12 }}><OphIcon name="chevron" size={16} color={base.slate} stroke={2.2} /></Pressable>}
+        </View>
+      ))}
+    </View>
   );
 }
 

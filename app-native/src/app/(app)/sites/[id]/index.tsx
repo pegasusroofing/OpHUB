@@ -156,6 +156,8 @@ export default function SiteHome() {
     { key: 'dwg', ic: 'layers', title: "Drawings, Spec's & Programme", sub: 'View & upload', onPress: go('drawings') },
     ...((me?.role === 'pm' || me?.role === 'admin') && (site as { onedrive_folder_id?: string | null }).onedrive_folder_id ? [{ key: 'docs', ic: 'cloud', title: 'Documents', sub: 'The job’s OneDrive folder', onPress: go('documents') }] : []),
     { key: 'mat', ic: 'box', title: 'Materials', sub: h ? `${h.pendingMaterials} pending` : '…', onPress: go('materials') },
+    // Subcontract Orders is labour, not materials: its own row (Andy, 11 Nov 2026).
+    ...(mgr ? [{ key: 'subco', ic: 'users', title: 'Subcontract Orders', sub: 'Orders to subcontractors', onPress: go('materials/subcontracts') }] : []),
     { key: 'rep', ic: 'reports', title: mgr ? 'Inspections & Reports' : 'Snagging & Variations', sub: h ? `${snags} open` : '…', badge: snags || undefined, onPress: go('snagging') },
     ...(h?.canSeePrice ? [{ key: 'price', ic: 'pound', title: 'Price', sub: h.priceWages ? `${h.priceWages} wage${h.priceWages > 1 ? 's' : ''} to book` : h.priceVars ? `${h.priceVars} variation${h.priceVars > 1 ? 's' : ''} pending` : 'Restricted access', badge: h.priceVars + h.priceWages || undefined, onPress: go('price') }] : []),
     ...(mgr && siteStatusKey(site) === 'closed' ? [{ key: 'ho', ic: 'book', title: 'Handover', sub: 'O&M manual · data sheets · guarantees', onPress: go('handover') }]

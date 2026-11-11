@@ -23,7 +23,7 @@ import {
 } from '@/data/sow';
 import { useSite } from '@/data/sites';
 import {
-  addSection, addTask, addVariationWork, copyLibraryTemplate, deleteSection, libraryPreview, deleteSowDoc, deleteTasks, duplicateSection, importTasks, libraryTemplates, markSowViewed, renameSection,
+  addSection, addTask, addVariationWork, copyLibraryTemplate, deleteSection, libraryPreview, deleteSowDoc, deleteTasks, duplicateSection, importTasks, libraryTemplates, markSowViewed, moveScheduleSection, renameSection,
   setSowDocVisibility, uploadSowDocs,
 } from '@/data/sowManager';
 import { useAuth } from '@/lib/auth';
@@ -134,10 +134,11 @@ export default function Schedule() {
     ? <AddTaskBox addresses={site.multi_site ? data?.addresses ?? [] : []} onCancel={() => setAdding(null)}
         fixed={site.multi_site ? lastAddr[key] : undefined} onChangeFixed={() => setLastAddr((o) => { const n = { ...o }; delete n[key]; return n; })}
         onAdd={async (name, subId) => { if (await addTask(site.id, name, sectionId, subId)) { if (subId) setLastAddr((o) => ({ ...o, [key]: subId })); changed(); return true; } toast('Could not save — try again.'); return false; }} />
-    : <Pressable onPress={() => setAdding(key)} accessibilityRole="button" style={{ alignSelf: 'flex-start', marginTop: 4, borderWidth: 1.5, borderColor: t.brand1, borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 }}><Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.4, color: t.brand1 }}>+ ADD TASK</Text></Pressable>);
+    : <Pressable onPress={() => setAdding(key)} accessibilityRole="button" accessibilityLabel="Add Task" style={{ alignSelf: 'flex-start', marginTop: 6, borderWidth: 1, borderColor: base.line, borderRadius: 9, paddingVertical: 6, paddingHorizontal: 14, backgroundColor: base.card }}><Text style={{ fontSize: 12.5, fontWeight: '700', color: base.ink }}>+ Add Task</Text></Pressable>);
   const sectionMenu = async (sec: { id: string; name: string }) => {
-    const k = await chooseAction(sec.name, [{ key: 'dup', label: '⧉ Duplicate section' }, { key: 'ren', label: '✎ Rename' }, { key: 'vis', label: '🔒 Who can see this' }, { key: 'del', label: '🗑 Delete', danger: true }]);
+    const k = await chooseAction(sec.name, [{ key: 'vis', label: '🔒 Who Can See This' }, { key: 'up', label: '▲ Move Up' }, { key: 'down', label: '▼ Move Down' }, { key: 'ren', label: '✎ Rename' }, { key: 'dup', label: '⧉ Duplicate Section' }, { key: 'del', label: '🗑 Delete', danger: true }]);
     if (k === 'vis') { setVis(sec.id); setOpen((o) => ({ ...o, [sec.id]: true })); }
+    else if (k === 'up' || k === 'down') { const err = await moveScheduleSection(site.id, sec.id, k === 'up' ? -1 : 1); if (err) toast(err); changed(); }
     else if (k === 'ren') {
       const n = await promptText('Section name', sec.name);
       if (n === null) return;
@@ -279,15 +280,19 @@ export default function Schedule() {
             </Card>
           )}
 
-          {(manager ? true : filter === 'all' ? view.allUngrouped.length > 0 : view.ungrouped.length > 0) && (
-            <Group title="Schedule of Works" count={view.allUngrouped.length ? doneCount(view.allUngrouped) : ''}
-              open={isOpen('__ungrouped__', view.ungrouped.length > 0)} onToggle={() => toggle('__ungrouped__', view.ungrouped.length > 0)}
-              onAdd={canAdd ? () => { setAdding(adding === '__ungrouped__' ? null : '__ungrouped__'); setOpen((o) => ({ ...o, __ungrouped__: true })); } : undefined}
-              onMore={manager ? more : undefined}>
-              {adding === '__ungrouped__' && addBox('__ungrouped__', null)}
-              {view.ungrouped.length ? view.ungrouped.map(row) : <Empty>{`No tasks${filter !== 'all' ? ' for this filter' : ''}.`}</Empty>}
-            </Group>
+          {/* Option A (Andy, 11 Nov 2026): + Add Task and + Section ▾, then the tasks not in a section, with no box round them. */}
+          {manager && (
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Add Task" onPress={() => setAdding(adding === '__ungrouped__' ? null : '__ungrouped__')} style={{ flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 9, borderWidth: 1, borderColor: base.line, backgroundColor: base.card }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: base.ink }}>+ Add Task</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Section" onPress={() => void more()} style={{ flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 9, borderWidth: 1, borderColor: base.line, backgroundColor: base.card }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: base.ink }}>+ Section ▾</Text>
+              </Pressable>
+            </View>
           )}
+          {adding === '__ungrouped__' && <View style={{ marginBottom: 10 }}>{addBox('__ungrouped__', null)}</View>}
+          {view.ungrouped.length > 0 && <View style={{ marginBottom: space.m }}>{view.ungrouped.map(row)}</View>}
           {view.sections.map((sec) => (
             <Group key={sec.id} title={`${sec.visibility_mode === 'assigned' ? '🔒 ' : ''}${sec.name}`}
               count={(view.bySectionAll[sec.id] || []).length ? doneCount(view.bySectionAll[sec.id]) : ''}
@@ -365,22 +370,21 @@ function AddTaskBox({ addresses, onAdd, onCancel, fixed, onChangeFixed }: { addr
 }
 
 function Group({ title, count, open, onToggle, onMenu, onAdd, onMore, children }: { title: string; count: string; open: boolean; onToggle: () => void; onMenu?: () => void; onAdd?: () => void; onMore?: () => void; children: ReactNode }) {
-  const t = useTheme();
+  // A section (Andy, 11 Nov 2026, option A): the name bold on a grey band, how many done, ▾ to fold it, then ⋯.
+  // The band is a row of separate buttons (a button can't sit inside another).
   return (
-    <View style={{ backgroundColor: base.card, borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 18, marginBottom: space.m, overflow: 'hidden' }}>
-      <Pressable onPress={onToggle} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14 }}>
-        <Text style={{ fontSize: 10, color: base.slate, marginRight: 8 }}>{open ? '▼' : '▶'}</Text>
-        <Text style={[heading(800), { flex: 1, fontSize: 15, color: base.ink }]} numberOfLines={1}>{title}</Text>
-        {!!count && <Text style={{ fontSize: 11, fontWeight: '600', color: base.slate, backgroundColor: '#F1F2F4', borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, marginLeft: 6, overflow: 'hidden' }}>{count}</Text>}
-        {onAdd && (
-          <Pressable onPress={onAdd} hitSlop={6} style={{ marginLeft: 8, borderWidth: 1.5, borderColor: t.brand1, borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 }}>
-            <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.4, color: t.brand1 }}>+ ADD TASK</Text>
-          </Pressable>
-        )}
-        {onMore && <Pressable onPress={onMore} hitSlop={8} accessibilityLabel="More" style={{ marginLeft: 6, width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: base.line, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 10, color: base.slate }}>▾</Text></Pressable>}
-        {onMenu && <Pressable onPress={onMenu} hitSlop={8} style={{ marginLeft: 10 }}><Text style={{ fontSize: 18, color: base.slate }}>⋮</Text></Pressable>}
-      </Pressable>
-      {open && <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>{children}</View>}
+    <View style={{ backgroundColor: base.card, borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 14, marginBottom: space.m, overflow: 'hidden' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F6F7F9', borderBottomWidth: open ? 1 : 0, borderBottomColor: '#ECEEF2' }}>
+        <Pressable onPress={onToggle} accessibilityRole="button" accessibilityLabel={title} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 11, paddingLeft: 14, paddingRight: 6 }}>
+          <Text style={[heading(800), { flex: 1, fontSize: 15.5, fontWeight: '800', color: base.ink }]} numberOfLines={1}>{title}</Text>
+          {!!count && <Text style={{ fontSize: 11.5, fontWeight: '700', color: base.slate }}>{count}</Text>}
+        </Pressable>
+        {onAdd && <Pressable onPress={onAdd} hitSlop={6} accessibilityRole="button" accessibilityLabel="Add Task" style={{ paddingHorizontal: 6, paddingVertical: 11 }}><Text style={{ fontSize: 12, fontWeight: '700', color: base.ink }}>+ Task</Text></Pressable>}
+        {onMore && <Pressable onPress={onMore} hitSlop={8} accessibilityRole="button" accessibilityLabel="More" style={{ paddingHorizontal: 6, paddingVertical: 11 }}><Text style={{ fontSize: 12, color: base.slate }}>▾</Text></Pressable>}
+        <Pressable onPress={onToggle} accessibilityRole="button" accessibilityLabel={open ? `Fold away ${title}` : `Open ${title}`} style={{ paddingHorizontal: 6, paddingVertical: 11 }}><Text style={{ fontSize: 12, color: base.slate }}>{open ? '▴' : '▾'}</Text></Pressable>
+        {onMenu && <Pressable onPress={onMenu} hitSlop={10} accessibilityRole="button" accessibilityLabel={`More: ${title}`} style={{ paddingLeft: 4, paddingRight: 14, paddingVertical: 8 }}><Text style={{ fontSize: 18, fontWeight: '700', color: base.slate }}>⋯</Text></Pressable>}
+      </View>
+      {open && <View style={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 14 }}>{children}</View>}
     </View>
   );
 }

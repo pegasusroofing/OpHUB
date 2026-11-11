@@ -46,15 +46,17 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
 
   const menu = async (only?: string) => {
     const items = [
+      { key: 'vis', label: '🔒 Who Can See This' },
+      { key: 'up', label: '▲ Move Up' }, { key: 'down', label: '▼ Move Down' },
       { key: 'edit', label: '✎ Edit' },
       ...(site.multi_site ? [{ key: 'addr', label: '📍 Link Address' }] : []),
-      { key: 'up', label: '▲ Move up' }, { key: 'down', label: '▼ Move down' },
-      ...(!task.section_id ? [{ key: 'vis', label: '🔒 Who can see this' }] : []),
       ...(subCos.length || site.acting_as_main_contractor ? [{ key: 'sub', label: '🏗 Assign to subcontractor' }] : []),
       { key: 'del', label: '🗑 Delete', danger: true }, { key: 'multi', label: '☑ Select Multiple' },
     ];
     const k = only ?? await chooseAction(task.name, items);
-    if (k === 'vis') setVis(true);
+    // A task in a section follows the section's Who Can See This.
+    if (k === 'vis' && task.section_id) showAlert('This task follows its section. Change who can see it from the section’s ⋯ (Who Can See This).');
+    else if (k === 'vis') setVis(true);
     else if (k === 'sub' && !subCos.length) toast('No subcontractors added for this site yet.');
     else if (k === 'sub') {
       const c = await chooseAction('Assign to subcontractor', [{ key: '-', label: `${subCo ? '' : '✓ '}Our own team / no subcontractor` }, ...subCos.map((x) => ({ key: x.id, label: `${subCo?.id === x.id ? '✓ ' : ''}${x.name}` }))]);
@@ -178,7 +180,7 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
         {site.multi_site && (
           <Text onPress={mgr && !updateOnly ? () => void menu('addr') : undefined} style={[s.addrPill, !task.sub_site_id && { color: base.warn, backgroundColor: base.warnBg }]}>{address?.name || (mgr && !updateOnly ? 'Unlinked — tap to link' : 'No address')}</Text>
         )}
-        {mgr && !updateOnly && <Pressable onPress={() => void menu()} hitSlop={8} style={{ paddingHorizontal: 6 }}><Text style={{ fontSize: 18, color: base.slate }}>⋮</Text></Pressable>}
+        {mgr && !updateOnly && <Pressable onPress={() => void menu()} hitSlop={8} accessibilityLabel={`More: ${task.name}`} style={{ paddingHorizontal: 6 }}><Text style={{ fontSize: 18, fontWeight: '700', color: base.slate }}>⋯</Text></Pressable>}
       </View>
 
       {(photos.length > 0 || pending.length > 0) && (
