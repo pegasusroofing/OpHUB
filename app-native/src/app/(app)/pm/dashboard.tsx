@@ -1,7 +1,8 @@
 // Company Dashboard (230 renderDashboard): live / upcoming / closed counts, open
 // snags, RAMS / COSHH / TBT signatures still needed (operatives only, current
 // signing cycle), Schedule of Works progress, recent incidents — each with the
-// list of live jobs behind the number.
+// list of live jobs behind the number. Since 11 Nov 2026 (Andy: "make sure everything we need is on there"): Money (a
+// company with Finance, for people with Finance), Quotes and Deliveries; a company with only Finance sees Money alone.
 import { useQuery } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
@@ -9,13 +10,17 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { DashTabs } from '@/components/DashTabs';
 import { Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { useDeliveryRequests } from '@/data/deliveries';
+import { useFinOverview } from '@/data/finance';
+import { useQuotes } from '@/data/quotes';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { heading } from '@/lib/fonts';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { currentCycleSigs } from '@/lib/rules/hs';
 import { overallPct } from '@/lib/rules/sow';
-import { isManager } from '@/lib/roles';
+import { isFinanceUser, isFullManager, isManager } from '@/lib/roles';
+import { groupQuotes, isQuoted } from '@/lib/rules/quotes';
 import { supabase } from '@/lib/supabase';
 import type { Site } from '@/lib/types';
 import { base, page, radius, space, useTheme } from '@/theme/theme';
@@ -71,9 +76,13 @@ function useCompanyDashboard(sites: Site[] | undefined) {
 }
 
 export default function CompanyDashboard() {
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const { data: sites } = useSites();
-  const { data, isLoading } = useCompanyDashboard(sites);
+  const pmCo = org?.has_pm !== false, finOn = !!me && isFinanceUser(me, org);
+  const { data, isLoading } = useCompanyDashboard(pmCo ? sites : undefined);
+  const { data: money } = useFinOverview(finOn ? me : null, sites);
+  const { data: quotes } = useQuotes(pmCo && me && isFullManager(me) ? me.org_id : null);
+  const { data: dlv } = useDeliveryRequests(pmCo ? me?.org_id : null);
   const [show, setShow] = useState<string | null>(null);
   const t = useTheme();
   if (!me) return null;
@@ -81,6 +90,7 @@ export default function CompanyDashboard() {
   const all = sites ?? [];
   const live = all.filter((s) => siteStatusKey(s) === 'live');
   const count = (k: string) => all.filter((s) => siteStatusKey(s) === k).length;
+  const gbp = (n: number) => `£${Math.round(n || 0).toLocaleString('en-GB')}`;
   const sum = (m: Record<string, number> | undefined) => Object.values(m ?? {}).reduce((a, b) => a + b, 0);
   const stat = (label: string, value: string | number, sub: string | null, onPress?: () => void) => (
     <Pressable onPress={onPress} disabled={!onPress} style={{ flex: 1, minWidth: 100 }}>
@@ -107,12 +117,50 @@ export default function CompanyDashboard() {
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Dashboard' }} />
       <DashTabs on="company" />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
+      {pmCo && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
         {stat('Live Projects', live.length, null, () => router.push('/sites'))}
         {stat('Upcoming', count('upcoming'), null, () => router.push('/sites?tab=upcoming' as never))}
         {stat('Closed', count('closed'), null, () => router.push('/sites?tab=closed' as never))}
-      </View>
-      {isLoading || !data ? <Muted>Loading…</Muted> : (
+      </View>}
+      {finOn && money && (
+        <>
+          <SectionTitle>Money</SectionTitle>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
+            {stat('Live Contract Value', gbp(money.liveValue), `${money.liveCount} live project${money.liveCount === 1 ? '' : 's'}`, () => router.push('/fin/jobs' as never))}
+            {stat('Still To Invoice', gbp(money.toInvoice), 'on live projects', () => router.push('/fin/jobs' as never))}
+            {stat('Owed To Us', gbp(money.owed), money.overdue ? `${gbp(money.overdue)} overdue` : 'nothing overdue', () => router.push('/fin/sales?tab=invoices' as never))}
+            {stat('Retention Held', gbp(money.retHeld), 'still with clients', () => router.push('/fin/sales?tab=retention' as never))}
+          </View>
+          {money.todo.slice(0, 6).map((x) => (
+            <Pressable key={x.t} onPress={() => router.push(x.go as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 11, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
+              <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: base.ink, fontSize: 13.5 }}>{x.t} ({x.n})</Text><Text numberOfLines={1} style={{ fontSize: 12, color: base.slate }}>{x.s}</Text></View>
+              <Text style={{ color: base.slate }}>›</Text>
+            </Pressable>
+          ))}
+        </>
+      )}
+      {pmCo && !!quotes && (() => {
+        const yr = String(new Date().getFullYear());
+        const liveQ = quotes.filter((x) => !isQuoted(x)), quoted = quotes.filter((x) => isQuoted(x));
+        const g = groupQuotes(quoted.filter((x) => (x.completed_at || x.returned_at || x.return_date || '').startsWith(yr)).map((x) => ({ ...x, client_name: 'all' })), 'client_name')[0];
+        return (
+          <>
+            <SectionTitle>Quotes</SectionTitle>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
+              {stat('Being Priced', liveQ.length, liveQ.filter((x) => x.status === 'checking').length ? `${liveQ.filter((x) => x.status === 'checking').length} ready for checking` : null, () => router.push('/pm/quotes?tab=live' as never))}
+              {stat('Quoted', gbp(quoted.reduce((t2, x) => t2 + (x.value || 0), 0)), `${quoted.length} quoted`, () => router.push('/pm/quotes?tab=quoted' as never))}
+              {stat(`Won ${yr}`, gbp(g?.wonValue || 0), g?.rate == null ? null : `${g.rate}% win rate`, () => router.push('/pm/quotes?tab=quoted&out=won' as never))}
+            </View>
+          </>
+        );
+      })()}
+      {pmCo && !!dlv?.length && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
+          {stat('Deliveries To Schedule', dlv.length, 'requests waiting', () => router.push('/pm/deliveries' as never))}
+        </View>
+      )}
+      {pmCo && <SectionTitle>Projects And Health & Safety</SectionTitle>}
+      {!pmCo ? null : isLoading || !data ? <Muted>Loading…</Muted> : (
         <>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
             {stat('Open Snags', sum(data.snagBy), 'across live projects', toggle('snags'))}

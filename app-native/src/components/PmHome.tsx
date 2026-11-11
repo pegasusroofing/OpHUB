@@ -126,7 +126,7 @@ export function PmHome() {
       <TileGrid cols={desk ? 4 : 2}>
         {isFinanceUser(me, org) && <Tile plain ic="pound" tint="" title="OpHUB Finance" sub="Money in & out" onPress={go('/fin')} />}
         <Tile plain ic="reports" tint="" title="Quotes" sub="Tender tracker" onPress={go('/pm/quotes')} />
-        <Tile plain ic="chart" tint="" title="Dashboard" sub="Company & operatives" onPress={go('/pm/dashboard')} />
+        <Tile plain ic="chart" tint="" title="Dashboard" sub="Company & operatives" onPress={go('/pm/dashboards')} />
         <Tile plain ic="calendar" tint="" title="Calendar" sub="All projects" onPress={go('/pm/calendar')} />
         <Tile plain ic="truck" tint="" title="Deliveries" sub={dlvN ? `${dlvN} to schedule` : 'Delivery schedule'} badge={dlvN || undefined} onPress={go('/pm/deliveries')} />
         <Tile plain ic="reports" tint="" title="Reports & Surveys" sub={open.length ? `${open.length} in progress` : 'All projects'} onPress={go('/pm/reports')} />

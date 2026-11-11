@@ -11,7 +11,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Muted, SectionTitle } from '@/components/ui';
 import { DateBox } from '@/components/DateField';
-import { bookLeave, cancelLeave, decideLeave, hrAllowance, hrCode, hrColour, saveHrSettings, useHr } from '@/data/hr';
+import { bookLeave, cancelLeave, decideLeave, hrAllowance, hrCode, hrColour, saveApprovers, saveHrSettings, useHr } from '@/data/hr';
 import { useAuth } from '@/lib/auth';
 import { monthGrid } from '@/lib/rules/calendar';
 import { localISODate } from '@/lib/rules/driver';
@@ -45,6 +45,10 @@ export default function Holidays() {
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   if (!hr) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const isAdmin = me.role === 'admin';
+  // Who approves (Andy, 11 Nov 2026): chosen in Settings; nobody chosen means the admins.
+  const approvers = hr.settings.approvers ?? [];
+  const canApprove = isAdmin || approvers.includes(me.id);
+  const approverNames = approvers.length ? approvers.map((u) => hr.people.find((p) => p.id === u)?.name).filter(Boolean).join(', ') : 'The Admins';
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['hr'] }); };
   const y = new Date().getFullYear();
   const name = (uid: string) => hr.people.find((p) => p.id === uid)?.name || '';
@@ -98,7 +102,8 @@ export default function Holidays() {
       }
     }
     setBusy(true);
-    const r = await bookLeave(me, uid, { type: d.type, start: s, end: e, ...parts, days, link: d.link, note: d.note, override }, hr.people);
+    // The request goes to the chosen approvers, or the admins if nobody's chosen.
+    const r = await bookLeave(me, uid, { type: d.type, start: s, end: e, ...parts, days, link: d.link, note: d.note, override }, approvers.length ? hr.people.filter((p) => approvers.includes(p.id)).map((p) => ({ ...p, role: 'admin' })) : hr.people);
     setBusy(false);
     if (!r.ok) { toast('Could not save — try again.'); return; }
     toast(r.pending ? 'Request sent to the admin for approval' : 'Booked'); setD(null); refresh();
@@ -107,7 +112,10 @@ export default function Holidays() {
     const max = Number(hr.settings.max_off_at_once) || 0;
     const c = ok && l.type !== 'sick' ? limitClash(hr.leave, l.user_id, l.start_date, l.end_date, max, true) : null;
     if (c && !(await confirmAsk(`${c.n} people are already off on ${new Date(`${c.day}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} (limit ${max}). Approve anyway?`, 'Approve'))) return;
-    toast((await decideLeave(me, l.id, ok, !!c)) ? (ok ? 'Approved' : 'Declined') : 'Could not save — try again.'); refresh();
+    const r = await decideLeave(me, l.id, ok, !!c);
+    if (r === 'held') showAlert('Only an admin can approve this for now. The holiday approvers setting needs one more step in the database before it works for other people.');
+    else if (!r) toast('Could not save — try again.');
+    refresh();
   };
 
   const grid = monthGrid(month.y, month.m);
@@ -122,7 +130,8 @@ export default function Holidays() {
       <View style={{ flexDirection: 'row', gap: 8 }}>{stat(myAllow - myUsed - myPend, `Days left ${y}`)}{stat(myUsed, 'Taken / booked')}{stat(myPend, 'Awaiting approval', true)}</View>
       <Muted style={{ marginBottom: 10 }}>{bhCount(me.id) ? `Includes 1 day for each bank holiday (${bhCount(me.id)} this year), allocated automatically.` : `PMs and site managers get 1 day for each bank holiday (${bankHolCount(y)} this year) allocated automatically.`}</Muted>
       {!d && <Button title="+ Book time off" onPress={() => open()} />}
-      {isAdmin && <View style={{ flexDirection: 'row', gap: 6, marginVertical: 10 }}><Chip on={view === 'cal'} label="Calendar" onPress={() => setView('cal')} /><Chip on={view === 'req'} label={`Requests${pending.length ? ` (${pending.length})` : ''}`} onPress={() => setView('req')} /><Chip on={view === 'set'} label="Settings" onPress={() => setView('set')} /></View>}
+      <Text style={{ fontSize: 12.5, color: base.slate, marginTop: 8 }}>Holidays Approved By: <Text style={{ color: base.ink, fontWeight: '600' }}>{approverNames}</Text></Text>
+      {canApprove && <View style={{ flexDirection: 'row', gap: 6, marginVertical: 10 }}><Chip on={view === 'cal'} label="Calendar" onPress={() => setView('cal')} /><Chip on={view === 'req'} label={`Requests${pending.length ? ` (${pending.length})` : ''}`} onPress={() => setView('req')} />{isAdmin && <Chip on={view === 'set'} label="Settings" onPress={() => setView('set')} />}</View>}
 
       {d && (
         <Card>
@@ -213,7 +222,8 @@ export default function Holidays() {
           <Button kind="ghost" title="+ Book this day" onPress={() => open(sel)} />
           {myUpcoming.length > 0 && (
             <>
-              <SectionTitle>My upcoming time off</SectionTitle>
+              <View style={{ height: 14 }} />
+              <SectionTitle>My Upcoming Time Off</SectionTitle>
               {myUpcoming.map((l) => (
                 <Card key={l.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <View style={{ flex: 1 }}>
@@ -228,7 +238,7 @@ export default function Holidays() {
         </>
       )}
 
-      {isAdmin && view === 'req' && (pending.length ? pending.map((l) => (
+      {canApprove && view === 'req' && (pending.length ? pending.map((l) => (
         <Card key={l.id}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>{chip(l, false)}<Muted>{l.days} day{Number(l.days) === 1 ? '' : 's'}</Muted></View>
           <Text style={{ fontWeight: '600', color: base.ink, marginTop: 6 }}>{typeLabel(l)} · {range(l)}</Text>
@@ -254,6 +264,20 @@ export default function Holidays() {
                 <TextInput value={(codes ?? {})[k] ?? hrCode(hr, k)} onChangeText={(v) => setCodes({ ...(codes ?? {}), [k]: v.toUpperCase().slice(0, 2) })} maxLength={2} autoCapitalize="characters" style={[box, { width: 60, marginBottom: 0, textAlign: 'center', fontWeight: '600' }]} />
                 <Text style={{ color: base.ink }}>{HR_TYPES[k]}</Text>
               </View>
+            ))}
+          </Card>
+          <Card>
+            <SectionTitle>Who Approves Holidays</SectionTitle>
+            <Muted style={{ marginBottom: 8 }}>Tick the people who approve time off. Nobody ticked means the admins.</Muted>
+            {hr.people.map((p) => (
+              <Pressable key={p.id} accessibilityRole="checkbox" accessibilityState={{ checked: approvers.includes(p.id) }} accessibilityLabel={`Approver: ${p.name}`} onPress={async () => {
+                const next = approvers.includes(p.id) ? approvers.filter((x) => x !== p.id) : [...approvers, p.id];
+                if (await saveApprovers(me, next)) refresh(); else toast('Could not save — try again.');
+              }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: base.line }}>
+                <Text style={{ fontSize: 16, color: base.ink }}>{approvers.includes(p.id) ? '☑' : '☐'}</Text>
+                <Text style={{ flex: 1, color: base.ink }}>{p.name}</Text>
+                <Muted>{p.role === 'admin' ? 'Admin' : p.role === 'pm' ? 'PM' : 'Site Manager'}</Muted>
+              </Pressable>
             ))}
           </Card>
           <Card>

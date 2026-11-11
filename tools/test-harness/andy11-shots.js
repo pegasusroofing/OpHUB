@@ -11,7 +11,7 @@ const PAGES = [
   ['home', '/home'], ['hub', '/pm/hub'], ['todos', '/pm/todos'], ['calendar', '/pm/calendar'],
   ['materials', `/sites/${S1}/materials`], ['schedule', `/sites/${S1}/schedule`], ['snags', `/sites/${S1}/snagging/list`], ['jobhome', `/sites/${S1}`],
   ['siteadmin', `/sites/${S1}/admin`], ['checkin', `/sites/${S1}/checkin`],
-  ['quotes', '/pm/quotes'], ['quote', '/pm/quotes/q1'], ['quote2', '/pm/quotes/q2'], ['quotenew', '/pm/quotes/new'], ['qsettings', '/pm/quotes/settings'], ['quoted', '/pm/quotes?tab=quoted'], ['dash', '/pm/dashboard'], ['hr', '/pm/hr'],
+  ['quotes', '/pm/quotes'], ['quote', '/pm/quotes/q1'], ['quote2', '/pm/quotes/q2'], ['quotenew', '/pm/quotes/new'], ['qsettings', '/pm/quotes/settings'], ['quoted', '/pm/quotes?tab=quoted'], ['dash', '/pm/dashboard'], ['dashes', '/pm/dashboards'], ['hr', '/pm/hr'], ['hrpol', '/pm/hr/policies'], ['hrhol', '/pm/hr/holidays'],
 ];
 (async () => {
   const browser = await chromium.launch(); const errs = [];

@@ -112,11 +112,11 @@ export default function Policies() {
             toast((await signPolicies(me, toSign.map((p) => p.id))) ? 'Signed' : 'Could not sign — try again.'); refresh();
           }} /> : policies.length ? <Text style={{ color: base.ok, fontWeight: '600', marginBottom: 10 }}>✓ You&apos;ve signed every policy.</Text> : null}
           {policies.length ? policies.map((p) => row(p, false)) : <Empty>No policies uploaded yet.</Empty>}
-          {isAdmin && <Button kind="ghost" busy={busy} title="+ Upload policies (PDF or Word, several at once)" onPress={() => void upload('policy')} />}
+          {isAdmin && <View style={{ marginBottom: 22 }}><Button kind="ghost" busy={busy} title="+ Upload Policies (PDF Or Word, Several At Once)" onPress={() => void upload('policy')} /></View>}
           <SectionTitle>Company handbook</SectionTitle>
           <Muted style={{ marginBottom: 8 }}>Read it, then sign it on its own — it isn&apos;t part of &quot;Sign all&quot;.</Muted>
           {handbooks.length ? handbooks.map((p) => row(p, true)) : <Empty>No handbook uploaded yet.</Empty>}
-          {isAdmin && <Button kind="ghost" busy={busy} title="+ Upload handbook (PDF or Word)" onPress={() => void upload('handbook')} />}
+          {isAdmin && <View style={{ marginBottom: 22 }}><Button kind="ghost" busy={busy} title="+ Upload Handbook (PDF Or Word)" onPress={() => void upload('handbook')} /></View>}
         </>
       )}
     </ScrollView>

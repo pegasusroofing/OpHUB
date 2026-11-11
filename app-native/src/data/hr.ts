@@ -14,7 +14,7 @@ import type { Profile } from '@/lib/types';
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
 
-export type HrSettings = { max_off_at_once: number; approval_required: boolean; type_codes: Record<string, string> };
+export type HrSettings = { max_off_at_once: number; approval_required: boolean; type_codes: Record<string, string>; approvers?: string[] | null };
 export type HrPerson = { id: string; name: string; role: string };
 export type HrData = { settings: HrSettings; people: HrPerson[]; hp: Record<string, { allowance_days: number | null; colour: string | null }>; leave: Leave[]; allLeave: Leave[] };
 
@@ -75,11 +75,19 @@ export async function bookLeave(me: Profile, uid: string, b: { type: string; sta
   }
   return { ok: true, pending: status === 'pending' };
 }
-export async function decideLeave(me: Profile, id: string, ok: boolean, overrode: boolean): Promise<boolean> {
-  return !!(await db.from('hr_leave').update({ status: ok ? 'approved' : 'rejected', decided_by: me.id, decided_at: new Date().toISOString(), ...(ok && overrode ? { override_limit: true } : {}) } as never).eq('id', id).select('id')).data?.length;
+/** Approve or decline. 'held' when the database kept the old status (an approver who isn't an admin, before the approver
+ *  SQL is run). */
+export async function decideLeave(me: Profile, id: string, ok: boolean, overrode: boolean): Promise<boolean | 'held'> {
+  const r = (await db.from('hr_leave').update({ status: ok ? 'approved' : 'rejected', decided_by: me.id, decided_at: new Date().toISOString(), ...(ok && overrode ? { override_limit: true } : {}) } as never).eq('id', id).select('id,status')).data as { status: string }[] | null;
+  if (!r?.length) return false;
+  return r[0].status === (ok ? 'approved' : 'rejected') ? true : 'held';
 }
 export async function cancelLeave(id: string): Promise<boolean> {
   return !!(await db.from('hr_leave').update({ status: 'cancelled' } as never).eq('id', id).select('id')).data?.length;
+}
+/** Who approves holidays (Andy, 11 Nov 2026): set by an admin; none chosen means the admins. */
+export async function saveApprovers(me: Profile, ids: string[]): Promise<boolean> {
+  return !(await db.from('hr_settings').upsert({ org_id: me.org_id, approvers: ids, updated_at: new Date().toISOString() } as never, { onConflict: 'org_id' })).error;
 }
 export async function saveHrSettings(me: Profile, max: number, codes: Record<string, string>, people: { user_id: string; allowance_days: number; colour: string }[]): Promise<boolean> {
   const now = new Date().toISOString();
