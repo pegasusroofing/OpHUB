@@ -132,13 +132,13 @@ export function FinJobTabs({ id, active, job, name, onOverview }: { id: string; 
           <Text style={{ color: t.brand1Text, fontSize: 12.5, fontWeight: '600' }}>+ New</Text><Text style={{ color: t.brand1Text, fontSize: 11 }}>▾</Text>
         </Pressable>
       </View>
-      <FinTabRow style={{ marginTop: 6, marginBottom: 0 }}>
-        {tabs.map(([k, l]) => (
-          <Pressable key={k} onPress={() => go(k)} style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: current === k ? t.brand1 : 'transparent' }}>
+      <View style={{ marginTop: 6, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' }}>
+        <KeepInView on={current} items={tabs} render={(k, l) => (
+          <Pressable onPress={() => go(k)} accessibilityRole="tab" accessibilityState={{ selected: current === k }} style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: current === k ? t.brand1 : 'transparent' }}>
             <Text style={{ fontSize: 13, fontWeight: current === k ? '700' : '600', color: current === k ? '#111827' : '#6b7280' }}>{l}</Text>
           </Pressable>
-        ))}
-      </FinTabRow>
+        )} />
+      </View>
     </View>
   );
 }
@@ -195,13 +195,14 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide, to
         <>
           {/* A page with no second row (Projects) puts its button at the end of this row (Andy, 5 Nov 2026). */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, marginBottom: 10 }}>
-          <FinTabRow style={{ flex: 1, minWidth: 0, marginBottom: 0 }}>
-            {FIN_SECTIONS.map((s) => (
-              <Pressable key={s.k} onPress={() => router.replace(s.go as never)} style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: s.k === section ? t.brand1 : 'transparent' }}>
-                <Text style={{ fontSize: 13, fontWeight: s.k === section ? '700' : '600', color: s.k === section ? '#111827' : '#6b7280' }}>{s.l}</Text>
+          {/* The tab you're on is scrolled into the middle of the row (Andy, 11 Nov 2026: in Reports it showed Overview and Projects). */}
+          <View style={{ flex: 1, minWidth: 0, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' }}>
+            <KeepInView on={section} items={FIN_SECTIONS.map((x) => [x.k, x.l] as [string, string])} render={(k, l) => (
+              <Pressable onPress={() => router.replace((FIN_SECTIONS.find((x) => x.k === k)?.go || '/fin') as never)} accessibilityRole="tab" accessibilityState={{ selected: k === section }} style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: k === section ? t.brand1 : 'transparent' }}>
+                <Text style={{ fontSize: 13, fontWeight: k === section ? '700' : '600', color: k === section ? '#111827' : '#6b7280' }}>{l}</Text>
               </Pressable>
-            ))}
-          </FinTabRow>
+            )} />
+          </View>
           {!(subs.length > 1 && onSub) && <>{subRight}{slot}</>}
           </View>
           {section === 'overview' && <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 10 }}><Text style={{ color: '#111827', fontSize: 12 }}>🔒 Finance trial — nothing is sent from Finance (no emails, no Xero, no pushes to PMs) while it&apos;s being tested.</Text></View>}
@@ -233,7 +234,7 @@ export function FinRow({ left, title, sub, right, onPress, tone, children, onMen
     <Pressable onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.input, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 4 }}>
       <View style={{ flex: 1 }}>
         <Text numberOfLines={1} style={{ fontWeight: '500', fontSize: 13.5, color: base.ink }}>{left ? `${left} · ` : ''}{title}</Text>
-        {sub ? <Text numberOfLines={2} style={{ fontSize: 11.5, color: base.slate, marginTop: 1 }}>{sub}</Text> : null}
+        {sub ? <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate, marginTop: 1 }}>{sub}</Text> : null}
         {children}
       </View>
       {/* The figure sits level with the ⋯, half way down the row (Andy, 3 Nov 2026). */}

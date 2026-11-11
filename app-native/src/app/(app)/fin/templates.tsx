@@ -56,7 +56,7 @@ function TemplateForm({ t, onClose }: { t: Partial<Tpl>; onClose: () => void }) 
         { k: 'name', label: 'Name', ph: 'e.g. Standard application', half: true },
         { k: 'kind', label: 'For', kind: 'choice', options: TPL_KINDS, half: true },
         { k: 'subject', label: 'Subject' },
-        { k: 'body', label: 'Message', kind: 'multiline' },
+        { k: 'body', label: 'Message', kind: 'multiline', tall: true },
         { k: 'is_default', label: 'Default for this kind', kind: 'check' },
         { k: 'show_logo', label: 'Show the company logo', kind: 'check' },
       ]}

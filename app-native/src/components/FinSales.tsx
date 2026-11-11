@@ -11,6 +11,7 @@ import { FinFilterBar, type FilterSel } from '@/components/FinFilterBar';
 import { FinRow, FinStat } from '@/components/FinNav';
 import { useFinRowMenu } from '@/components/FinRowMenu';
 import { Cell, FinChoicePop, FinTable, FootPick } from '@/components/FinTable';
+import { PhoneTable } from '@/components/PhoneTable';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
 import { raiseInvoiceFromCert } from '@/data/finApp';
@@ -137,8 +138,8 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
     const months = monthsIn(data.apps.filter(F.all), aMonth);
     return (
       <View>
-        <Muted style={{ marginBottom: 10, fontSize: 12 }}>Apply → the client certifies it (enter their figures on the application) → the invoice is raised for you. A certificate is just a certified application.</Muted>
-        {!!siteId && <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ New Application" onPress={() => void newFor('application')} /></View>}
+        {/* No text under the tabs; + New full width above the search (Andy, 11 Nov 2026). */}
+        <View style={{ marginBottom: 10 }}><Button title="+ New Application" onPress={() => void newFor('application')} /></View>
         {searchBox('Search applications')}
         {!bare && <FinFilterBar sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
           sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ...(siteId ? [] : [['job', 'Project'] as [string, string]])]} sort={sort} onSort={setSort}
@@ -159,9 +160,14 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
               { k: 'inv', l: 'Invoice', render: (a: App) => { const inv = data.invs.find((i) => i.id === a.invoice_id); return inv ? <Text accessibilityRole="link" onPress={() => router.push(`/fin/job/${a.site_id}/invoice/${inv.id}` as never)} style={{ fontSize: 12.5, fontWeight: '500', color: base.blue }}>{inv.number || 'Draft'}</Text> : appStage(a).k === 'certified' ? <Text accessibilityRole="button" onPress={() => void raise(a)} style={{ fontSize: 12.5, fontWeight: '500', color: base.blue, textAlign: 'center' }}>Raise Invoice</Text> : <Cell>—</Cell>; } },
             ]}
             footLabel={(list) => `${list.length} application${list.length === 1 ? '' : 's'}`} footRight={siteId ? undefined : monthPick(months)} />
-        ) : list.length ? list.map((a) => { const s = appStage(a); return (
-          <FinRow compact key={a.id} left={`App ${a.number}`} title={siteId ? fdate(a.valuation_date) : jobTag(site(a.site_id))} sub={[siteId ? '' : fdate(a.valuation_date), s.l, a.cert_net != null ? `certified ${money(a.cert_net)}` : ''].filter(Boolean).join(' · ')} right={money(a.cert_net ?? a.net_due)} tone={s.c} onMenu={() => void rowMenu.appMenu(a, s.k)} onPress={() => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)} />
-        ); }) : <Empty>Nothing here.</Empty>}
+        ) : list.length ? (
+          <PhoneTable label="Applications" rows={list} keyOf={(a) => a.id} onRow={(a) => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)}
+            cols={[
+              { l: 'App', w: 52, main: (a) => `${a.number}`, sub: (a) => fdate(a.valuation_date) },
+              { l: siteId ? 'Stage' : 'Project', main: (a) => (siteId ? appStage(a).l : jobTag(site(a.site_id))), sub: (a) => (siteId ? '' : appStage(a).l) },
+              { l: 'Amount', w: 88, right: true, bold: true, main: (a) => money(a.cert_net ?? a.net_due), sub: (a) => (a.cert_net != null ? 'Certified' : 'Applied') },
+            ]} />
+        ) : <Empty>Nothing here.</Empty>}
         {rowMenu.form}
       </View>
     );
@@ -175,7 +181,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
     const months = monthsIn(live, iMonth);
     return (
       <View>
-        {!!siteId && <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ New Invoice" onPress={() => void newFor('invoice')} /></View>}
+        <View style={{ marginBottom: 10 }}><Button title="+ New Invoice" onPress={() => void newFor('invoice')} /></View>
         {searchBox('Search invoices')}
         {!bare && <FinFilterBar sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
           sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['client', 'Client A to Z']]} sort={sort} onSort={setSort}
@@ -199,10 +205,14 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
               { k: 's', l: 'Status', min: 76, noSort: true, choices: ['Draft', 'Issued', 'Sent', 'Part paid', 'Paid', 'Overdue'], render: (i: Inv) => <View style={{ alignItems: 'center' }}>{(() => { const c = invOverdue(i) ? '#C0392B' : i.status === 'paid' ? '#1E7A43' : i.status === 'draft' ? '#6b7280' : i.status === 'part_paid' ? '#B35A00' : '#1d4ed8'; return <Text style={{ fontSize: 10.5, fontWeight: '600', color: c, backgroundColor: `${c}1A`, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 8, overflow: 'hidden' }}>● {invOverdue(i) ? 'Overdue' : INV_STATUS[i.status] || i.status}</Text>; })()}{xeroTag(i) ? <Text style={{ fontSize: 10.5, color: base.slate }}>{xeroTag(i)}</Text> : null}</View> },
             ]}
             footLabel={(list) => `${list.length} invoice${list.length === 1 ? '' : 's'} · Owed ${money(list.reduce((t, i) => t + invOutstandingNet(i), 0))}`} footRight={siteId ? undefined : monthPick(months)} />
-        ) : list.length ? list.map((i) => {
-          const od = invOverdue(i), o = invOutstanding(i);
-          return <FinRow compact key={i.id} left={i.number || 'Draft'} title={siteId ? (billTo(i) || '—') : jobTag(site(i.site_id))} sub={[siteId ? '' : billTo(i), i.issue_date ? fdate(i.issue_date) : '', INV_STATUS[i.status] || i.status, o ? `${money(o)} owed${od ? ' — overdue' : ''}` : ''].filter(Boolean).join(' · ')} right={money(i.total)} tone={od ? '#C0392B' : undefined} onMenu={() => void rowMenu.invMenu(i)} onPress={() => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)} />;
-        }) : <Empty>No invoices here.</Empty>}
+        ) : list.length ? (
+          <PhoneTable label="Invoices" rows={list} keyOf={(i) => i.id} onRow={(i) => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)}
+            cols={[
+              { l: 'Invoice', w: 74, main: (i) => i.number || 'Draft', sub: (i) => (i.issue_date ? fdate(i.issue_date) : 'Not issued') },
+              { l: siteId ? 'Client' : 'Project', main: (i) => (siteId ? billTo(i) || '—' : jobTag(site(i.site_id))), sub: (i) => (siteId ? '' : billTo(i)) },
+              { l: 'Gross', w: 84, right: true, bold: true, main: (i) => money(i.total), sub: (i) => (invOverdue(i) ? 'Overdue' : INV_STATUS[i.status] || i.status), tone: (i) => (invOverdue(i) ? '#C0392B' : undefined) },
+            ]} />
+        ) : <Empty>No invoices here.</Empty>}
         {rowMenu.form}
         {(() => {
           const voided = data.invs.filter((i) => i.status === 'void' && (!sel.mon.length || sel.mon.includes(iMonth(i))) && (!ql || `${i.number || ''} ${billTo(i)} ${i.bill_address || ''} ${jobTag(site(i.site_id))}`.toLowerCase().includes(ql)));
@@ -214,7 +224,6 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
             </View>
           );
         })()}
-        <Muted style={{ marginTop: 10 }}>Record money received on the invoice itself.</Muted>
       </View>
     );
   }
@@ -224,28 +233,27 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   const rows = sites.filter((s) => !siteId || s.id === siteId).map((s) => ({ s, held: retentionStillHeld(appsBy[s.id] || [], jfBy[s.id], data.invs), jf: jfBy[s.id] || {} })).filter((x) => x.held)
     .filter((x) => !ql || `${jobTag(x.s)} ${x.s.client_name || ''}`.toLowerCase().includes(ql));
   const total = round2(rows.reduce((t, x) => t + x.held, 0));
+  // The next release date for a job, as words: the dates themselves are set on the project (Andy, 11 Nov 2026).
+  const nextRelease = (x: (typeof rows)[number]) => { const d = retentionDates(x.jf, st || {}); const one = !(x.jf.ret1_invoice_id || x.jf.ret1_app_id) && d.first ? d.first : null; const two = !(x.jf.ret2_invoice_id || x.jf.ret2_app_id) && d.second ? d.second : null; const n = one || two; return n ? fdate(n) : 'Not Set'; };
   return (
     <View>
-      <Muted style={{ marginBottom: 10 }}>Money your clients are holding back until the work is signed off: {money(total)} across {rows.length} job{rows.length === 1 ? '' : 's'}. Half usually comes back at practical completion and half at the end of the defects period — set the dates here (they save to the project) to get reminders.</Muted>
       {desk && rows.length ? (
         <FinTable rows={rows} keyOf={(x) => x.s.id} onRow={(x) => router.push(`/fin/job/${x.s.id}?tab=setup` as never)}
           cols={[
             { k: 'p', l: 'Project', flex: 1.8, min: 180, render: (x) => <Cell bold>{jobTag(x.s)}</Cell> },
             { k: 'c', l: 'Client', flex: 1.4, min: 140, render: (x) => <Cell>{x.s.client_name || '—'}</Cell> },
-            { k: 'f', l: '1st Retention Release', render: (x) => { const d = retentionDates(x.jf, st || {}); return <RetDateBox d={d.first} claimed={!!(x.jf.ret1_invoice_id || x.jf.ret1_app_id)} label="Practical completion date" onPick={(v) => void setRetDate(x.s.id, 1, x.jf, v)} />; } },
-            { k: 's', l: 'Final Retention Release', render: (x) => { const d = retentionDates(x.jf, st || {}); return <RetDateBox d={d.second} claimed={!!(x.jf.ret2_invoice_id || x.jf.ret2_app_id)} label="Final retention release date" onPick={(v) => void setRetDate(x.s.id, 2, x.jf, v)} />; } },
+            { k: 'nx', l: 'Next Release', render: (x) => <Cell>{nextRelease(x)}</Cell> },
             { k: 'h', l: 'Still Held', total: (l) => money(round2(l.reduce((t, x) => t + x.held, 0))), render: (x) => <Cell bold>{money(x.held)}</Cell> },
           ]}
           footLabel={(left) => `${left.length} job${left.length === 1 ? '' : 's'}`} />
-      ) : rows.length ? rows.map((x) => { const d = retentionDates(x.jf, st || {}); return (
-        <View key={x.s.id}>
-          <FinRow title={jobTag(x.s)} sub={x.s.client_name || undefined} right={money(x.held)} onPress={() => router.push(`/fin/job/${x.s.id}?tab=setup` as never)} />
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: -2, marginBottom: 8, paddingHorizontal: 4 }}>
-            <View style={{ flex: 1 }}><Muted style={{ fontSize: 11 }}>1st release</Muted><RetDateBox d={d.first} claimed={!!(x.jf.ret1_invoice_id || x.jf.ret1_app_id)} label="Practical completion date" onPick={(v) => void setRetDate(x.s.id, 1, x.jf, v)} /></View>
-            <View style={{ flex: 1 }}><Muted style={{ fontSize: 11 }}>Final release</Muted><RetDateBox d={d.second} claimed={!!(x.jf.ret2_invoice_id || x.jf.ret2_app_id)} label="Final retention release date" onPick={(v) => void setRetDate(x.s.id, 2, x.jf, v)} /></View>
-          </View>
-        </View>
-      ); }) : <Empty>No retention held.</Empty>}
+      ) : rows.length ? (
+        <PhoneTable label="Retention" rows={rows} keyOf={(x) => x.s.id} onRow={(x) => router.push(`/fin/job/${x.s.id}?tab=setup` as never)}
+          cols={[
+            { l: 'Project', main: (x) => jobTag(x.s), sub: (x) => x.s.client_name || '' },
+            { l: 'Next Release', w: 92, main: (x) => nextRelease(x) },
+            { l: 'Held', w: 80, right: true, bold: true, main: (x) => money(x.held) },
+          ]} />
+      ) : <Empty>No retention held.</Empty>}
       {!desk && rows.length > 0 && <Card><Text style={{ fontWeight: '600', color: base.ink }}>{rows.length} job{rows.length === 1 ? '' : 's'} · {money(total)} still held</Text></Card>}
     </View>
   );
@@ -269,12 +277,15 @@ export function SalesStats() {
   const applied = data.apps.filter((a) => !['draft', 'void'].includes(a.status) && inPeriod(aDate(a), pA)).reduce((t, a) => t + Number(a.net_due || 0), 0);
   const invoiced = live.filter((i) => i.status !== 'draft' && inPeriod(i.issue_date, pI)).reduce((t, i) => t + Number(i.net || 0), 0);
   const overdue = live.filter((i) => invOverdue(i) && inPeriod(i.due_date, pD)).reduce((t, i) => t + invOutstandingNet(i), 0);
-  const waiting = data.apps.filter((a) => appStage(a).k === 'submitted' && inPeriod(aDate(a), pN)).reduce((t, a) => t + Number(a.net_due || 0), 0);
+  // The last tile: retention still held by clients, every job (Andy, 11 Nov 2026).
+  const jfBy2: Record<string, JobFin> = {}; data.jf.forEach((r) => { jfBy2[r.site_id] = r; });
+  const appsBy2: Record<string, App[]> = {}; data.apps.forEach((a) => { (appsBy2[a.site_id] = appsBy2[a.site_id] || []).push(a); });
+  const retOwed = round2(Object.keys(appsBy2).reduce((t, sid) => t + retentionStillHeld(appsBy2[sid] || [], jfBy2[sid], data.invs), 0));
   const to = (tab: string, f: string) => () => router.setParams({ tab, f });
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
       <FinStat tone="blue" v={money(applied, 0)} label={`Applied Value · ${pA.label}`} onPress={to('apps', 'all')} onMenu={() => void pick('s_appv', 'month')} /><FinStat tone="green" v={money(invoiced, 0)} label={`Invoiced Value · ${pI.label}`} onPress={to('invoices', 'all')} onMenu={() => void pick('s_invv', 'month')} />
-      <FinStat tone="red" v={money(overdue, 0)} label={`Overdue · ${pD.label}`} onPress={to('invoices', 'overdue')} onMenu={() => void pick('s_over', 'all')} /><FinStat tone="amber" v={money(waiting, 0)} label={`Applied, Not Certified Or Invoiced · ${pN.label}`} onPress={to('apps', 'open')} onMenu={() => void pick('s_anc', 'all')} />
+      <FinStat tone="red" v={money(overdue, 0)} label={`Overdue · ${pD.label}`} onPress={to('invoices', 'overdue')} onMenu={() => void pick('s_over', 'all')} /><FinStat tone="amber" v={money(retOwed, 0)} label="Retention Owed Total" onPress={to('retention', '')} />
     </View>
   );
 }

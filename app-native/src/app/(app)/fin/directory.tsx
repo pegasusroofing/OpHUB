@@ -10,6 +10,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { FinForm, type Field } from '@/components/FinForm';
 import { FinFilterBar } from '@/components/FinFilterBar';
 import { FinPage, finSettingsGo, FinRow } from '@/components/FinNav';
+import { SubsStats, useSubsBadges } from '@/components/FinSubs';
 import { useXeroStatus } from '@/components/FinXero';
 import { XeroWorkersButton } from '@/components/FinXeroWorkers';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
@@ -44,6 +45,8 @@ export default function FinDirectory() {
   // Cost codes live under Settings; People & rates keeps the Subcontractors tabs when opened from there.
   const section = kind === 'codes' ? 'settings' : kind === 'labour' && from === 'subs' ? 'subs' : 'directory';
   const subTab = section === 'subs' ? 'rates' : kind;
+  // People & Rates keeps the Subcontractors & Labour tiles and counts (Andy, 11 Nov 2026: "the tiles disappear").
+  const subsBadges = useSubsBadges();
   const { me } = useAuth();
   // The company's VAT rates (Finance Settings): switched-off ones still show on records that use them.
   const { data: fst } = useFinSettings(me?.org_id);
@@ -134,7 +137,7 @@ export default function FinDirectory() {
       toast('Added from the sign-up form — check their CIS status with HMRC'); refresh();
     };
     return (
-      <FinPage title="Directory" section={section} sub={subTab} onSub={onSub}>
+      <FinPage title="Directory" section={section} sub={subTab} onSub={onSub} badges={section === 'subs' ? subsBadges : undefined} top={section === 'subs' ? <SubsStats /> : undefined}>
         <Muted style={{ marginBottom: 10 }}>Subcontractors who invoice you under CIS, and PAYE staff. Check each subbie&apos;s CIS status with HMRC before you pay them.</Muted>
         {waiting.length > 0 && (
           <View style={{ borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, padding: 10, marginBottom: 10, backgroundColor: base.card }}>
@@ -264,7 +267,7 @@ export default function FinDirectory() {
   })();
   const list = merged.filter((c) => !ql || `${c.name} ${c.email || ''} ${c.category || ''}`.toLowerCase().includes(ql));
   return (
-    <FinPage title="Directory" section={section} sub={subTab} onSub={onSub}>
+    <FinPage title="Directory" section={section} sub={subTab} onSub={onSub} badges={section === 'subs' ? subsBadges : undefined} top={section === 'subs' ? <SubsStats /> : undefined}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <Text style={{ flex: 1, minWidth: 200, fontSize: 12, color: '#6b7280' }}>{list.length} {sup ? 'supplier' : 'client'}{list.length === 1 ? '' : 's'} · {list.filter((c) => c.xero_contact_id).length} in Xero. {sup ? 'Tap one to set VAT, payment terms and a default cost code.' : 'New clients you add here go into Xero too.'}</Text>
         <Pressable disabled={busy} onPress={() => void pull()} style={{ borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12 }}><Text style={{ fontSize: 12, fontWeight: '500', color: base.ink }}>{busy ? 'Pulling…' : '⟳ Pull from Xero'}</Text></Pressable>

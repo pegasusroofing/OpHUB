@@ -46,7 +46,7 @@ export default function FinSettings() {
   const setSeeCosts = async (p: Profile, on: boolean) => {
     const r = await fdb.from('profiles').update({ see_costs: on } as never).eq('id', p.id).select('see_costs');
     const ok = !r.error && ((r.data as { see_costs: boolean }[] | null) ?? [])[0]?.see_costs === on;
-    toast(!ok ? 'Only an admin with Finance can change this.' : on ? 'They can now see material costs' : 'Material costs hidden from them');
+    if (!ok) toast('Only an admin with Finance can change this.');
     void refetchTeam();
   };
   const newInboxKey = async () => {
@@ -67,7 +67,7 @@ export default function FinSettings() {
   const canEditCosts = me.role === 'admin' && isFinanceUser(me, org);
   const initial = { ...s, po_enabled: !!s.po_enabled, pi_auto_approve: s.pi_auto_approve !== false, expenses_user: s.expenses_user || '', po_vat_default: String(s.po_vat_default || '20'), auto_job_numbers: !!o?.auto_job_numbers, job_number_prefix: o?.job_number_prefix || '', next_job_number: o?.next_job_number ?? '' };
   const xs = xero?.data, xErr = xero?.error;
-  const EDIT_TITLE: Record<string, string> = { nums: 'Project numbers', po: 'Purchase orders', pi: 'Purchase invoices', vat: 'Default VAT', inv: 'Invoice numbers', def: 'Defaults for new projects', ohp: 'Company overheads (OHP)', bill: 'On your invoices' };
+  const EDIT_TITLE: Record<string, string> = { nums: 'Project numbers', po: 'Purchase orders', pi: 'Purchase invoices', vat: 'Default VAT (Sales And Purchases)', inv: 'Invoice numbers', def: 'Defaults for new projects', ohp: 'Company overheads (OHP)', bill: 'On your invoices' };
   const EDIT_FIELDS: Record<string, Field[]> = {
     nums: [{ k: 'auto_job_numbers', label: 'Number new projects automatically', kind: 'check' }, { k: 'job_number_prefix', label: 'Project number prefix', half: true }, { k: 'next_job_number', label: 'Next project number', kind: 'number', half: true }],
     inv: [{ k: 'invoice_prefix', label: 'Invoice prefix', half: true }, { k: 'next_invoice_number', label: 'Next invoice number', kind: 'number', half: true }],
@@ -76,92 +76,16 @@ export default function FinSettings() {
     // Approve by themselves when nothing looks wrong (Andy, 5 Nov 2026). Blank counts as on.
     pi: [{ k: 'pi_auto_approve', label: 'Approve purchase invoices automatically when nothing looks wrong (filed to a project, supplier in your Directory, not over its PO, not a duplicate)', kind: 'check' },
       { k: 'expenses_user', label: 'Expense Receipts Go To', kind: 'choice', options: [['', 'Nobody Chosen (Any Finance User)'], ...finPeople.map((p) => [p.id, p.name] as [string, string])] }],
-    vat: [{ k: 'default_vat', label: 'Default VAT', kind: 'choice', options: Object.entries(FIN_VAT_LABEL) }],
+    vat: [{ k: 'default_vat', label: 'Default VAT On Sales (Invoices And Applications)', kind: 'choice', options: Object.entries(FIN_VAT_LABEL) }, { k: 'po_vat_default', label: 'Default VAT On Purchases (New PO Lines)', kind: 'choice', options: vatList(s).filter((x) => x.active || x.code === String(s.po_vat_default || '20')).map((x) => [x.code, x.name] as [string, string]) }],
     ohp: [{ k: 'ohp_pct', label: 'Company overheads %', kind: 'number' }],
     bill: [{ k: 'company_address', label: 'Company address', kind: 'multiline' }, { k: 'company_vat_no', label: 'VAT number', half: true }, { k: 'company_reg_no', label: 'Company number', half: true }, { k: 'bank_name', label: 'Bank', half: true }, { k: 'bank_account_name', label: 'Account name', half: true }, { k: 'bank_sort_code', label: 'Sort code', half: true }, { k: 'bank_account_no', label: 'Account number', half: true }, { k: 'invoice_footer', label: 'Invoice footer', kind: 'multiline' }, { k: 'contractor_utr', label: 'Contractor UTR (CIS)', half: true }, { k: 'employer_ref', label: 'Employer reference', half: true }],
   };
   // Overheads are for company admins only (as in the current app).
   const editBtn = (k: string) => (k === 'ohp' && me.role !== 'admin'
     ? <Muted style={{ marginTop: 4 }}>Only a company admin can change this.</Muted>
-    : <View style={{ alignSelf: 'flex-start', marginTop: 4 }}><Button small title="Edit" onPress={() => setEdit(k)} /></View>);
-  return (
-    <FinPage title="Finance settings" section="settings" sub="general" onSub={(k) => { if (k !== 'general') finSettingsGo(k); }}>
-      {/* Each part opens on its own, with its own Edit (Andy, 2 Nov 2026). */}
-      {([
-        ['costs', 'Who can see material costs', 'eye', []],
-        ['nums', 'Project numbers', 'hash', [['Project numbers', o?.auto_job_numbers ? `Automatic · next ${o.job_number_prefix || ''}${o.next_job_number ?? ''}` : 'Typed by hand']]],
-        ['po', 'Purchase orders', 'reports', [['Raise a PO for every PM’s order', s.po_enabled ? 'On' : 'Off'], ['VAT on new PO lines', vatList(s).find((x) => x.code === String(s.po_vat_default || '20'))?.name || String(s.po_vat_default || '20')]]],
-        ['pi', 'Purchase invoices', 'reports', [['Approve automatically when nothing looks wrong', s.pi_auto_approve === false ? 'Off' : 'On'], ['Expense receipts go to', s.expenses_user ? nameOf(people, s.expenses_user) : 'Nobody chosen']]],
-        ['vat', 'VAT rates', 'percent', [['Default VAT', FIN_VAT_LABEL[s.default_vat] || '—']]],
-        ['inv', 'Invoice numbers', 'list', [['Next invoice number', `${s.invoice_prefix || ''}${s.next_invoice_number ?? ''}`]]],
-        ['def', 'Defaults for new projects', 'gear', [['Retention', `${s.default_retention_pct ?? 5}%`], ['Payment terms', `${s.default_due_days ?? 30} days · final ${s.default_final_days ?? 14} days`], ['Application date', s.app_reminder_day ? `${s.app_reminder_day} of each month` : 'Not set']]],
-        ['ohp', 'Company overheads (OHP)', 'chart', [['Company overheads', `${s.ohp_pct ?? 0}%`]]],
-        ['bill', 'On your invoices', 'building', [['Company address', s.company_address || '—'], ['VAT no.', s.company_vat_no || '—'], ['Company no.', s.company_reg_no || '—'], ['Bank', [s.bank_name, s.bank_account_name, s.bank_sort_code, s.bank_account_no].filter(Boolean).join(' · ') || '—'], ['Contractor UTR (CIS)', s.contractor_utr || '—'], ['Employer ref', s.employer_ref || '—']]],
-        ['inbox', 'Invoice inbox (email)', 'mail', []],
-        ['xero', 'Xero', 'link', []],
-        ['onedrive', 'OneDrive', 'cloud', []],
-      ] as [string, string, string, [string, string][]][]).map(([k, title, ic, rows]) => {
-        const on = openS.includes(k);
-        return (
-          <View key={k} style={{ marginBottom: 4 }}>
-            <Pressable onPress={() => setOpenS(on ? openS.filter((x) => x !== k) : [...openS, k])} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 10 }}>
-              <OphIcon name={ic} size={16} color={base.slate} />
-              <Text style={{ flex: 1, fontWeight: '600', color: '#111827', fontSize: 13 }}>{title}</Text>
-              <View style={{ transform: [{ rotate: on ? '90deg' : '0deg' }] }}><OphIcon name="chevron" size={14} color={base.slate} /></View>
-            </Pressable>
-            {on && (
-              <Card style={{ marginTop: 4, marginBottom: 4 }}>
-                {/* OneDrive (Andy, 8 Nov 2026): the same page as Admin › OneDrive in Projects. */}
-                {k === 'onedrive' ? (
-                  <>
-                    <Muted style={{ marginBottom: 8 }}>The OneDrive connection, a folder for every new job, and where things save (applications, invoices, and everything from Projects).</Muted>
-                    <View style={{ alignSelf: 'flex-start' }}><Button small title="Open OneDrive Settings ›" onPress={() => router.push('/fin/onedrive' as never)} /></View>
-                  </>
-                ) : k === 'costs' ? (
-                  <>
-                    <Muted style={{ marginBottom: 8 }}>Prices on project quotes (and in the Materials tile) are hidden from everyone except Finance users and the people switched on here.</Muted>
-                    {!team ? <Muted>Loading…</Muted> : team.length ? team.map((p) => (
-                      <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
-                        <Text style={{ flex: 1, color: base.ink }}>{p.name} <Text style={{ fontSize: 12, color: base.slate, fontStyle: 'italic' }}>{roleLabel(p)}</Text></Text>
-                        {canEditCosts
-                          ? <Pressable onPress={() => void setSeeCosts(p, !p.see_costs)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <View style={{ width: 36, height: 20, borderRadius: 10, backgroundColor: p.see_costs ? '#15803d' : '#d1d5db', padding: 2, alignItems: p.see_costs ? 'flex-end' : 'flex-start' }}><View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff' }} /></View>
-                              <Text style={{ fontWeight: '500', color: base.ink, minWidth: 54 }}>{p.see_costs ? 'Can see' : 'Hidden'}</Text>
-                            </Pressable>
-                          : <Text style={{ fontWeight: '500', color: base.ink }}>{p.see_costs ? 'Can see' : 'Hidden'}</Text>}
-                      </View>
-                    )) : <Muted>Nobody else in the team yet.</Muted>}
-                    {!canEditCosts && <Muted style={{ marginTop: 6 }}>Only an admin with Finance can change these.</Muted>}
-                  </>
-                ) : k === 'inbox' ? (
-                  <>
-                    <Muted style={{ marginBottom: 8 }}>Set up a shared mailbox such as invoices@ in Microsoft 365, and have its attachments sent to the address below — Power Automate (“When a new email arrives in a shared mailbox” → HTTP POST), Zapier or Make can all do this. Purchase invoices then appear in Finance › Purchases › Purchase invoices, already read. Keep this address private: anyone with it can add invoices to your inbox.</Muted>
-                    {FIN_TRIAL && <Muted style={{ marginBottom: 8, color: '#b45309' }}>While Finance is on trial, invoices that arrive are kept but not read or filed automatically — allocate them by hand.</Muted>}
-                    {!!s.inbox_key && (
-                      <>
-                        <Text selectable style={{ fontSize: 12, color: base.ink, backgroundColor: '#F6F7F9', borderRadius: 6, padding: 8 }}>{`${SUPABASE_URL}/functions/v1/finance-inbox?key=${s.inbox_key}`}</Text>
-                        <Muted style={{ marginTop: 6, fontSize: 12 }}>Send JSON: {'{"from": "...", "subject": "...", "attachments": [{"filename": "...", "content_type": "application/pdf", "content_base64": "..."}]}'}. Power Automate’s own attachment format (Name, ContentType, ContentBytes) also works.</Muted>
-                      </>
-                    )}
-                    {me.role === 'admin' && <View style={{ marginTop: 8 }}><Button kind="ghost" title={s.inbox_key ? 'Make a new key (stops the old one)' : 'Make an inbox key'} onPress={() => void newInboxKey()} /></View>}
-                  </>
-                ) : k === 'xero' ? (
-                  <>
-                    {xErr ? <Muted>{/not_configured|not connected/i.test(xErr) ? 'Xero isn’t connected.' : `Xero: ${xErr}`}</Muted> : xs ? <Text style={{ color: xs.connected ? '#1E7A3C' : base.slate }}>{xs.connected ? `Connected${xs.tenant_name ? ` to ${xs.tenant_name}` : ''}` : 'Not connected'}</Text> : <Muted>Checking…</Muted>}
-                    {FIN_TRIAL && <Muted style={{ marginTop: 6 }}>While Finance is on trial nothing is posted to Xero. Reading and adding clients and suppliers still works.</Muted>}
-                    {xs?.connected && me.role === 'admin' && <XeroSettings s={s} />}
-                    {xs && !xs.connected && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Connect Xero" onPress={async () => { const r = await finInvoke<Row>(me, 'xero', { action: 'connect', origin: Platform.OS === 'web' ? window.location.origin : null }); if (r.error || !r.data?.url) { toast(r.error || 'Could not start the Xero connection.'); return; } if (Platform.OS === 'web') window.location.href = r.data.url; else void Linking.openURL(r.data.url); }} /></View>}
-                  </>
-                ) : k === 'vat' ? (
-                  <>{rows.map(([l, v]) => <FinRow compact key={l} title={l} right={v} />)}{editBtn('vat')}<VatRates s={s} canEdit={me.role === 'admin' && isFinanceUser(me, org)} onSaved={() => void qc.invalidateQueries({ queryKey: ['finSettings'] })} /></>
-                ) : <>{rows.map(([l, v]) => <FinRow compact key={l} title={l} right={v} />)}{editBtn(k)}</>}
-              </Card>
-            )}
-          </View>
-        );
-      })}
-      {edit && (
-        <FinForm title={EDIT_TITLE[edit] || 'Finance settings'} initial={initial} onClose={() => setEdit(null)}
+    : <View style={{ alignSelf: 'flex-start', marginTop: 4 }}><Button small title="Edit" onPress={() => { setEdit(k); if (!openS.includes(k)) setOpenS([...openS, k]); }} /></View>);
+  const editForm = edit ? (
+        <FinForm inline title={EDIT_TITLE[edit] || 'Finance settings'} initial={initial} onClose={() => setEdit(null)}
           fields={EDIT_FIELDS[edit] || []}
           onSave={async (v) => {
             // Only this part's boxes are checked and saved, so a blank elsewhere can't stop it.
@@ -191,7 +115,7 @@ export default function FinSettings() {
             }
             if (edit === 'pi') { body.pi_auto_approve = !!v.pi_auto_approve; body.expenses_user = String(v.expenses_user || '') || null; }
             if (edit === 'po') Object.assign(body, { po_enabled: !!v.po_enabled, po_vat_default: String(v.po_vat_default || '20') });
-            if (edit === 'vat') body.default_vat = v.default_vat || 'standard';
+            if (edit === 'vat') { body.default_vat = v.default_vat || 'standard'; body.po_vat_default = String(v.po_vat_default || '20'); }
             if (edit === 'ohp') { const oh = num(v.ohp_pct); if (oh === null || isNaN(oh) || oh < 0 || oh > 100) return 'Overheads must be between 0 and 100%.'; body.ohp_pct = oh; }
             if (edit === 'bill') ['contractor_utr', 'employer_ref', 'company_address', 'company_vat_no', 'company_reg_no', 'bank_name', 'bank_account_name', 'bank_sort_code', 'bank_account_no', 'invoice_footer'].forEach((k) => { body[k] = t(k); });
             let orgNote = '';
@@ -206,7 +130,108 @@ export default function FinSettings() {
             }
             toast(orgNote ? orgNote.trim() : 'Saved'); ['finSettings', 'finOrgNums'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); return null;
           }} />
-      )}
+  ) : null;
+  return (
+    <FinPage title="Finance settings" section="settings" sub="general" onSub={(k) => { if (k !== 'general') finSettingsGo(k); }}>
+      {/* Each part opens on its own, with its own Edit (Andy, 2 Nov 2026). */}
+      {([
+        ['costs', 'Who can see material costs', 'eye', []],
+        ['nums', 'Project numbers', 'hash', [['Project numbers', o?.auto_job_numbers ? `Automatic · next ${o.job_number_prefix || ''}${o.next_job_number ?? ''}` : 'Typed by hand']]],
+        ['po', 'Purchase orders', 'reports', [['Raise a PO for every PM’s order', s.po_enabled ? 'On' : 'Off'], ['VAT on new PO lines', vatList(s).find((x) => x.code === String(s.po_vat_default || '20'))?.name || String(s.po_vat_default || '20')]]],
+        ['pi', 'Purchase invoices', 'reports', [['Approve automatically when nothing looks wrong', s.pi_auto_approve === false ? 'Off' : 'On'], ['Expense receipts go to', s.expenses_user ? nameOf(people, s.expenses_user) : 'Nobody chosen']]],
+        ['vat', 'VAT rates', 'percent', [['Default VAT On Sales', FIN_VAT_LABEL[s.default_vat] || '—'], ['Default VAT On Purchases', vatList(s).find((x) => x.code === String(s.po_vat_default || '20'))?.name || String(s.po_vat_default || '20')]]],
+        ['inv', 'Invoice numbers', 'list', [['Next invoice number', `${s.invoice_prefix || ''}${s.next_invoice_number ?? ''}`]]],
+        ['def', 'Defaults for new projects', 'gear', [['Retention', `${s.default_retention_pct ?? 5}%`], ['Payment terms', `${s.default_due_days ?? 30} days · final ${s.default_final_days ?? 14} days`], ['Application date', s.app_reminder_day ? `${s.app_reminder_day} of each month` : 'Not set']]],
+        ['ohp', 'Company overheads (OHP)', 'chart', [['Company overheads', `${s.ohp_pct ?? 0}%`]]],
+        ['bill', 'On your invoices', 'building', [['Company address', s.company_address || '—'], ['VAT no.', s.company_vat_no || '—'], ['Company no.', s.company_reg_no || '—'], ['Bank', [s.bank_name, s.bank_account_name, s.bank_sort_code, s.bank_account_no].filter(Boolean).join(' · ') || '—'], ['Contractor UTR (CIS)', s.contractor_utr || '—'], ['Employer ref', s.employer_ref || '—']]],
+        ['inbox', 'Invoice inbox (email)', 'mail', []],
+        ['xero', 'Xero', 'link', []],
+        ['onedrive', 'OneDrive', 'cloud', []],
+      ] as [string, string, string, [string, string][]][]).map(([k, title, ic, rows]) => {
+        const on = openS.includes(k);
+        return (
+          <View key={k} style={{ marginBottom: 4 }}>
+            <Pressable onPress={() => setOpenS(on ? openS.filter((x) => x !== k) : [...openS, k])} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 10 }}>
+              <OphIcon name={ic} size={16} color={base.slate} />
+              <Text style={{ flex: 1, fontWeight: '600', color: '#111827', fontSize: 13 }}>{title}</Text>
+              <View style={{ transform: [{ rotate: on ? '90deg' : '0deg' }] }}><OphIcon name="chevron" size={14} color={base.slate} /></View>
+            </Pressable>
+            {on && (
+              <Card style={{ marginTop: 4, marginBottom: 4 }}>
+                {/* OneDrive (Andy, 8 Nov 2026): the same page as Admin › OneDrive in Projects. */}
+                {k === 'onedrive' ? (
+                  <>
+                    <Muted style={{ marginBottom: 8 }}>The OneDrive connection, a folder for every new job, and where things save (applications, invoices, and everything from Projects).</Muted>
+                    <View style={{ alignSelf: 'flex-start' }}><Button small title="Open OneDrive Settings ›" onPress={() => router.push('/fin/onedrive' as never)} /></View>
+                  </>
+                ) : k === 'costs' ? (
+                  <>
+                    <Muted style={{ marginBottom: 8 }}>Prices on project quotes (and in the Materials tile) are hidden from everyone except Finance users and the people switched on here.</Muted>
+                    {/* By role (Andy, 11 Nov 2026): Admins, PMs, Site Managers, then Operatives, each with Select All; operatives stay
+                        off unless an admin switches them on. */}
+                    {!team ? <Muted>Loading…</Muted> : team.length ? ([['admin', 'Admins'], ['pm', 'Project Managers'], ['site_manager', 'Site Managers'], ['operative', 'Operatives']] as const).map(([role, label]) => {
+                      const grp = team.filter((p) => p.role === role);
+                      if (!grp.length) return null;
+                      const onN = grp.filter((p) => p.see_costs).length, gk = `costs:${role}`, shut = !openS.includes(gk);
+                      return (
+                        <View key={role} style={{ borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9 }}>
+                            <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => setOpenS(shut ? [...openS, gk] : openS.filter((x) => x !== gk))} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Text style={{ fontWeight: '600', color: base.ink }}>{label}</Text>
+                              <Text style={{ fontSize: 12, color: base.slate }}>{onN} Of {grp.length} Can See {shut ? '▾' : '▴'}</Text>
+                            </Pressable>
+                            {canEditCosts && <Button small kind="ghost" title={onN === grp.length ? 'Untick All' : 'Select All'} onPress={async () => {
+                              const on = onN !== grp.length;
+                              if (role === 'operative' && on && !(await confirmAsk('Let every operative see material costs?', 'Yes', 'No'))) return;
+                              const r = await fdb.from('profiles').update({ see_costs: on } as never).in('id', grp.map((p) => p.id)).select('id');
+                              if (r.error || !(r.data as unknown[] | null)?.length) toast('Only an admin with Finance can change this.');
+                              void refetchTeam();
+                            }} />}
+                          </View>
+                          {role === 'operative' && <Muted style={{ fontSize: 12, marginTop: -4, marginBottom: 6 }}>Always off unless an admin switches them on.</Muted>}
+                          {!shut && grp.map((p) => (
+                            <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7, paddingLeft: 12 }}>
+                              <Text style={{ flex: 1, color: base.ink }}>{p.name}</Text>
+                              {canEditCosts
+                                ? <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: !!p.see_costs }} accessibilityLabel={`${p.name} can see material costs`} onPress={() => void setSeeCosts(p, !p.see_costs)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    <Text style={{ fontSize: 16, color: base.ink }}>{p.see_costs ? '☑' : '☐'}</Text>
+                                    <Text style={{ fontWeight: '500', color: base.ink, minWidth: 54 }}>{p.see_costs ? 'Can See' : 'Hidden'}</Text>
+                                  </Pressable>
+                                : <Text style={{ fontWeight: '500', color: base.ink }}>{p.see_costs ? 'Can See' : 'Hidden'}</Text>}
+                            </View>
+                          ))}
+                        </View>
+                      );
+                    }) : <Muted>Nobody else in the team yet.</Muted>}
+                    {!canEditCosts && <Muted style={{ marginTop: 6 }}>Only an admin with Finance can change these.</Muted>}
+                  </>
+                ) : k === 'inbox' ? (
+                  <>
+                    <Muted style={{ marginBottom: 8 }}>Set up a shared mailbox such as invoices@ in Microsoft 365, and have its attachments sent to the address below — Power Automate (“When a new email arrives in a shared mailbox” → HTTP POST), Zapier or Make can all do this. Purchase invoices then appear in Finance › Purchases › Purchase invoices, already read. Keep this address private: anyone with it can add invoices to your inbox.</Muted>
+                    {FIN_TRIAL && <Muted style={{ marginBottom: 8, color: '#b45309' }}>While Finance is on trial, invoices that arrive are kept but not read or filed automatically — allocate them by hand.</Muted>}
+                    {!!s.inbox_key && (
+                      <>
+                        <Text selectable style={{ fontSize: 12, color: base.ink, backgroundColor: '#F6F7F9', borderRadius: 6, padding: 8 }}>{`${SUPABASE_URL}/functions/v1/finance-inbox?key=${s.inbox_key}`}</Text>
+                        <Muted style={{ marginTop: 6, fontSize: 12 }}>Send JSON: {'{"from": "...", "subject": "...", "attachments": [{"filename": "...", "content_type": "application/pdf", "content_base64": "..."}]}'}. Power Automate’s own attachment format (Name, ContentType, ContentBytes) also works.</Muted>
+                      </>
+                    )}
+                    {me.role === 'admin' && <View style={{ marginTop: 8 }}><Button kind="ghost" title={s.inbox_key ? 'Make a new key (stops the old one)' : 'Make an inbox key'} onPress={() => void newInboxKey()} /></View>}
+                  </>
+                ) : k === 'xero' ? (
+                  <>
+                    {xErr ? <Muted>{/not_configured|not connected/i.test(xErr) ? 'Xero isn’t connected.' : `Xero: ${xErr}`}</Muted> : xs ? <Text style={{ color: xs.connected ? '#1E7A3C' : base.slate }}>{xs.connected ? `Connected${xs.tenant_name ? ` to ${xs.tenant_name}` : ''}` : 'Not connected'}</Text> : <Muted>Checking…</Muted>}
+                    {FIN_TRIAL && <Muted style={{ marginTop: 6 }}>While Finance is on trial nothing is posted to Xero. Reading and adding clients and suppliers still works.</Muted>}
+                    {xs?.connected && me.role === 'admin' && <XeroSettings s={s} />}
+                    {xs && !xs.connected && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Connect Xero" onPress={async () => { const r = await finInvoke<Row>(me, 'xero', { action: 'connect', origin: Platform.OS === 'web' ? window.location.origin : null }); if (r.error || !r.data?.url) { toast(r.error || 'Could not start the Xero connection.'); return; } if (Platform.OS === 'web') window.location.href = r.data.url; else void Linking.openURL(r.data.url); }} /></View>}
+                  </>
+                ) : k === 'vat' ? (
+                  <>{edit === 'vat' ? editForm : <>{rows.map(([l, v]) => <FinRow compact key={l} title={l} right={v} />)}{editBtn('vat')}</>}<VatRates s={s} canEdit={me.role === 'admin' && isFinanceUser(me, org)} onSaved={() => void qc.invalidateQueries({ queryKey: ['finSettings'] })} /></>
+                ) : edit === k ? editForm : <>{rows.map(([l, v]) => <FinRow compact key={l} title={l} right={v} />)}{editBtn(k)}</>}
+              </Card>
+            )}
+          </View>
+        );
+      })}
     </FinPage>
   );
 }
@@ -225,8 +250,8 @@ function VatRates({ s, canEdit, onSaved }: { s: Row; canEdit: boolean; onSaved: 
     <View style={{ marginTop: 8 }}>
       <Muted style={{ marginBottom: 8 }}>The rates you can pick on purchase orders and as a client’s or supplier’s default in the Directory. Switch one off to hide it; anything already using it keeps it. Reverse charge: no VAT goes on the invoice — the customer accounts for it.</Muted>
       {list.map((r, i) => (
-        <View key={r.code} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5, opacity: r.active ? 1 : 0.5 }}>
-          <TextInput editable={canEdit} value={r.name} onChangeText={(v) => set(i, { name: v })} style={[box, { flex: 1 }]} />
+        <View key={r.code} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingVertical: 6, borderTopWidth: i ? 1 : 0, borderTopColor: '#F0F1F4', opacity: r.active ? 1 : 0.5 }}>
+          <TextInput editable={canEdit} value={r.name} onChangeText={(v) => set(i, { name: v })} style={[box, { flexGrow: 1, flexBasis: 200, minWidth: 0 }]} />
           <TextInput editable={canEdit && !!r.custom} value={String(r.rate)} onChangeText={(v) => set(i, { rate: v.replace(/[^0-9.]/g, '') as never })} keyboardType="decimal-pad" style={[box, { width: 56 }]} />
           <Text style={{ color: base.slate }}>%</Text>
           <Pressable disabled={!canEdit || !r.custom} onPress={() => set(i, { rc: !r.rc })}><Text style={{ color: base.ink }}>{r.rc ? '☑' : '☐'} RC</Text></Pressable>
