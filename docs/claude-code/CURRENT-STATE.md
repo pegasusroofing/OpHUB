@@ -91,7 +91,8 @@
 
 ## Native app: web links for Andy's phone (11 Nov 2026)
 - **Live data: https://ophub-beta.vercel.app** (Vercel project `ophub-beta`, team op-hub; unlisted, not indexed; Andy OK'd it 11 Nov). It's the new app as a web page, signed in with real logins against the live Supabase, so everything done in it is real. It is a snapshot, so it only changes when redeployed.
-  - Update it: `cd app-native && npx expo export --platform web --output-dir <folder>/ophub-beta`, add a `vercel.json` (rewrite everything to `/index.html`, header `X-Robots-Tag: noindex, nofollow`), then run `npx vercel deploy --prod --yes --scope op-hub` in that folder.
+  - Update it: `cd app-native && npx expo export --platform web --output-dir <folder>`, then `node tools/beta/make-beta.js <folder>`, then `npx vercel deploy --prod --yes --scope op-hub` in that folder.
+  - `make-beta.js` adds the home-screen settings (so Add To Home Screen opens full screen with the OpHUB icon), the `vercel.json` rewrites and the noindex header.
   - Made because hotel Wi-Fi stops the phone reaching the laptop's test copy.
 - **Pretend data: https://ophub-offline-demo.vercel.app** (works with no signal). See `offline/HOW TO USE.txt`.
 
