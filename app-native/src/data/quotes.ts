@@ -21,7 +21,7 @@ const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => 
 export type Quote = QuoteRow & {
   id: string; org_id: string; client_id: string | null; contact_name: string | null; contact_email: string | null; contact_phone: string | null; address: string | null; postcode: string | null;
   profit_pct: number | null; guide_markup_pct: number | null; priced_by: string | null; received_date: string | null; returned_at: string | null; notes: string | null; chase_count: number; last_chased_at: string | null;
-  folder_id: string | null; folder_drive_id: string | null; folder_name: string | null; filed_at: string | null; site_id: string | null; created_at: string; updated_at?: string | null;
+  folder_id: string | null; folder_drive_id: string | null; folder_name: string | null; filed_at: string | null; site_id: string | null; created_at: string; updated_at?: string | null; imported?: boolean | null;
   // The other clients tendering the same job (Andy, 4 Nov 2026).
   others?: QuoteClient[];
 };
@@ -91,6 +91,13 @@ export async function setClientMarkup(clientId: string, pct: number | null): Pro
   const r = await rpc('quote_set_client_markup', { p_client: clientId, p_pct: pct });
   return !r.error && r.data === true;
 }
+/** The client's estimator into Directory › Estimating (Save To Directory on a New Enquiry). Null if it saved, else why not. */
+export async function setClientEstimator(client: string, e: { name: string; email: string; phone: string }): Promise<string | null> {
+  const r = await rpc('quote_set_client_estimator', { p_client: client, p_name: e.name, p_email: e.email, p_phone: e.phone });
+  return r.error ? (/email/i.test(String((r.error as { message?: string }).message || '')) ? 'Check the email address.' : 'Could not save it to the Directory.') : r.data === true ? null : 'Could not find that client in the Directory.';
+}
+/** When the enquiry came in: the date put in, or (for one added in the app) the day it was added. */
+export const receivedOn = (q: { received_date: string | null; created_at: string; imported?: boolean | null }) => q.received_date || (q.imported ? null : q.created_at.slice(0, 10));
 /** A new name joins the client Directory, as on a new Finance job. */
 export async function clientId(name: string, email: string, phone: string): Promise<string | null> {
   const r = await rpc('quote_add_client', { p_name: name, p_email: email, p_phone: phone });

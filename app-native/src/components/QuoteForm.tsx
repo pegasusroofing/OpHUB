@@ -1,15 +1,17 @@
 // The enquiry's details (Andy, 11 Nov 2026): New Enquiry, and Edit Details on a quote. Every box the same height and lined
 // up; Discipline and Who Is Pricing It are drop-downs; Discipline Other lets you type your own; Save For This Client sits
 // level with the mark-up box at the same height; + Multiple Clients picks the other clients tendering the same job.
+// Picking a client fills the contact from its estimator (Directory › Estimating) only, not its accounts email; with none
+// saved, Save To Directory keeps the contact typed in as their estimator (Andy, 11 Nov 2026).
 import * as DocumentPicker from 'expo-document-picker';
 import { useState, type ReactNode } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { DateBox } from '@/components/DateField';
 import { Pop } from '@/components/Pop';
-import { chooseAction, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
-import { clientId, searchClients, setClientMarkup, type ClientHit, type Quote } from '@/data/quotes';
+import { clientId, receivedOn, searchClients, setClientEstimator, setClientMarkup, type ClientHit, type Quote } from '@/data/quotes';
 import { useAuth } from '@/lib/auth';
 import { DISCIPLINES } from '@/lib/rules/quotes';
 import { base, radius, space, useDesk } from '@/theme/theme';
@@ -19,7 +21,7 @@ export type QForm = { client: string; contact: string; email: string; phone: str
 export const EMPTY_FORM: QForm = { client: '', contact: '', email: '', phone: '', title: '', address: '', postcode: '', discipline: '', other: '', markup: '', pricedBy: '', pricedName: '', received: '', ret: '', notes: '', chase: '' };
 export const formOf = (q: Quote): QForm => {
   const known = !q.discipline || DISCIPLINES.includes(q.discipline);
-  return { client: q.client_name, contact: q.contact_name ?? '', email: q.contact_email ?? '', phone: q.contact_phone ?? '', title: q.title, address: q.address ?? '', postcode: q.postcode ?? '', discipline: known ? q.discipline ?? '' : 'Other', other: known ? '' : q.discipline ?? '', markup: q.guide_markup_pct == null ? '' : String(q.guide_markup_pct), pricedBy: q.priced_by ?? '', pricedName: q.priced_by_name ?? '', received: q.received_date ?? '', ret: q.return_date ?? '', notes: q.notes ?? '' };
+  return { client: q.client_name, contact: q.contact_name ?? '', email: q.contact_email ?? '', phone: q.contact_phone ?? '', title: q.title, address: q.address ?? '', postcode: q.postcode ?? '', discipline: known ? q.discipline ?? '' : 'Other', other: known ? '' : q.discipline ?? '', markup: q.guide_markup_pct == null ? '' : String(q.guide_markup_pct), pricedBy: q.priced_by ?? '', pricedName: q.priced_by_name ?? '', received: receivedOn(q) ?? '', ret: q.return_date ?? '', notes: q.notes ?? '' };
 };
 /** Discipline as saved: Other with words typed is those words. */
 export const disciplineOf = (v: QForm) => (v.discipline === 'Other' && v.other.trim() ? v.other.trim() : v.discipline || null);
@@ -95,15 +97,40 @@ export function QuoteForm({ v, setV, isNew, people, others, onOthers, docs, setD
   const [hits, setHits] = useState<ClientHit[]>([]);
   const [picked, setPicked] = useState<ClientHit | null>(null);
   const [saving, setSaving] = useState(false);
+  const [estSaved, setEstSaved] = useState('');
   const set = (k: keyof QForm) => (t: string) => setV((f) => ({ ...f, [k]: t }));
   const typeClient = (t: string) => { set('client')(t); if (t.trim().length >= 2) void searchClients(t.trim()).then(setHits); else setHits([]); };
+  // The client picked from the list, if the name hasn't been changed since.
+  const pk = picked && picked.name.toLowerCase() === v.client.trim().toLowerCase() ? picked : null;
+  // Save To Directory (Andy, 11 Nov 2026): on a new enquiry, when the client has no estimator saved yet and a contact is
+  // typed in, keep them as the client's estimator in Directory › Estimating.
+  const hasContact = !!(v.contact.trim() || v.email.trim() || v.phone.trim());
+  const canSaveEst = isNew && !!v.client.trim() && hasContact && estSaved !== v.client.trim().toLowerCase() && !(pk && (pk.estimator_name || pk.estimator_email || pk.estimator_phone));
+  const saveEst = async () => {
+    const name = v.client.trim(), email = v.email.trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('Check the email address.'); return; }
+    setSaving(true);
+    // Typed rather than picked: an existing client's estimator is only replaced if you say so.
+    const known = pk ?? (await searchClients(name)).find((h) => h.name.toLowerCase() === name.toLowerCase()) ?? null;
+    if (known && (known.estimator_name || known.estimator_email || known.estimator_phone)) {
+      setSaving(false);
+      if (!(await confirmAsk(`${known.name} already has ${known.estimator_name || known.estimator_email} as their estimator. Replace them?`, 'Yes', 'No'))) return;
+      setSaving(true);
+    }
+    const cid = known?.id ?? (await clientId(name, email, v.phone.trim()));
+    const err = cid ? await setClientEstimator(cid, { name: v.contact.trim(), email, phone: v.phone.trim() }) : 'Could not add the client to the Directory.';
+    setSaving(false);
+    if (err) { toast(err); return; }
+    setPicked({ ...(known ?? { id: cid as string, name, email: null, phone: null }), estimator_name: v.contact.trim() || null, estimator_email: email || null, estimator_phone: v.phone.trim() || null });
+    setEstSaved(name.toLowerCase());
+  };
   const canSaveMarkup = !!v.client.trim() && v.markup.trim() !== '' && (picked ? String(picked.markup ?? '') !== v.markup.trim() : true);
   return (
     <Card>
       <SectionTitle>Customer</SectionTitle>
       <QBox label="Client *" value={v.client} onChangeText={typeClient} placeholder="Start Typing To Search Your Directory" />
       {hits.filter((h) => h.name.toLowerCase() !== v.client.trim().toLowerCase()).map((h) => (
-        <Pressable key={h.id} onPress={() => { setV((f) => ({ ...f, client: h.name, contact: f.contact || h.estimator_name || '', email: f.email || h.estimator_email || h.email || '', phone: f.phone || h.estimator_phone || h.phone || '', markup: f.markup || (h.markup != null ? String(h.markup) : ''), chase: h.quote_chase === false ? 'no' : 'yes' })); setPicked(h); setHits([]); }} style={{ paddingVertical: 8, marginTop: -6 }}>
+        <Pressable key={h.id} onPress={() => { setV((f) => ({ ...f, client: h.name, contact: f.contact || h.estimator_name || '', email: f.email || h.estimator_email || '', phone: f.phone || h.estimator_phone || '', markup: f.markup || (h.markup != null ? String(h.markup) : ''), chase: h.quote_chase === false ? 'no' : 'yes' })); setPicked(h); setHits([]); }} style={{ paddingVertical: 8, marginTop: -6 }}>
           <Text style={{ color: base.blue, fontWeight: '600' }}>{h.name}</Text>
         </Pressable>
       ))}
@@ -117,6 +144,16 @@ export function QuoteForm({ v, setV, isNew, people, others, onOthers, docs, setD
         <Half desk={desk}><QBox label="Contact Number" value={v.phone} onChangeText={set('phone')} keyboardType="phone-pad" /></Half>
         <Half desk={desk}><QBox label="Contact Email (For The Chaser)" value={v.email} onChangeText={set('email')} keyboardType="email-address" autoCapitalize="none" /></Half>
       </Two>
+      {canSaveEst && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: -4, marginBottom: space.m }}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Save To Directory" disabled={saving} onPress={() => void saveEst()}
+            style={{ height: 36, paddingHorizontal: 14, borderRadius: radius.input, backgroundColor: '#DFE3EA', alignItems: 'center', justifyContent: 'center', opacity: saving ? 0.6 : 1 }}>
+            <Text style={{ fontSize: 13.5, fontWeight: '500', color: base.ink }}>{saving ? 'Saving…' : 'Save To Directory'}</Text>
+          </Pressable>
+          <Muted style={{ flex: 1, fontSize: 12 }}>Keeps this contact as {v.client.trim()}’s estimator (Directory › Estimating).</Muted>
+        </View>
+      )}
+      {isNew && estSaved === v.client.trim().toLowerCase() && !!estSaved && <Muted style={{ marginTop: -4, marginBottom: space.m, fontSize: 12 }}>✓ In The Directory As {v.client.trim()}’s Estimator</Muted>}
       <SectionTitle>Project</SectionTitle>
       <QBox label="Project Name *" value={v.title} onChangeText={set('title')} />
       <Two desk={desk}>

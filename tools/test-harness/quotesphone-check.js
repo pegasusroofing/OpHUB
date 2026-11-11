@@ -29,6 +29,9 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
     const out = fn === 'onedrive-list-folders' ? (body.parent_id === 'f1' ? {folders: [{id: 'tf', name: '1. Tender Documents'}, {id: 'qf', name: '3. Quotation'}], files: []} : body.parent_id === 'qf' ? {folders: [], files: qfiles} : {folders: [], files: []}) : {ok: true, id: 'f9', path: 'Est/Open Tenders/X'};
     r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify(out)});
   });
+  db.fin_clients.push({id: 'cl2', org_id: org, name: 'Countryside Partnerships', email: 'accounts@countryside.example', created_at: new Date().toISOString()});
+  // Save To Directory, as the database does it.
+  await ctx.route(/rest\/v1\/rpc\/quote_set_client_estimator/, (r) => { const b = JSON.parse(r.request().postData() || '{}'); const c = db.fin_clients.find((x) => x.id === b.p_client); if (c) Object.assign(c, {estimator_name: b.p_name || null, estimator_email: b.p_email || null, estimator_phone: b.p_phone || null}); r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify(!!c)}); });
   // The client search (v3) as the database answers it, with the Directory › Estimating fields.
   await ctx.route(/rest\/v1\/rpc\/quote_client_search_v\d/, (r) => r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify(db.fin_clients.map((c) => ({id: c.id, name: c.name, email: c.email || null, phone: c.phone || null, markup: c.estimating_markup_pct ?? null, estimator_name: c.estimator_name || null, estimator_email: c.estimator_email || null, estimator_phone: c.estimator_phone || null, quote_chase: c.quote_chase !== false})))}));
   const page = await ctx.newPage(); page.on('pageerror', (e) => errs.push(e.message));
@@ -91,10 +94,28 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByText('Bellway Homes', {exact: true}).last().click(); await page.waitForTimeout(600);
   const val = (l) => page.getByLabel(l, {exact: true}).first().inputValue();
   check(await val('Contact Name') === 'Sam Estimator' && await val('Contact Email (For The Chaser)') === 'sam@bellway.example' && await val('Contact Number') === '07700 900123', 'New Enquiry: the estimator fills the contact');
+  check(await page.locator('[aria-label="Save To Directory"] >> visible=true').count() === 0, 'no Save To Directory when the client already has an estimator');
   await page.getByLabel('Project Name *', {exact: true}).fill('Brighton Marina'); await page.waitForTimeout(200);
   await page.getByText('Create Enquiry', {exact: true}).last().click(); await page.waitForTimeout(4000);
+  const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
   const nq = db.quotes.find((x) => x.title === 'Brighton Marina');
   check(!!nq && nq.contact_email === 'sam@bellway.example' && nq.chase_on === false, `saved with the estimator's email and the chaser off (${nq && nq.chase_on})`);
+  check(!!nq && nq.received_date === today, `Enquiry Received is the day it was added (${nq && nq.received_date})`);
+
+  // ---- A client with no estimator: Save To Directory ----
+  await page.goto(B + '/pm/quotes/new'); await page.waitForTimeout(4500);
+  await page.getByLabel('Client *', {exact: true}).fill('Country'); await page.waitForTimeout(1500);
+  await page.getByText('Countryside Partnerships', {exact: true}).last().click(); await page.waitForTimeout(600);
+  check(await val('Contact Name') === '' && await page.locator('[aria-label="Save To Directory"] >> visible=true').count() === 0, 'no estimator saved: the contact starts empty, nothing to save yet');
+  await page.getByLabel('Contact Name', {exact: true}).fill('Priya Patel');
+  await page.getByLabel('Contact Email (For The Chaser)', {exact: true}).fill('priya@countryside.example');
+  await page.getByLabel('Contact Number', {exact: true}).fill('01273 000111'); await page.waitForTimeout(300);
+  check(await page.locator('[aria-label="Save To Directory"] >> visible=true').count() === 1, 'typed a contact: Save To Directory is offered');
+  await page.screenshot({path: path.join(SHOTS, 'qp-save-to-directory.png')});
+  await page.locator('[aria-label="Save To Directory"] >> visible=true').click(); await page.waitForTimeout(1500);
+  const c2 = db.fin_clients.find((c) => c.id === 'cl2');
+  check(c2.estimator_name === 'Priya Patel' && c2.estimator_email === 'priya@countryside.example' && c2.estimator_phone === '01273 000111', 'saved as their estimator in Directory › Estimating');
+  check(/In The Directory As Countryside Partnerships’s Estimator/.test(await page.locator('body').innerText()) && await page.locator('[aria-label="Save To Directory"] >> visible=true').count() === 0, 'it says so, and the button goes');
 
   // ---- Submit Quotation: + Add Documents ----
   await page.goto(B + '/pm/quotes/q1'); await page.waitForTimeout(5000);

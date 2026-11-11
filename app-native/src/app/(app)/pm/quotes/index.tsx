@@ -16,7 +16,7 @@ import { Cell, FinTable } from '@/components/FinTable';
 import { pickExport } from '@/components/FootBar';
 import { useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
-import { useQuotes, type Quote } from '@/data/quotes';
+import { receivedOn, useQuotes, type Quote } from '@/data/quotes';
 import { useAuth } from '@/lib/auth';
 import { localISODate } from '@/lib/rules/driver';
 import { quoteReport, REPORTS, type ReportKey } from '@/lib/rules/quoteReports';
@@ -139,7 +139,7 @@ export default function Quotes() {
     { k: 'c', l: 'Customer', flex: 1.5, min: 140, render: (x: Quote) => <View style={{ alignItems: 'center' }}><Cell>{x.client_name}</Cell>{x.others?.length ? <Text numberOfLines={1} style={{ fontSize: 11, color: base.slate }}>also {x.others.map((o) => o.client_name).join(', ')}</Text> : null}</View>, sort: (x: Quote) => x.client_name },
     ...(tab === 'live' ? [
       { k: 'di', l: 'Discipline', choices: distinct((x) => x.discipline), render: (x: Quote) => <Cell>{x.discipline || '—'}</Cell>, sort: (x: Quote) => x.discipline || '' },
-      { k: 'rc', l: 'Received', render: (x: Quote) => <Cell>{ukd(x.received_date)}</Cell>, sort: (x: Quote) => x.received_date || '' },
+      { k: 'rc', l: 'Received', render: (x: Quote) => <Cell>{ukd(receivedOn(x))}</Cell>, sort: (x: Quote) => receivedOn(x) || '' },
       { k: 'd', l: 'Due Back', render: (x: Quote) => <View style={late(x) ? { borderWidth: 1.5, borderColor: RED, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 } : null}><Cell>{ukd(x.return_date)}</Cell></View>, sort: (x: Quote) => x.return_date || '' },
     ] : tab === 'quoted' ? [
       { k: 'v', l: 'Tender Value', render: (x: Quote) => <Cell bold>{money(x.value)}</Cell>, sort: (x: Quote) => x.value || 0 },

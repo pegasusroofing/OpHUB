@@ -19,7 +19,7 @@ import { SubmitQuote } from '@/components/SubmitQuote';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import { useTeam } from '@/data/admin';
-import { addQuoteClient, chaseEmails, chaseNow, chasePatch, clientId, linkToJob, makeQuoteFolder, moveToStatusFolder, removeQuoteClient, saveQuote, setQuoteClientContact, setQuoteStatus, syncTracker, uploadTenderDocs, useQuote, useQuoteSettings, wonFrom, type Quote } from '@/data/quotes';
+import { addQuoteClient, receivedOn, chaseEmails, chaseNow, chasePatch, clientId, linkToJob, makeQuoteFolder, moveToStatusFolder, removeQuoteClient, saveQuote, setQuoteClientContact, setQuoteStatus, syncTracker, uploadTenderDocs, useQuote, useQuoteSettings, wonFrom, type Quote } from '@/data/quotes';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { localISODate } from '@/lib/rules/driver';
@@ -56,7 +56,8 @@ export default function QuotePage() {
   const { data: settings } = useQuoteSettings(me?.org_id);
   const { data: team } = useTeam(me?.org_id);
   const { data: sites = [] } = useSites();
-  const [v, setV] = useState<QForm>(EMPTY_FORM);
+  // A new enquiry is received the day it's added, unless changed (Andy, 11 Nov 2026).
+  const [v, setV] = useState<QForm>(() => ({ ...EMPTY_FORM, received: localISODate(new Date()) }));
   const [newOthers, setNewOthers] = useState<{ name: string; email?: string | null; phone?: string | null; contact?: string | null }[]>([]);
   const [docs, setDocs] = useState<{ uri: string; name: string }[]>([]);
   const [busy, setBusy] = useState('');
@@ -276,7 +277,7 @@ export default function QuotePage() {
             ))}
             {kv('Address', [q.address, q.postcode].filter(Boolean).join(', '))}
             {kv('Discipline', q.discipline || '')}
-            {kv('Received', q.received_date ? ukd(q.received_date) : '')}
+            {kv('Received', receivedOn(q) ? ukd(receivedOn(q)) : '')}
             {kv('Priced By', q.priced_by_name || '')}
             {!!q.notes && kv('Notes', q.notes)}
           </View>
