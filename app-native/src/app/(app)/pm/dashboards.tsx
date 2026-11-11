@@ -1,22 +1,27 @@
 // Dashboard: choose which one first (Andy, 11 Nov 2026: "currently it just opens up the company dashboard"). Once in one,
-// the tabs at the top swap between them.
+// the tabs at the top swap between them. Deliveries (the delivery schedule, yard and plant) is here too, not a home tile
+// (Andy, 11 Nov 2026), with how many are waiting to be scheduled.
 import { router, Stack } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { OphIcon } from '@/components/OphIcon';
 import { Muted } from '@/components/ui';
+import { useDeliveryRequests } from '@/data/deliveries';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import { base, page } from '@/theme/theme';
 
 export default function Dashboards() {
   const { me, org } = useAuth();
+  const { data: dlvReqs } = useDeliveryRequests(me?.org_id);
   if (!me) return null;
+  const dlvN = dlvReqs?.length ?? 0;
   if (!isManager(me)) return <Muted style={{ padding: 16 }}>Managers only.</Muted>;
   const pm = org?.has_pm !== false, fin = !!org?.has_finance;
   const rows: [string, string, string, string][] = [
     ['chart', 'Company Dashboard', [pm ? 'Projects, H&S and schedule' : '', fin ? 'money in and out' : '', pm ? 'quotes' : ''].filter(Boolean).join(', '), '/pm/dashboard'],
     ...(pm ? [['admin', 'Operative Dashboard', 'Hours, check-ins, certificates and training', '/pm/operatives'] as [string, string, string, string]] : []),
+    ...(pm ? [['truck', 'Deliveries', dlvN ? `${dlvN} deliver${dlvN === 1 ? 'y' : 'ies'} to schedule · delivery schedule, yard and plant` : 'Delivery schedule, yard and plant', '/pm/deliveries'] as [string, string, string, string]] : []),
   ];
   return (
     <ScrollView contentContainerStyle={page(720)}>

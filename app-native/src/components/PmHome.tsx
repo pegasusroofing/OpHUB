@@ -131,8 +131,8 @@ export function PmHome() {
       <TileGrid cols={desk ? 4 : 2}>
         {isFinanceUser(me, org) && <Tile plain ic="pound" tint="" title="OpHUB Finance" sub="Money in & out" onPress={go('/fin')} />}
         <Tile plain ic="reports" tint="" title="Quotes" sub="Tender tracker" onPress={go('/pm/quotes')} />
-        <Tile plain ic="chart" tint="" title="Dashboard" sub="Company & operatives" onPress={go('/pm/dashboards')} />
-        <Tile plain ic="truck" tint="" title="Deliveries" sub={dlvN ? `${dlvN} to schedule` : 'Delivery schedule'} badge={dlvN || undefined} onPress={go('/pm/deliveries')} />
+        {/* Deliveries is under Dashboard (Andy, 11 Nov 2026); deliveries to schedule still show under Today and as the badge here. */}
+        <Tile plain ic="chart" tint="" title="Dashboard" sub={dlvN ? `${dlvN} deliver${dlvN === 1 ? 'y' : 'ies'} to schedule` : 'Company, operatives & deliveries'} badge={dlvN || undefined} onPress={go('/pm/dashboards')} />
         <Tile plain ic="reports" tint="" title="Reports & Surveys" sub={open.length ? `${open.length} in progress` : 'All projects'} onPress={go('/pm/reports')} />
         <Tile plain ic="users" tint="" title="HR" sub="Holidays, policies & handbook" onPress={go('/pm/hr')} />
         {!desk && <Tile plain ic="gear" tint="" title="Admin" sub="Team, libraries, settings" onPress={go('/pm/admin')} />}
