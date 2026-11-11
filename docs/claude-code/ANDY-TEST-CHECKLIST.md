@@ -171,7 +171,7 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
    - **Won:** Convert To Project goes into Create Project, filled in from the quote. Making it moves the folder and marks the quote won. A second project for the same quote asks first.
    - **Settings tabs:** Chaser, Sending (CC), Folders, Auto Export, Old Quotes. The tender folders are also on Admin › OneDrive.
    - **Tender tracker:** "Tender Tracker - OpHUB.xlsx" kept up to date in Open Tenders.
-   - **Waiting on Andy's OK to deploy the server update:** the folder moves, CC, new folders and auto exports.
+   - **Server update deployed 11 Nov (quote-tracker v7):** the folder moves, CC, new folders and auto exports are live.
 64. Home and Projects, 11 Nov:
    - Home: a weather tile in Today (tap for the week); Today tiles the width of the tiles below. The Dashboard tile opens a chooser.
    - Job home: the weather has its own box that opens.
