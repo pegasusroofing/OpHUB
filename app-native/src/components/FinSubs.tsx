@@ -12,6 +12,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinFilterBar } from '@/components/FinFilterBar';
 import { FinChip, FinRow, FinStat } from '@/components/FinNav';
+import { PhoneTable } from '@/components/PhoneTable';
 import { Cell, FinTable } from '@/components/FinTable';
 import { pickJob } from '@/components/FinSales';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
@@ -84,7 +85,12 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
         <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ Operative invoice" onPress={() => router.push('/fin/labour/new' as never)} /></View>
         <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search name, invoice no. or job' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['name', 'Name A to Z']]} sort={sort} onSort={setSort}
           parts={[{ key: 'show', label: 'Show', items: [['topay', 'To pay'], ['paid', 'Paid']].map(([v, l]) => ({ v, l, n: data.ops.filter(F[v]).length })) }]} />
-        {list.length ? list.map((p) => <FinRow compact key={p.id} title={p.name || 'Operative'} sub={[p.invoice_no ? `inv ${p.invoice_no}` : '', `w/c ${fdate(p.period_start)}`, opJobs(p), `gross ${money(p.gross)} · CIS −${money(p.cis_deduction)}`, p.status === 'paid' ? `Paid ${fdate(p.paid_on)}` : p.status === 'approved' ? 'To pay' : 'Draft'].filter(Boolean).join(' · ')} right={money(p.net_pay)} onPress={() => router.push(`/fin/labour/${p.id}` as never)} />)
+        {list.length ? <PhoneTable label="Labour invoices" rows={list} keyOf={(p) => p.id} onRow={(p) => router.push(`/fin/labour/${p.id}` as never)}
+          cols={[
+            { l: 'Who', main: (p) => p.name || 'Operative', sub: (p) => [p.invoice_no ? `Inv ${p.invoice_no}` : '', `w/c ${fdate(p.period_start)}`].filter(Boolean).join(' · ') },
+            { l: 'Status', w: 66, main: (p) => (p.status === 'paid' ? 'Paid' : p.status === 'approved' ? 'To Pay' : 'Draft'), sub: (p) => (p.status === 'paid' ? fdate(p.paid_on) : '') },
+            { l: 'Net', w: 80, right: true, bold: true, main: (p) => money(p.net_pay), sub: (p) => `CIS −${money(p.cis_deduction)}` },
+          ]} />
           : <Empty>No operative invoices here.</Empty>}
       </View>
     );

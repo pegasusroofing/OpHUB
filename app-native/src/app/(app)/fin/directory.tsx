@@ -14,6 +14,7 @@ import { SubsStats, useSubsBadges } from '@/components/FinSubs';
 import { useXeroStatus } from '@/components/FinXero';
 import { XeroWorkersButton } from '@/components/FinXeroWorkers';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
+import { PhoneTable } from '@/components/PhoneTable';
 import { bankOk, sortCode } from '@/components/FinSubs';
 import { useToast } from '@/components/toast';
 import { Button, Empty, Muted, SectionTitle } from '@/components/ui';
@@ -298,7 +299,14 @@ export default function FinDirectory() {
             ]}
             foot={(list) => <><FootText bold>{list.length} shown</FootText>{!sup && <FootText>Owed {money(list.reduce((t, c) => t + owedOf(c).o, 0))}</FootText>}{sup && <FootText>To pay {money(list.reduce((t, c) => t + Number(c._owed || 0), 0))}</FootText>}</>} />
         );
-      })() : list.length ? list.map((c) => <FinRow key={c.id || `n:${c.name}`} title={c.name} right={sup && c._owed ? money(c._owed) : undefined} sub={[sup ? c.category : '', sup && c._mat ? 'Materials' : '', c.email, sup && c._n ? `${c._n} invoice${c._n === 1 ? '' : 's'} · spent ${money(c._spend)}` : '', termsText(c), c.sales_vat ? `VAT ${VAT_SHOW.find(([k]) => k === c.sales_vat)?.[1]}` : '', c.cis_registered ? 'CIS' : '', !sup && c.onedrive_folders === false ? 'No OneDrive Folders' : '', c.xero_contact_id ? 'In Xero' : 'Not in Xero'].filter(Boolean).join(' · ')} onPress={() => setEdit(c)} />) : <Empty>Nothing here yet.</Empty>}
+      })() : list.length ? (
+        <PhoneTable label="Directory" rows={list} keyOf={(c) => c.id || `n:${c.name}`} onRow={(c) => setEdit(c)}
+          cols={[
+            { l: sup ? 'Supplier' : 'Client', main: (c) => c.name, sub: (c) => c.email || (sup ? c.category : '') || '' },
+            { l: sup ? 'Owed' : 'Terms', w: 92, right: !!sup, bold: !!sup, main: (c) => (sup ? (c._owed ? money(c._owed) : '—') : termsText(c) || '—'), sub: (c) => (sup && c._n ? `${c._n} Invoice${c._n === 1 ? '' : 's'}` : '') },
+            { l: 'Xero', w: 52, main: (c) => (c.xero_contact_id ? 'Yes' : 'No') },
+          ]} />
+      ) : <Empty>Nothing here yet.</Empty>}
       {!sup && !!jd && sites.some((s) => !(s.client_name || jd.jfBy[s.id]?.billing_name)) && <Muted style={{ marginTop: 10 }}>Jobs with no client set: {sites.filter((s) => !(s.client_name || jd.jfBy[s.id]?.billing_name)).map(jobTag).join(', ')}</Muted>}
       {edit && (
         <FinForm title={edit.id ? edit.name : `New ${sup ? 'supplier' : 'client'}`} initial={{ ...edit, estimating_markup_pct: edit.estimating_markup_pct ?? '', terms_days: edit.terms_days ?? '', cis_rate: String(edit.cis_rate ?? 20), toX: !edit.xero_contact_id, od_folders: edit.onedrive_folders === false ? 'no' : 'yes' }} onClose={() => setEdit(null)}
