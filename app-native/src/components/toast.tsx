@@ -7,6 +7,13 @@ import { DocViewerHost } from '@/components/DocViewer';
 import { EmailPromptHost } from '@/components/EmailPrompt';
 import { noteTap, Popup, PopupButtons } from '@/components/Popup';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+
+/** Jump straight into a long list's search box only on a laptop (mouse). On a phone or tablet it waits to be tapped, so the
+ *  keyboard doesn't pop up over the choices (Andy, 11 Nov 2026: Quotes › Export brought the keyboard up). */
+function searchFirst(): boolean {
+  if (Platform.OS !== 'web' || typeof window === 'undefined' || !window.matchMedia) return false;
+  return !window.matchMedia('(pointer: coarse)').matches;
+}
 import { plainDbText } from '@/lib/rules/plainError';
 
 // confirm: show a 'done' message anyway, for a couple of seconds, where Andy wants to see it was saved (4 Nov 2026).
@@ -86,17 +93,25 @@ export function chooseAction(title: string, items: MenuReq['items']): Promise<st
 export function MenuHost() {
   const [req, setReq] = useState<MenuReq | null>(null);
   const [q, setQ] = useState('');
+  const [searching, setSearching] = useState(false);
   useEffect(() => {
-    const l = (r: MenuReq) => { setQ(''); setReq(r); };
+    const l = (r: MenuReq) => { setQ(''); setSearching(false); setReq(r); };
     menuListeners.add(l);
     return () => { menuListeners.delete(l); };
   }, []);
   if (!req) return null;
   const done = (k: string | null) => { req.resolve(k); setReq(null); };
   const shown = q.trim() ? req.items.filter((it) => it.label.toLowerCase().includes(q.trim().toLowerCase())) : req.items;
+  // On a phone the search line is only a look-alike until it's tapped: the web pop-up moves focus to the first box it
+  // finds, which brought the keyboard up over the choices (Andy, 11 Nov 2026, Quotes › Export). A laptop types straight in.
+  const search = req.items.length > 8 && (searchFirst() || searching
+    ? <TextInput value={q} onChangeText={setQ} placeholder="Type to search…" autoFocus style={[box, { marginBottom: 6 }]} />
+    : <Pressable accessibilityRole="button" accessibilityLabel="Search the list" onPress={() => setSearching(true)} style={[box, { marginBottom: 6, justifyContent: 'center' }]}>
+      <Text style={{ fontSize: 15, color: '#9AA0A6' }}>Type to search…</Text>
+    </Pressable>);
   return (
     <Popup title={req.title} onClose={() => done(null)} width={340}>
-      {req.items.length > 8 && <TextInput value={q} onChangeText={setQ} placeholder="Type to search…" autoFocus={Platform.OS === 'web'} style={[box, { marginBottom: 6 }]} />}
+      {search}
       {shown.map((it, i) => (
         <Pressable key={it.key} onPress={() => done(it.key)} style={({ pressed }) => [{ paddingVertical: 11, paddingHorizontal: 4, borderTopWidth: i ? 1 : 0, borderTopColor: '#ECEEF2' }, pressed && { backgroundColor: '#F3F5F8' }]}>
           <Text style={{ fontSize: 15, color: it.danger ? '#C8102E' : '#1E2124' }}>{it.label}</Text>
