@@ -24,7 +24,7 @@ export const FIN_SUBS: Record<string, [string, string][]> = {
   // Every word capitalised, as the current app (9219x) and Andy's rule (cmp-fin 5 Nov 2026).
   subs: [['opinv', 'Operative Invoices'], ['wages', 'Wages To Book'], ['payrun', 'Pay Run'], ['orders', 'Subcontractor POs'], ['apps', 'Applications & Certificates'], ['cis', 'CIS'], ['rates', 'People & Rates']],
   settings: [['general', 'Settings'], ['codes', 'Cost Codes'], ['templates', 'Templates'], ['team', 'Team']],
-  directory: [['client', 'Clients'], ['supplier', 'Suppliers'], ['labour', 'Labour (CIS)']],
+  directory: [['client', 'Clients'], ['estimating', 'Estimating'], ['supplier', 'Suppliers'], ['labour', 'Labour (CIS)']],
 };
 const Chip = ({ on, label, onPress, n }: { on: boolean; label: string; onPress: () => void; n?: number }) => {
   const t = useTheme();

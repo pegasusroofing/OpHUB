@@ -14,8 +14,9 @@ import { useAuth } from '@/lib/auth';
 import { DISCIPLINES } from '@/lib/rules/quotes';
 import { base, radius, space, useDesk } from '@/theme/theme';
 
-export type QForm = { client: string; contact: string; email: string; phone: string; title: string; address: string; postcode: string; discipline: string; other: string; markup: string; pricedBy: string; pricedName: string; received: string; ret: string; notes: string };
-export const EMPTY_FORM: QForm = { client: '', contact: '', email: '', phone: '', title: '', address: '', postcode: '', discipline: '', other: '', markup: '', pricedBy: '', pricedName: '', received: '', ret: '', notes: '' };
+// chase: from the client's Directory › Estimating setting when one is picked ('no' starts a new quote with the chaser off).
+export type QForm = { client: string; contact: string; email: string; phone: string; title: string; address: string; postcode: string; discipline: string; other: string; markup: string; pricedBy: string; pricedName: string; received: string; ret: string; notes: string; chase?: '' | 'yes' | 'no' };
+export const EMPTY_FORM: QForm = { client: '', contact: '', email: '', phone: '', title: '', address: '', postcode: '', discipline: '', other: '', markup: '', pricedBy: '', pricedName: '', received: '', ret: '', notes: '', chase: '' };
 export const formOf = (q: Quote): QForm => {
   const known = !q.discipline || DISCIPLINES.includes(q.discipline);
   return { client: q.client_name, contact: q.contact_name ?? '', email: q.contact_email ?? '', phone: q.contact_phone ?? '', title: q.title, address: q.address ?? '', postcode: q.postcode ?? '', discipline: known ? q.discipline ?? '' : 'Other', other: known ? '' : q.discipline ?? '', markup: q.guide_markup_pct == null ? '' : String(q.guide_markup_pct), pricedBy: q.priced_by ?? '', pricedName: q.priced_by_name ?? '', received: q.received_date ?? '', ret: q.return_date ?? '', notes: q.notes ?? '' };
@@ -50,10 +51,10 @@ const Two = ({ desk, children }: { desk: boolean; children: ReactNode }) => <Vie
 const Half = ({ desk, children }: { desk: boolean; children: ReactNode }) => <View style={desk ? { flex: 1, minWidth: 0 } : undefined}>{children}</View>;
 
 /** Pick the other clients tendering the same job: search the Directory and tick as many as you like. */
-export function ClientsPop({ have, onDone, onClose }: { have: string[]; onDone: (picked: { name: string; email?: string | null; phone?: string | null }[]) => void; onClose: () => void }) {
+export function ClientsPop({ have, onDone, onClose }: { have: string[]; onDone: (picked: { name: string; email?: string | null; phone?: string | null; contact?: string | null }[]) => void; onClose: () => void }) {
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<ClientHit[]>([]);
-  const [picked, setPicked] = useState<{ name: string; email?: string | null; phone?: string | null }[]>([]);
+  const [picked, setPicked] = useState<{ name: string; email?: string | null; phone?: string | null; contact?: string | null }[]>([]);
   const taken = (n: string) => [...have, ...picked.map((p) => p.name)].some((x) => x.toLowerCase() === n.toLowerCase());
   return (
     <Pop title="Clients Tendering" onClose={onClose} footer={(
@@ -70,7 +71,7 @@ export function ClientsPop({ have, onDone, onClose }: { have: string[]; onDone: 
         </Pressable>
       ))}
       {hits.filter((h) => !taken(h.name)).map((h) => (
-        <Pressable key={h.id} onPress={() => setPicked([...picked, { name: h.name, email: h.email, phone: h.phone }])} style={{ flexDirection: 'row', gap: 8, paddingVertical: 8 }}>
+        <Pressable key={h.id} onPress={() => setPicked([...picked, { name: h.name, email: h.estimator_email || h.email, phone: h.estimator_phone || h.phone, contact: h.estimator_name || null }])} style={{ flexDirection: 'row', gap: 8, paddingVertical: 8 }}>
           <Text style={{ fontSize: 15 }}>☐</Text><Text style={{ flex: 1, color: base.ink }}>{h.name}</Text>
         </Pressable>
       ))}
@@ -102,7 +103,7 @@ export function QuoteForm({ v, setV, isNew, people, others, onOthers, docs, setD
       <SectionTitle>Customer</SectionTitle>
       <QBox label="Client *" value={v.client} onChangeText={typeClient} placeholder="Start Typing To Search Your Directory" />
       {hits.filter((h) => h.name.toLowerCase() !== v.client.trim().toLowerCase()).map((h) => (
-        <Pressable key={h.id} onPress={() => { setV((f) => ({ ...f, client: h.name, email: f.email || h.email || '', phone: f.phone || h.phone || '', markup: f.markup || (h.markup != null ? String(h.markup) : '') })); setPicked(h); setHits([]); }} style={{ paddingVertical: 8, marginTop: -6 }}>
+        <Pressable key={h.id} onPress={() => { setV((f) => ({ ...f, client: h.name, contact: f.contact || h.estimator_name || '', email: f.email || h.estimator_email || h.email || '', phone: f.phone || h.estimator_phone || h.phone || '', markup: f.markup || (h.markup != null ? String(h.markup) : ''), chase: h.quote_chase === false ? 'no' : 'yes' })); setPicked(h); setHits([]); }} style={{ paddingVertical: 8, marginTop: -6 }}>
           <Text style={{ color: base.blue, fontWeight: '600' }}>{h.name}</Text>
         </Pressable>
       ))}

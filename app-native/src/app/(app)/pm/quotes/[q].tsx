@@ -57,7 +57,7 @@ export default function QuotePage() {
   const { data: team } = useTeam(me?.org_id);
   const { data: sites = [] } = useSites();
   const [v, setV] = useState<QForm>(EMPTY_FORM);
-  const [newOthers, setNewOthers] = useState<{ name: string; email?: string | null; phone?: string | null }[]>([]);
+  const [newOthers, setNewOthers] = useState<{ name: string; email?: string | null; phone?: string | null; contact?: string | null }[]>([]);
   const [docs, setDocs] = useState<{ uri: string; name: string }[]>([]);
   const [busy, setBusy] = useState('');
   const [editing, setEditing] = useState(false);
@@ -86,6 +86,8 @@ export default function QuotePage() {
     const saved = await saveQuote(me, isNew ? null : id, {
       client_id: cid, client_name: v.client.trim(), contact_name: v.contact.trim() || null, contact_email: email || null, contact_phone: v.phone.trim() || null, title: v.title.trim(), address: v.address.trim() || null, postcode: v.postcode.trim() || null,
       discipline: disciplineOf(v), guide_markup_pct: mk, priced_by: v.pricedBy || (isNew ? me.id : null), priced_by_name: v.pricedName || (isNew ? me.name : null), received_date: v.received || null, return_date: v.ret || null, notes: v.notes.trim() || null,
+      // The client's Auto Chase setting (Directory › Estimating) for a new quote.
+      ...(isNew && v.chase === 'no' ? { chase_on: false } : {}),
     });
     if (!saved) { setBusy(''); toast('Could not save. Try again.'); return; }
     if (!isNew) { setBusy(''); setEditing(false); refresh(); return; }

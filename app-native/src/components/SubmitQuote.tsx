@@ -2,7 +2,9 @@
 // put in the contract value and the mark-up (that becomes the quote's profit mark-up); who priced it is whoever's
 // submitting unless changed. Next, the email: To, the company's preset CC (on unless switched off), subject and message.
 // Sending marks it Quoted (Returned), starts the chaser's clock and files its folder in that year's Estimating folder.
-// "I've Emailed It Myself" does the same without the email.
+// "I've Emailed It Myself" does the same without the email. + Add Documents (on both steps) puts files from the phone or
+// laptop in the Quotation folder and ticks them to send (Andy, 11 Nov 2026).
+import * as DocumentPicker from 'expo-document-picker';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
@@ -13,7 +15,7 @@ import { QBox, QPick } from '@/components/QuoteForm';
 import { useQuoteFiles } from '@/components/QuoteDocs';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Muted } from '@/components/ui';
-import { sendQuote, submitQuote, type Quote } from '@/data/quotes';
+import { sendQuote, submitQuote, uploadToFolder, type Quote } from '@/data/quotes';
 import { useAuth } from '@/lib/auth';
 import { base, radius, space } from '@/theme/theme';
 
@@ -31,7 +33,9 @@ export function SubmitQuote({ q, firstDays, cc, people, onDone, onClose }: { q: 
   const [useCc, setUseCc] = useState(!!cc);
   const [subject, setSubject] = useState(`Quotation For ${q.title}`);
   const [body, setBody] = useState(`Hi ${q.contact_name || 'there'},\n\nPlease find attached our quotation for ${q.title}.\n\nIf you have any questions, please let me know.\n\nKind regards,\n${me?.name ?? ''}\n${org?.name ?? ''}`);
-  const { groups, error } = useQuoteFiles(q.folder_id ? { id: q.folder_id, driveId: q.folder_drive_id } : null);
+  const { groups, error, reload } = useQuoteFiles(q.folder_id ? { id: q.folder_id, driveId: q.folder_drive_id } : null);
+  const [added, setAdded] = useState<string[]>([]);
+  const [adding, setAdding] = useState(false);
   const [ticked, setTicked] = useState<Set<string> | null>(null);
   const [busy, setBusy] = useState('');
   // The finished quote is usually in the Quotation folder: those start ticked (not a template).
@@ -39,6 +43,13 @@ export function SubmitQuote({ q, firstDays, cc, people, onDone, onClose }: { q: 
     if (!groups || ticked) return;
     setTicked(new Set(groups.filter((g) => /quot/i.test(g.folder)).flatMap((g) => g.files).filter((f) => !/template/i.test(f.name)).map((f) => f.id)));
   }, [groups, ticked]);
+  // Files just added come back ticked once the folder is read again.
+  useEffect(() => {
+    if (!groups || !added.length) return;
+    const n = new Set(ticked ?? []);
+    groups.flatMap((g) => g.files).filter((x) => added.includes(x.name)).forEach((x) => n.add(x.id));
+    setTicked(n); setAdded([]);
+  }, [groups]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!me) return null;
   const files = (groups ?? []).flatMap((g) => g.files.map((f) => ({ ...f, driveId: f.driveId || g.driveId }))).filter((f) => ticked?.has(f.id));
 
@@ -71,6 +82,20 @@ export function SubmitQuote({ q, firstDays, cc, people, onDone, onClose }: { q: 
     if (out.note.startsWith('It’s')) showAlert(out.note);
     onDone(out.note);
   };
+  // + Add Documents: into the Quotation folder (the tender's main folder if there isn't one), then ticked to send.
+  const addDocs = async () => {
+    if (!q.folder_id) return;
+    const r = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true, copyToCacheDirectory: true });
+    if (r.canceled || !r.assets.length) return;
+    const qf = (groups ?? []).find((g) => /quot/i.test(g.folder) && g.folder !== 'This Folder');
+    setAdding(true);
+    const n = await uploadToFolder(qf ? { id: qf.id, driveId: qf.driveId } : { id: q.folder_id, driveId: q.folder_drive_id }, r.assets.map((a) => ({ uri: a.uri, name: a.name || 'file' })));
+    setAdding(false);
+    if (n !== r.assets.length) toast(`Only ${n} of ${r.assets.length} went up. Try the others again.`);
+    setAdded(r.assets.map((a) => a.name || 'file'));
+    void reload();
+  };
+  const addBtn = q.folder_id ? <Button small kind="ghost" busy={adding} title="+ Add Documents" onPress={() => void addDocs()} /> : null;
   const tick = (id: string) => { const n = new Set(ticked ?? []); if (n.has(id)) n.delete(id); else n.add(id); setTicked(n); };
   const lab = { fontSize: 12, fontWeight: '600' as const, color: base.slate, marginBottom: 4 };
 
@@ -106,6 +131,7 @@ export function SubmitQuote({ q, firstDays, cc, people, onDone, onClose }: { q: 
                     )) : <Muted style={{ paddingLeft: 10, fontSize: 12.5 }}>Empty</Muted>}
                   </View>
                 ))}
+          {!!addBtn && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>{addBtn}<Muted style={{ flex: 1, fontSize: 12 }}>They go in the Quotation folder, ticked to send.</Muted></View>}
           <View style={{ height: 6 }} />
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <View style={{ flex: 1 }}><QBox label="Contract Value £ *" value={value} onChangeText={setValue} keyboardType="decimal-pad" /></View>
@@ -130,7 +156,8 @@ export function SubmitQuote({ q, firstDays, cc, people, onDone, onClose }: { q: 
           <QBox label="Subject" value={subject} onChangeText={setSubject} />
           <Text style={lab}>Message</Text>
           <TextInput accessibilityLabel="Message" value={body} onChangeText={setBody} multiline style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 12, minHeight: 200, fontSize: 15, color: base.ink, backgroundColor: base.card, textAlignVertical: 'top', marginBottom: space.m }} />
-          <Muted style={{ fontSize: 12 }}>{files.length} document{files.length === 1 ? '' : 's'} attached. You’re copied in too, and replies come to you.</Muted>
+          <Muted style={{ fontSize: 12 }}>{files.length} document{files.length === 1 ? '' : 's'} attached{files.length ? `: ${files.map((x) => x.name).join(', ')}` : ''}. You’re copied in too, and replies come to you.</Muted>
+          {!!addBtn && <View style={{ alignItems: 'flex-start', marginTop: 8 }}>{addBtn}</View>}
         </>
       )}
     </Pop>

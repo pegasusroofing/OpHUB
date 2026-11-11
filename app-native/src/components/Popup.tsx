@@ -1,6 +1,6 @@
 // A tidy pop-up card that opens next to where you tapped (never below the screen), with an ✕ to close
 // in the top right. Used by the menus, Yes / No questions, prompts and the pop-up forms.
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Modal, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 
 import { base } from '@/theme/theme';
@@ -14,12 +14,37 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
 
 const GAP = 12;
 
+// Web: where the page and every scrolled area were when a pop-up opened, so they go back exactly when it closes
+// (Andy, 11 Nov 2026: choosing a saved email made the screen jump to the bottom). On an iPhone a tapped button doesn't
+// take focus, so when a pick list closed, the web pop-up's focus handling could land on the last thing in the email
+// pop-up behind it and scroll there; it could also select a text box and bring the keyboard up.
+type Spot = { win: number; els: [Element, number][]; active: Element | null };
+function snapshot(): Spot | null {
+  if (Platform.OS !== 'web' || typeof document === 'undefined') return null;
+  const els: [Element, number][] = [];
+  // Every area that can scroll, even one at the top (that's the one that jumped).
+  document.querySelectorAll('*').forEach((e) => { if (e.scrollHeight > e.clientHeight + 2) els.push([e, e.scrollTop]); });
+  return { win: window.scrollY, els, active: document.activeElement };
+}
+function putBack(s: Spot) {
+  const go = () => {
+    s.els.forEach(([e, top]) => { if (e.isConnected && Math.abs(e.scrollTop - top) > 1) e.scrollTop = top; });
+    if (Math.abs(window.scrollY - s.win) > 1) window.scrollTo(0, s.win);
+    const a = document.activeElement as HTMLElement | null;
+    if (a && a !== s.active && /^(INPUT|TEXTAREA)$/.test(a.tagName)) a.blur();
+  };
+  requestAnimationFrame(go); setTimeout(go, 60); setTimeout(go, 250);
+}
+
 export function Popup({ title, onClose, children, width = 380, center, footer }: {
   title?: string; onClose: () => void; children: ReactNode; width?: number; center?: boolean; footer?: ReactNode;
 }) {
   const { width: W, height: H } = useWindowDimensions();
   const [anchor] = useState(() => (center ? null : lastTap));
   const [h, setH] = useState(0);
+  // Put the page's scrolling back as it was when this closes (web).
+  const [spot] = useState(snapshot);
+  useEffect(() => () => { if (spot) putBack(spot); }, [spot]);
   const w = Math.min(width, W - GAP * 2);
   let top = (H - h) / 2, left = (W - w) / 2;
   if (anchor && h) {

@@ -18,7 +18,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   db.quote_clients = [{id: 'qc1', org_id: org, quote_id: 'q1', client_id: 'c2', client_name: 'Persimmon', contact_email: 'est@persimmon.example', created_at: '2026-10-21T08:00:00Z'}];
   db.quote_settings = [{org_id: org, chase_enabled: false, chase_first_days: 30, chase_every_days: 14, chase_max: 3}];
   db.quote_chases = [];
-  await ctx.route(/rest\/v1\/rpc\/quote_client_search_v2/, (r) => r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify([{id: 'c3', name: 'Barratt', email: null, phone: null, markup: 12}])}));
+  await ctx.route(/rest\/v1\/rpc\/quote_client_search_v\d/, (r) => r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify([{id: 'c3', name: 'Barratt', email: null, phone: null, markup: 12}])}));
   await ctx.route(/rest\/v1\/rpc\/quote_add_client/, (r) => r.fulfill({status: 200, contentType: 'application/json', body: '"c3"'}));
   await ctx.route(/functions\/v1\/(quote-tracker|onedrive-job-pack)/, (r) => r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({ok: true, path: 'Jobs/X', made: 1, copied: 0, failed: []})}));
   const page = await ctx.newPage(); page.on('pageerror', (e) => errs.push(e.message));
@@ -57,10 +57,11 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
 
   await page.goto(B + '/pm/quotes'); await page.waitForTimeout(4000);
   await page.getByRole('tab', {name: /^All/}).first().click(); await page.waitForTimeout(800);
-  await page.getByLabel('View', {exact: true}).first().click(); await page.waitForTimeout(600);
-  await page.getByText('By Customer', {exact: true}).last().click(); await page.waitForTimeout(1500);
+  // The View drop-down went (11 Nov 2026): the Filter's Customer list has every client on a quote.
+  await page.getByLabel('Filter', {exact: true}).first().click(); await page.waitForTimeout(600);
+  await page.getByLabel('Customer', {exact: true}).first().click(); await page.waitForTimeout(800);
   const t = await page.evaluate(() => document.body.innerText);
-  check(/Persimmon/.test(t) && /Bellway Homes/.test(t) && /Barratt/.test(t), 'By Customer lists every client on the quote');
+  check(/Persimmon/.test(t) && /Bellway Homes/.test(t) && /Barratt/.test(t), 'the Customer filter lists every client on the quote');
   await page.screenshot({path: shot('bycustomer')});
   check(!errs.length, `no errors ${errs.join(' | ')}`);
   await browser.close();

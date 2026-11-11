@@ -32,7 +32,7 @@ export type QuoteSettings = {
   // Quotation; the auto exports; the tender tracker kept up to date in OneDrive.
   status_folders?: Record<string, string> | null; person_folders?: Record<string, string> | null; cc_email?: string | null; auto_exports?: AutoExport[] | null; tracker_on?: boolean | null; tracker_name?: string | null;
 };
-export type ClientHit = { id: string; name: string; email: string | null; phone: string | null; markup?: number | null };
+export type ClientHit = { id: string; name: string; email: string | null; phone: string | null; markup?: number | null; estimator_name?: string | null; estimator_email?: string | null; estimator_phone?: string | null; quote_chase?: boolean | null };
 
 export const useQuotes = (orgId: string | null | undefined) => useQuery({
   queryKey: ['quotes', orgId], enabled: !!orgId,
@@ -64,7 +64,8 @@ export const useQuoteSettings = (orgId: string | null | undefined) => useQuery({
 export const saveQuoteSettings = async (s: Partial<QuoteSettings> & { org_id: string }) => !(await db.from('quote_settings').upsert({ ...s, updated_at: new Date().toISOString() } as never)).error;
 
 export async function searchClients(q: string): Promise<ClientHit[]> {
-  const r = await rpc('quote_client_search_v2', { q });
+  // v3 (11 Nov 2026) adds the client's estimator (Directory › Estimating) and whether new quotes are chased.
+  const r = await rpc('quote_client_search_v3', { q });
   return r.error ? [] : (r.data as ClientHit[]);
 }
 /** Another client tendering the same job (they join the Directory if new). */

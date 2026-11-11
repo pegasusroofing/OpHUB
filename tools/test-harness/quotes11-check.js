@@ -44,7 +44,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByRole('button', {name: /^Quoted Projects/}).click(); await page.waitForTimeout(800);
   t = await body();
   check(/Ashford School/.test(t) && /Croydon Depot/.test(t) && /Leyton Library/.test(t) && !/Hove Flats/.test(t), 'the Quoted Projects tile opens Quoted: every returned job, won and lost too');
-  check(/RETURNED/.test(t) && /CHASE/.test(t) && /No News/.test(t), 'Quoted shows returned, chase and the status (No News)');
+  check(/VALUE/.test(t) && /CHASE/.test(t) && /No News/.test(t), 'Quoted shows value, chase and the status (No News)');
   await page.getByRole('button', {name: /^Won 1/}).click(); await page.waitForTimeout(600);
   t = await body();
   check(/Croydon Depot/.test(t) && !/Ashford School/.test(t), 'the outcome filter: Won only');

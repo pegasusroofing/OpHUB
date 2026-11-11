@@ -86,12 +86,12 @@ export function FinFilterBar({ search, parts, sel, onChange, onClear, sorts, sor
 }
 
 /** Excel and PDF as links in a thin bar: goes below the page's scrolling part, as on the Quotes list. */
-export function ThinExportBar({ onExcel, onPdf, busy, excelLabel = 'Export To Excel', pdfLabel = 'Export To PDF' }: { onExcel?: () => void; onPdf?: () => void; busy?: string; excelLabel?: string; pdfLabel?: string }) {
-  const link = (t: string, press: () => void) => <Pressable accessibilityRole="button" onPress={press}><Text style={{ fontSize: 13, fontWeight: '500', color: base.blue }}>{t}</Text></Pressable>;
+export function ThinExportBar({ onExcel, onPdf, busy, excelLabel = 'Export To Excel', pdfLabel = 'Export To PDF', excelA11y, pdfA11y }: { onExcel?: () => void; onPdf?: () => void; busy?: string; excelLabel?: string; pdfLabel?: string; excelA11y?: string; pdfA11y?: string }) {
+  const link = (t: string, press: () => void, a11y?: string) => <Pressable accessibilityRole="button" accessibilityLabel={a11y || t} onPress={press}><Text style={{ fontSize: 13, fontWeight: '500', color: base.blue }}>{t}</Text></Pressable>;
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 9 }}>
-      {onExcel ? link(busy === 'x' ? 'Making…' : excelLabel, onExcel) : <View />}
-      {onPdf ? link(busy === 'p' ? 'Making…' : pdfLabel, onPdf) : <View />}
+      {onExcel ? link(busy === 'x' ? 'Making…' : excelLabel, onExcel, excelA11y) : <View />}
+      {onPdf ? link(busy === 'p' ? 'Making…' : pdfLabel, onPdf, pdfA11y) : <View />}
     </View>
   );
 }
