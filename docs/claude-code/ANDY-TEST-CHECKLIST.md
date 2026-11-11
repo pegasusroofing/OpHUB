@@ -155,6 +155,43 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
 61. Repairs, 9 Nov: a PM or admin prices the quote from the job in Projects, with or without Finance (Price It on the Quote line and in Update ▾; the same quote screen as Finance). On the Quote line: Send To Client while it hasn't been sent, and Quote Update ▾ (Approved / Rejected). Only a company with OpHUB Finance prices on the quote screen and sends from OpHUB (Andy, 9 Nov: send-repair-quote v2 deployed with his go-ahead; it refuses a PM without Finance in a company without it). A company without Finance gets Enter Quote Figure instead: a pop-up for the net figure that went to the client, the date it went and what it's for; saving makes it Awaiting Client Approval, then Quote Update ▾ as usual. During the Finance trial RTB's quote emails are held back anyway. Fake database; not yet tried by Andy.
 62. Works Orders, 9 Nov: tabs in place of the boxes: All first, then Overdue, To Schedule … Completed Works - Paid, each with its count. Filter ▼ (Stage on All; Priority, Operative, Due) and Sort (Newest, Booking Date, Due Date). A full-width search under + New Job (address, postcode with or without the space, works order number, resident, phone) narrows every tab and its count; ✕ clears it. A job opened from a tab shows the tab in its trail. The jobs / Export Excel bar sits at the bottom of the page. Finance's Live Jobs is the same screen (tick jobs on the Completed Works - To Invoice tab). Operatives keep their boxes. Fake database (phone and laptop); not yet tried by Andy.
 
+63. Quotes, 11 Nov (phone first). The full list is in SNAGS-2026-11-11.md.
+   - **Tabs:** Live · Quoted · All. A quote leaves Live once it's submitted. In Quoted, filter by No News / Negotiating / Won / Lost.
+   - **Rows and filters:** table rows with a Status column. View / Filter / Sort drop-downs. The tiles open what they count.
+   - **Footer bar:** Settings in the middle, Export ▾ (choose the view or a report, then Excel or PDF).
+   - **New Enquiry:** boxes lined up; Discipline Other typed in; + Multiple Clients. The tender folder is made in OneDrive.
+   - **Tender page:**
+     - status bar, which moves the folder;
+     - small tiles (Tender Value, Mark-Up, Return Date, Chase Date);
+     - compact details with Edit;
+     - Documents read from OneDrive, with + Add Documents;
+     - Submit Quotation (tick documents in any folder, value, mark-up, priced by, then the email with the preset CC);
+     - once quoted, the outcome buttons;
+     - a short chaser at the bottom with the chase date.
+   - **Won:** Convert To Project goes into Create Project, filled in from the quote. Making it moves the folder and marks the quote won. A second project for the same quote asks first.
+   - **Settings tabs:** Chaser, Sending (CC), Folders, Auto Export, Old Quotes. The tender folders are also on Admin › OneDrive.
+   - **Tender tracker:** "Tender Tracker - OpHUB.xlsx" kept up to date in Open Tenders.
+   - **Waiting on Andy's OK to deploy the server update:** the folder moves, CC, new folders and auto exports.
+64. Home and Projects, 11 Nov:
+   - Home: a weather tile in Today (tap for the week); Today tiles the width of the tiles below. The Dashboard tile opens a chooser.
+   - Job home: the weather has its own box that opens.
+   - Admin: job status full width.
+   - Check-in: the geofence folds away once set; exports in the footer bar.
+   - Snagging: tabs, compact rows, Add Snag pop-up, Tag Someone, Yes / No with the fix photo before it closes.
+   - Schedule of Works and Variations: exports in the footer bar.
+   - Calendar: + Add To Calendar on the all-projects calendar, and Tag People on calendar entries.
+65. Dashboard and HR, 11 Nov:
+   - Dashboard: choose Company or Operative first, tabs centred. The Company dashboard adds Money, Quotes and Deliveries.
+   - HR: Who Approves Holidays in Holiday Settings, shown on the calendar. Non-admin approvers need docs/claude-code/sql/hr-approvers-11nov.sql run first.
+   - HR: spacing fixed on policies and on My Upcoming Time Off.
+66. Admin set-up guide, 11 Nov: on an admin's home from the first login. Steps open the page; tick, minimise, close. Admin › Set-Up Guide brings it back.
+67. Finance, 11 Nov:
+   - **Tabs:** the tab you're on stays in view. People & Rates keeps the tiles.
+   - **Settings:** edit in place with Save; figures select on tap; sales and purchase VAT named separately; VAT rates fit a phone; material costs by role with Select All.
+   - **Templates:** a bigger message box.
+   - **Sales:** + New full width; no text; table rows; retention shows the next release; last tile is Retention Owed Total.
+   - **Tables:** Directory and labour invoices as table rows. Rows are one line each.
+
 ## To discuss with Andy
 - ~~OneDrive and the full job set-up~~: talked through and built 8 Nov 2026 (item 55).
 - Sort out plots: how multi-site (multi-plot) jobs should work (Andy, 2 Nov 2026; asked again 5 Nov 2026: "we need to discuss and sort plots out"). Bring this up before Finance is signed off. Plots show today on BoQ lines and as a column on PO lines (only when the project has plots).
