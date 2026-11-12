@@ -60,7 +60,7 @@ export default function Operatives() {
   const shown = ops.filter((o) => (!site || onSite?.has(o.id)) && (!q.trim() || (o.name || '').toLowerCase().includes(q.trim().toLowerCase())));
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: siteName ? `Operatives · ${siteName}` : 'Dashboard' }} />
+      <Stack.Screen options={{ title: siteName ? `Operatives · ${siteName}` : 'Dashboards' }} />
       {!site && <DashTabs on="operatives" />}
       <TextInput value={q} onChangeText={setQ} placeholder="Search operatives…" style={{ borderWidth: 1.5, borderColor: base.line, borderRadius: radius.input, padding: 12, color: base.ink, backgroundColor: base.card, marginBottom: 10 }} />
       {!site && (

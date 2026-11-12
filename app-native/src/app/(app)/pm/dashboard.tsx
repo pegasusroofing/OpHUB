@@ -115,7 +115,7 @@ export default function CompanyDashboard() {
   const sel = show && lists[show];
   return (
     <ScrollView contentContainerStyle={page(720)}>
-      <Stack.Screen options={{ title: 'Dashboard' }} />
+      <Stack.Screen options={{ title: 'Dashboards' }} />
       <DashTabs on="company" />
       {pmCo && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
         {stat('Live Projects', live.length, null, () => router.push('/sites'))}

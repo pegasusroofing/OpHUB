@@ -34,7 +34,7 @@ export default function Dashboards() {
   ];
   return (
     <ScrollView contentContainerStyle={page(720)}>
-      <Stack.Screen options={{ title: 'Dashboard' }} />
+      <Stack.Screen options={{ title: 'Dashboards' }} />
       <Text style={{ fontSize: 13, color: base.slate, marginBottom: 10 }}>Which dashboard?</Text>
       {rows.map((r) => (
         <Pressable key={r.go} accessibilityRole="button" accessibilityLabel={r.badge ? `${r.title}, ${r.badge} to schedule` : r.title} onPress={() => router.push(r.go as never)}

@@ -50,7 +50,7 @@ export function DeskNav() {
       ] },
       { k: 'pm/calendar', ic: 'calendar', lbl: 'Calendar', go: '/pm/calendar', sec: 'Work' },
       { k: 'pm/hub', ic: 'bell', lbl: 'Hub', go: '/pm/hub', badge: hubN, sec: 'Team' },
-      { k: 'pm/dashboard', ic: 'chart', lbl: 'Dashboard', go: '/pm/dashboard', sec: 'Team', kids: [
+      { k: 'pm/dashboard', ic: 'chart', lbl: 'Dashboards', go: '/pm/dashboard', sec: 'Team', kids: [
         { k: 'pm/dashboard', ic: 'chart', lbl: 'Company', go: '/pm/dashboard' },
         { k: 'pm/operatives', ic: 'admin', lbl: 'Operatives', go: '/pm/operatives' },
         { k: 'pm/hr', ic: 'users', lbl: 'HR', go: '/pm/hr' },

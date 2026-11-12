@@ -24,14 +24,14 @@ const menuText = (page) => page.evaluate(() => [...document.querySelectorAll('di
     const at = (x) => m.indexOf(x);
     if (role === 'operative') check(at('WORK') < 0 && at('TEAM') < 0 && at('OFFICE') < 0 && at('OPHUB') < 0, `${name}: no headings (a short menu), no OPHUB line`);
     else {
-      check(at('WORK') > at('Home') && at('Projects') > at('WORK') && at('Calendar') > at('Projects') && at('TEAM') > at('Calendar') && at('Hub') > at('TEAM') && at('Dashboard') > at('Hub') && at('OFFICE') > at('Dashboard') && at('Admin') > at('OFFICE'), `${name}: Home, then WORK (Projects … Calendar), TEAM (Hub, Dashboard), OFFICE (… Admin) [${m.slice(0, 22).join(' | ')}]`);
+      check(at('WORK') > at('Home') && at('Projects') > at('WORK') && at('Calendar') > at('Projects') && at('TEAM') > at('Calendar') && at('Hub') > at('TEAM') && at('Dashboards') > at('Hub') && at('OFFICE') > at('Dashboards') && at('Admin') > at('OFFICE'), `${name}: Home, then WORK (Projects … Calendar), TEAM (Hub, Dashboards), OFFICE (… Admin) [${m.slice(0, 22).join(' | ')}]`);
       check(fin ? at('Finance') > at('OFFICE') && at('OpHUB Finance') < 0 : at('Finance') < 0, fin ? `${name}: Finance under Office (not "OpHUB Finance")` : `${name}: no Finance (Admin alone under Office)`);
       check(at('OPHUB') < 0 && m.filter((x) => x === '▾').length >= 3, `${name}: no OPHUB line; ▾ beside the items that open`);
       await page.getByLabel('Show Projects pages').click(); await page.waitForTimeout(500);
       const m2 = await menuText(page);
       check(m2.includes('▴') && m2.includes('Sites Map'), `${name}: ▾ opens the list underneath (▴ when open)`);
-      // Clicking Dashboard itself opens its list (Company, Operatives, HR), not straight to Company (Andy, 9 Nov 2026).
-      await page.locator('text="Dashboard" >> visible=true').first().click(); await page.waitForTimeout(800);
+      // Clicking Dashboards itself opens its list (Company, Operatives, HR), not straight to Company (Andy, 9 Nov 2026).
+      await page.locator('text="Dashboards" >> visible=true').first().click(); await page.waitForTimeout(800);
       const m4 = await menuText(page);
       check(new URL(page.url()).pathname === '/home' && m4.includes('Company') && m4.includes('Operatives') && m4.includes('HR'), `${name}: clicking Dashboard shows Company, Operatives and HR (stays on ${new URL(page.url()).pathname})`);
       await page.locator('text="Operatives" >> visible=true').first().click(); await page.waitForTimeout(2500);
