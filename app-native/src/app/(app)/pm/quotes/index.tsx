@@ -172,12 +172,12 @@ export default function Quotes() {
     const on = psort?.k === k;
     return (
       <Pressable key={k} accessibilityRole="button" accessibilityLabel={`Sort by ${l}`} onPress={() => setPsort(nextSort(psort, k))} style={w ? { width: w } : { flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={1} style={{ textAlign: align, fontSize: 9, fontWeight: '700', color: on ? base.ink : base.slate, letterSpacing: 0.3, textDecorationLine: 'underline' }}>{l.toUpperCase()}{on ? (psort?.dir === 'asc' ? ' ▲' : ' ▼') : ''}</Text>
+        <Text numberOfLines={1} style={{ textAlign: align, fontSize: 10.5, fontWeight: '700', color: on ? base.ink : base.slate, letterSpacing: 0.3, textDecorationLine: 'underline' }}>{l.toUpperCase()}{on ? (psort?.dir === 'asc' ? ' ▲' : ' ▼') : ''}</Text>
       </Pressable>
     );
   };
-  // A box per column. The heading and search rows are 1.2 × smaller than the app's usual (Andy, 14 Nov 2026): 25px boxes
-  // with 12px writing (data-compact, see lib/webShell); the page set-up stops an iPhone zooming into them.
+  // A box per column, 1.2 × smaller than the app's usual boxes (Andy, 14 Nov 2026: the search boxes, not the table): 25px
+  // high with 12px writing (data-compact, see lib/webShell); the page set-up stops an iPhone zooming into them.
   const colBox = (k: string, ph: string, w?: number) => (
     <TextInput key={k} value={colQ[k] || ''} onChangeText={(t) => { setColQ({ ...colQ, [k]: t }); setShown(100); }} placeholder={ph} accessibilityLabel={`Search ${ph}`} placeholderTextColor="#9AA1AB" autoCapitalize="none" autoCorrect={false}
       {...({ dataSet: { compact: '1' } } as object)}
@@ -189,7 +189,7 @@ export default function Quotes() {
   };
   const phoneTable = (
     <View accessibilityLabel="Quotes table" style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, overflow: 'hidden' }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 7.5, paddingBottom: 5, paddingHorizontal: 10, backgroundColor: '#F6F7F9' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 9, paddingBottom: 6, paddingHorizontal: 10, backgroundColor: '#F6F7F9' }}>
         {sortHead('p', 'Project')}
         {tab === 'live' ? sortHead('d', 'Due Back', W.d, 'center') : tab === 'quoted' ? <>{sortHead('v', 'Value', W.v, 'center')}{sortHead('c', 'Chase', W.c, 'center')}</> : sortHead('d', 'Date', W.d, 'center')}
         {sortHead('s', 'Status', W.s, 'center')}
