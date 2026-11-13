@@ -8,10 +8,12 @@
 // under their headings, Status at the right. The View drop-down went: the filter narrows the list, the summaries are in Export.
 // A live quote's Status is a ▾ pick list in the phone table: Pricing, Awaiting Information, Ready For Checking (Andy, 14 Nov
 // 2026), saved the same way as on the quote's own page (its OneDrive folder moves with it).
+// Phone table, as on a laptop (Andy, 14 Nov 2026): tap a heading to sort (A to Z, Z to A, off), and a search box under each
+// column (Status is a ▾ choice); the Filter and Sort buttons went. The search at the top still looks through everything.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { askDate } from '@/components/DateField';
 import { FinFilterBar, ThinExportBar, type FilterSel } from '@/components/FinFilterBar';
@@ -23,10 +25,11 @@ import { Button, Empty, Muted } from '@/components/ui';
 import { moveToStatusFolder, receivedOn, saveQuote, setQuoteStatus, useQuotes, useQuoteSettings, type Quote } from '@/data/quotes';
 import { useAuth } from '@/lib/auth';
 import { localISODate } from '@/lib/rules/driver';
+import { nextSort, sortRows, type FinSort } from '@/lib/rules/finTable';
 import { quoteReport, REPORTS, type ReportKey } from '@/lib/rules/quoteReports';
 import { chaseStatus, clientNames, groupQuotes, isQuoted, outcomeOf, OUTCOMES, statusWord, WORK_STATUS, type Outcome } from '@/lib/rules/quotes';
 import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
-import { base, page, useDesk } from '@/theme/theme';
+import { base, page, radius, useDesk } from '@/theme/theme';
 
 const money = (n: number | null | undefined) => (n ? `£${Math.round(n).toLocaleString('en-GB')}` : '—');
 const ukd = (d: string | null | undefined) => (d ? new Date(`${d.slice(0, 10)}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : '—');
@@ -55,6 +58,10 @@ export default function Quotes() {
   const [sel, setSel] = useState<FilterSel>({ client: [], disc: [], by: [], year: [], st: [] });
   const [sort, setSort] = useState('date');
   const [shown, setShown] = useState(100);
+  // Phone table: what's typed under each column, the Status chosen, and the heading it's sorted by.
+  const [colQ, setColQ] = useState<Record<string, string>>({});
+  const [stPick, setStPick] = useState('');
+  const [psort, setPsort] = useState<FinSort | null>(null);
   const today = localISODate(new Date());
   const all = useMemo(() => data ?? [], [data]);
   const inTab = (x: Quote) => (tab === 'all' ? true : tab === 'live' ? !isQuoted(x) : isQuoted(x) && (out === 'any' || outcomeOf(x.status) === out));
@@ -79,15 +86,17 @@ export default function Quotes() {
   const pool = all.filter(inTab);
   const distinct = (f: (x: Quote) => string | null) => [...new Set(pool.map(f).filter(Boolean) as string[])].sort();
   const go = (x: Quote) => router.push(`/pm/quotes/${x.id}` as never);
-  const openTab = (t: Tab, o: 'any' | Outcome = 'any') => { setTab(t); setOut(o); setShown(100); };
+  const openTab = (t: Tab, o: 'any' | Outcome = 'any') => { setTab(t); setOut(o); setShown(100); setColQ({}); setStPick(''); setPsort(null); };
   const tabName = tab === 'live' ? 'Live' : tab === 'quoted' ? 'Quoted' : 'All';
 
   // Export ▾: this view as it's shown, or any of the reports.
   const doExport = async () => {
-    const thisView = `This View (${tabName}${tab === 'quoted' && out !== 'any' ? ` · ${OUTCOMES.find(([k]) => k === out)?.[1]}` : ''}, ${list.length})`;
+    // On a phone, the rows as the column searches leave them.
+    const view = desk ? list : rows;
+    const thisView = `This View (${tabName}${tab === 'quoted' && out !== 'any' ? ` · ${OUTCOMES.find(([k]) => k === out)?.[1]}` : ''}, ${view.length})`;
     const pick = await pickExport<'view' | ReportKey>([{ key: 'view', label: thisView }, ...REPORTS.map(([key, label]) => ({ key, label }))]);
     if (!pick) return;
-    const t = (pick.key === 'view' ? quoteReport(tab === 'live' ? 'live' : tab === 'quoted' ? 'quoted' : 'all', list, today) : quoteReport(pick.key, all, today)) as Table;
+    const t = (pick.key === 'view' ? quoteReport(tab === 'live' ? 'live' : tab === 'quoted' ? 'quoted' : 'all', view, today) : quoteReport(pick.key, all, today)) as Table;
     const ok = pick.as === 'xlsx' ? await exportTableExcel(t, org) : await exportTablePdf(t, org);
     if (!ok) toast('Could not make the file. Try again.');
   };
@@ -105,7 +114,6 @@ export default function Quotes() {
   // headings; Status centred in its column at the right (Andy, 11 Nov 2026). On Quoted, tap the chase date to set it:
   // "Auto" under it when the email chaser sends it; otherwise it's the date for you to chase (nothing is sent).
   const W = { d: 74, v: 56, c: 56, s: 68 };
-  const head = (l: string, w?: number, align: 'left' | 'center' | 'right' = 'left') => <Text numberOfLines={1} style={{ ...(w ? { width: w } : { flex: 1 }), textAlign: align, fontSize: 10.5, fontWeight: '700', color: base.slate, letterSpacing: 0.3 }}>{l.toUpperCase()}</Text>;
   const mid = (t: string, w: number, opts: { sub?: string; late?: boolean; bold?: boolean } = {}) => (
     <View style={{ width: w, alignItems: 'center' }}>
       <View accessibilityLabel={opts.late ? `${t}, overdue` : undefined} style={opts.late ? { borderWidth: 1.5, borderColor: RED, borderRadius: 6, paddingHorizontal: 4, paddingVertical: 1 } : null}>
@@ -134,14 +142,65 @@ export default function Quotes() {
     if (x.folder_id) { const m = await moveToStatusFolder(x.id, k); if (m.error) toast(`Saved, but the folder stayed where it is: ${m.error}`); }
     void qc.invalidateQueries({ queryKey: ['quotes'] });
   };
+  // Phone: the column searches and the heading sort, on top of the search box and tabs.
+  const dateCell = (x: Quote) => (tab === 'live' ? x.return_date : isQuoted(x) ? returnedOn(x) : x.return_date) || null;
+  const chaseText = (x: Quote) => (canChase(x) ? `${x.next_chase_date ? dm(x.next_chase_date) : 'Set'}${x.chase_on ? ' Auto' : ''}` : '—');
+  // Value: words as shown (£84k), or ">50k" / "<10k" for more or less than.
+  const valueHit = (v: number | null | undefined, raw: string) => {
+    const m = raw.replace(/[£,\s]/g, '').toLowerCase().match(/^([<>]=?)(\d+(?:\.\d+)?)([km]?)$/);
+    if (!m) { const w = raw.trim().toLowerCase(); return kMoney(v).toLowerCase().includes(w) || money(v).toLowerCase().includes(w); }
+    const n = Number(m[2]) * (m[3] === 'k' ? 1000 : m[3] === 'm' ? 1000000 : 1), x = v || 0;
+    return m[1] === '>' ? x > n : m[1] === '>=' ? x >= n : m[1] === '<' ? x < n : x <= n;
+  };
+  const typed = (k: string) => (colQ[k] || '').trim().toLowerCase();
+  const stChoices = [...new Set(list.map((x) => statusWord(x)))];
+  const SORT_BY: Record<string, (x: Quote) => string | number | null> = {
+    p: (x) => x.title.toLowerCase(), d: (x) => dateCell(x) || '', v: (x) => x.value ?? null, c: (x) => (canChase(x) && x.next_chase_date) || '', s: (x) => statusWord(x),
+  };
+  const rows = (() => {
+    const p = typed('p'), d = typed('d'), c = typed('c'), v = (colQ.v || '').trim();
+    const r = list.filter((x) => (!p || `${x.title} ${clientNames(x).join(' ')} ${x.address ?? ''} ${x.postcode ?? ''}`.toLowerCase().includes(p))
+      && (!d || `${ukd(dateCell(x))} ${dateCell(x) || ''}`.toLowerCase().includes(d))
+      && (!c || chaseText(x).toLowerCase().includes(c))
+      && (!v || valueHit(x.value, v))
+      && (!stPick || statusWord(x) === stPick));
+    return psort && SORT_BY[psort.k] ? sortRows(r, [{ k: psort.k, sort: SORT_BY[psort.k] }], psort, () => '') : r;
+  })();
+  const searching = Object.values(colQ).some((x) => x.trim()) || !!stPick;
+  const selWords = Object.entries(sel).flatMap(([k, v]) => (v || []).map((x) => (k === 'year' ? `Year ${x}` : k === 'st' ? (WORK_STATUS.find(([w]) => w === x)?.[1] ?? x) : x)));
+  const sortHead = (k: string, l: string, w?: number, align: 'left' | 'center' = 'left') => {
+    const on = psort?.k === k;
+    return (
+      <Pressable key={k} accessibilityRole="button" accessibilityLabel={`Sort by ${l}`} onPress={() => setPsort(nextSort(psort, k))} style={w ? { width: w } : { flex: 1, minWidth: 0 }}>
+        <Text numberOfLines={1} style={{ textAlign: align, fontSize: 10.5, fontWeight: '700', color: on ? base.ink : base.slate, letterSpacing: 0.3, textDecorationLine: 'underline' }}>{l.toUpperCase()}{on ? (psort?.dir === 'asc' ? ' ▲' : ' ▼') : ''}</Text>
+      </Pressable>
+    );
+  };
+  // A box per column, the same size as the app's other boxes on a phone (the page set-up stops an iPhone zooming into them).
+  const colBox = (k: string, ph: string, w?: number) => (
+    <TextInput key={k} value={colQ[k] || ''} onChangeText={(t) => { setColQ({ ...colQ, [k]: t }); setShown(100); }} placeholder={ph} accessibilityLabel={`Search ${ph}`} placeholderTextColor="#9AA1AB" autoCapitalize="none" autoCorrect={false}
+      style={[{ height: 30, paddingHorizontal: 6, paddingVertical: 0, borderWidth: 1, borderColor: colQ[k]?.trim() ? base.ink : base.line, borderRadius: 7, backgroundColor: '#fff', fontSize: 16, color: base.ink }, w ? { width: w } : { flex: 1, minWidth: 0 }]} />
+  );
+  const pickSt = async () => {
+    const k = await chooseAction('Status', [{ key: '*', label: `${stPick ? '' : '✓ '}Any Status` }, ...stChoices.map((s) => ({ key: s, label: `${stPick === s ? '✓ ' : ''}${s}` }))]);
+    if (k) { setStPick(k === '*' ? '' : k); setShown(100); }
+  };
   const phoneTable = (
     <View accessibilityLabel="Quotes table" style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, overflow: 'hidden' }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 9, paddingHorizontal: 10, backgroundColor: '#F6F7F9' }}>
-        {head('Project')}
-        {tab === 'live' ? head('Due Back', W.d, 'center') : tab === 'quoted' ? <>{head('Value', W.v, 'center')}{head('Chase', W.c, 'center')}</> : head('Date', W.d, 'center')}
-        {head('Status', W.s, 'center')}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 9, paddingBottom: 6, paddingHorizontal: 10, backgroundColor: '#F6F7F9' }}>
+        {sortHead('p', 'Project')}
+        {tab === 'live' ? sortHead('d', 'Due Back', W.d, 'center') : tab === 'quoted' ? <>{sortHead('v', 'Value', W.v, 'center')}{sortHead('c', 'Chase', W.c, 'center')}</> : sortHead('d', 'Date', W.d, 'center')}
+        {sortHead('s', 'Status', W.s, 'center')}
       </View>
-      {list.slice(0, shown).map((x) => (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingBottom: 8, paddingHorizontal: 10, backgroundColor: '#F6F7F9' }}>
+        {colBox('p', 'Project')}
+        {tab === 'quoted' ? <>{colBox('v', 'Value', W.v)}{colBox('c', 'Chase', W.c)}</> : colBox('d', 'Date', W.d)}
+        <Pressable accessibilityRole="button" accessibilityLabel="Search Status" onPress={() => void pickSt()} style={{ width: W.s, height: 30, borderWidth: 1, borderColor: stPick ? base.ink : base.line, borderRadius: 7, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
+          <Text numberOfLines={1} style={{ fontSize: 12, color: stPick ? base.ink : '#9AA1AB' }}>{stPick || 'All'} ▾</Text>
+        </Pressable>
+      </View>
+      {!rows.length && <Text style={{ padding: 14, textAlign: 'center', color: base.slate, borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>No quotes match.</Text>}
+      {rows.slice(0, shown).map((x) => (
         <View key={x.id} style={{ flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>
           <Pressable accessibilityRole="button" accessibilityLabel={x.title} onPress={() => go(x)} style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 9, paddingLeft: 10 }}>
             <View style={{ flex: 1, minWidth: 0 }}>
@@ -209,7 +268,7 @@ export default function Quotes() {
         </View>
       )}
       <View style={{ marginBottom: 10 }}><Button title="+ New Enquiry" onPress={() => router.push('/pm/quotes/new' as never)} /></View>
-      <FinFilterBar search={{ value: q, onChange: (t) => { setQ(t); setShown(100); }, placeholder: 'Search Customer, Project, Address…' }} sel={sel} onChange={setSel} onClear={() => setSel({ client: [], disc: [], by: [], year: [], st: [] })}
+      {desk ? <FinFilterBar search={{ value: q, onChange: (t) => { setQ(t); setShown(100); }, placeholder: 'Search Customer, Project, Address…' }} sel={sel} onChange={setSel} onClear={() => setSel({ client: [], disc: [], by: [], year: [], st: [] })}
         sorts={[['date', 'Newest First'], ['old', 'Oldest First'], ...(tab === 'live' ? [['due', 'Due Back Soonest'] as [string, string]] : []), ['value', 'Highest Value'], ['client', 'Customer A To Z']]} sort={sort} onSort={setSort}
         parts={[
           ...(tab === 'live' ? [{ key: 'st', label: 'Status', items: WORK_STATUS.map(([v, l]) => ({ v, l, n: live.filter((x) => x.status === v).length })) }] : []),
@@ -217,13 +276,26 @@ export default function Quotes() {
           { key: 'disc', label: 'Discipline', items: distinct((x) => x.discipline).map((v) => ({ v, l: v })) },
           { key: 'by', label: 'Priced By', items: distinct((x) => x.priced_by_name).map((v) => ({ v, l: v })) },
           { key: 'year', label: 'Year', items: distinct(yearOf).reverse().map((v) => ({ v, l: v })) },
-        ]} />
+        ]} /> : (
+        <>
+          <TextInput value={q} onChangeText={(t) => { setQ(t); setShown(100); }} placeholder="Search Customer, Project, Address…" placeholderTextColor="#9AA1AB" accessibilityLabel="Search quotes"
+            style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: base.card, color: base.ink, marginBottom: 10, fontSize: 16 }} />
+          {/* A filter set elsewhere (the Win Rate tile picks this year): shown, with ✕ to show everything again. */}
+          {selWords.length > 0 && (
+            <Pressable accessibilityRole="button" accessibilityLabel="Show all quotes" onPress={() => setSel({ client: [], disc: [], by: [], year: [], st: [] })} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <Text style={{ flex: 1, fontSize: 13, color: base.ink }}>Only {selWords.join(', ')}</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: base.ink }}>✕ Show All</Text>
+            </Pressable>
+          )}
+        </>
+      )}
       {isLoading ? <Muted>Loading…</Muted> : list.length ? (desk ? (
         <FinTable rows={list} keyOf={(x) => x.id} onRow={go} defaultSort={{ k: 'd', dir: tab === 'live' ? 'asc' : 'desc' }} cols={deskCols} />
       ) : (
         <>
           {phoneTable}
-          {list.length > shown && <View style={{ marginTop: 10 }}><Button kind="ghost" title={`Show More (${list.length - shown} Left)`} onPress={() => setShown(shown + 100)} /></View>}
+          {searching && <Pressable accessibilityRole="button" accessibilityLabel="Clear the column searches" onPress={() => { setColQ({}); setStPick(''); }} style={{ alignSelf: 'center', paddingVertical: 8 }}><Text style={{ fontSize: 13, fontWeight: '600', color: base.ink }}>✕ Clear The Column Searches</Text></Pressable>}
+          {rows.length > shown && <View style={{ marginTop: 10 }}><Button kind="ghost" title={`Show More (${rows.length - shown} Left)`} onPress={() => setShown(shown + 100)} /></View>}
         </>
       )) : <Empty>{all.length ? 'No quotes match.' : 'No quotes yet. Press + New Enquiry to add one.'}</Empty>}
       <View style={{ flexGrow: 1 }} />
