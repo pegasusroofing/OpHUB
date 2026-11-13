@@ -78,26 +78,29 @@ export function DocViewerHost() {
           <Pressable accessibilityRole="button" accessibilityLabel="Export" onPress={() => void exportFile()} style={btn}><Text style={{ color: '#fff', fontWeight: '600' }}>📤 Export</Text></Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={close} style={btn}><Text style={{ color: '#fff', fontWeight: '600' }}>✕</Text></Pressable>
         </View>
-        {isPdf(req) && Platform.OS === 'web' ? <PdfPages url={req.url} zoom={zoom} /> : (
+        {isPdf(req) && Platform.OS === 'web' ? <PdfPages url={req.url} zoom={1} zoomButtons /> : (
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
             <ScrollView horizontal contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }}>
               <Image source={{ uri: req.url }} resizeMode="contain" style={{ width: (W - 16) * zoom, height: (H - 90) * zoom }} />
             </ScrollView>
           </ScrollView>
         )}
-        <View style={{ position: 'absolute', right: 16, bottom: 24, gap: 8 }}>
+        {/* PDFs have their own + / −, sharing one zoom with the pinch. */}
+        {!(isPdf(req) && Platform.OS === 'web') && <View style={{ position: 'absolute', right: 16, bottom: 24, gap: 8 }}>
           <Pressable accessibilityRole="button" accessibilityLabel="Zoom in" onPress={() => setZoom((z) => Math.min(6, z * 1.5))} style={zb}><Text style={zt}>+</Text></Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Zoom out" onPress={() => setZoom((z) => Math.max(1, z / 1.5))} style={zb}><Text style={zt}>−</Text></Pressable>
-        </View>
+        </View>}
       </View>
     </Modal>
   );
 }
-const zb = { width: 46, height: 46, borderRadius: 23, backgroundColor: 'rgba(255,255,255,.92)', alignItems: 'center' as const, justifyContent: 'center' as const };
-const zt = { fontSize: 24, fontWeight: '600' as const, color: '#111' };
+// Dark, so they show up on a white page as well as the dark background (Andy, 14 Nov 2026: "I can't zoom in").
+const zb = { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(17,19,23,.85)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,.7)', alignItems: 'center' as const, justifyContent: 'center' as const };
+const zt = { fontSize: 26, fontWeight: '600' as const, color: '#fff' };
 
 // Laptop: every page drawn into the scroll area, sharp enough to zoom into.
-export function PdfPages({ url, zoom, width: w0, light }: { url: string; zoom: number; width?: number; light?: boolean }) {
+/** zoomButtons: + and − in the corner (the full-screen viewer), on the same zoom as the pinch and double-tap. */
+export function PdfPages({ url, zoom, width: w0, light, zoomButtons }: { url: string; zoom: number; width?: number; light?: boolean; zoomButtons?: boolean }) {
   const host = useRef<HTMLElement | null>(null);
   const [state, setState] = useState<'loading' | 'ok' | 'bad'>('loading');
   const [fit, setFit] = useState(800);
@@ -109,6 +112,19 @@ export function PdfPages({ url, zoom, width: w0, light }: { url: string; zoom: n
   const wz = wzs.u === url ? wzs.z : 1;
   const urlNow = useRef(url);
   useEffect(() => { urlNow.current = url; }, [url]);
+  // Phones (Andy, 14 Nov 2026: "I can't zoom in"): pinch with two fingers, or double-tap to zoom in / back out. The
+  // point between your fingers stays put while the pages grow.
+  const zNow = useRef(1);
+  useEffect(() => { zNow.current = wz; }, [wz]);
+  const vScroll = useRef<unknown>(null), hScroll = useRef<unknown>(null);
+  const focus = useRef<{ x: number; y: number; from: number } | null>(null);
+  // + / −: zoom about the middle of what's on screen.
+  const bump = (f: number) => {
+    const v = node(vScroll); const r = v?.getBoundingClientRect();
+    focus.current = { x: (r?.width || 0) / 2, y: (r?.height || 0) / 2, from: zNow.current };
+    const u = urlNow.current; setWzs((w) => ({ u, z: Math.max(1, Math.min(6, (w.u === u ? w.z : 1) * f)) }));
+  };
+  const node = (r: { current: unknown }) => (r.current as { getScrollableNode?: () => HTMLElement } | null)?.getScrollableNode?.() ?? null;
   useEffect(() => {
     const el = wrap.current;
     if (!el || typeof el.addEventListener !== 'function') return;
@@ -119,6 +135,32 @@ export function PdfPages({ url, zoom, width: w0, light }: { url: string; zoom: n
       setWzs((w) => ({ u, z: Math.max(0.5, Math.min(6, (w.u === u ? w.z : 1) * Math.exp(-e.deltaY * 0.0025))) }));
     };
     el.addEventListener('wheel', onWheel, { passive: false });
+    const at = (cx: number, cy: number) => { const r = (node(vScroll) || el).getBoundingClientRect(); focus.current = { x: cx - r.left, y: cy - r.top, from: zNow.current }; };
+    const zoomTo = (z: number) => { const u = urlNow.current; setWzs({ u, z: Math.max(1, Math.min(6, z)) }); };
+    const dist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY) || 1;
+    let pinch: { d: number; z: number } | null = null, moved = false, lastUp = { t: 0, x: 0, y: 0 };
+    const ts = (e: TouchEvent) => {
+      if (e.touches.length === 2) { e.preventDefault(); pinch = { d: dist(e.touches), z: zNow.current }; }
+      else if (e.touches.length === 1) moved = false;
+    };
+    const tm = (e: TouchEvent) => {
+      if (pinch && e.touches.length === 2) {
+        e.preventDefault();
+        at((e.touches[0].clientX + e.touches[1].clientX) / 2, (e.touches[0].clientY + e.touches[1].clientY) / 2);
+        zoomTo(pinch.z * dist(e.touches) / pinch.d);
+      } else moved = true;
+    };
+    const te = (e: TouchEvent) => {
+      if (e.touches.length < 2 && pinch) { pinch = null; lastUp = { t: 0, x: 0, y: 0 }; return; }
+      if (e.touches.length || moved || !e.changedTouches[0]) return;
+      const c = e.changedTouches[0], now = Date.now();
+      if (now - lastUp.t < 320 && Math.abs(c.clientX - lastUp.x) < 30 && Math.abs(c.clientY - lastUp.y) < 30) {
+        e.preventDefault(); at(c.clientX, c.clientY); zoomTo(zNow.current > 1.05 ? 1 : 2.5); lastUp = { t: 0, x: 0, y: 0 };
+      } else lastUp = { t: now, x: c.clientX, y: c.clientY };
+    };
+    const noPageZoom = (e: Event) => e.preventDefault();
+    el.addEventListener('touchstart', ts, { passive: false }); el.addEventListener('touchmove', tm, { passive: false }); el.addEventListener('touchend', te, { passive: false });
+    el.addEventListener('gesturestart', noPageZoom); el.addEventListener('gesturechange', noPageZoom);
     let over = false;
     const enter = () => { over = true; }, leave = () => { over = false; };
     const onKey = (e: KeyboardEvent) => {
@@ -132,7 +174,7 @@ export function PdfPages({ url, zoom, width: w0, light }: { url: string; zoom: n
       setWzs((w) => ({ u, z: reset ? 1 : Math.max(0.5, Math.min(6, (w.u === u ? w.z : 1) * (inK ? 1.2 : 1 / 1.2))) }));
     };
     el.addEventListener('mouseenter', enter); el.addEventListener('mouseleave', leave); window.addEventListener('keydown', onKey);
-    return () => { el.removeEventListener('wheel', onWheel); el.removeEventListener('mouseenter', enter); el.removeEventListener('mouseleave', leave); window.removeEventListener('keydown', onKey); };
+    return () => { el.removeEventListener('touchstart', ts); el.removeEventListener('touchmove', tm); el.removeEventListener('touchend', te); el.removeEventListener('gesturestart', noPageZoom); el.removeEventListener('gesturechange', noPageZoom); el.removeEventListener('wheel', onWheel); el.removeEventListener('mouseenter', enter); el.removeEventListener('mouseleave', leave); window.removeEventListener('keydown', onKey); };
   }, []);
   useEffect(() => {
     let alive = true;
@@ -174,11 +216,18 @@ export function PdfPages({ url, zoom, width: w0, light }: { url: string; zoom: n
     const el = host.current;
     if (!el) return;
     el.querySelectorAll('canvas').forEach((c) => { const w = Math.round(fit * zoom * wz); c.style.width = `${w}px`; c.style.height = `${Math.round(w * Number(c.dataset.ratio || 1.4))}px`; });
+    // Keep the spot under the fingers (or the double-tap) where it was.
+    const f = focus.current, v = node(vScroll), h = node(hScroll);
+    if (f && f.from !== wz && v && h) {
+      const k = wz / f.from;
+      v.scrollTop = (v.scrollTop + f.y) * k - f.y; h.scrollLeft = (h.scrollLeft + f.x) * k - f.x;
+      f.from = wz;
+    }
   }, [zoom, wz, fit, state]);
   return (
-    <View ref={wrap as never} style={{ flex: 1 }}>
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 8 }}>
-      <ScrollView horizontal contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
+    <View ref={wrap as never} style={[{ flex: 1 }, { touchAction: 'pan-x pan-y' } as never]}>
+    <ScrollView ref={vScroll as never} style={{ flex: 1 }} contentContainerStyle={{ padding: 8 }}>
+      <ScrollView ref={hScroll as never} horizontal contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
         <View>
           {state === 'loading' && <Text style={{ color: light ? '#6b7280' : '#fff', opacity: 0.7, marginTop: 40, textAlign: 'center' }}>Loading document…</Text>}
           {state === 'bad' && <Text style={{ color: light ? '#6b7280' : '#fff', marginTop: 40, textAlign: 'center' }} onPress={() => void Linking.openURL(url)}>Couldn’t show this document here — tap to open it directly.</Text>}
@@ -186,6 +235,10 @@ export function PdfPages({ url, zoom, width: w0, light }: { url: string; zoom: n
         </View>
       </ScrollView>
     </ScrollView>
+    {zoomButtons && <View style={{ position: 'absolute', right: 16, bottom: 24, gap: 8 }}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Zoom in" onPress={() => bump(1.5)} style={zb}><Text style={zt}>+</Text></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Zoom out" onPress={() => bump(1 / 1.5)} style={zb}><Text style={zt}>−</Text></Pressable>
+    </View>}
     </View>
   );
 }

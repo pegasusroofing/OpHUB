@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { DateAskHost } from '@/components/DateField';
 import { DocViewerHost } from '@/components/DocViewer';
 import { EmailPromptHost } from '@/components/EmailPrompt';
-import { noteTap, Popup, PopupButtons } from '@/components/Popup';
+import { noteTap, Popup, PopupButtons, popupClosed } from '@/components/Popup';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 /** Jump straight into a long list's search box only on a laptop (mouse). On a phone or tablet it waits to be tapped, so the
@@ -15,6 +15,8 @@ function searchFirst(): boolean {
   return !window.matchMedia('(pointer: coarse)').matches;
 }
 import { plainDbText } from '@/lib/rules/plainError';
+// Each request gets its own pop-up (a new key), so one that follows another works out its own place.
+let reqN = 0;
 
 // confirm: show a 'done' message anyway, for a couple of seconds, where Andy wants to see it was saved (4 Nov 2026).
 const Ctx = createContext<(msg: string, opts?: { confirm?: boolean }) => void>(() => undefined);
@@ -68,17 +70,17 @@ export function promptText(message: string, initial = '', opts: PromptOpts = {})
   return new Promise((resolve) => { promptListeners.forEach((l) => l({ message, initial, opts, resolve })); });
 }
 export function PromptHost() {
-  const [req, setReq] = useState<PromptReq | null>(null);
+  const [req, setReq] = useState<(PromptReq & { n?: number }) | null>(null);
   const [val, setVal] = useState('');
   useEffect(() => {
-    const l = (r: PromptReq) => { setVal(r.initial); setReq(r); };
+    const l = (r: PromptReq) => { setVal(r.initial); setReq({ ...r, n: ++reqN }); };
     promptListeners.add(l);
     return () => { promptListeners.delete(l); };
   }, []);
   if (!req) return null;
-  const done = (v: string | null) => { req.resolve(v); setReq(null); };
+  const done = (v: string | null) => { popupClosed(); req.resolve(v); setReq(null); };
   return (
-    <Popup title={req.message} onClose={() => done(null)} footer={<PopupButtons yes={req.opts.ok || 'OK'} onYes={() => done(val)} />}>
+    <Popup key={req.n} title={req.message} onClose={() => done(null)} footer={<PopupButtons yes={req.opts.ok || 'OK'} onYes={() => done(val)} />}>
       <TextInput value={val} onChangeText={setVal} autoFocus onSubmitEditing={() => done(val)} placeholder={req.opts.placeholder} placeholderTextColor="#9AA1AB" style={box} />
     </Popup>
   );
@@ -91,16 +93,16 @@ export function chooseAction(title: string, items: MenuReq['items']): Promise<st
   return new Promise((resolve) => { menuListeners.forEach((l) => l({ title, items, resolve })); });
 }
 export function MenuHost() {
-  const [req, setReq] = useState<MenuReq | null>(null);
+  const [req, setReq] = useState<(MenuReq & { n?: number }) | null>(null);
   const [q, setQ] = useState('');
   const [searching, setSearching] = useState(false);
   useEffect(() => {
-    const l = (r: MenuReq) => { setQ(''); setSearching(false); setReq(r); };
+    const l = (r: MenuReq) => { setQ(''); setSearching(false); setReq({ ...r, n: ++reqN }); };
     menuListeners.add(l);
     return () => { menuListeners.delete(l); };
   }, []);
   if (!req) return null;
-  const done = (k: string | null) => { req.resolve(k); setReq(null); };
+  const done = (k: string | null) => { popupClosed(); req.resolve(k); setReq(null); };
   const shown = q.trim() ? req.items.filter((it) => it.label.toLowerCase().includes(q.trim().toLowerCase())) : req.items;
   // On a phone the search line is only a look-alike until it's tapped: the web pop-up moves focus to the first box it
   // finds, which brought the keyboard up over the choices (Andy, 11 Nov 2026, Quotes › Export). A laptop types straight in.
@@ -110,7 +112,7 @@ export function MenuHost() {
       <Text style={{ fontSize: 15, color: '#9AA0A6' }}>Type to search…</Text>
     </Pressable>);
   return (
-    <Popup title={req.title} onClose={() => done(null)} width={340}>
+    <Popup key={req.n} title={req.title} onClose={() => done(null)} width={340}>
       {search}
       {shown.map((it, i) => (
         <Pressable key={it.key} onPress={() => done(it.key)} style={({ pressed }) => [{ paddingVertical: 11, paddingHorizontal: 4, borderTopWidth: i ? 1 : 0, borderTopColor: '#ECEEF2' }, pressed && { backgroundColor: '#F3F5F8' }]}>
@@ -133,17 +135,17 @@ export function showAlert(message: string, title = 'OpHUB') {
   confirmListeners.forEach((l) => l({ message: title === 'OpHUB' ? message : `${title}\n\n${message}`, yes: 'OK', no: '', ok: true, resolve: () => undefined }));
 }
 export function ConfirmHost() {
-  const [req, setReq] = useState<ConfirmReq | null>(null);
+  const [req, setReq] = useState<(ConfirmReq & { n?: number }) | null>(null);
   useEffect(() => {
-    const l = (r: ConfirmReq) => setReq({ ...r, message: plainDbText(r.message) });
+    const l = (r: ConfirmReq) => setReq({ ...r, message: plainDbText(r.message), n: ++reqN });
     confirmListeners.add(l);
     return () => { confirmListeners.delete(l); };
   }, []);
   if (!req) return null;
-  const done = (v: boolean) => { req.resolve(v); setReq(null); };
+  const done = (v: boolean) => { popupClosed(); req.resolve(v); setReq(null); };
   const danger = /delete|remove|cancel|reject|void|close/i.test(req.yes) && req.yes !== 'Yes';
   return (
-    <Popup key={String(req.center)} center={req.center} onClose={() => done(false)} width={360} footer={<PopupButtons yes={req.yes} no={req.ok ? undefined : req.no} danger={danger} onYes={() => done(true)} onNo={() => done(false)} />}>
+    <Popup key={req.n} center={req.center} onClose={() => done(false)} width={360} footer={<PopupButtons yes={req.yes} no={req.ok ? undefined : req.no} danger={danger} onYes={() => done(true)} onNo={() => done(false)} />}>
       <Text style={{ fontSize: 15, color: '#1E2124', lineHeight: 21 }}>{req.message}</Text>
     </Popup>
   );

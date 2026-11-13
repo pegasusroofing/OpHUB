@@ -5,9 +5,13 @@ import { Modal, Platform, Pressable, ScrollView, Text, useWindowDimensions, View
 
 import { base } from '@/theme/theme';
 
-// Where the last tap / click was, so a pop-up can open beside it.
-let lastTap: { x: number; y: number } | null = null;
-export function noteTap(x: number, y: number) { lastTap = { x, y }; }
+// Where the last tap / click was, so a pop-up can open beside it. When a pop-up closes from a tap inside it and the next
+// one follows straight on (OK on the client's email, then their name), the next one opens in the middle of the screen
+// instead of beside that OK (Andy, 14 Nov 2026). A pick list opened inside a pop-up that stays open still opens by the tap.
+let lastTap: { x: number; y: number; inPopup: boolean } | null = null;
+let openPopups = 0;
+export function noteTap(x: number, y: number) { lastTap = { x, y, inPopup: openPopups > 0 }; }
+export function popupClosed() { if (lastTap?.inPopup) lastTap = null; }
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   document.addEventListener('pointerdown', (e) => noteTap(e.clientX, e.clientY), true);
 }
@@ -41,6 +45,7 @@ export function Popup({ title, onClose, children, width = 380, center, footer }:
 }) {
   const { width: W, height: H } = useWindowDimensions();
   const [anchor] = useState(() => (center ? null : lastTap));
+  useEffect(() => { openPopups += 1; return () => { openPopups -= 1; popupClosed(); }; }, []);
   const [h, setH] = useState(0);
   // Put the page's scrolling back as it was when this closes (web).
   const [spot] = useState(snapshot);

@@ -212,7 +212,8 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
     - tick 3+ RAMS and scroll: the bar stays at the bottom;
     - Create RAMS on a job with RAMS: Supersedes or Additional;
     - the compact Reuse row;
-    - signature boxes on a builder Risk Assessment: Yes to the Method Statement, then tap each person into place.
+    - signature boxes on a builder Risk Assessment: Yes to the Method Statement, then tap each person into place;
+    - (R6–R9) ‹ Page › above the document, ↶ Undo and 🗑 Delete, the client's name pop-up in the middle, and pinch / double-tap zoom when viewing.
 
 ## To discuss with Andy
 - ~~OneDrive and the full job set-up~~: talked through and built 8 Nov 2026 (item 55).

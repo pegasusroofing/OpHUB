@@ -6,6 +6,8 @@
 // laptop and phones; phones get the page as a picture (NativePdfPage).
 // place: people already given boxes on the other half of the same RAMS (Risk Assessment ↔ Method Statement). The
 // editor lists them and each tap on the page drops that person's boxes there, same shapes and spacing (Andy, 14 Nov 2026).
+// Just above the page (Andy, 14 Nov 2026): ‹ Page 1 of 2 › so further pages to sign are easy to see, ↶ Undo for the last
+// change (a box drawn by mistake) and 🗑 for the boxes tapped on.
 /* eslint-disable react-hooks/refs, react-hooks/immutability -- the canvas is drawn in an effect and the pointer handlers only run on touch, never during render */
 import { createElement as h, useEffect, useRef, useState } from 'react';
 import { PanResponder, Platform, Pressable, Text, View, type GestureResponderEvent } from 'react-native';
@@ -30,7 +32,15 @@ export function SignBoxEditor({ storagePath, initial, intro, saveLabel, onSave, 
   const [pdf, setPdf] = useState<PdfDoc | null>(null);
   const [err, setErr] = useState('');
   const [page, setPage] = useState(initial[0]?.p || 1);
-  const [boxes, setBoxes] = useState<SBox[]>(initial);
+  const [boxes, setBoxesNow] = useState<SBox[]>(initial);
+  // Every change keeps the boxes as they were (and who was still to place), for Undo.
+  const hist = useRef<{ b: SBox[]; q: string[] }[]>([]);
+  const setBoxes = (nb: SBox[]) => { hist.current.push({ b: boxes, q: queue }); if (hist.current.length > 60) hist.current.shift(); setBoxesNow(nb); };
+  const undo = () => {
+    const prev = hist.current.pop(); if (!prev) return;
+    setBoxesNow(prev.b); setSels([]); setMoveBy(null);
+    if (prev.q.length > queue.length) { setQueue(prev.q); setMode('place'); }
+  };
   const [who, setWho] = useState('op1');
   const [lastOp, setLastOp] = useState(1);
   const [lastClient, setLastClient] = useState(1);
@@ -163,6 +173,8 @@ export function SignBoxEditor({ storagePath, initial, intro, saveLabel, onSave, 
   const chip = (active: boolean, color: string, label: string, onPress: () => void) => (
     <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, borderColor: color, backgroundColor: active ? color : 'transparent' }}><Text style={{ fontWeight: '600', fontSize: 12.5, color: active ? '#fff' : color }}>{label}</Text></Pressable>
   );
+  // The page arrows: the one with more pages that way is filled in.
+  const arrow = (l: string, label: string, more: boolean, f: () => void) => <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={f} style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: more ? base.blue : base.line, backgroundColor: more ? base.blue : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 20, fontWeight: '600', lineHeight: 22, color: more ? '#fff' : base.slate }}>{l}</Text></Pressable>;
   const pm = (l: string, f: () => void) => <Pressable onPress={f} style={{ width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: base.line, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 16, color: base.ink }}>{l}</Text></Pressable>;
   const help = mode === 'place' && queue[0] ? `Tap the page where ${whoLabel(queue[0])} signs. Their ${what(queue[0])} go there together, with the top left where you tap.` : mode === 'repeat' ? `Tap where ${whoLabel(`op${on + 1}`)}'s space is (the next row).` : mode ? `Drag a box where ${whoLabel(who)}'s ${BOX_WHAT.find((x) => x.key === mode)?.label.toLowerCase()} goes.` : '';
   return (
@@ -189,11 +201,6 @@ export function SignBoxEditor({ storagePath, initial, intro, saveLabel, onSave, 
         </Card>
       )}
       {err ? <Card><Muted>{err}</Muted></Card> : null}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        {pm('‹', () => goPage(page - 1))}
-        <Text style={{ flex: 1, textAlign: 'center', fontWeight: '600', color: base.ink }}>Page {page}{numPages ? ` of ${numPages}` : ''}</Text>
-        {pm('›', () => goPage(page + 1))}
-      </View>
       {pagesWith.length > 0 && <Text style={{ color: base.slate, marginBottom: 8 }}>{summary(boxes)} · pages with boxes: {pagesWith.map((p) => <Text key={p} onPress={() => goPage(p)} style={{ color: base.blue, fontWeight: p === page ? '800' : '400' }}>{p} </Text>)}</Text>}
       <Card>
         <Muted style={{ fontWeight: '600', marginBottom: 6 }}>1. Who signs here?</Muted>
@@ -235,7 +242,19 @@ export function SignBoxEditor({ storagePath, initial, intro, saveLabel, onSave, 
           </View>
         ) : pageCount > 1 && !mode ? <Pressable onPress={() => setSels(boxes.map((b, i) => (b.p === page ? i : -1)).filter((i) => i >= 0))} style={{ marginTop: 8 }}><Text style={{ color: base.blue }}>Select all {pageCount} boxes on this page</Text></Pressable> : null}
       </Card>
-      <View style={{ position: 'relative', marginVertical: 10, borderWidth: 1, borderColor: base.line, borderRadius: radius.row, overflow: 'hidden', backgroundColor: '#fff' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 }}>
+        {arrow('‹', 'Previous page', page > 1, () => goPage(page - 1))}
+        <Text style={{ fontWeight: '600', color: base.ink, minWidth: 82, textAlign: 'center' }}>Page {page}{numPages ? ` of ${numPages}` : ''}</Text>
+        {arrow('›', 'Next page', !!numPages && page < numPages, () => goPage(page + 1))}
+        <View style={{ flex: 1 }} />
+        <Button small kind="ghost" title="↶ Undo" disabled={!hist.current.length} onPress={undo} />
+        <Button small kind="ghost" title={selNow.length > 1 ? `🗑 ${selNow.length}` : '🗑 Delete'} onPress={() => {
+          if (!selNow.length) { toast('Tap a box on the page first, then 🗑.'); return; }
+          const gone = new Set(selNow); setBoxes(boxes.filter((_, i) => !gone.has(i))); setSels([]);
+        }} />
+      </View>
+      {numPages > 1 && page < numPages && <Text style={{ color: base.blue, fontWeight: '600', marginTop: 4 }} onPress={() => goPage(page + 1)}>{numPages - page} more page{numPages - page === 1 ? '' : 's'} after this one ›</Text>}
+      <View style={{ position: 'relative', marginTop: 6, marginBottom: 10, borderWidth: 1, borderColor: base.line, borderRadius: radius.row, overflow: 'hidden', backgroundColor: '#fff' }}>
         {web
           ? h('canvas', { ref: setCanvasEl, style: { display: 'block', width: '100%', height: 'auto' } })
           : <NativePdfPage url={publicUrl('rams-docs', storagePath)} page={page} onPages={(n) => { setNativePages(n); setPage((p) => (p > n ? 1 : p)); }} onError={setErr} />}
