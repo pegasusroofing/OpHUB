@@ -192,6 +192,22 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
    - **Sales:** + New full width; no text; table rows; retention shows the next release; last tile is Retention Owed Total.
    - **Tables:** Directory and labour invoices as table rows. Rows are one line each.
 
+68. Quotes and home, 11–12 Nov (evening). Full list in SNAGS-2026-11-11.md (QP1–QP16, H5–H7, D3–D4).
+   - **Quotes table:** Live (Due Back, red border once past), Quoted (Value, Chase date you can tap to set, "Auto" under it), All (Date); Status centred. No View drop-down. Thin footer: Export left, Settings right.
+   - **Directory › Estimating:** each client's estimator, mark-up and Auto Chase. A New Enquiry fills the contact from it, or offers Save To Directory. Received starts on the day it's added.
+   - **Submit Quotation:** + Add Documents in the pop-up.
+   - **Home:** no Calendar tile; Next 5 Days bigger with a Calendar button; Deliveries is under Dashboards; "Dashboards" wording.
+69. Andy's list, 13 Nov (phone). Full list in SNAGS-2026-11-13.md.
+   - **Home:** Due In and Quotes To Price; application dates in Next 5 Days.
+   - **☰ sidebar** on every page.
+   - **Project page:** no HUB / To Do rows; client name and number; Finance above today; Subcontract Orders only on a price; bigger rows.
+   - **Schedule of Works:** "+ 📷" for photos; the progress slider on an iPhone.
+   - **TBT:** Write A Toolbox Talk, with the similar check.
+   - **Materials:** Requests; tabs; Completed title; info boxes with ✕; Yard Stock with Book Out / Book In and purchase orders pulled through.
+   - **Calendar:** application dates from Finance.
+70. Only a real iPhone can confirm (checked in a phone-sized browser, not Safari on an iPhone): the slider feel; no keyboard on long pick lists; the home-screen app full screen; the ☰ sidebar; where the saved-email jump happened.
+71. The private link (ophub-beta.vercel.app), 13 Nov: 40 of the 49 server functions only accept calls from approved web addresses, and this link isn't one, so emails, OneDrive, quote folders and opening stored files fail from it. The address ophub-beta-op-hub.vercel.app would be accepted with no server change.
+
 ## To discuss with Andy
 - ~~OneDrive and the full job set-up~~: talked through and built 8 Nov 2026 (item 55).
 - Sort out plots: how multi-site (multi-plot) jobs should work (Andy, 2 Nov 2026; asked again 5 Nov 2026: "we need to discuss and sort plots out"). Bring this up before Finance is signed off. Plots show today on BoQ lines and as a column on PO lines (only when the project has plots).
