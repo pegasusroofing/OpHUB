@@ -215,6 +215,12 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
     - signature boxes on a builder Risk Assessment: Yes to the Method Statement, then tap each person into place;
     - (R6–R9) ‹ Page › above the document, ↶ Undo and 🗑 Delete, the client's name pop-up in the middle, and pinch / double-tap zoom when viewing.
 
+73. Finance tables and Yard, 14 Nov (SNAGS-2026-11-14.md T2–T3, Y1–Y3, P1, F1). To try on the phone:
+    - Purchases opens on Purchase Invoices; tick two invoices and Approve;
+    - Purchase Orders, Plant Hire, Statements, Subcontractor POs and Applications, People & Rates, Cost Codes, a project's Costs: tap a heading to sort, type in a box under it;
+    - Yard: a row is item, qty, price, value; open one: the name at the top, the details table, Book In (New Delivery / Returned) and Book Out (To A Job / Lost, admin only);
+    - Price Lists: pick Bauder (or any supplier), upload their price list, Add A Price.
+
 ## To discuss with Andy
 - ~~OneDrive and the full job set-up~~: talked through and built 8 Nov 2026 (item 55).
 - Sort out plots: how multi-site (multi-plot) jobs should work (Andy, 2 Nov 2026; asked again 5 Nov 2026: "we need to discuss and sort plots out"). Bring this up before Finance is signed off. Plots show today on BoQ lines and as a column on PO lines (only when the project has plots).

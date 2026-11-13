@@ -132,9 +132,13 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
         }} />
         {noBank > 0 && <Text style={{ color: '#C0392B', marginVertical: 8 }}>{noBank} {noBank === 1 ? 'person has' : 'people have'} no bank details saved — add them in People &amp; rates.</Text>}
         <View style={{ marginTop: 10 }}>
-          {due.concat(paidHere).length ? due.concat(paidHere).map((p) => { const r = data.rateBy[keyOf(p)]; return (
-            <FinRow key={p.id} title={p.name || 'Operative'} sub={[p.invoice_no ? `inv ${p.invoice_no}` : '', `w/c ${fdate(p.period_start)}`, `gross ${money(p.gross)} · CIS −${money(p.cis_deduction)}`, bankOk(r) ? `${r.bank_account_name || ''} ${sortCode(r.bank_sort_code)} · ${String(r.bank_account_no).replace(/\D/g, '')}` : 'No bank details', p.status === 'paid' ? 'Paid' : 'To pay'].filter(Boolean).join(' · ')} right={money(p.net_pay)} onPress={() => router.push(`/fin/labour/${p.id}` as never)} />
-          ); }) : <Empty>Nothing to pay on this day.</Empty>}
+          {/* A table like the rest of Finance (Andy, 14 Nov 2026). */}
+          {due.concat(paidHere).length ? <PhoneTable key="payrun" label="Pay run" rows={due.concat(paidHere)} keyOf={(p) => p.id} onRow={(p) => router.push(`/fin/labour/${p.id}` as never)}
+            cols={[
+              { k: 'w', l: 'Who', lines: 2, main: (p) => p.name || 'Operative', sub: (p) => [p.invoice_no ? `Inv ${p.invoice_no}` : '', `w/c ${fdate(p.period_start)}`].filter(Boolean).join(' · ') },
+              { k: 'b', l: 'Bank', w: 104, center: true, main: (p) => { const r = data.rateBy[keyOf(p)]; return bankOk(r) ? sortCode(r.bank_sort_code) : 'No Bank Details'; }, sub: (p) => { const r = data.rateBy[keyOf(p)]; return bankOk(r) ? String(r.bank_account_no).replace(/\D/g, '') : ''; }, tone: (p) => (bankOk(data.rateBy[keyOf(p)]) ? undefined : '#C0392B') },
+              { k: 'n', l: 'Net', w: 80, right: true, bold: true, bigFirst: true, main: (p) => money(p.net_pay), sub: (p) => (p.status === 'paid' ? 'Paid' : 'To Pay'), sort: (p) => Number(p.net_pay || 0) },
+            ]} /> : <Empty>Nothing to pay on this day.</Empty>}
         </View>
         {later.length > 0 && <Muted style={{ marginTop: 10 }}>{later.length} later invoice{later.length === 1 ? '' : 's'} ({money(later.reduce((t, p) => t + Number(p.net_pay || 0), 0))}) will be in a later pay run.</Muted>}
       </View>
@@ -148,8 +152,8 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
       <View>
         <Muted style={{ marginBottom: 10 }}>For subcontractors on a fixed price who apply for payment (e.g. leadwork, scaffolding).</Muted>
         <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ Subcontractor PO" onPress={async () => { const sid = siteId || (await pickJob('New subcontractor PO', sites.filter((s) => s.status !== 'closed'))); if (sid) router.push(`/fin/sub/new?site=${sid}` as never); }} /></View>
-        <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search subcontractor or project' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['name', 'Name A to Z']]} sort={sort} onSort={setSort}
-          parts={[{ key: 'show', label: 'Show', items: [['active', 'Active'], ['complete', 'Complete']].map(([v, l]) => ({ v, l, n: data.scs.filter(F[v]).length })) }]} />
+        {desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search subcontractor or project' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['name', 'Name A to Z']]} sort={sort} onSort={setSort}
+          parts={[{ key: 'show', label: 'Show', items: [['active', 'Active'], ['complete', 'Complete']].map(([v, l]) => ({ v, l, n: data.scs.filter(F[v]).length })) }]} />}
         {/* A laptop gets the current app's table with totals under Order Value and Certified (912; cmp-fin 5 Nov 2026). */}
         {desk && list.length ? (
           <FinTable rows={list} keyOf={(sc) => sc.id} onRow={(sc) => router.push(`/fin/sub/${sc.id}` as never)}
@@ -163,6 +167,15 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
               { k: 's', l: 'Status', noSort: true, choices: ['Active', 'Complete'], render: (sc: Row) => <Cell tone={sc.status === 'complete' ? base.slate : '#1E7A43'}>{sc.status === 'complete' ? 'Complete' : 'Active'}</Cell> },
             ]}
             footLabel={(l) => `${l.length} shown`} />
+        ) : !desk && data.scs.length ? (
+          // A phone: a table like the rest of Finance (Andy, 14 Nov 2026); ▾ Active / Complete under Value.
+          <PhoneTable key="scorders" label="Subcontractor POs" rows={data.scs.slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))} keyOf={(sc) => sc.id} onRow={(sc) => router.push(`/fin/sub/${sc.id}` as never)}
+            cols={[
+              { k: 'n', l: 'Subcontractor', lines: 2, main: (sc) => sc.name || '—', sub: (sc) => [sc.number, siteId ? '' : jobTag(site(sc.site_id))].filter(Boolean).join(' · '), find: (sc) => `${sc.name || ''} ${sc.number || ''} ${sc.description || ''} ${jobTag(site(sc.site_id))}` },
+              { k: 'c', l: 'Certified', w: 80, right: true, bigFirst: true, main: (sc) => money(lastCert(sc.id)?.certified_gross || 0), sort: (sc) => Number(lastCert(sc.id)?.certified_gross || 0) },
+              { k: 'v', l: 'Value', w: 84, right: true, bold: true, bigFirst: true, main: (sc) => (sc.order_value != null ? money(sc.order_value) : '—'), sub: (sc) => (sc.status === 'complete' ? 'Complete' : 'Active'), sort: (sc) => num(sc, 'order_value'),
+                choose: { opts: [['', 'All'], ['active', 'Active'], ['complete', 'Complete']], test: (sc, v) => (F[v] ? F[v](sc) : true), start: 'active' } },
+            ]} />
         ) : list.length ? list.map((sc) => <FinRow compact key={sc.id} left={sc.number} title={sc.name} sub={[siteId ? '' : jobTag(site(sc.site_id)), sc.description, `certified ${money(lastCert(sc.id)?.certified_gross || 0)}`, sc.status === 'complete' ? 'Complete' : 'Active'].filter(Boolean).join(' · ')} right={sc.order_value != null ? money(sc.order_value) : '—'} onPress={() => router.push(`/fin/sub/${sc.id}` as never)} />)
           : <Empty>No subcontract orders here.</Empty>}
       </View>
@@ -182,11 +195,16 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
           const k = await chooseAction('Record an application for', open.map((s) => ({ key: s.id, label: `${s.number || ''} ${s.name || ''}${siteId ? '' : ` · ${jobTag(site(s.site_id))}`}`.trim() })));
           if (k) router.push(`/fin/sub/${k}?app=new` as never);
         }} /></View>
-        <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search subcontractor or project' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first']]} sort={sort} onSort={setSort}
-          parts={[{ key: 'show', label: 'Show', items: [['open', 'To certify'], ['certified', 'Certified, to pay'], ['paid', 'Paid']].map(([v, l]) => ({ v, l, n: data.sapps.filter(F[v]).length })) }]} />
-        {list.length ? list.map((a) => { const sc = scBy[a.subcontract_id] || {}, late = a.status !== 'paid' && a.final_date && a.final_date < today(); return (
-          <FinRow compact key={a.id} title={`${sc.name || ''} — application ${a.number}`} sub={[sc.number, siteId ? '' : jobTag(site(a.site_id)), fdate(a.app_date), a.final_date ? `pay by ${fdate(a.final_date)}` : '', `applied ${money(a.applied_gross)}`, a.certified_gross != null ? `certified ${money(a.certified_gross)}` : '', a.status === 'paid' ? 'Paid' : a.status === 'certified' ? 'Certified' : 'To certify', a.payless ? 'Pay less' : ''].filter(Boolean).join(' · ')} right={a.certified_gross != null ? money(a.pay_amount) : '—'} tone={late ? '#C0392B' : undefined} onPress={() => router.push(`/fin/sub/${a.subcontract_id}?app=${a.id}` as never)} />
-        ); }) : <Empty>Nothing here.</Empty>}
+        {desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search subcontractor or project' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first']]} sort={sort} onSort={setSort}
+          parts={[{ key: 'show', label: 'Show', items: [['open', 'To certify'], ['certified', 'Certified, to pay'], ['paid', 'Paid']].map(([v, l]) => ({ v, l, n: data.sapps.filter(F[v]).length })) }]} />}
+        {/* A table like the rest of Finance (Andy, 14 Nov 2026); on a phone ▾ To Certify / To Pay / Paid under Pay By. */}
+        {(desk ? list : data.sapps).length ? <PhoneTable key="sapps" search={!desk} label="Subcontractor applications" rows={(desk ? list : data.sapps).slice().sort(desk ? () => 0 : (a, b) => String(b.app_date || '').localeCompare(String(a.app_date || '')))} keyOf={(a) => a.id} onRow={(a) => router.push(`/fin/sub/${a.subcontract_id}?app=${a.id}` as never)}
+          cols={[
+            { k: 's', l: 'Subcontractor', lines: 2, main: (a) => `${scBy[a.subcontract_id]?.name || ''} · App ${a.number}`, sub: (a) => [scBy[a.subcontract_id]?.number, siteId ? '' : jobTag(site(a.site_id))].filter(Boolean).join(' · '), find: (a) => `${scBy[a.subcontract_id]?.name || ''} ${scBy[a.subcontract_id]?.number || ''} ${jobTag(site(a.site_id))}` },
+            { k: 'pb', l: 'Pay By', w: 86, center: true, main: (a) => (a.final_date ? fdate(a.final_date) : '—'), sub: (a) => (a.status === 'paid' ? 'Paid' : a.status === 'certified' ? (a.payless ? 'Pay Less' : 'Certified') : 'To Certify'), tone: (a) => (a.status !== 'paid' && a.final_date && a.final_date < today() ? '#C0392B' : undefined), sort: (a) => String(a.final_date || ''),
+              choose: { opts: [['', 'All'], ['open', 'To Certify'], ['certified', 'To Pay'], ['paid', 'Paid']], test: (a, v) => (F[v] ? F[v](a) : true) } },
+            { k: 'v', l: 'Amount', w: 84, right: true, bold: true, bigFirst: true, main: (a) => money(a.certified_gross != null ? a.pay_amount : a.applied_gross), sub: (a) => (a.certified_gross != null ? 'To Pay' : 'Applied'), sort: (a) => Number((a.certified_gross != null ? a.pay_amount : a.applied_gross) || 0) },
+          ]} /> : <Empty>Nothing here.</Empty>}
       </View>
     );
   }
@@ -207,7 +225,12 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
       </Card>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}><FinStat v={money(tg)} label="Paid to subcontractors" /><FinStat v={money(tc)} label="CIS deducted (to pay HMRC)" /></View>
       <SectionTitle>For the monthly CIS return</SectionTitle>
-      {rows.length ? rows.map((r) => <FinRow key={r.key} title={r.name} sub={`UTR ${data.rateBy[r.key]?.utr || r.utr || 'missing'} · ${r.n} payment${r.n === 1 ? '' : 's'} · materials ${money(r.materials)} · CIS ${money(r.cis)}`} right={money(r.gross)} />) : <Empty>No subcontractor payments marked paid in this tax month.</Empty>}
+      {rows.length ? <PhoneTable key="cis" search={false} label="CIS return" rows={rows} keyOf={(r) => r.key}
+        cols={[
+          { k: 'n', l: 'Subcontractor', lines: 2, main: (r) => r.name || '—', sub: (r) => `UTR ${data.rateBy[r.key]?.utr || r.utr || 'Missing'} · ${r.n} Payment${r.n === 1 ? '' : 's'}` },
+          { k: 'c', l: 'CIS', w: 76, right: true, main: (r) => money(r.cis), sub: (r) => (r.materials ? `Mat. ${money(r.materials, 0)}` : '') },
+          { k: 'g', l: 'Gross', w: 84, right: true, bold: true, main: (r) => money(r.gross) },
+        ]} /> : <Empty>No subcontractor payments marked paid in this tax month.</Empty>}
       <Muted style={{ marginTop: 10 }}>When Xero is linked, the CIS return is made from Xero. Until then use these figures; the HMRC deadline is the 19th.</Muted>
       <Pressable onPress={() => router.push('/fin/directory?kind=labour' as never)} style={{ marginTop: 10 }}><Text style={{ color: base.blue }}>People &amp; rates (UTRs, CIS rates, bank details) ›</Text></Pressable>
     </View>

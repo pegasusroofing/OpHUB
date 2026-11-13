@@ -13,6 +13,7 @@ import { FinForm } from '@/components/FinForm';
 import { AllocRow } from '@/components/FinSplit';
 import { FinFilterBar, ThinExportBar, type FilterSel } from '@/components/FinFilterBar';
 import { FinChip, FinRow } from '@/components/FinNav';
+import { PhoneTable } from '@/components/PhoneTable';
 import { Cell, FinTable } from '@/components/FinTable';
 import { useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
@@ -58,6 +59,9 @@ export default function FinCosts() {
     && (!ql || [l.desc, l.who, l.ref].filter(Boolean).join(' ').toLowerCase().includes(ql))
     && (!from || String(l.date || '') >= from) && (!to || String(l.date || '').slice(0, 10) <= to))
     .sort((a, b) => (sort === 'old' ? String(a.date || '').localeCompare(String(b.date || '')) : sort === 'big' ? b.net - a.net : sort === 'az' ? String(a.desc || '').localeCompare(String(b.desc || '')) : String(b.date || '').localeCompare(String(a.date || ''))));
+  // A phone's table (Andy, 14 Nov 2026): the dates and plot still narrow it; the type is a ▾ under Net, the words a box under each heading.
+  const phoneRows = fc.lines.filter((l) => (!sub || (sub === 'none' ? !l.sub : l.sub === sub)) && (!from || String(l.date || '') >= from) && (!to || String(l.date || '').slice(0, 10) <= to))
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
   const shownTotal = list.reduce((t, l) => t + l.net, 0);
   const site = (sites ?? []).find((x) => x.id === id);
   const table = () => ({ title: 'Costs ledger', site: site?.name || '', sub: site?.name || '', cols: [{ l: 'Date', w: 70 }, { l: 'Type', w: 85 }, { l: 'Description', w: 220 }, { l: 'Supplier / who', w: 120 }, { l: 'Ref', w: 85 }, { l: 'Status', w: 70 }, { l: 'Net £', w: 80, money: true }],
@@ -88,15 +92,15 @@ export default function FinCosts() {
       <Stack.Screen options={{ title: 'Costs ledger' }} />
       {!!sub && <View style={{ flexDirection: 'row', marginBottom: 8 }}><FinChip on label={`${sub === 'none' ? 'Not allocated to a plot' : 'One plot / repair job'} ✕`} onPress={() => router.setParams({ sub: '' })} /></View>}
       <View style={{ alignSelf: 'flex-end', marginBottom: 10 }}><Button title="+ Add cost" onPress={() => setEdit('new')} /></View>
-      <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search description, supplier or ref' }} sel={sel} onChange={setSel} onClear={() => setSel({ type: [] })}
+      {desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search description, supplier or ref' }} sel={sel} onChange={setSel} onClear={() => setSel({ type: [] })}
         parts={[{ key: 'type', label: 'Type', items: [...Object.entries(COST_CATS).map(([v, l]) => ({ v, l: `${l} ${money(tot(v), 0)}`, n: fc.lines.filter((x) => x.cat === v).length })), { v: 'committed', l: `Ordered, not invoiced ${money(fc.committedTotal, 0)}`, n: fc.lines.filter((x) => x.cat === 'committed').length }] }]}
-        sorts={[['new', 'Newest'], ['old', 'Oldest'], ['big', 'Biggest'], ['az', 'A–Z']]} sort={sort} onSort={(k) => setSort(k as typeof sort)} />
+        sorts={[['new', 'Newest'], ['old', 'Oldest'], ['big', 'Biggest'], ['az', 'A–Z']]} sort={sort} onSort={(k) => setSort(k as typeof sort)} />}
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
         <View style={{ flex: 1, maxWidth: 170 }}><DateBox compact value={from} onChange={setFrom} placeholder="From" title="From" /></View>
         <View style={{ flex: 1, maxWidth: 170 }}><DateBox compact value={to} onChange={setTo} placeholder="To" title="To" /></View>
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-        <Muted>{howMany(list.length)} · {money(shownTotal)}{waiting ? ` · ${money(waiting)} waiting approval` : ''}</Muted>
+        {desk && <Muted>{howMany(list.length)} · {money(shownTotal)}{waiting ? ` · ${money(waiting)} waiting approval` : ''}</Muted>}
       </View>
       {desk && list.length ? (
         <FinTable rows={list} keyOf={(l) => l.key} onRow={(l) => { if (l.go) router.push(l.go as never); else if (l.key.startsWith('jc:')) openCost(l.key); }}
@@ -110,6 +114,14 @@ export default function FinCosts() {
             { k: 'n', l: 'Net £', sort: (l) => Number(l.net || 0), total: (rows) => money(rows.reduce((t, l) => t + Number(l.net || 0), 0)), render: (l) => <Cell>{money(l.net)}</Cell> },
           ]}
           footLabel={(rows) => howMany(rows.length)} />
+      ) : !desk && phoneRows.length ? (
+        <PhoneTable key="costs" label="Costs" rows={phoneRows} keyOf={(l) => l.key} onRow={(l) => { if (l.go) router.push(l.go as never); else if (l.key.startsWith('jc:')) openCost(l.key); }}
+          cols={[
+            { k: 'ds', l: 'Cost', lines: 2, main: (l) => l.desc, sub: (l) => [l.date ? fdate(l.date) : '', COST_CATS[l.cat] || (l.cat === 'committed' ? 'Ordered' : l.cat)].filter(Boolean).join(' · '), find: (l) => [l.desc, l.who, l.ref].filter(Boolean).join(' '), sort: (l) => String(l.desc || '').toLowerCase() },
+            { k: 'w', l: 'Who', w: 92, main: (l) => l.who || '—', sub: (l) => l.ref || '', find: (l) => `${l.who || ''} ${l.ref || ''}` },
+            { k: 'n', l: 'Net', w: 84, right: true, bold: true, bigFirst: true, main: (l) => money(l.net), sub: (l) => l.status || '', sort: (l) => Number(l.net || 0),
+              choose: { opts: [['', 'Everything'], ['spent', 'All Spent'], ...Object.entries(COST_CATS), ['committed', 'Ordered']] as [string, string][], test: (l, v) => (v === 'spent' ? l.cat !== 'committed' : l.cat === v), start: types[0] || 'spent' } },
+          ]} />
       ) : list.length ? list.map((l) => <FinRow key={l.key} title={l.desc} sub={[l.date ? fdate(l.date) : '', COST_CATS[l.cat] || (l.cat === 'committed' ? `Ordered (${COST_CATS[l.ccat || 'materials']})` : l.cat), l.who, l.ref, l.status].filter(Boolean).join(' · ')} right={money(l.net)} onPress={l.go ? () => router.push(l.go as never) : l.key.startsWith('jc:') ? () => openCost(l.key) : undefined} />) : <Empty>No costs yet.</Empty>}
       {yardEdit && (() => {
         const E = yardEdit, unit = E.st?.unit ? ` (${E.st.unit})` : '';

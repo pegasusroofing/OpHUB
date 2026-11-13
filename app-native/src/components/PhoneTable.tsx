@@ -61,9 +61,10 @@ export function usePhoneFind<T>(cols: PCol<T>[], rows: T[], on = true): PhoneFin
 }
 
 /** The heading row: tap to sort. */
-export function PhoneHeads<T>({ cols, find, pad = 10 }: { cols: PCol<T>[]; find: PhoneFind<T>; pad?: number }) {
+export function PhoneHeads<T>({ cols, find, pad = 10, leadW = 0 }: { cols: PCol<T>[]; find: PhoneFind<T>; pad?: number; leadW?: number }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 9, paddingBottom: 6, paddingHorizontal: pad, backgroundColor: '#F6F7F9' }}>
+      {leadW > 0 && <View style={{ width: leadW }} />}
       {cols.map((c) => {
         const k = keyOfCol(c), on = find.sort?.k === k, can = !c.noSort;
         return (
@@ -79,9 +80,10 @@ export function PhoneHeads<T>({ cols, find, pad = 10 }: { cols: PCol<T>[]; find:
 /** The search row: a small box (or ▾ choice) under each heading, its writing lined up with the heading as on Quotes. The
  *  first column's box starts its border and padding left of the heading; other left / right ones a little (they keep a
  *  small gap to the box beside them); centred ones are centred. 25px high, 12px writing (data-compact in lib/webShell). */
-export function PhoneFindRow<T>({ cols, find, pad = 10 }: { cols: PCol<T>[]; find: PhoneFind<T>; pad?: number }) {
+export function PhoneFindRow<T>({ cols, find, pad = 10, leadW = 0 }: { cols: PCol<T>[]; find: PhoneFind<T>; pad?: number; leadW?: number }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingBottom: 6.5, paddingHorizontal: pad, backgroundColor: '#F6F7F9' }}>
+      {leadW > 0 && <View style={{ width: leadW }} />}
       {cols.map((c, i) => {
         const k = keyOfCol(c), a = headAlign(c);
         const pos = a === 'left' ? (i === 0 ? { marginLeft: -6, paddingLeft: 5, paddingRight: 5 } : { marginLeft: -4, paddingLeft: 3, paddingRight: 3 })
@@ -119,16 +121,18 @@ export function PhoneClear<T>({ find }: { find: PhoneFind<T> }) {
 }
 
 // search: the heading sort and the search row (on unless turned off, e.g. a laptop with its own filter bar). find: the
-// screen's own usePhoneFind, when it needs the rows left (for a total).
-export function PhoneTable<T>({ cols, rows, keyOf, onRow, foot, label = 'Table', search = true, find: given }: { cols: PCol<T>[]; rows: T[]; keyOf: (r: T) => string; onRow?: (r: T) => void; foot?: ReactNode; label?: string; search?: boolean; find?: PhoneFind<T> }) {
+// screen's own usePhoneFind, when it needs the rows left (for a total). lead: a small cell before the columns on each row
+// (a tick box to pick rows for Approve / Mark Paid), with a gap of its width above it.
+export function PhoneTable<T>({ cols, rows, keyOf, onRow, foot, label = 'Table', search = true, find: given, lead }: { cols: PCol<T>[]; rows: T[]; keyOf: (r: T) => string; onRow?: (r: T) => void; foot?: ReactNode; label?: string; search?: boolean; find?: PhoneFind<T>; lead?: { w: number; cell: (r: T) => ReactNode } }) {
   const own = usePhoneFind(cols, rows, search);
   const find = given || own;
   const box = boxOf;
   return (
     <>
       <View accessibilityLabel={label} style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, overflow: 'hidden', marginBottom: find.searching ? 0 : 10 }}>
-        {search ? <><PhoneHeads cols={cols} find={find} /><PhoneFindRow cols={cols} find={find} /></> : (
+        {search ? <><PhoneHeads cols={cols} find={find} leadW={lead?.w} /><PhoneFindRow cols={cols} find={find} leadW={lead?.w} /></> : (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 9, paddingHorizontal: 10, backgroundColor: '#F6F7F9' }}>
+            {!!lead && <View style={{ width: lead.w }} />}
             {cols.map((c) => <Text key={keyOfCol(c)} numberOfLines={1} style={{ ...box(c), fontSize: 10.5, fontWeight: '700', color: base.slate, letterSpacing: 0.3, textAlign: alignOf(c) }}>{c.l.toUpperCase()}</Text>)}
           </View>
         )}
@@ -136,6 +140,7 @@ export function PhoneTable<T>({ cols, rows, keyOf, onRow, foot, label = 'Table',
         {find.shown.map((r) => (
           <Pressable key={keyOf(r)} disabled={!onRow} accessibilityRole={onRow ? 'button' : undefined} onPress={() => onRow?.(r)}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 50, paddingVertical: 7, paddingHorizontal: 10, borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>
+            {!!lead && <View style={{ width: lead.w, alignItems: 'center' }}>{lead.cell(r)}</View>}
             {cols.map((c, i) => (
               <View key={keyOfCol(c)} style={{ ...box(c), alignItems: c.right ? 'flex-end' : c.center ? 'center' : 'flex-start' }}>
                 <Text numberOfLines={c.lines || 1} style={{ fontSize: i === 0 ? 13 : 12, fontWeight: i === 0 || c.bold ? '600' : '500', color: c.tone?.(r) || base.ink }}>{c.main(r)}</Text>

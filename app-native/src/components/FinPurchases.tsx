@@ -211,6 +211,10 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
         {cards && <TextInput value={q} onChangeText={setQ} placeholder={ph} style={[box, { minWidth: 220, maxWidth: 360, marginBottom: 10, paddingVertical: 6, fontSize: 13 }]} />}
       </>
     );
+  })() : parts.some((p) => p.single) ? (() => {
+    // A phone: the steps (Received, With A PM…) as tabs; the table below has its own search boxes (Andy, 14 Nov 2026).
+    const show = parts.find((p) => p.single) as FilterPart;
+    return <FinTabs items={show.items.map((it) => [it.v, it.l, it.n ?? undefined] as [string, string, number?])} value={String((cur || sel).status[0] || '')} onChange={(v) => setFilt({ ...sel, status: [v] })} />;
   })() : (
     <FinFilterBar search={{ value: q, onChange: setQ, placeholder: ph }} parts={[...parts, ...commonParts]} sel={cur || sel} onChange={setFilt} moreOn={!!val}
       onClear={() => { setFilt({ status: tab === 'invoices' ? ['all'] : [], sup: [], job: [], mon: [] }); setVal(''); }}
@@ -368,6 +372,15 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                 {exportBar(cur === 'pm' ? 'Purchase invoices with a PM' : 'Purchase invoices received', [{ l: 'Supplier', w: 160 }, { l: 'Invoice no.', w: 80 }, { l: 'Date', w: 70 }, { l: 'Gross £', w: 75, money: true }, { l: 'Status', w: 120 }],
                   items.map((it) => [it.supplier_override || it.extracted?.supplier || it.from_email || it.file_name || '', it.extracted?.invoice_no || '', it.extracted?.date ? fdate(it.extracted.date) : rcpt(it) && it.received_at ? fdate(it.received_at) : '', it.extracted?.total != null ? round2(Number(it.extracted.total)) : '', whyOf(it)]))}
               </>);
+              // A phone: a table like the rest of Finance (Andy, 14 Nov 2026); tap one to file it, choose its project or send it to a PM.
+              if (!desk && items.length) return (
+                <PhoneTable key={`inbox${cur}`} label="Invoices received" rows={items} keyOf={(it) => it.id} onRow={(it) => router.push(`/fin/inbox/${it.id}` as never)}
+                  cols={[
+                    { k: 'sup', l: 'Supplier', lines: 2, main: (it) => it.supplier_override || it.extracted?.supplier || it.from_email || it.file_name || 'Unknown', sub: (it) => [it.extracted?.invoice_no, it.site_id ? jobTag(site(it.site_id)) : ''].filter(Boolean).join(' · '), find: (it) => `${it.supplier_override || ''} ${it.extracted?.supplier || ''} ${it.from_email || ''} ${it.extracted?.invoice_no || ''} ${it.subject || ''} ${jobTag(site(it.site_id))}` },
+                    { k: 'w', l: 'Status', w: 92, center: true, main: (it) => whyOf(it).replace(/\b[a-z]/g, (c) => c.toUpperCase()), tone: () => '#B35A00', sort: (it) => whyOf(it) },
+                    { k: 'g', l: 'Gross', w: 80, right: true, bold: true, bigFirst: true, main: (it) => (it.extracted?.total != null ? money(it.extracted.total) : '—'), sub: (it) => (it.extracted?.date ? fdate(it.extracted.date) : rcpt(it) && it.received_at ? fdate(it.received_at) : ''), sort: (it) => Number(it.extracted?.total || 0) },
+                  ]} />
+              );
               return items.map((it) => {
               const last = (it.comments || []).slice(-1)[0];
               return <InboxRow key={it.id} it={it} pm={cur === 'pm'} why={cur === 'job' ? (!it.extracted ? 'Not read yet — open it to file by hand' : it.stage === 'pm_replied' && last ? `PM replied — ${last.name}: ${last.text}` : plainReason(it.query_reason)) : 'Sent to a PM'} job={it.site_id ? jobTag(site(it.site_id)) : ''} onPm={() => void assignPm(it)} onJob={async () => { const sid = await pickJob('Which project is it for?', sites.filter((x) => x.status !== 'closed')); if (!sid) return; const r = await fdb.from('fin_inbox').update({ site_id: sid } as never).eq('id', it.id).select('id'); if (!r.data?.length) { toast('Could not save — try again.'); return; } void qc.invalidateQueries({ queryKey: ['finPurchases'] }); }} />;
@@ -469,6 +482,19 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                   {exportBar('Purchase invoices', [{ l: 'Supplier', w: 130 }, { l: 'Invoice no.', w: 75 }, { l: 'Project', w: 150 }, { l: 'Date', w: 70 }, { l: 'Net £', w: 70, money: true }, { l: 'VAT £', w: 60, money: true }, { l: 'Gross £', w: 70, money: true }, { l: 'Status', w: 90 }],
                     list.map((i) => [i.supplier_name || '', i.invoice_no || '', jobTag(site(i.site_id)), fdate(i.invoice_date), round2(Number(i.net || 0)), round2(Number(i.vat || 0)), round2(Number(i.total || 0)), piWord(i) + (i.xero_id ? ' (in Xero)' : '')]))}</>
               );
+              // A phone: a table like the rest of Finance, a tick at the start of each row for Approve / Mark Paid (Andy, 14 Nov 2026).
+              if (list.length) return (
+                <>
+                  <PhoneTable key={`pinv${cur}`} label="Purchase invoices" rows={list} keyOf={(i) => i.id} onRow={(i) => router.push(`/fin/pinv/${i.id}` as never)} lead={bulk ? { w: 16, cell: tick } : undefined}
+                    cols={[
+                      { k: 'sup', l: 'Supplier', lines: 2, main: (i) => i.supplier_name || 'Supplier', sub: (i) => [i.invoice_no, siteId ? '' : jobTag(site(i.site_id))].filter(Boolean).join(' · '), find: (i) => `${i.supplier_name || ''} ${i.invoice_no || ''} ${jobTag(site(i.site_id))} ${posBy[i.po_id]?.number || ''}` },
+                      { k: 's', l: 'Status', w: 88, center: true, lines: 2, main: (i) => piWord(i), tone: (i) => piTone(i), sub: (i) => (posBy[i.po_id] ? posBy[i.po_id].number : 'No PO'), sort: (i) => piWord(i) },
+                      { k: 'g', l: 'Gross', w: 80, right: true, bold: true, bigFirst: true, main: (i) => money(i.total), sub: (i) => fdate(i.invoice_date), sort: (i) => Number(i.total || 0) },
+                    ]} />
+                  {bulkBar}
+                  {list.length > 1 && <Muted>Total ({list.length}): net {money(list.reduce((t, i) => t + Number(i.net || 0), 0))} · VAT {money(list.reduce((t, i) => t + Number(i.vat || 0), 0))} · gross {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</Muted>}
+                </>
+              );
               return list.length ? (
                 <>
                   {list.map((i) => <View key={i.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>{bulk && tick(i)}<View style={{ flex: 1 }}><FinRow compact left={i.invoice_no || '—'} title={i.supplier_name || 'Supplier'} sub={[siteId ? '' : jobTag(site(i.site_id)), fdate(i.invoice_date), `net ${money(i.net)}`, posBy[i.po_id] ? `PO ${posBy[i.po_id].number}` : 'No PO', piWord(i), i.query_note ? `⚠ ${i.query_note}` : ''].filter(Boolean).join(' · ')} right={money(i.total)} tone={i.status === 'query' ? '#C0392B' : undefined} onPress={() => router.push(`/fin/pinv/${i.id}` as never)} /></View></View>)}
@@ -505,6 +531,15 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               { k: 's', l: 'Status', render: (x: Any) => <Cell>{x.status}</Cell> },
             ]}
             footLabel={(l) => `${l.length} shown`} />
+        ) : !desk && all.length ? (
+          // A phone: a table like the rest of Finance (Andy, 14 Nov 2026); ▾ Invoices / Orders / Plant under Net.
+          <PhoneTable key="all" label="Everything bought" rows={all} keyOf={(x) => x.id} onRow={(x) => router.push(x.go as never)}
+            cols={[
+              { k: 'r', l: 'Ref', w: 96, main: (x) => x.ref, sub: (x) => x.kind, find: (x) => `${x.ref} ${x.kind}` },
+              { k: 'w', l: 'Supplier', lines: 2, main: (x) => x.who, sub: (x) => (x.date ? fdate(x.date) : ''), sort: (x) => x.who.toLowerCase() },
+              { k: 'n', l: 'Net', w: 84, right: true, bold: true, bigFirst: true, main: (x) => money(x.net), sub: (x) => x.status, sort: (x) => x.net,
+                choose: { opts: [['', 'All'], ['Purchase invoice', 'Invoices'], ['Purchase order', 'Orders'], ['Plant hire', 'Plant']], test: (x, v) => x.kind === v } },
+            ]} />
         ) : all.length ? all.map((x) => <FinRow compact key={x.id} title={`${x.kind} · ${x.ref}`} sub={[x.who, x.date ? fdate(x.date) : '', x.status].filter(Boolean).join(' · ')} right={money(x.net)} onPress={() => router.push(x.go as never)} />) : <Empty>Nothing bought for this project yet.</Empty>}
       </View>
     );
@@ -515,7 +550,6 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     return (
       <View>
         <SubRight><Button small title="+ Plant Hire" onPress={() => void withJob('Add plant hire', (sid) => `/fin/plant/new?site=${sid}`)} /></SubRight>
-        {!desk && bar('Search item, supplier or project')}
         {desk && list.length ? (
           <FinTable rows={list} keyOf={(h) => h.id} onRow={(h) => router.push(`/fin/plant/${h.id}` as never)}
             cols={[
@@ -528,6 +562,15 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               { k: 'st', l: 'Status', noSort: true, render: (h: Row) => { const c = plantCost(h as never), long = !h.off_hire && c.days > 28; return <Cell tone={h.off_hire ? undefined : long ? '#C0392B' : '#1E7A43'}>{h.off_hire ? 'Off hire' : `On hire ${c.weeks} wk`}</Cell>; } },
             ]}
             footLabel={(left) => `${left.length} shown`} />
+        ) : !desk && data.hires.length ? (
+          // A phone: a table like the rest of Finance (Andy, 14 Nov 2026); ▾ On Hire / Off Hire under On Hire.
+          <PhoneTable key="plant" label="Plant hire" rows={data.hires} keyOf={(h) => h.id} onRow={(h) => router.push(`/fin/plant/${h.id}` as never)}
+            cols={[
+              { k: 'i', l: 'Item', lines: 2, main: (h) => h.item || '—', sub: (h) => [h.supplier_name, siteId ? '' : jobTag(site(h.site_id))].filter(Boolean).join(' · '), find: (h) => `${h.item || ''} ${h.supplier_name || ''} ${jobTag(site(h.site_id))}` },
+              { k: 'on', l: 'On Hire', w: 84, center: true, main: (h) => (h.on_hire ? fdate(h.on_hire) : '—'), sub: (h) => (h.off_hire ? `Off ${fdate(h.off_hire)}` : `${plantCost(h as never).weeks} Wk`), tone: (h) => (!h.off_hire && plantCost(h as never).days > 28 ? '#C0392B' : undefined), sort: (h) => String(h.on_hire || ''),
+                choose: { opts: [['', 'All'], ['on', 'On Hire'], ['off', 'Off Hire']], test: (h, v) => (v === 'on' ? !h.off_hire : !!h.off_hire) } },
+              { k: 'c', l: 'Cost', w: 84, right: true, bold: true, bigFirst: true, main: (h) => (noRate(h) ? 'Rate To Add' : money(plantCost(h as never).cost)), tone: (h) => (noRate(h) ? '#B45309' : undefined), sort: (h) => plantCost(h as never).cost },
+            ]} />
         ) : list.length ? list.map((h) => { const c = plantCost(h as never), long = !h.off_hire && c.days > 28; return (
           <FinRow compact key={h.id} title={h.item} sub={[h.supplier_name, siteId ? '' : jobTag(site(h.site_id)), `on ${fdate(h.on_hire)}`, h.off_hire ? `off ${fdate(h.off_hire)}` : `on hire ${c.weeks} wk${long ? ' — over 4 weeks' : ''}`].filter(Boolean).join(' · ')} right={noRate(h) ? 'Rate To Add' : money(c.cost)} tone={long || noRate(h) ? '#D98A00' : undefined} onPress={() => router.push(`/fin/plant/${h.id}` as never)} />
         ); }) : <Empty>No plant hire.</Empty>}

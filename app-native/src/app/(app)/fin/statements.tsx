@@ -11,6 +11,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { FinForm } from '@/components/FinForm';
 import { FinPage, FinRow, FinStat } from '@/components/FinNav';
 import { Cell, FinTable } from '@/components/FinTable';
+import { PhoneTable } from '@/components/PhoneTable';
 import { PurchasesStats, usePurchaseBadges } from '@/components/FinPurchases';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
@@ -122,7 +123,6 @@ function List() {
             return null;
           }} />
       )}
-      {!desk && <TextInput value={q} onChangeText={setQ} placeholder="Search supplier" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 10 }} />}
       {isLoading ? <Muted>Loading…</Muted> : desk && list.length ? (() => {
         const st = (s: Row) => { const ls = ((s.lines || []) as SLine[]).filter((l) => !l.ignore && l.type !== 'payment'); return { n: ls.length, miss: ls.filter((l) => !l.match).length }; };
         return (
@@ -136,6 +136,18 @@ function List() {
               { k: 'b', l: 'Total Due', sort: (s: Row) => Number(s.closing_balance ?? 0), render: (s: Row) => <Cell>{s.closing_balance != null ? money(s.closing_balance) : '—'}</Cell> },
               { k: 'ga', l: 'Gross After Statement Date', min: 130, sort: (s: Row) => grossAfter(s) ?? -1, render: (s: Row) => { const g = grossAfter(s); return <Cell>{g == null ? '—' : money(g)}</Cell>; } },
               { k: 's', l: 'Status', noSort: true, choices: ['To check', 'Reconciled'], render: (s: Row) => <Cell tone={s.status === 'reconciled' ? '#1E7A43' : '#B35A00'}>{s.status === 'reconciled' ? 'Reconciled' : 'To check'}</Cell> },
+            ]} />
+        );
+      })() : !desk && list.length ? (() => {
+        // A phone: a table like the rest of Finance (Andy, 14 Nov 2026); ▾ To Check / Reconciled under Total Due.
+        const st = (s: Row) => { const ls = ((s.lines || []) as SLine[]).filter((l) => !l.ignore && l.type !== 'payment'); return { n: ls.length, miss: ls.filter((l) => !l.match).length }; };
+        return (
+          <PhoneTable key="stmts" label="Statements" rows={list} keyOf={(s) => s.id} onRow={(s) => router.setParams({ id: s.id })}
+            cols={[
+              { k: 'sup', l: 'Supplier', lines: 2, main: (s) => s.supplier_name || '—', sub: (s) => (s.statement_date ? fdate(s.statement_date) : ''), sort: (s) => String(s.supplier_name || '').toLowerCase() },
+              { k: 'm', l: 'Matched', w: 74, center: true, main: (s) => `${st(s).n - st(s).miss} Of ${st(s).n}`, sub: (s) => (st(s).miss ? `${st(s).miss} Missing` : ''), tone: (s) => (st(s).miss ? '#C0392B' : undefined), sort: (s) => st(s).miss },
+              { k: 'b', l: 'Total Due', w: 88, right: true, bold: true, bigFirst: true, main: (s) => (s.closing_balance != null ? money(s.closing_balance) : '—'), sub: (s) => (s.status === 'reconciled' ? 'Reconciled' : 'To Check'), sort: (s) => Number(s.closing_balance ?? 0),
+                choose: { opts: [['', 'All'], ['check', 'To Check'], ['rec', 'Reconciled']], test: (s, v) => (v === 'rec' ? s.status === 'reconciled' : s.status !== 'reconciled') } },
             ]} />
         );
       })() : list.length ? list.map((s) => {

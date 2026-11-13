@@ -155,8 +155,8 @@ export default function FinDirectory() {
           </View>
         )}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: desk ? 'flex-end' : 'center', marginBottom: 10 }}>{xeroOn && <XeroWorkersButton />}<Button title="+ Add a person" onPress={() => setEdit({ key: '', name: '', r: { pay_type: 'subcontractor', cis_rate: 20 }, app: false })} /></View>
-        <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search name or UTR' }} sel={pplSel} onChange={setPplSel} onClear={() => setPplSel({ show: [] })} sorts={[['az', 'Name A to Z'], ['za', 'Name Z to A']]} sort={pplSort} onSort={setPplSort}
-          parts={[{ key: 'show', label: 'Show', items: [['subs', 'CIS subcontractors'], ['unver', 'Not verified'], ['paye', 'PAYE staff'], ['left', 'No longer working for us']].map(([v, l]) => ({ v, l, n: rows.filter(F[v]).length })) }]} />
+        {desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search name or UTR' }} sel={pplSel} onChange={setPplSel} onClear={() => setPplSel({ show: [] })} sorts={[['az', 'Name A to Z'], ['za', 'Name Z to A']]} sort={pplSort} onSort={setPplSort}
+          parts={[{ key: 'show', label: 'Show', items: [['subs', 'CIS subcontractors'], ['unver', 'Not verified'], ['paye', 'PAYE staff'], ['left', 'No longer working for us']].map(([v, l]) => ({ v, l, n: rows.filter(F[v]).length })) }]} />}
         {/* A laptop gets the current app's table: Name, CIS, UTR, HMRC Check, Day Rate, Bank and a day-rate total (9219j; cmp-fin 5 Nov 2026). */}
         {isLoading ? <Muted>Loading…</Muted> : desk && list.length ? (() => {
           const pill = (txt: string, bad: boolean) => <Text style={{ fontSize: 11, fontWeight: '600', color: bad ? '#92400E' : '#1E7A43', backgroundColor: bad ? '#FEF3C7' : '#E7F6EC', borderRadius: 999, paddingVertical: 2, paddingHorizontal: 8, overflow: 'hidden' }}>{txt}</Text>;
@@ -173,7 +173,16 @@ export default function FinDirectory() {
               ]}
               foot={(left) => <><FootText bold>{left.length} shown</FootText><FootText>Day rates {money(left.reduce((t, x) => t + Number(x.r.day_rate || 0), 0))}</FootText></>} />
           );
-        })() : list.length ? list.map((x) => (
+        })() : !desk && rows.length ? (
+          // A phone: a table like the rest of Finance (Andy, 14 Nov 2026); ▾ CIS / Not Verified / PAYE / Left under Pay.
+          <PhoneTable key="labour" label="People and rates" rows={rows.slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))} keyOf={(x) => x.key} onRow={(x) => setEdit(x)}
+            cols={[
+              { k: 'n', l: 'Name', lines: 2, main: (x) => x.name, sub: (x) => (x.r.pay_type === 'paye' ? 'PAYE' : x.r.utr ? `UTR ${x.r.utr}` : 'UTR Missing'), find: (x) => `${x.name} ${x.r.name || ''} ${x.r.utr || ''}`, sort: (x) => String(x.name || '').toLowerCase() },
+              { k: 'p', l: 'Pay', w: 96, center: true, main: (x) => (x.r.pay_type === 'paye' ? 'PAYE' : CIS.find(([k]) => Number(k) === Number(x.r.cis_rate ?? 20))?.[1] || ''), sub: (x) => (x.r.pay_type === 'paye' ? (bankOk(x.r) ? '' : 'Payroll') : x.r.cis_verified_at ? 'Verified' : 'Unverified'), tone: (x) => (x.r.pay_type !== 'paye' && !x.r.cis_verified_at ? '#B45309' : undefined),
+                choose: { opts: [['', 'All'], ['subs', 'CIS'], ['unver', 'Not Verified'], ['paye', 'PAYE'], ['left', 'Left']], test: (x, v) => (F[v] ? F[v](x) : true), start: 'subs' } },
+              { k: 'd', l: 'Day Rate', w: 76, right: true, bold: true, bigFirst: true, main: (x) => (x.r.day_rate != null ? money(x.r.day_rate) : '—'), sub: (x) => (bankOk(x.r) ? `••${String(x.r.bank_account_no).replace(/\D/g, '').slice(-4)}` : x.r.pay_type === 'paye' ? '' : 'No Bank'), sort: (x) => Number(x.r.day_rate || 0) },
+            ]} />
+        ) : list.length ? list.map((x) => (
           <FinRow compact key={x.key} title={x.name} sub={[x.app ? 'Has the app' : '', x.r.pay_type === 'paye' ? 'PAYE' : CIS.find(([k]) => Number(k) === Number(x.r.cis_rate ?? 20))?.[1], x.r.pay_type === 'paye' ? '' : x.r.utr ? `UTR ${x.r.utr}` : 'UTR missing', x.r.pay_type === 'paye' ? '' : x.r.cis_verified_at ? `verified ${fdate(x.r.cis_verified_at)}` : 'unverified', bankOk(x.r) ? `${sortCode(x.r.bank_sort_code)} · ••${String(x.r.bank_account_no).replace(/\D/g, '').slice(-4)}` : x.r.pay_type === 'paye' ? 'payroll' : 'bank not saved'].filter(Boolean).join(' · ')} right={x.r.day_rate != null ? `${money(x.r.day_rate)}/day` : ''} onPress={() => setEdit(x)} />
         )) : <Empty>No one here yet.</Empty>}
         {cur && (
@@ -260,7 +269,7 @@ export default function FinDirectory() {
     return (
       <FinPage title="Cost codes" section={section} sub={subTab} onSub={onSub}>
         <View style={{ flexDirection: 'row', marginBottom: 10 }}><Muted style={{ flex: 1 }}>The ID is the Xero account code each cost goes to. The type decides which column it adds up in on job costs and reports.</Muted><Button title="+ Add cost code" onPress={() => setEdit({ category: 'materials', grp: list[0]?.grp || '' })} /></View>
-        <TextInput value={q} onChangeText={setQ} placeholder="Search cost codes" style={box} />
+        {desk && <TextInput value={q} onChangeText={setQ} placeholder="Search cost codes" style={box} />}
         {Object.keys(groups).sort().map((g) => (
           <View key={g}><SectionTitle>{g} · {groups[g].length} Cost Code{groups[g].length === 1 ? '' : 's'}</SectionTitle>{desk ? (
             // A laptop gets the current app's table: Name, ID, Description, Type (9219j; cmp-fin 5 Nov 2026).
@@ -271,7 +280,15 @@ export default function FinDirectory() {
                 { k: 'd', l: 'Description', flex: 2, render: (c: Row) => <Cell>{c.description || '—'}</Cell> },
                 { k: 't', l: 'Type', render: (c: Row) => <Cell>{COST_CATS[c.category] || '—'}</Cell> },
               ]} />
-          ) : groups[g].map((c) => <FinRow key={c.id} left={c.code || '—'} title={`${c.name}${c.active === false ? ' (hidden)' : ''}`} sub={[c.description, COST_CATS[c.category]].filter(Boolean).join(' · ')} onPress={() => setEdit(c)} />)}</View>
+          ) : (
+            // A phone: a table like the rest of Finance (Andy, 14 Nov 2026).
+            <PhoneTable key={`codes${g}`} label={`Cost codes ${g}`} rows={groups[g]} keyOf={(c) => c.id} onRow={(c) => setEdit(c)}
+              cols={[
+                { k: 'id', l: 'ID', w: 60, main: (c) => c.code || '—' },
+                { k: 'n', l: 'Name', lines: 2, main: (c) => `${c.name}${c.active === false ? ' (Hidden)' : ''}`, sub: (c) => c.description || '', find: (c) => `${c.name} ${c.code || ''} ${c.description || ''}` },
+                { k: 't', l: 'Type', w: 92, center: true, main: (c) => COST_CATS[c.category] || '—' },
+              ]} />
+          )}</View>
         ))}
         {!isLoading && !list.length && <Empty>No cost codes yet.</Empty>}
         {edit && (

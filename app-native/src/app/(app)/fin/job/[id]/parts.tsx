@@ -8,6 +8,7 @@ import { ThinExportBar } from '@/components/FinFilterBar';
 import { bookable, bookCostTo } from '@/components/FinBookCost';
 import { BoqTabs, FinRow, FinStat, RepairTabs } from '@/components/FinNav';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
+import { PhoneTable } from '@/components/PhoneTable';
 import { chooseAction, promptText, useToast } from '@/components/toast';
 import { Card, Muted } from '@/components/ui';
 import { useBook } from '@/data/finBook';
@@ -96,7 +97,15 @@ export default function FinParts() {
             { k: 'left', l: 'Invoiced less cost', off: true, render: (r: P) => <Text style={{ fontSize: 13, fontWeight: '500', color: r.left < 0 ? '#C0392B' : '#111827' }}>{m(r.left)}</Text> },
           ]}
           foot={(left) => { const add = (k: keyof P) => round2(left.reduce((t, r) => t + (Number(r[k]) || 0), 0)); return <><FootText bold>Total cost {money(add('cost'))}</FootText><FootText>Committed {money(add('committed'))}</FootText>{add('value') ? <FootText>Value {money(add('value'))}</FootText> : null}<FootText>Invoiced {money(add('invoiced'))}</FootText></>; }} />
-      ) : all.map((r) => <FinRow key={r.id} title={r.name} sub={[r.detail, r.invoiced ? `invoiced ${money(r.invoiced)}` : '', `cost ${money(r.cost)}`, r.committed ? `committed ${money(r.committed)}` : '', r.value != null ? `value ${money(r.value)}` : '', r.margin != null ? `margin ${money(r.margin)}` : ''].filter(Boolean).join(' · ')} right={money(r.cost)} tone={r.id === 'none' && r.cost > 0 ? '#D98A00' : undefined} onPress={() => void open(r)} />)}
+      ) : all.length ? (
+        // A phone: a table like the rest of Finance (Andy, 14 Nov 2026): the cost, and the margin with the value under it.
+        <PhoneTable key="parts" label={nouns} rows={all} keyOf={(r) => r.id} onRow={(r) => void open(r)}
+          cols={[
+            { k: 'n', l: noun, lines: 2, main: (r) => r.name, sub: (r) => r.detail || '', sort: (r) => String(r.name || '').toLowerCase() },
+            { k: 'c', l: 'Cost', w: 80, right: true, bigFirst: true, main: (r) => money(r.cost), sub: (r) => (r.committed ? `+${money(r.committed, 0)} Ord.` : ''), tone: (r) => (r.id === 'none' && r.cost > 0 ? '#D98A00' : undefined), sort: (r) => Number(r.cost || 0) },
+            { k: 'm', l: 'Margin', w: 84, right: true, bold: true, bigFirst: true, main: (r) => m(r.margin), sub: (r) => (r.value != null ? `Value ${money(r.value, 0)}` : ''), tone: (r) => (r.margin != null && r.margin < 0 ? '#C0392B' : undefined), sort: (r) => r.margin },
+          ]} />
+      ) : null}
       <Muted style={{ marginTop: 10 }}>{`Excl. VAT. Tap a ${noun.toLowerCase()} to see every cost booked to it. Split costs show their share. Sign-in days are shared across the addresses signed into that day. ${sv.source === 'schedule' ? 'Value = the Bill of Quantities for each one.' : subKind(site) === 'repair' ? 'Value = the cost issued on the repair job, unless you type another.' : 'Tap one to type its value.'} Margin = value − cost − committed.`}</Muted>
     </ScrollView>
     <ThinExportBar onExcel={async () => { if (!(await exportTableExcel(table(), org).catch(() => false))) toast('Could not make the file — try again.'); }} onPdf={async () => { if (!(await exportTablePdf(table(), org).catch(() => false))) toast('Could not make the PDF — try again.'); }} />
