@@ -57,7 +57,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   const qc = useQueryClient();
   const insets = useSafeAreaInsets();
   const path = usePathname();
-  const { tab: qTab, kind: qKind, id: qId, sub: qSub } = useGlobalSearchParams<{ tab?: string; kind?: string; id?: string; sub?: string }>();
+  const { tab: qTab, kind: qKind, id: qId, sub: qSub, sup: qSup } = useGlobalSearchParams<{ tab?: string; kind?: string; id?: string; sub?: string; sup?: string }>();
   const { data: sites } = useSites();
   const siteId = (path.match(/^\/sites\/([0-9a-f-]{36})/) || [])[1];
   const site = siteId ? sites?.find((s) => s.id === siteId) : undefined;
@@ -92,6 +92,8 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
         ...(finSec === 'yardin' ? [[title ? titleCase(title) : 'Book In', null] as [string, null]] : qSub === 'plant' ? [['Plant', null] as [string, null]] : qId && title ? [[titleCase(title), null] as [string, null]] : [])]
       : FIN_PARENT[finSec] ? [['Finance', '/fin'], FIN_PARENT[finSec], ...(title && titleCase(title) !== FIN_PARENT[finSec][0] ? [[titleCase(title), null] as [string, null]] : [])]
       : finSec === 'reports' && title && title !== 'Reports' ? [['Finance', '/fin'], ['Reports', '/fin/reports'], [titleCase(title), null]]
+      // One supplier's prices (Andy, 14 Nov 2026): Finance › Purchases › Price Lists › the supplier.
+      : finSec === 'purchases' && typeof qSup === 'string' && qSup ? [['Finance', '/fin'], ['Purchases', '/fin/purchases'], ['Price Lists', '/fin/purchases?tab=prices'], [qSup, null]]
       : finSec === 'directory' && qKind === 'codes' ? [['Finance', '/fin'], ['Settings', '/fin/settings'], ['Cost Codes', null]]
       : secTab && secTab !== finSub ? [['Finance', '/fin'], [finSub, `/fin/${finSec}`], [secTab, null]]
       : [['Finance', '/fin'], [finSub, null]];

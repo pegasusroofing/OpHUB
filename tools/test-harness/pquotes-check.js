@@ -28,7 +28,10 @@ const {chromium, makeContext, S1} = require('./harness');
   console.log('new PO fields:', vals.slice(0, 12).join(' | '));
   await page.goto(BASE+'/fin/purchases?tab=pricelists'); await page.waitForTimeout(4000);
   await page.screenshot({path:'shots/pricelists.png'}); console.log('pl text:', (await page.evaluate(()=>document.body.innerText)).replace(/s+/g,' ').slice(0,600));
-  await page.getByText(/Alltype · 2026 list/).first().click(); await page.waitForTimeout(500); await page.getByText('✎ Edit this list').click(); await page.waitForTimeout(1500);
+  // Since 14 Nov 2026: Price Lists is a table of suppliers; Alltype's page lists their price lists; tap one › ✎ Edit This List.
+  await page.locator('[aria-label="Price lists"] >> visible=true').first().getByText('Alltype', {exact: true}).click(); await page.waitForTimeout(2000);
+  await page.locator('[aria-label="Their price lists"] >> visible=true').first().getByText('2026 list', {exact: true}).click(); await page.waitForTimeout(600);
+  await page.getByText('✎ Edit This List').last().click(); await page.waitForTimeout(1500);
   await page.getByPlaceholder('Rate £').first().fill('44'); await page.getByText('Save list').click(); await page.waitForTimeout(2500);
   console.log('edited rate:', db.fin_quote_items.find(i=>i.id==='qi1').rate);
   console.log('errors', errs.join(' / ').slice(0,400) || 'none');

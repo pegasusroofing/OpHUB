@@ -18,10 +18,11 @@ export type PChoose<T> = { opts: [string, string][]; test: (r: T, v: string) => 
 // the words shown). find: the words its search box looks through (else what's shown, both lines). match: the box's own
 // test (Value ">50k"). ph: the box's grey word (else the heading). choose: a ▾ choice instead of a box. noFind: no box.
 // bigFirst: the first tap sorts biggest first (money; Andy, 7 Nov 2026), then smallest, then off. headCenter: the heading
-// and its search box centred, the rows keep their own alignment (Applications' Amount; Andy, 14 Nov 2026).
+// and its search box centred, the rows keep their own alignment (Applications' Amount; Andy, 14 Nov 2026). lines: the main
+// line may wrap to that many lines (a yard item's name).
 export type PCol<T> = {
   k?: string; l: string; w?: number; right?: boolean; center?: boolean; main: (r: T) => ReactNode; sub?: (r: T) => ReactNode; tone?: (r: T) => string | undefined; bold?: boolean;
-  sort?: (r: T) => string | number | null | undefined; noSort?: boolean; find?: (r: T) => string; match?: (r: T, q: string) => boolean; ph?: string; choose?: PChoose<T>; noFind?: boolean; bigFirst?: boolean; headCenter?: boolean;
+  sort?: (r: T) => string | number | null | undefined; noSort?: boolean; find?: (r: T) => string; match?: (r: T, q: string) => boolean; ph?: string; choose?: PChoose<T>; noFind?: boolean; bigFirst?: boolean; headCenter?: boolean; lines?: number;
 };
 
 const keyOfCol = <T,>(c: PCol<T>) => c.k || c.l;
@@ -137,7 +138,7 @@ export function PhoneTable<T>({ cols, rows, keyOf, onRow, foot, label = 'Table',
             style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 50, paddingVertical: 7, paddingHorizontal: 10, borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>
             {cols.map((c, i) => (
               <View key={keyOfCol(c)} style={{ ...box(c), alignItems: c.right ? 'flex-end' : c.center ? 'center' : 'flex-start' }}>
-                <Text numberOfLines={1} style={{ fontSize: i === 0 ? 13 : 12, fontWeight: i === 0 || c.bold ? '600' : '500', color: c.tone?.(r) || base.ink }}>{c.main(r)}</Text>
+                <Text numberOfLines={c.lines || 1} style={{ fontSize: i === 0 ? 13 : 12, fontWeight: i === 0 || c.bold ? '600' : '500', color: c.tone?.(r) || base.ink }}>{c.main(r)}</Text>
                 {c.sub ? <Text numberOfLines={1} style={{ fontSize: 10.5, color: base.slate, marginTop: 1 }}>{c.sub(r)}</Text> : null}
               </View>
             ))}

@@ -29,7 +29,33 @@ import { base, radius } from '@/theme/theme';
 type Row = Record<string, any>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 8, paddingVertical: 6, color: base.ink, backgroundColor: base.card };
 const rid = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}${Math.random().toString(36).slice(2, 8)}`);
-const qLabel = (q: Row) => [q.supplier_name, q.quote_no].filter(Boolean).join(' · ') || q.file_name || 'Quote';
+/** Read Excel / CSV price lists into fin_quotes + fin_quote_items for one supplier (every project when siteId is null).
+ *  Also used by Finance › Purchases › Price Lists (Andy, 14 Nov 2026). */
+export async function uploadPriceFiles(me: { id: string; org_id: string | null }, supName: string, siteId: string | null, onBusy: (t: string) => void): Promise<{ added: number; skipped: string[]; picked: boolean }> {
+  const r = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true, copyToCacheDirectory: true }); if (r.canceled || !r.assets.length) return { added: 0, skipped: [], picked: false };
+  let added = 0; const skipped: string[] = [];
+  for (let n = 0; n < r.assets.length; n++) {
+    const a = r.assets[n], nm = a.name || 'quote';
+    if (!/\.(xlsx|csv)$/i.test(nm)) { skipped.push(nm); continue; }
+    onBusy(`Reading ${n + 1} of ${r.assets.length}…`);
+    try {
+      const bytes = new Uint8Array(await (await fetch(a.uri)).arrayBuffer());
+      const sheet = /\.csv$/i.test(nm) ? { name: 'CSV', rows: csvRows(new TextDecoder().decode(bytes)) } : bestSheet(await readXlsx(bytes));
+      if (!sheet) { skipped.push(nm); continue; }
+      const g = guessColumns(sheet.rows);
+      const lines = importRows(sheet.rows, g.header, g.cols).filter((l) => l.kind === 'item' && l.description);
+      if (!lines.length) { skipped.push(nm); continue; }
+      const qid = rid();
+      const ins = await fdb.from('fin_quotes').insert({ id: qid, org_id: me.org_id, site_id: siteId, purpose: 'pquote', supplier_name: supName.trim() || null, file_name: nm, file_path: (await supabase.storage.from('finance-docs').upload(`${me.org_id}/${siteId || 'all'}/quotes/${qid}-${nm.replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, bytes, { contentType: a.mimeType || 'application/octet-stream' })).data?.path ?? null, created_by: me.id } as never);
+      if (ins.error) { skipped.push(nm); continue; }
+      await fdb.from('fin_quote_items').insert(lines.map((l, i) => ({ org_id: me.org_id, quote_id: qid, site_id: siteId, supplier_name: supName.trim() || null, code: l.ref ? String(l.ref).slice(0, 60) : null, description: String(l.description).slice(0, 300), unit: l.unit || null, rate: l.rate ?? null, position: i, active: true, created_by: me.id })) as never);
+      added++;
+    } catch { skipped.push(nm); }
+  }
+  onBusy('');
+  return { added, skipped, picked: true };
+}
+export const qLabel = (q: Row) => [q.supplier_name, q.quote_no].filter(Boolean).join(' · ') || q.file_name || 'Quote';
 
 export function PurchaseQuotes({ siteId }: { siteId?: string }) {
   const { me } = useAuth();
@@ -65,28 +91,9 @@ export function PurchaseQuotes({ siteId }: { siteId?: string }) {
   const ticked = data.items.filter((i) => sel.has(i.id));
 
   const upload = async () => {
-    const r = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true, copyToCacheDirectory: true }); if (r.canceled || !r.assets.length) return;
     const all = scope === 'all' || !siteId;
-    let added = 0; const skipped: string[] = [];
-    for (let n = 0; n < r.assets.length; n++) {
-      const a = r.assets[n], nm = a.name || 'quote';
-      if (!/\.(xlsx|csv)$/i.test(nm)) { skipped.push(nm); continue; }
-      setBusy(`Reading ${n + 1} of ${r.assets.length}…`);
-      try {
-        const bytes = new Uint8Array(await (await fetch(a.uri)).arrayBuffer());
-        const sheet = /\.csv$/i.test(nm) ? { name: 'CSV', rows: csvRows(new TextDecoder().decode(bytes)) } : bestSheet(await readXlsx(bytes));
-        if (!sheet) { skipped.push(nm); continue; }
-        const g = guessColumns(sheet.rows);
-        const lines = importRows(sheet.rows, g.header, g.cols).filter((l) => l.kind === 'item' && l.description);
-        if (!lines.length) { skipped.push(nm); continue; }
-        const qid = rid();
-        const ins = await fdb.from('fin_quotes').insert({ id: qid, org_id: me.org_id, site_id: all ? null : siteId, purpose: 'pquote', supplier_name: sup.trim() || null, file_name: nm, file_path: (await supabase.storage.from('finance-docs').upload(`${me.org_id}/${all ? 'all' : siteId}/quotes/${qid}-${nm.replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, bytes, { contentType: a.mimeType || 'application/octet-stream' })).data?.path ?? null, created_by: me.id } as never);
-        if (ins.error) { skipped.push(nm); continue; }
-        await fdb.from('fin_quote_items').insert(lines.map((l, i) => ({ org_id: me.org_id, quote_id: qid, site_id: all ? null : siteId, supplier_name: sup.trim() || null, code: l.ref ? String(l.ref).slice(0, 60) : null, description: String(l.description).slice(0, 300), unit: l.unit || null, rate: l.rate ?? null, position: i, active: true, created_by: me.id })) as never);
-        added++;
-      } catch { skipped.push(nm); }
-    }
-    setBusy(''); refresh();
+    const { added, skipped, picked } = await uploadPriceFiles(me, sup, all ? null : (siteId as string), setBusy); if (!picked) return;
+    refresh();
     if (skipped.length) toast(`Couldn’t read: ${skipped.join(', ')}. Upload quotes as Excel (.xlsx) or CSV — reading PDFs and photos is switched off while Finance is on trial.`);
     else if (!added) toast('Nothing found in those files.');
   };
@@ -163,7 +170,7 @@ export function PurchaseQuotes({ siteId }: { siteId?: string }) {
 }
 
 /** Edit a price list / quote: supplier, ref, date and every line (9219zd). */
-function PriceListEdit({ qid, onClose }: { qid: string; onClose: (saved: boolean) => void }) {
+export function PriceListEdit({ qid, onClose }: { qid: string; onClose: (saved: boolean) => void }) {
   const { me } = useAuth();
   const toast = useToast();
   const { data } = useQuery({

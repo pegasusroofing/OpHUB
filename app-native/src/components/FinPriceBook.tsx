@@ -14,7 +14,7 @@ import { useAuth } from '@/lib/auth';
 import { fdate, money, num, rateMoney } from '@/lib/rules/finance';
 import { base, radius } from '@/theme/theme';
 
-type PB = { id: string; supplier_name: string | null; supplier_key: string; description: string; code: string | null; unit: string | null; rate: number; source: string | null; updated_at: string };
+export type PB = { id: string; supplier_name: string | null; supplier_key: string; description: string; code: string | null; unit: string | null; rate: number; source: string | null; updated_at: string };
 const itemKey = (t: string) => String(t || '').toLowerCase().replace(/[^a-z0-9.]+/g, ' ').replace(/\s+/g, ' ').trim();
 
 export function PriceBook() {
@@ -35,9 +35,20 @@ export function PriceBook() {
       <TextInput value={q} onChangeText={setQ} placeholder="Search supplier, item or code" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 10 }} />
       {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((r) => <FinRow key={r.id} title={r.description} sub={`${r.supplier_name || r.supplier_key}${r.code ? ` · ${r.code}` : ''} · from ${r.source || 'manual'} ${fdate(String(r.updated_at).slice(0, 10))}`} right={`${rateMoney(r.rate)} ${r.unit ? `per ${r.unit}` : 'each'}`} onPress={() => setEdit(r)} />)
         : <Empty>No prices yet — they&apos;re added as quotes and invoices are read.</Empty>}
-      {edit && (
-        <FinForm title={cur ? 'Price' : 'Add a price'} initial={cur || {}} onClose={() => setEdit(null)}
-          fields={[{ k: 'supplier_name', label: 'Supplier' }, { k: 'description', label: 'Item' }, { k: 'code', label: 'Code', half: true }, { k: 'unit', label: 'Unit', ph: 'nr, m2, roll', half: true }, { k: 'rate', label: 'Price £ (excl. VAT)', kind: 'money' }]}
+      {edit && <PriceForm cur={cur} onClose={() => setEdit(null)} />}
+    </View>
+  );
+}
+
+/** Add or change one price (the Price Book's form); on a supplier's page in Price Lists the supplier is filled in. */
+export function PriceForm({ cur, supplier, onClose }: { cur: PB | null; supplier?: string; onClose: () => void }) {
+  const { me } = useAuth();
+  const toast = useToast();
+  const qc = useQueryClient();
+  if (!me) return null;
+  return (
+    <FinForm title={cur ? 'Change Price' : 'Add A Price'} initial={cur || (supplier ? { supplier_name: supplier } : {})} onClose={onClose}
+          fields={[{ k: 'supplier_name', label: 'Supplier' }, { k: 'description', label: 'Item' }, { k: 'code', label: 'Code', half: true }, { k: 'unit', label: 'Unit', ph: 'nr, m2, roll', half: true }, { k: 'rate', label: 'Price £ (Excl. VAT)', kind: 'money' }]}
           onSave={async (v) => {
             const sup = String(v.supplier_name).trim(), desc = String(v.description).trim(), rate = num(v.rate);
             if (!sup || !desc) return 'Enter the supplier and item.';
@@ -45,10 +56,8 @@ export function PriceBook() {
             const row = { supplier_key: sup.toLowerCase(), supplier_name: sup, item_key: itemKey(desc), description: desc, code: String(v.code).trim() || null, unit: String(v.unit).trim() || null, rate: Math.round(rate * 10000) / 10000, source: 'manual', updated_at: new Date().toISOString() };
             const r = cur ? await fdb.from('fin_price_book').update(row as never).eq('id', cur.id) : await fdb.from('fin_price_book').insert({ ...row, org_id: me.org_id } as never);
             if (r.error) return 'Could not save — try again.';
-            toast('Price saved'); void qc.invalidateQueries({ queryKey: ['finPriceBook'] }); return null;
+            void qc.invalidateQueries({ queryKey: ['finPriceBook'] }); void qc.invalidateQueries({ queryKey: ['finPriceLists'] }); return null;
           }}
-          onDelete={cur ? async () => { if (!(await fdb.from('fin_price_book').delete().eq('id', cur.id).select('id')).data?.length) return 'Could not remove.'; toast('Removed'); void qc.invalidateQueries({ queryKey: ['finPriceBook'] }); return null; } : undefined} />
-      )}
-    </View>
+          onDelete={cur ? async () => { if (!(await fdb.from('fin_price_book').delete().eq('id', cur.id).select('id')).data?.length) return 'Could not remove.'; void qc.invalidateQueries({ queryKey: ['finPriceBook'] }); void qc.invalidateQueries({ queryKey: ['finPriceLists'] }); return null; } : undefined} />
   );
 }
