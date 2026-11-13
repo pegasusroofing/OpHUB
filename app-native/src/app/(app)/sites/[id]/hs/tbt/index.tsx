@@ -1,7 +1,8 @@
 // Toolbox talks for a job (710). Operatives see every talk (live ones to sign).
 // Managers get Bank / Live / Completed tabs (Live first when there is one), the
 // monthly "due" warning, signed counts and who's still to sign, upload into the
-// bank and sync the bank from the Admin Centre library. On Completed, tick talks
+// bank and sync the bank from the Admin Centre library, or write one (saved as a PDF to the company bank and this job,
+// after checking for similar titles: Andy, 13 Nov 2026). On Completed, tick talks
 // to export or email their signed PDFs as one file (710 exportSelectedTbts).
 import * as DocumentPicker from 'expo-document-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -16,7 +17,7 @@ import { Button, Card, Empty, Muted, SectionTitle, Toggle } from '@/components/u
 import { HowTo } from '@/components/HowTo';
 import { usePeople, useTbts } from '@/data/hs';
 import { useSite } from '@/data/sites';
-import { deleteTbt, syncTbtBank, tbtDue, uploadTbt } from '@/data/tbtManager';
+import { deleteTbt, similarTbts, syncTbtBank, tbtDue, uploadTbt, writeTbt } from '@/data/tbtManager';
 import { buildSignedTbtPdf } from '@/data/hsPdf';
 import { useAuth } from '@/lib/auth';
 import { deliverPdf, emailPdf, exportFilename, PDFDocument, emailPdfsSeparately } from '@/lib/pdf';
@@ -28,7 +29,7 @@ const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supab
 
 export default function Tbts() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: site } = useSite(id);
@@ -38,6 +39,9 @@ export default function Tbts() {
   const [tab, setTab] = useState<'bank' | 'live' | 'completed' | null>(null);
   const [title, setTitle] = useState('');
   const [upOpen, setUpOpen] = useState(false);
+  const [writeOpen, setWriteOpen] = useState(false);
+  const [wTitle, setWTitle] = useState('');
+  const [wBody, setWBody] = useState('');
   const [file, setFile] = useState<{ uri: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -58,6 +62,11 @@ export default function Tbts() {
   const shown = mgr ? (talks ?? []).filter((t) => t.status === cur) : talks ?? [];
   const due = mgr && site && talks ? tbtDue(site, talks) : null;
   const refresh = () => void qc.invalidateQueries({ queryKey: ['tbts', id] });
+  // Before anything new goes in the bank: are there talks like it already? (Yes / No to carry on.)
+  const okToAdd = async (t: string) => {
+    const like = await similarTbts(me, id, t);
+    return !like.length || confirmAsk(`Similar toolbox talks are already in the bank:\n\n${like.map((x) => `• ${x}`).join('\n')}\n\nAdd yours as a new one anyway?`, 'Yes', 'No');
+  };
   const combined = async (): Promise<{ bytes: Uint8Array; filename: string } | null> => {
     if (!site) return null;
     const out = await PDFDocument.create(); let skipped = 0;
@@ -125,6 +134,19 @@ export default function Tbts() {
 
       {mgr && cur === 'bank' && (
         <>
+          <Toggle title="Write A Toolbox Talk" open={writeOpen} onPress={() => setWriteOpen(!writeOpen)} />
+          {writeOpen && <Card>
+            <TextInput accessibilityLabel="Talk title" value={wTitle} onChangeText={setWTitle} placeholder="Title, e.g. Working At Height On Flat Roofs" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 8 }} />
+            <TextInput accessibilityLabel="Talk points" value={wBody} onChangeText={setWBody} multiline placeholder={'What the talk covers: the hazards, what to do, who to tell. A new line for each point.'} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, minHeight: 180, textAlignVertical: 'top', marginBottom: 8 }} />
+            <Button busy={busy} title="Save To The TBT Bank" onPress={async () => {
+              if (!wTitle.trim() || !wBody.trim()) { toast('Add a title and what the talk covers.'); return; }
+              if (!site || !(await okToAdd(wTitle.trim()))) return;
+              setBusy(true); const err = await writeTbt(me, site, org?.name || '', wTitle.trim(), wBody.trim()); setBusy(false);
+              if (err) { toast(err); return; }
+              setWTitle(''); setWBody(''); setWriteOpen(false); setTab('bank'); refresh();
+            }} />
+            <Muted>It goes in the company TBT bank (Admin › TBT Library) and this job&apos;s TBT Library, ready to issue for signing.</Muted>
+          </Card>}
           <Toggle title="Upload A Toolbox Talk" open={upOpen} onPress={() => setUpOpen(!upOpen)} />
           {upOpen && <Card>
             <TextInput value={title} onChangeText={setTitle} placeholder="Title, e.g. Week 24 — Manual Handling" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 8 }} />
@@ -134,6 +156,7 @@ export default function Tbts() {
             }} />
             <Button busy={busy} title="Upload" onPress={async () => {
               if (!title.trim() || !file) { toast('Add a title and choose a PDF.'); return; }
+              if (!(await okToAdd(title.trim()))) return;
               setBusy(true); const err = await uploadTbt(me, id, title.trim(), file); setBusy(false);
               if (err) { toast(err); return; }
               toast('Toolbox talk uploaded to TBT Library'); setTitle(''); setFile(null); setUpOpen(false); setTab('bank'); refresh();

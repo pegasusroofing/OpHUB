@@ -132,7 +132,10 @@ const monthsBetween = (from: string, to: string) => {
   while (d <= end) { out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`); d.setMonth(d.getMonth() + 1); }
   return out;
 };
-/** Application dates (9219zp): "💷 Application due" / "sent" on each project's date for the month.
+/** Application dates from Finance (9219zp; Andy, 13 Nov 2026: "application days aren't showing in the calendar"):
+ *  - every application made shows on its date ("💷 Application sent");
+ *  - each month with none yet shows the date it's due ("💷 Application due"): the job's own date for that month, else its
+ *    application day, else the company's, else the day of the month of its last application.
  *  PMs, admins and Finance users only (site_application_dates checks too). */
 export async function appDateLines(siteId: string | null, from: string, to: string): Promise<ExtraLine[]> {
   const r = await Promise.resolve(rpcAny('site_application_dates', { p_site_ids: null })).catch(() => ({ data: [] as unknown }));
@@ -140,12 +143,16 @@ export async function appDateLines(siteId: string | null, from: string, to: stri
   const months = monthsBetween(from, to), out: ExtraLine[] = [];
   rows.forEach((row) => {
     if (siteId && row.site_id !== siteId) return;
-    const applied = new Set((row.applied_dates || []).map((x) => String(x).slice(0, 7)));
+    const made = [...new Set((row.applied_dates || []).map((x) => String(x).slice(0, 10)))].sort();
+    const madeMonths = new Set(made.map((d) => d.slice(0, 7)));
+    made.forEach((d, i) => { if (d >= from && d <= to) out.push({ kind: 'app', id: `appm-${row.site_id}-${d}-${i}`, site_id: row.site_id, event_date: d, title: '💷 Application sent', colour: '#1E7A43' }); });
+    const lastDay = made.length ? Number(made[made.length - 1].slice(8, 10)) : null;
     months.forEach((ym) => {
-      const date = appDateFor({ app_dates: row.app_dates, app_reminder_day: row.app_reminder_day }, { app_reminder_day: row.org_app_day } as never, ym);
+      if (madeMonths.has(ym)) return;
+      const date = appDateFor({ app_dates: row.app_dates, app_reminder_day: row.app_reminder_day }, { app_reminder_day: row.org_app_day } as never, ym)
+        || appDateFor({ app_dates: null, app_reminder_day: lastDay }, {} as never, ym);
       if (!date || date < from || date > to) return;
-      const sent = applied.has(ym);
-      out.push({ kind: 'app', id: `app-${row.site_id}-${ym}`, site_id: row.site_id, event_date: date, title: sent ? '💷 Application sent' : '💷 Application due', colour: sent ? '#1E7A43' : '#B45309' });
+      out.push({ kind: 'app', id: `app-${row.site_id}-${ym}`, site_id: row.site_id, event_date: date, title: '💷 Application due', colour: '#B45309' });
     });
   });
   return out;

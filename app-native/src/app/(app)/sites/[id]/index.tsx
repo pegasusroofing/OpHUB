@@ -17,6 +17,7 @@ import { WeatherLink } from '@/components/WeatherSwap';
 import { useRepairJobs } from '@/data/repairs';
 import { assignToSite, removeFromSite, useTeamData } from '@/data/siteAdmin';
 import { useSiteHome } from '@/data/siteHome';
+import { useSubOrders } from '@/data/siteOrders';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { heading } from '@/lib/fonts';
@@ -36,17 +37,19 @@ const rule = '#EEF0F2';
 /** The job's areas as rows in one box (Andy, 9 Nov 2026): a plain icon, the name, its count or note, ›. On a laptop the
  *  note sits on the right; on a phone it goes under the name. cols 2 = two columns of rows. */
 function JobRows({ rows, cols, desk }: { rows: R[]; cols: number; desk: boolean }) {
+  // A phone's rows are 1.1 × bigger (Andy, 13 Nov 2026).
+  const k = desk ? 1 : 1.1;
   return (
     <View style={[cardBox, { borderRadius: 10, flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: cols > 1 ? 4 : 0 }]}>
       {rows.map((x, i) => (
         <Pressable key={x.key} onPress={x.onPress} accessibilityRole="button" accessibilityLabel={`${x.title}, ${x.sub}`}
-          style={({ pressed }) => [{ width: `${100 / cols}%`, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, paddingHorizontal: 14, borderTopWidth: i >= cols ? 1 : 0, borderTopColor: rule }, pressed && { backgroundColor: '#F7F8FA' }]}>
-          <View style={{ width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: base.cardLine }}>
-            <OphIcon name={x.ic} size={17} color={base.ink} />
+          style={({ pressed }) => [{ width: `${100 / cols}%`, flexDirection: 'row', alignItems: 'center', gap: 12 * k, paddingVertical: 11 * k, paddingHorizontal: 14, borderTopWidth: i >= cols ? 1 : 0, borderTopColor: rule }, pressed && { backgroundColor: '#F7F8FA' }]}>
+          <View style={{ width: 32 * k, height: 32 * k, borderRadius: 8 * k, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: base.cardLine }}>
+            <OphIcon name={x.ic} size={17 * k} color={base.ink} />
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text numberOfLines={1} style={[heading(600), { fontSize: 13.5, color: base.ink }]}>{x.title}</Text>
-            {!desk && !!x.sub && <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slateLight, marginTop: 1 }}>{x.sub}</Text>}
+            <Text numberOfLines={1} style={[heading(600), { fontSize: 13.5 * k, color: base.ink }]}>{x.title}</Text>
+            {!desk && !!x.sub && <Text numberOfLines={1} style={{ fontSize: 11.5 * k, color: base.slateLight, marginTop: 1 }}>{x.sub}</Text>}
           </View>
           {desk && !!x.sub && <Text numberOfLines={1} style={{ flexShrink: 1, maxWidth: '45%', fontSize: 12, color: base.slateLight }}>{x.sub}</Text>}
           {x.badge != null && x.badge !== 0 && (
@@ -102,6 +105,8 @@ export default function SiteHome() {
   const { data: h, refetch } = useSiteHome(site);
   // A repair contract's Works Orders count (Andy, 7 Nov 2026): managers, jobs to book; operatives, their jobs.
   const { data: rjobs = [], refetch: refetchJobs } = useRepairJobs(site?.repair_contract ? site.id : undefined);
+  // Subcontract Orders shows when the job is on a price or already has orders (Andy, 13 Nov 2026).
+  const { data: subOrders } = useSubOrders(me && isManager(me) ? id : undefined);
   useFocusEffect(useCallback(() => { void refetch(); void refetchJobs(); }, [refetch, refetchJobs]));
   if (!site || !me) return <Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Project not found.'}</Muted>;
   const mgr = isManager(me);
@@ -157,17 +162,16 @@ export default function SiteHome() {
     ...((me?.role === 'pm' || me?.role === 'admin') && (site as { onedrive_folder_id?: string | null }).onedrive_folder_id ? [{ key: 'docs', ic: 'cloud', title: 'Documents', sub: 'The job’s OneDrive folder', onPress: go('documents') }] : []),
     { key: 'mat', ic: 'box', title: 'Materials', sub: h ? `${h.pendingMaterials} pending` : '…', onPress: go('materials') },
     // Subcontract Orders is labour, not materials: its own row (Andy, 11 Nov 2026).
-    ...(mgr ? [{ key: 'subco', ic: 'users', title: 'Subcontract Orders', sub: 'Orders to subcontractors', onPress: go('materials/subcontracts') }] : []),
+    // Only when the job is on a price (Admin › Price) or already has orders; otherwise it's raised from Materials (Andy, 13 Nov 2026).
+    ...(mgr && (site.price_enabled || (subOrders?.length ?? 0) > 0) ? [{ key: 'subco', ic: 'users', title: 'Subcontract Orders', sub: subOrders?.length ? `${subOrders.length} order${subOrders.length === 1 ? '' : 's'}` : 'Orders to subcontractors', onPress: go('materials/subcontracts') }] : []),
     { key: 'rep', ic: 'reports', title: mgr ? 'Inspections & Reports' : 'Snagging & Variations', sub: h ? `${snags} open` : '…', badge: snags || undefined, onPress: go('snagging') },
     ...(h?.canSeePrice ? [{ key: 'price', ic: 'pound', title: 'Price', sub: h.priceWages ? `${h.priceWages} wage${h.priceWages > 1 ? 's' : ''} to book` : h.priceVars ? `${h.priceVars} variation${h.priceVars > 1 ? 's' : ''} pending` : 'Restricted access', badge: h.priceVars + h.priceWages || undefined, onPress: go('price') }] : []),
     ...(mgr && siteStatusKey(site) === 'closed' ? [{ key: 'ho', ic: 'book', title: 'Handover', sub: 'O&M manual · data sheets · guarantees', onPress: go('handover') }]
-      : mgr ? [{ key: 'todo', ic: 'check', title: 'To Do List', sub: h ? (h.openTodos ? `${h.openTodos} open` : 'Nothing outstanding') : '…', onPress: go('todos') }] : []),
+      : mgr && desk ? [{ key: 'todo', ic: 'check', title: 'To Do List', sub: h ? (h.openTodos ? `${h.openTodos} open` : 'Nothing outstanding') : '…', onPress: go('todos') }] : []),
   ];
   // Calendar sits second to last, whatever comes before it.
   if (!client) rows.splice(Math.max(0, rows.length - 1), 0, { key: 'cal', ic: 'calendar', title: 'Calendar', sub: 'Key dates', onPress: go('calendar') });
-  // The HUB row (phone only; Messages is in the left menu on a computer) goes last, so Calendar stays second to
-  // last as in the current app (330), where Messages had no tile.
-  if (!client && !desk) rows.push({ key: 'msg', ic: 'chat', title: 'HUB', sub: 'Team messages', onPress: go('messages') });
+  // No HUB or To Do rows on a phone: the HUB (bottom bar) has the messages and to-dos (Andy, 13 Nov 2026).
 
   // 330: a client gets a minimal, view-only home: no job bar, money or stats, just the rows.
   if (client) return (
@@ -193,7 +197,13 @@ export default function SiteHome() {
     </Pressable>
   );
   const jobTop = [site.job_number, site.client_name].filter(Boolean).join(' · ') || site.name;
-  const clientPart = <InfoPart top={jobTop} sub={contact || (!mgr ? '' : site.client_name ? 'Add The Contact ›' : 'Add Client Info ›')} label={`Client: ${jobTop}`} onPress={mgr ? go('client') : undefined} center={desk} />;
+  const clientSub = !desk && (site.client_contact_name || site.client_phone) ? (
+    <View style={{ marginTop: 2 }}>
+      {!!site.client_contact_name && <Text numberOfLines={1} style={{ fontSize: 12.5, color: base.slate }}>{site.client_contact_name}</Text>}
+      {!!site.client_phone && <Text numberOfLines={1} style={{ fontSize: 12.5, color: base.slate, marginTop: 1 }}>{site.client_phone}</Text>}
+    </View>
+  ) : contact || (!mgr ? '' : site.client_name ? 'Add The Contact ›' : 'Add Client Info ›');
+  const clientPart = <InfoPart top={jobTop} sub={clientSub} label={`Client: ${jobTop}`} onPress={mgr ? go('client') : undefined} center={desk} />;
   const todayPart = <InfoPart line={desk} top={today} sub={calLabel} label={`Today: ${calLabel}`} onPress={go('calendar')} center={desk} />;
   const thirdPart = mgr
     ? <InfoPart line top={`${h?.onSiteCount ?? 0} On Site`} sub="Who’s Checked In" label={`${h?.onSiteCount ?? 0} on site`} onPress={go('checkin')} center={desk} />
@@ -213,7 +223,9 @@ export default function SiteHome() {
     </View>
   ) : (
     <View style={[cardBox, { borderRadius: 10, paddingTop: 10, paddingBottom: 12, marginBottom: 10 }]}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingRight: 12 }}>{clientPart}{pill}</View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingRight: 12, paddingVertical: 4, minHeight: 52 }}>{clientPart}{pill}</View>
+      {/* Finance above today, on site and the weather (Andy, 13 Nov 2026). */}
+      {fin && <MoneyStrip site={site} embedded />}
       <View style={{ flexDirection: 'row', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: rule }}>{todayPart}{thirdPart}{weatherPart}</View>
       <View style={{ paddingHorizontal: 12, marginTop: 12 }}>{checkBtn}</View>
     </View>
@@ -232,7 +244,7 @@ export default function SiteHome() {
       <HowTo k="site_home" />
       <JobSignPrompt siteId={site.id} />
       {info}
-      {fin && <MoneyStrip site={site} />}
+      {fin && desk && <MoneyStrip site={site} />}
       {nobody}
       <JobRows desk={desk} cols={desk ? 2 : 1} rows={rows} />
       {footer}

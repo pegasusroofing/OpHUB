@@ -33,7 +33,7 @@ const B = 'http://localhost:8081', shot = (p, n) => p.screenshot({path: `shots/a
   say('HUB tile', t.includes('HUB') && !/\bMessages\b/.test(t));
 
   await go(`/sites/${S1}/schedule`); await shot(page, 'sow');
-  await page.getByLabel('More').first().click(); await page.waitForTimeout(800); await shot(page, 'sow-add');
+  await page.getByLabel('Section', {exact: true}).first().click(); await page.waitForTimeout(800); await shot(page, 'sow-add'); // + Section ▾ since 11 Nov
   t = await text();
   say('SOW add has 3', ['Add Section', 'Import schedule', 'Add Variation'].every((x) => t.includes(x)) && !t.includes('From Library'));
   await page.getByText('Add Section').last().click(); await page.waitForTimeout(800);
@@ -50,13 +50,13 @@ const B = 'http://localhost:8081', shot = (p, n) => p.screenshot({path: `shots/a
   db.drawing_folders = [...(db.drawing_folders || []), {id: 'fx1', site_id: S1, org_id: org, name: 'Roof Plans', parent_id: null, position: 0}];
   await go(`/sites/${S1}/drawings`); await shot(page, 'drawings');
   await page.getByText('Roof Plans').first().click(); await page.waitForTimeout(2500);
-  await page.locator('[aria-label="Inbox"] >> visible=true').click(); await page.waitForTimeout(3000);
+  await page.locator('[aria-label="HUB"] >> visible=true').click(); /* a manager's job bar has HUB since 11 Nov */ await page.waitForTimeout(3000);
   t = await text(); await shot(page, 'hub');
   say('top of HUB page', t.split('\n').filter(Boolean).slice(0, 7).join(' | ').slice(0, 150));
   say('trail still says Drawings', /Drawings|Roof Plans/.test(t.split('\n').slice(0, 12).join(' ')));
-  await page.locator('[aria-label="Back"] >> visible=true').first().click(); await page.waitForTimeout(1500);
+  await page.locator('[aria-label="Back"] >> visible=true').last().click({force: true}); await page.waitForTimeout(1500);
   say('back from HUB goes to', page.url().replace(B, '').replace(S1, 'S1'));
-  await page.locator('[aria-label="Back"] >> visible=true').first().click(); await page.waitForTimeout(1500);
+  await page.locator('[aria-label="Back"] >> visible=true').last().click({force: true}); await page.waitForTimeout(1500);
   say('back from job goes to', page.url().replace(B, '').replace(S1, 'S1'));
 
 

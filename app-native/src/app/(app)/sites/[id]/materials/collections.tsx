@@ -2,6 +2,7 @@
 // grouped by supplier. Managers add items (queue several, then Complete List),
 // assign who collects, mark collected, edit, delete and email the list. Items moved here
 // together (a grouped request) stay grouped, on To collect and once Collected.
+import { InfoBox } from '@/components/InfoBox';
 import { MatTabs } from '@/components/MatTabs';
 import { useCollectionsOpenCount, yardCanEdit } from '@/data/materials';
 import { isFinanceUser } from '@/lib/roles';
@@ -143,7 +144,7 @@ export default function Collections() {
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       <Stack.Screen options={{ title: 'Collections' }} />
       {!!me && isManager(me) && <MatTabs siteId={id} on="collect" collectN={collectN ?? 0} yard={yardCanEdit(me, isFinanceUser(me, org))} />}
-      <Card style={{ backgroundColor: '#FCEFD2' }}><Text style={{ color: '#5E3D00' }}><Text style={{ fontWeight: '600' }}>Items for an operative to pick up.</Text> Assign who collects each one — it shows on their Materials screen as a tick list.</Text></Card>
+      <InfoBox k="mat_collections" bg="#FCEFD2" fg="#5E3D00"><Text style={{ fontWeight: '600' }}>Items for an operative to pick up.</Text> Assign who collects each one — it shows on their Materials screen as a tick list.</InfoBox>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
         {([['live', 'To collect'], ['closed', 'Collected']] as const).map(([k, l]) => (
           <Pressable key={k} onPress={() => { setTab(k); setSel(new Set()); setAssignFor(null); setCollectFor(null); }}

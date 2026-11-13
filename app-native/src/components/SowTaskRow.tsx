@@ -183,7 +183,7 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
         {mgr && !updateOnly && <Pressable onPress={() => void menu()} hitSlop={8} accessibilityLabel={`More: ${task.name}`} style={{ paddingHorizontal: 6 }}><Text style={{ fontSize: 18, fontWeight: '700', color: base.slate }}>⋯</Text></Pressable>}
       </View>
 
-      {(photos.length > 0 || pending.length > 0) && (
+      {(photos.length > 0 || pending.length > 0 || !completing) && (
         <View style={s.photos}>
           {photos.map((p) => (
             <Pressable key={p.id} onPress={() => setViewing(p.storage_path)}>
@@ -200,6 +200,12 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
               <Pressable onPress={() => removePending(j)} style={s.del} hitSlop={8}><Text style={s.delX}>×</Text></Pressable>
             </View>
           ))}
+          {/* + 📷 at the end of the photos, not a big button (Andy, 13 Nov 2026). */}
+          {!completing && (
+            <Pressable onPress={() => void addPhotosNow('add')} disabled={busy} accessibilityRole="button" accessibilityLabel={status === 'todo' ? 'Add pre-start photos' : 'Add photos'} style={s.plus}>
+              <Text style={{ fontSize: busy ? 13 : 17, fontWeight: '600', color: base.slate }}>{busy ? '…' : '+ 📷'}</Text>
+            </Pressable>
+          )}
         </View>
       )}
 
@@ -229,13 +235,7 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
           )}
           <Pressable onPress={() => setCompleting(false)} style={{ marginTop: 8 }}><Text style={{ color: base.slate, textAlign: 'center' }}>‹ Back to In Progress</Text></Pressable>
         </View>
-      ) : (
-        <>
-          <Pressable onPress={() => void addPhotosNow('add')} disabled={busy} style={s.addPhoto}>
-            <Text style={{ fontWeight: '600', color: base.ink }}>{busy ? 'Preparing photos…' : status === 'todo' ? '📷 Add pre-start photos' : '📷 Add photos'}</Text>
-          </Pressable>
-        </>
-      )}
+      ) : null}
 
       <View style={s.statusRow}>
         {([['todo', 'To Commence'], ['progress', 'In Progress'], ['done', 'Complete']] as const).map(([k, label]) => {
@@ -285,6 +285,7 @@ const s = StyleSheet.create({
   addrPill: { fontSize: 10.5, fontWeight: '600', textTransform: 'uppercase', color: base.slate, backgroundColor: base.paper, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2, overflow: 'hidden' },
   photos: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   thumb: { width: 56, height: 56, borderRadius: 8 },
+  plus: { width: 64, height: 44, borderRadius: 8, borderWidth: 1.5, borderStyle: 'dashed', borderColor: '#C9CDD3', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   del: { position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: base.red, alignItems: 'center', justifyContent: 'center' },
   delX: { color: '#fff', fontWeight: '600', fontSize: 13, lineHeight: 15 },
   waiting: { position: 'absolute', bottom: 2, left: 0, right: 0, textAlign: 'center', fontSize: 10, fontWeight: '600', color: base.ink },

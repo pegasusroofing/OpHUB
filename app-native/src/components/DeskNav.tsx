@@ -20,7 +20,8 @@ type Item = { k: string; ic: string; lbl: string; go: string; badge?: number; ki
 
 /** The menu's colours: charcoal, light grey text, the page you're on in white with a red edge (Andy, 6 Nov 2026). */
 const NAV = { bg: '#16181D', text: '#C9CDD3', dim: '#8A9099', on: '#2A2D35', hover: '#20232A', line: '#2A2D35', search: '#23262D', avatar: '#3A3E47' };
-export function DeskNav() {
+/** drawer: shown in the phone's sidebar (SideMenu), filling it. */
+export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
   const { me, org, signOut } = useAuth();
   const t = useTheme();
   const path = usePathname();
@@ -112,7 +113,7 @@ export function DeskNav() {
   ] : [];
   const subPart = siteId ? (path.split('/')[3] || '') : null;
   return (
-    <View style={{ width: 248, backgroundColor: NAV.bg, paddingTop: 18, paddingHorizontal: 12, paddingBottom: 14 }}>
+    <View style={drawer ? { flex: 1, backgroundColor: NAV.bg, paddingTop: 18, paddingHorizontal: 12, paddingBottom: 14 } : { width: 248, backgroundColor: NAV.bg, paddingTop: 18, paddingHorizontal: 12, paddingBottom: 14 }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}>
         <Pressable onPress={() => router.navigate('/home' as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 8, paddingTop: 4, paddingBottom: 16 }}>
           <View style={{ width: 40, height: 40, borderRadius: 10, borderWidth: 1, borderColor: '#EEE', overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>

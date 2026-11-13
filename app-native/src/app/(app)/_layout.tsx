@@ -13,6 +13,7 @@ import { OfflineBar } from '@/components/OfflineBar';
 import { AppBar } from '@/components/AppBar';
 import { PhoneBar, usesPhoneBar } from '@/components/PhoneBar';
 import { DeskNav } from '@/components/DeskNav';
+import { SideMenuHost } from '@/components/SideMenu';
 import { OphIcon } from '@/components/OphIcon';
 import { SupportBar } from '@/components/PlatformAdmin';
 import { PolicyGate } from '@/components/PolicyGate';
@@ -83,6 +84,7 @@ export default function AppLayout() {
     <View style={{ flex: 1 }}>
     <SupportBar />
     <OfflineBar />
+    {!desk && <SideMenuHost />}
     <Tabs
       tabBar={desk ? () => <DeskNav /> : projBar || opBar || isFullManager(me) ? () => null : undefined}
       screenOptions={{

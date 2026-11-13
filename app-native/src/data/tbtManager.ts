@@ -120,3 +120,69 @@ export function tbtDue(site: Site, talks: Tbt[], now = new Date()): string | nul
   if (!ever) return '⚠ No Toolbox Talk has ever been completed at this site';
   return now.getDate() > 7 ? '⚠ Toolbox Talk overdue' : '⚠ Toolbox Talk due this month';
 }
+
+// ---- Write a toolbox talk (Andy, 13 Nov 2026) ----
+// "Create a TBT and have it saved to the TBT bank; check for similar before allowing saves of new ones."
+const TBT_SKIP = new Set(['a', 'an', 'and', 'the', 'of', 'for', 'to', 'in', 'on', 'at', 'with', 'your', 'our', 'tbt', 'toolbox', 'talk', 'talks', 'week', 'wk', 'safety', 'awareness', 'site', 'general', 'basic', 'good', 'practice']);
+/** The words that matter in a talk's title (no small words, no "toolbox talk", no week numbers). */
+export const tbtWords = (t: string) => new Set(t.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter((w) => w && !TBT_SKIP.has(w) && !/^\d+$/.test(w)).map((w) => w.replace(/s$/, '')));
+/** Two titles are similar when at least half the important words of the shorter one are in the other. */
+export function tbtSimilar(a: string, b: string): boolean {
+  const x = tbtWords(a), y = tbtWords(b);
+  if (!x.size || !y.size) return false;
+  const both = [...x].filter((w) => y.has(w)).length;
+  return both / Math.min(x.size, y.size) >= 0.5;
+}
+/** Talks already in the company bank or this job's library with a similar title. */
+export async function similarTbts(me: Profile, siteId: string, title: string): Promise<string[]> {
+  const [t, e] = await Promise.all([db.from('tbt_templates').select('title').eq('org_id', me.org_id as string), db.from('toolbox_talks').select('title').eq('site_id', siteId)]);
+  const all = [...((t.data as { title: string }[] | null) ?? []), ...((e.data as { title: string }[] | null) ?? [])].map((x) => x.title).filter(Boolean);
+  return [...new Set(all.filter((x) => tbtSimilar(x, title)))].slice(0, 6);
+}
+/** A written talk as a PDF: the company, the title, the job and date, then the talk's points. */
+async function tbtPdf(company: string, title: string, siteName: string, body: string): Promise<Uint8Array> {
+  const { PDFDocument, StandardFonts, rgb } = await import('@/lib/pdf');
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica), bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const ink = rgb(0.06, 0.06, 0.07), slate = rgb(0.36, 0.37, 0.41);
+  const W = 595, H = 842, M = 50, max = W - M * 2;
+  let page = doc.addPage([W, H]); let y = H - M;
+  const clean = (x: string) => x.replace(/[^\x20-\x7E£\n]/g, '');
+  const lines = (text: string, f: typeof font, size: number) => {
+    const out: string[] = [];
+    clean(text).split('\n').forEach((para) => {
+      if (!para.trim()) { out.push(''); return; }
+      let cur = '';
+      para.split(/\s+/).forEach((w) => { const next = cur ? `${cur} ${w}` : w; if (f.widthOfTextAtSize(next, size) > max && cur) { out.push(cur); cur = w; } else cur = next; });
+      if (cur) out.push(cur);
+    });
+    return out;
+  };
+  const write = (text: string, f: typeof font, size: number, colour = ink, gap = 4) => {
+    lines(text, f, size).forEach((l) => {
+      if (y < M + size) { page = doc.addPage([W, H]); y = H - M; }
+      if (l) page.drawText(l, { x: M, y: y - size, size, font: f, color: colour });
+      y -= size + gap;
+    });
+  };
+  write(company.toUpperCase(), bold, 10, slate);
+  write('TOOLBOX TALK', bold, 10, slate); y -= 8;
+  write(title, bold, 20); y -= 6;
+  write(`${siteName ? `Job: ${siteName}   ` : ''}Written: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`, font, 10, slate); y -= 14;
+  write(body, font, 12, ink, 5); y -= 18;
+  write('Everyone who attends signs it in OpHUB. The signatures are added when it is exported.', font, 9, slate);
+  return doc.save();
+}
+/** Save a written talk to the company TBT bank (Admin › TBT Library) and this job's TBT Library. Null when saved. */
+export async function writeTbt(me: Profile, site: Site, company: string, title: string, body: string): Promise<string | null> {
+  try {
+    const bytes = await tbtPdf(company, title, site.name, body);
+    const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
+    const up = await supabase.storage.from('rams-docs').upload(`${me.org_id}/tbt-templates/${rid}-${title.replace(/[^a-z0-9]+/gi, '_').slice(0, 60)}.pdf`, bytes, { contentType: 'application/pdf' });
+    if (up.error) return 'Could not save the PDF — check your signal and try again.';
+    const t = await db.from('tbt_templates').insert({ org_id: me.org_id, title, storage_path: up.data.path, created_by: me.id } as never);
+    if (t.error) return 'Could not add it to the TBT bank — try again.';
+    const j = await db.from('toolbox_talks').insert({ site_id: site.id, org_id: me.org_id, title, storage_path: up.data.path, status: 'bank', created_by: me.id } as never);
+    return j.error ? 'It is in the company bank, but could not be added to this job — use Sync.' : null;
+  } catch { return 'Could not make the PDF — try again.'; }
+}

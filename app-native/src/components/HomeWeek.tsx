@@ -5,7 +5,9 @@ import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
+import { appDateLines } from '@/data/calendar';
 import { useAuth } from '@/lib/auth';
+import { isFinanceUser } from '@/lib/roles';
 import { localISODate } from '@/lib/rules/driver';
 import { supabase } from '@/lib/supabase';
 import type { Site } from '@/lib/types';
@@ -19,15 +21,25 @@ export function nextWorkingDays(from: Date, n = 5): string[] {
 }
 
 export function HomeWeek({ sites }: { sites: Site[] | undefined }) {
-  const { me } = useAuth();
+  const { me, org } = useAuth();
+  // Application dates from Finance too, for PMs, admins and Finance users (Andy, 13 Nov 2026).
+  const apps = !!me && (['pm', 'admin'].includes(me.role) || isFinanceUser(me, org));
   const t = useTheme();
   const days = nextWorkingDays(new Date());
   const today = localISODate(new Date());
   const ids = new Set((sites ?? []).map((s) => s.id));
   const { data: events = [] } = useQuery({
-    queryKey: ['homeWeek', me?.org_id, days[0], days[4]], enabled: !!me && !!sites, staleTime: 60000,
-    queryFn: async () => ((await (supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }).from('site_calendar_events').select('id,site_id,title,event_date')
-      .gte('event_date', days[0]).lte('event_date', days[4]).order('event_date').order('created_at').limit(300)).data as { id: string; site_id: string; title: string; event_date: string }[] | null) ?? [],
+    queryKey: ['homeWeek', me?.org_id, days[0], days[4], apps], enabled: !!me && !!sites, staleTime: 60000,
+    queryFn: async () => {
+      const [ev, ap] = await Promise.all([
+        (supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }).from('site_calendar_events').select('id,site_id,title,event_date')
+          .gte('event_date', days[0]).lte('event_date', days[4]).order('event_date').order('created_at').limit(300),
+        apps ? appDateLines(null, days[0], days[4]) : Promise.resolve([]),
+      ]);
+      const job = (id: string) => { const x = (sites ?? []).find((y) => y.id === id); return x ? x.job_number || x.name : ''; };
+      return [...((ev.data as { id: string; site_id: string; title: string; event_date: string }[] | null) ?? []),
+        ...ap.map((a) => ({ id: a.id, site_id: a.site_id, title: `${a.title.startsWith('💷 Application sent') ? '💷 Applied' : '💷 Application'} ${job(a.site_id)}`.trim(), event_date: a.event_date }))];
+    },
   });
   const on = (d: string) => events.filter((e) => e.event_date === d && ids.has(e.site_id));
   return (

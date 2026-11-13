@@ -23,7 +23,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.getByPlaceholder('New task, e.g. Fit lead flashing').fill('Fit ridge'); await page.getByText('Add', {exact:true}).click(); await page.waitForTimeout(1500);
   console.log('tasks:', db.schedule_tasks.map(x=>x.name).join(', '));
   // slider: click at 70% of the track
-  const tr = page.getByLabel('Progress').first(); const bb = await tr.boundingBox();
+  const tr = page.getByLabel('Progress').first(); await tr.evaluate((e) => e.scrollIntoView({block: 'center'})); await page.waitForTimeout(500); const bb = await tr.boundingBox();
   await page.mouse.click(bb.x + bb.width*0.70, bb.y + bb.height/2); await page.waitForTimeout(1500);
   console.log('percent now', db.schedule_tasks.find(x=>x.id==='st1').percent_complete);
   await page.screenshot({path:'shots/sow-5-slider.png'});

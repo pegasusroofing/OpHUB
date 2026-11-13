@@ -50,10 +50,12 @@ function ManagerTiles({ siteId, vis, role, me, site }: { siteId: string; vis: Pa
     <ScrollView contentContainerStyle={page(720)}>
       <HowTo k="materials" />
       <BigRows rows={[
-        { k: 'req', ic: 'chat', t: 'Material Requests', s: sub || 'Nothing waiting', badge: pending?.length || 0, go: go('materials/requests') },
+        { k: 'req', ic: 'chat', t: 'Requests', s: sub || 'Nothing waiting', badge: pending?.length || 0, go: go('materials/requests') },
         { k: 'po', ic: 'reports', t: "Material PO's", s: office?.length ? `${office.length} raised by the office` : 'Orders to suppliers', go: go('materials/pos') },
         ...(canSeeMatTile(vis, 'plant', role) ? [{ k: 'plant', ic: 'truck', t: 'Plant', s: 'Hired plant on this job', go: go('plant'), ...visProps('plant', 'Plant') }] : []),
         ...(canSeeMatTile(vis, 'expenses', role) ? [{ k: 'exp', ic: 'pound', t: 'Expenses', s: 'Receipts for this job', go: go('expenses'), ...visProps('expenses', 'Expenses') }] : []),
+        // Raise a subcontract order from here when the job page doesn't show the row (not on a price) (Andy, 13 Nov 2026).
+        ...(!site.price_enabled ? [{ k: 'subco', ic: 'users', t: 'Subcontract Orders', s: 'Raise an order to a subcontractor', go: go('materials/subcontracts') }] : []),
       ]} />
       {!!office?.length && (
         <Card style={{ marginTop: space.m }}>

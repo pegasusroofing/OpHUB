@@ -24,7 +24,7 @@ const box = async (page, label) => { const l = page.getByRole('button', {name: l
     await page.goto(`${BASE}/sites/${S1}`); await page.waitForTimeout(6000);
     const t = await page.locator('body').innerText();
     const mgr = role !== 'operative';
-    check(/Sovereign Housing/.test(t) && /Jo Bloggs · 07700 900123/.test(t) && /Nothing On/.test(t), `${name}: the info bar has the client, the contact and today`);
+    check(/Sovereign Housing/.test(t) && /Jo Bloggs( · |\n)07700 900123/.test(t) /* a phone puts the number on its own line (13 Nov) */ && /Nothing On/.test(t), `${name}: the info bar has the client, the contact and today`);
     check(mgr ? /\d+ On Site/.test(t) && /costs to date/i.test(t) && /invoiced to date/i.test(t) && /profit margin/i.test(t) : /Tasks Done/.test(t) && !/costs to date/i.test(t), mgr ? `${name}: on site, and the money strip` : `${name}: Tasks Done, no money`);
     check(!/Tap to log time/.test(t) && await page.getByRole('button', {name: 'Check In / Out'}).count() >= 1, `${name}: Check In / Out is a button in the info bar (no big tile)`);
     const sow = await box(page, /^Schedule of Works, /), hs = await box(page, /^Health & Safety, /), mat = await box(page, /^Materials, /), cal = await box(page, /^Calendar, /);

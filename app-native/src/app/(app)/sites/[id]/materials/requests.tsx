@@ -4,6 +4,7 @@
 // and Close Request; edit, delete, group several into one request. Yard stock booked to the
 // job shows under Completed (internal — no PO). Dates come from a calendar; qty is numbers only.
 // A request on a sent PO is locked here (changes are made in Finance) — 9219zr.
+import { InfoBox } from '@/components/InfoBox';
 import { MatTabs, type MatTabKey } from '@/components/MatTabs';
 import { useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
@@ -210,11 +211,12 @@ export default function MaterialRequests() {
   return (
     <ScrollView ref={scroll} contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
-      <Stack.Screen options={{ title: 'Material Requests' }} />
+      {/* The title (and the path above) says which tab you're on (Andy, 13 Nov 2026). */}
+      <Stack.Screen options={{ title: done ? 'Completed' : 'Requests' }} />
       {mgr
         ? <MatTabs siteId={id} on={tab as MatTabKey} collectN={collectN} yard={yardCanEdit(me, fin)} onPick={(k) => { setSel(new Set()); setTab(k as MatTab); }} />
         : <FilterRow value={tab as string} onChange={(k) => { setSel(new Set()); setTab(k as MatTab); }} options={[['live', 'Live/Pending'], ['closed', 'Closed']] as [string, string][]} />}
-      {mgr && <Card style={{ backgroundColor: '#F1E4FA', flexDirection: 'row', gap: 10, alignItems: 'flex-start', shadowOpacity: 0 }}><Text style={{ fontSize: 16 }}>🙋</Text><Text style={{ flex: 1, color: '#4E1F6E' }}><Text style={{ fontWeight: '600' }}>Requests from operatives.</Text> Order them from a merchant, or give them to an operative to collect — those move to the <Text style={{ fontWeight: '600' }}>Collections</Text> tab. Tick several to group them into one request.</Text></Card>}
+      {mgr && !done && <InfoBox k="mat_requests" bg="#F1E4FA" fg="#4E1F6E" icon="🙋"><Text style={{ fontWeight: '600' }}>Requests from operatives.</Text> Order them from a merchant, or give them to an operative to collect — those move to the <Text style={{ fontWeight: '600' }}>Collections</Text> tab. Tick several to group them into one request.</InfoBox>}
 
       {ordering && (
         <Card style={{ borderColor: base.ink, borderWidth: 1.5 }}>

@@ -16,12 +16,15 @@ import { WeatherTile } from '@/components/WeatherSwap';
 import { Card, Muted, Screen, SectionTitle, Stat, Tile, TileGrid, TINTS } from '@/components/ui';
 import { useHubAll } from '@/data/hub';
 import { useDeliveryRequests } from '@/data/deliveries';
+import { useFinOverview } from '@/data/finance';
+import { useQuotes } from '@/data/quotes';
 import { useOnSiteNow, usePmReports, usePmTodos, useTodayEvents } from '@/data/pmHome';
 import { useSites } from '@/data/sites';
 import { useToBook } from '@/data/toBook';
 import { useAuth } from '@/lib/auth';
 import { heading } from '@/lib/fonts';
 import { greeting, siteStatusKey } from '@/lib/rules/checkin';
+import { isQuoted } from '@/lib/rules/quotes';
 import { isFinanceUser, roleLabel } from '@/lib/roles';
 import { base, space, useDesk, useTheme } from '@/theme/theme';
 
@@ -38,6 +41,15 @@ export function PmHome() {
   // Managers: the HUB feed count, as the current app (130 computeMyOutstandingCount).
   const hubN = hub.items.length + hub.chatUnread;
   const dlvN = dlvReqs?.length ?? 0;
+  // A company with Finance and Projects (Andy, 13 Nov 2026): the middle two numbers are the money due in (Finance users)
+  // and the quotes still to price (PMs and admins), in place of On Site Now and To Do.
+  const both = !!org?.has_finance && org?.has_pm !== false;
+  const showMoney = both && !!me && isFinanceUser(me, org);
+  const showQuotes = both && (me?.role === 'pm' || me?.role === 'admin');
+  const { data: finOv } = useFinOverview(showMoney ? me ?? null : null, sites);
+  const { data: quotes } = useQuotes(showQuotes ? me?.org_id : null);
+  const toPrice = (quotes ?? []).filter((x) => !isQuoted(x)).length;
+  const kMoney = (n: number) => (n >= 1000000 ? `£${(Math.round(n / 100000) / 10).toLocaleString('en-GB')}m` : n >= 1000 ? `£${Math.round(n / 1000).toLocaleString('en-GB')}k` : `£${Math.round(n)}`);
   // Things the office has sent you to book (9219b pmToBookCounts).
   const { data: toBook } = useToBook(sites);
   const tbInv = toBook?.inv.length ?? 0, tbWages = toBook?.wages.length ?? 0;
@@ -99,8 +111,8 @@ export function PmHome() {
       )}
       <View style={{ flexDirection: 'row', gap: 10, marginBottom: space.m }}>
         <Stat n={live.length} label="Live projects" onPress={go('/sites')} />
-        <Stat n={onSite.length} label="On site now" onPress={go('/onsite')} />
-        <Stat n={todos.length} label="To do" onPress={go('/pm/todos')} />
+        {showMoney ? <Stat n={finOv ? kMoney(finOv.owed) : '…'} label="Due In" onPress={go('/fin/sales?tab=invoices')} /> : <Stat n={onSite.length} label="On site now" onPress={go('/onsite')} />}
+        {showQuotes ? <Stat n={toPrice} label="Quotes To Price" onPress={go('/pm/quotes')} /> : <Stat n={todos.length} label="To do" onPress={go('/pm/todos')} />}
         <Stat n={hubN} label="Notifications" hot={hubN > 0} onPress={go('/pm/hub')} />
       </View>
       {/* The red Live projects card below the four numbers, phone and laptop, as before (Andy, 6 Nov 2026). */}

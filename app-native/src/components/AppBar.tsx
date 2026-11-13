@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTrail } from '@/components/Crumbs';
 import { FIN_SUBS, FinJobTabs } from '@/components/FinNav';
+import { openSideMenu } from '@/components/SideMenu';
 import { OphIcon } from '@/components/OphIcon';
 import { StorageImage } from '@/components/StorageImage';
 import { showAlert } from '@/components/toast';
@@ -111,7 +112,15 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   // What tapping the address copies (Andy, 9 Nov 2026): the site's name and its address together, on any page of the job.
   const copyLine = site && !fin && site.name && !sub.toLowerCase().startsWith(site.name.toLowerCase()) ? `${site.name}, ${sub}` : sub;
   const [copied, setCopied] = useState(false);
-  const settingsBtn = home && isFullManager(me);
+  // The phone's sidebar (Andy, 13 Nov 2026): ☰ at the top left of every page; on Home it takes the gear's place (Settings is in it).
+  const menuBtn = !desk && !!me && me.role !== 'client';
+  const settingsBtn = home && isFullManager(me) && !menuBtn;
+  const sideW = menuBtn && onBack ? 80 : 44;
+  const menu = menuBtn ? (
+    <Pressable onPress={openSideMenu} hitSlop={8} accessibilityRole="button" accessibilityLabel="Open the menu" style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: home ? base.paper : 'transparent' }}>
+      <Text style={{ fontSize: 20, lineHeight: 22, color: base.ink }}>☰</Text>
+    </Pressable>
+  ) : null;
   const noSelect = { userSelect: 'none' } as never;
   const pressBack = () => {
     const from = takeJump(path.replace(/\/$/, '') || path);
@@ -132,7 +141,8 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   if (fin) return (
     <View>
       <View style={{ backgroundColor: base.card, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: insets.top + Math.round(8 * K), paddingBottom: Math.round(8 * K), paddingHorizontal: desk ? 28 : 10 }}>
-        <View style={{ width: side }}>
+        <View style={{ width: side + (menu ? 38 : 0), flexDirection: 'row', alignItems: 'center' }}>
+        {menu}
         {onBack && (
           <Pressable onPress={pressBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back" style={{ width: 28 * K, height: 30 * K, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ fontSize: 26 * K, lineHeight: 28 * K, color: base.ink, marginTop: -3 }}>‹</Text>
@@ -145,7 +155,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
           {org?.logo_path && <StorageImage bucket="org-logos" path={org.logo_path} style={{ width: (desk ? 35 : 26) * K, height: (desk ? 35 : 26) * K, resizeMode: 'contain' }} />}
           <Text numberOfLines={1} style={[brand(700), { flexShrink: 1, fontSize: (desk ? 18 : 14) * K, color: t.brand1 }]}>{org?.name || ''}</Text>
         </Pressable>
-        <View style={{ width: side, alignItems: 'flex-end' }}>{right}</View>
+        <View style={{ width: side + (menu ? 38 : 0), alignItems: 'flex-end' }}>{right}</View>
       </View>
       {crumbs.length > 1 && (
         <View style={{ backgroundColor: base.paper, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingHorizontal: desk ? 40 : 16, paddingTop: 14, paddingBottom: 8 }}>
@@ -166,7 +176,8 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
     <View>
       <View style={{ backgroundColor: base.card, borderBottomWidth: 1, borderBottomColor: fin ? '#e5e7eb' : desk ? '#E5E8ED' : base.line, paddingTop: insets.top + (desk ? 14 : 10), paddingBottom: desk ? 14 : 10, paddingHorizontal: desk ? 40 : 14 }}>
         <View style={{ minHeight: desk ? 52 : 44, flexDirection: 'row', alignItems: 'center' }}>
-          <View style={{ width: 44 }}>
+          <View style={{ width: sideW, flexDirection: 'row', alignItems: 'center' }}>
+            {menu}
             {settingsBtn && (
               <Pressable onPress={() => router.navigate('/account' as never)} hitSlop={10} accessibilityLabel="Settings" style={roundBtn}>
                 <OphIcon name="gear" size={18} color={base.ink} />
@@ -184,7 +195,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
             {!!sub && <Pressable disabled={!copyable} onPress={async () => { if (await copyAddress(copyLine)) { setCopied(true); setTimeout(() => setCopied(false), 1300); } }} accessibilityRole={copyable ? 'button' : undefined} accessibilityHint={copyable ? 'Copies the site name and address' : undefined} style={noSelect}><Text numberOfLines={1} style={[home ? brand(700) : {}, { fontSize: home ? 11 : 12.5, color: home ? base.slate : '#6b7280', marginTop: 3, letterSpacing: home ? 1 : 0, textTransform: home ? 'uppercase' : 'none' }]}>{sub}</Text></Pressable>}
             {copied && <View pointerEvents="none" style={{ position: 'absolute', bottom: -8, alignSelf: 'center', backgroundColor: base.ink, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 2, zIndex: 5 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>Copied</Text></View>}
           </View>
-          <View style={{ minWidth: 44, alignItems: 'flex-end' }}>
+          <View style={{ minWidth: sideW, alignItems: 'flex-end' }}>
             {right ?? (site && !jobHome && (
               <Pressable onPress={() => router.navigate(`/sites/${site.id}` as never)} hitSlop={10} accessibilityLabel="Job home" style={roundBtn}>
                 <OphIcon name="home" size={18} color={base.ink} />
