@@ -71,6 +71,13 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await sendLine.scrollIntoViewIfNeeded(); await sendLine.click(); await page.waitForTimeout(800);
   const nm = await page.getByLabel('Client name').first().boundingBox(), em = await page.getByLabel('Client email').first().boundingBox();
   check(/Send To Client To Sign/.test(await page.locator('body').innerText()) && nm && em && nm.y < em.y, 'one pop-up: Name, with Email below it');
+  // The name is needed (Andy, 14 Nov 2026).
+  check(!/Optional/.test(await page.locator('body').innerText()), 'the name isn\'t marked optional');
+  await page.getByLabel('Client name').first().fill('');
+  await page.getByLabel('Client email').first().fill('sue@example.com');
+  await page.getByText('Send', {exact: true}).last().click(); await page.waitForTimeout(500);
+  check(/Enter the client’s name/.test(await page.locator('body').innerText()) && await page.getByLabel('Client name').count() === 1 && !sent.length, 'no name: it says so and stays open');
+  await page.screenshot({path: path.join(SHOTS, 'b-client-noname.png')});
   await page.getByLabel('Client name').first().fill('Sue Client');
   await page.getByLabel('Client email').first().fill('');
   await page.getByText('Send', {exact: true}).last().click(); await page.waitForTimeout(500);

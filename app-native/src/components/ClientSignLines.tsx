@@ -2,7 +2,7 @@
 // sendRamsToClient): one line per client the document has signature boxes for
 // (at least Client 1), showing signed / waiting / link expired, and sending the
 // client a private link (client-sign function) — no app needed on their side.
-// One pop-up asks for the client's name, with their email under it (Andy, 14 Nov 2026: it was two pop-ups).
+// One pop-up asks for the client's name, with their email under it; both are needed (Andy, 14 Nov 2026: it was two pop-ups).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
@@ -26,7 +26,7 @@ export function ClientSignLines({ ramsId, site }: { ramsId: string; site: Site }
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
   // The send pop-up: which client, and what's been typed.
-  const [ask, setAsk] = useState<{ slot: number; name: string; email: string; err: string } | null>(null);
+  const [ask, setAsk] = useState<{ slot: number; name: string; email: string; err: string; nerr?: string } | null>(null);
   const { data } = useQuery({
     queryKey: ['ramsClientSigs', ramsId],
     queryFn: async () => {
@@ -48,11 +48,13 @@ export function ClientSignLines({ ramsId, site }: { ramsId: string; site: Site }
   };
   const go = async () => {
     if (!ask || busy) return;
-    const { slot, name } = ask, em = ask.email.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { setAsk({ ...ask, err: 'Enter a valid email address.' }); return; }
+    const { slot } = ask, name = ask.name.trim(), em = ask.email.trim();
+    // The name is needed as well as the email (Andy, 14 Nov 2026).
+    const nerr = name ? '' : 'Enter the client’s name.', err = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em) ? '' : 'Enter a valid email address.';
+    if (nerr || err) { setAsk({ ...ask, nerr, err }); return; }
     setAsk(null);
     setBusy(true); toast('Sending…');
-    const r = await supabase.functions.invoke('client-sign', { body: { action: 'request', rams_id: ramsId, client_email: em, client_name: name.trim() } });
+    const r = await supabase.functions.invoke('client-sign', { body: { action: 'request', rams_id: ramsId, client_email: em, client_name: name } });
     if (!r.error && slot > 1) { const out = r.data as { id?: string } | null; if (out?.id) await supabase.rpc('set_client_sign_slot' as never, { p_id: out.id, p_slot: slot } as never); }
     setBusy(false);
     toast(r.error ? 'Could not send — try again.' : `Sent to ${em}`);
@@ -63,8 +65,9 @@ export function ClientSignLines({ ramsId, site }: { ramsId: string; site: Site }
     <View style={{ marginTop: 6 }}>
       {ask && (
         <Popup title={`Send To ${who} To Sign`} onClose={() => setAsk(null)} footer={<PopupButtons yes="Send" onYes={() => void go()} />}>
-          <Text style={label}>Name (Optional)</Text>
-          <TextInput accessibilityLabel="Client name" value={ask.name} onChangeText={(v) => setAsk({ ...ask, name: v })} autoCapitalize="words" placeholder="Shown in the email and on the signing page" placeholderTextColor="#9AA1AB" style={box} />
+          <Text style={label}>Name</Text>
+          <TextInput accessibilityLabel="Client name" value={ask.name} onChangeText={(v) => setAsk({ ...ask, name: v, nerr: '' })} autoCapitalize="words" placeholder="Shown in the email and on the signing page" placeholderTextColor="#9AA1AB" style={[box, ask.nerr ? { marginBottom: 4 } : null]} />
+          {!!ask.nerr && <Text style={{ color: '#C8102E', fontSize: 13, marginBottom: 8 }}>{ask.nerr}</Text>}
           <Text style={label}>Email</Text>
           <TextInput accessibilityLabel="Client email" value={ask.email} onChangeText={(v) => setAsk({ ...ask, email: v, err: '' })} autoCapitalize="none" keyboardType="email-address" placeholder="client@example.co.uk" placeholderTextColor="#9AA1AB" onSubmitEditing={() => void go()} style={[box, { marginBottom: ask.err ? 4 : 2 }]} />
           {!!ask.err && <Text style={{ color: '#C8102E', fontSize: 13 }}>{ask.err}</Text>}
