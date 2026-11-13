@@ -178,10 +178,12 @@ export default function Quotes() {
   };
   // A box per column, 1.2 × smaller than the app's usual boxes (Andy, 14 Nov 2026: the search boxes, not the table): 25px
   // high with 12px writing (data-compact, see lib/webShell); the page set-up stops an iPhone zooming into them.
+  // The writing lines up with its heading, as Status does (Andy, 14 Nov 2026): Project's box starts its border and padding
+  // to the left of the heading, so the words start under PROJECT; the others are centred under theirs.
   const colBox = (k: string, ph: string, w?: number) => (
     <TextInput key={k} value={colQ[k] || ''} onChangeText={(t) => { setColQ({ ...colQ, [k]: t }); setShown(100); }} placeholder={ph} accessibilityLabel={`Search ${ph}`} placeholderTextColor="#9AA1AB" autoCapitalize="none" autoCorrect={false}
       {...({ dataSet: { compact: '1' } } as object)}
-      style={[{ height: 25, paddingHorizontal: 5, paddingVertical: 0, borderWidth: 1, borderColor: colQ[k]?.trim() ? base.ink : base.line, borderRadius: 6, backgroundColor: '#fff', fontSize: 12, color: base.ink }, w ? { width: w } : { flex: 1, minWidth: 0 }]} />
+      style={[{ height: 25, paddingHorizontal: 5, paddingVertical: 0, borderWidth: 1, borderColor: colQ[k]?.trim() ? base.ink : base.line, borderRadius: 6, backgroundColor: '#fff', fontSize: 12, color: base.ink }, w ? { width: w, textAlign: 'center' } : { flex: 1, minWidth: 0, marginLeft: -6 }]} />
   );
   const pickSt = async () => {
     const k = await chooseAction('Status', [{ key: '*', label: `${stPick ? '' : '✓ '}Any Status` }, ...stChoices.map((s) => ({ key: s, label: `${stPick === s ? '✓ ' : ''}${s}` }))]);

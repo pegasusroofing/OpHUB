@@ -38,6 +38,15 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   const bh = (await page.locator('[aria-label="Search Project"] >> visible=true').first().boundingBox()).height;
   const hs = await page.locator('[aria-label="Sort by Project"] >> visible=true').first().evaluate((e) => getComputedStyle(e.querySelector('div') || e).fontSize);
   check(fs === '12px' && Math.round(bh) === 25 && hs === '10.5px' && /maximum-scale=1/.test(vp), `search boxes 1.2 × smaller (${Math.round(bh)}px high, writing ${fs}), headings as they were (${hs}); the page won't zoom into them`);
+  // The writing in each box lines up with its heading, as Status does (Andy, 14 Nov 2026).
+  const al = await page.evaluate(() => {
+    const vis = (sel) => [...document.querySelectorAll(sel)].find((e) => e.getBoundingClientRect().width > 0);
+    const r = (e) => e.getBoundingClientRect();
+    const pb = vis('[aria-label="Search Project"]'), ph = vis('[aria-label="Sort by Project"]'), db = vis('[aria-label="Search Date"]'), dh = vis('[aria-label="Sort by Due Back"]');
+    const pad = (e) => parseFloat(getComputedStyle(e).paddingLeft) + parseFloat(getComputedStyle(e).borderLeftWidth);
+    return { projText: r(pb).left + pad(pb), projHead: r(ph).left, dateMid: r(db).left + r(db).width / 2, headMid: r(dh).left + r(dh).width / 2, dateAlign: getComputedStyle(db).textAlign };
+  });
+  check(Math.abs(al.projText - al.projHead) <= 1 && Math.abs(al.dateMid - al.headMid) <= 1 && al.dateAlign === 'center', `the writing lines up with its heading: Project starts under PROJECT (${al.projText} / ${al.projHead}), Date is centred under DUE BACK (${al.dateMid} / ${al.headMid}, ${al.dateAlign})`);
   const o0 = await order();
   await tap('Sort by Project'); const o1 = await order();
   check(o1.join('|') === 'Brighton Depot|Hove Flats re-roof|Lewes Barns', `Project heading: A to Z (${o1.join(', ')})`);
