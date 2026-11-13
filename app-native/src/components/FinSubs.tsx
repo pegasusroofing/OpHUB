@@ -78,18 +78,20 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
   if (tab === 'wages') return <WagesTab me={me} siteId={siteId} />;
   if (tab === 'opinv') {
     const F: Record<string, (p: Row) => boolean> = { topay: (p) => p.status === 'approved' || p.status === 'draft', paid: (p) => p.status === 'paid', all: () => true };
-    const list = data.ops.filter((p) => has(F, p)).filter((p) => hit(p.name, p.invoice_no, opJobs(p))).slice().sort(sort === 'old' ? (a, b) => String(a.period_start || '').localeCompare(String(b.period_start || '')) : sort === 'big' ? (a, b) => num(b, 'gross') - num(a, 'gross') : sort === 'name' ? (a, b) => String(a.name || '').localeCompare(String(b.name || '')) : (a, b) => String(b.period_start || '').localeCompare(String(a.period_start || '')));
+    // A phone searches and filters in the table itself (Andy, 14 Nov 2026); a laptop keeps the Filter bar.
+    const list = data.ops.filter((p) => !desk || (has(F, p) && hit(p.name, p.invoice_no, opJobs(p)))).slice().sort(sort === 'old' ? (a, b) => String(a.period_start || '').localeCompare(String(b.period_start || '')) : sort === 'big' ? (a, b) => num(b, 'gross') - num(a, 'gross') : sort === 'name' ? (a, b) => String(a.name || '').localeCompare(String(b.name || '')) : (a, b) => String(b.period_start || '').localeCompare(String(a.period_start || '')));
     return (
       <View>
         <Muted style={{ marginBottom: 10 }}>When an operative sends their invoice, put it in here with the amount for each job. CIS is worked out for you and it&apos;s paid in the pay run. (Booking it to a price sheet is off while Finance is on trial.)</Muted>
         <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ Operative invoice" onPress={() => router.push('/fin/labour/new' as never)} /></View>
-        <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search name, invoice no. or job' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['name', 'Name A to Z']]} sort={sort} onSort={setSort}
-          parts={[{ key: 'show', label: 'Show', items: [['topay', 'To pay'], ['paid', 'Paid']].map(([v, l]) => ({ v, l, n: data.ops.filter(F[v]).length })) }]} />
-        {list.length ? <PhoneTable label="Labour invoices" rows={list} keyOf={(p) => p.id} onRow={(p) => router.push(`/fin/labour/${p.id}` as never)}
+        {desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search name, invoice no. or job' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['name', 'Name A to Z']]} sort={sort} onSort={setSort}
+          parts={[{ key: 'show', label: 'Show', items: [['topay', 'To pay'], ['paid', 'Paid']].map(([v, l]) => ({ v, l, n: data.ops.filter(F[v]).length })) }]} />}
+        {list.length ? <PhoneTable key="opinv" search={!desk} label="Labour invoices" rows={list} keyOf={(p) => p.id} onRow={(p) => router.push(`/fin/labour/${p.id}` as never)}
           cols={[
-            { l: 'Who', main: (p) => p.name || 'Operative', sub: (p) => [p.invoice_no ? `Inv ${p.invoice_no}` : '', `w/c ${fdate(p.period_start)}`].filter(Boolean).join(' · ') },
-            { l: 'Status', w: 66, main: (p) => (p.status === 'paid' ? 'Paid' : p.status === 'approved' ? 'To Pay' : 'Draft'), sub: (p) => (p.status === 'paid' ? fdate(p.paid_on) : '') },
-            { l: 'Net', w: 80, right: true, bold: true, main: (p) => money(p.net_pay), sub: (p) => `CIS −${money(p.cis_deduction)}` },
+            { l: 'Who', main: (p) => p.name || 'Operative', sub: (p) => [p.invoice_no ? `Inv ${p.invoice_no}` : '', `w/c ${fdate(p.period_start)}`].filter(Boolean).join(' · '), find: (p) => `${p.name || ''} ${p.invoice_no || ''} ${fdate(p.period_start)} ${opJobs(p)}` },
+            { l: 'Status', w: 66, main: (p) => (p.status === 'paid' ? 'Paid' : p.status === 'approved' ? 'To Pay' : 'Draft'), sub: (p) => (p.status === 'paid' ? fdate(p.paid_on) : ''),
+              choose: { opts: [['', 'All'], ['topay', 'To Pay'], ['paid', 'Paid']], test: (p, v) => (F[v] ? F[v](p) : true), start: 'topay' } },
+            { l: 'Net', w: 80, right: true, bold: true, bigFirst: true, main: (p) => money(p.net_pay), sub: (p) => `CIS −${money(p.cis_deduction)}`, sort: (p) => Number(p.net_pay || 0) },
           ]} />
           : <Empty>No operative invoices here.</Empty>}
       </View>

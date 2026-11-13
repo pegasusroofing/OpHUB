@@ -224,12 +224,13 @@ export default function FinDirectory() {
     return (
       <FinPage title="Directory" section={section} sub={subTab} onSub={onSub}>
         <Muted style={{ marginBottom: 8 }}>A client’s estimator fills in the contact on a new enquiry, and the chaser emails them. Tap a client to set theirs.</Muted>
-        <TextInput value={q} onChangeText={setQ} placeholder="Search Clients" style={box} />
+        {/* A phone's table has a search box under each heading (Andy, 14 Nov 2026); a laptop keeps the search bar. */}
+        {desk && <TextInput value={q} onChangeText={setQ} placeholder="Search Clients" style={box} />}
         {isLoading ? <Muted>Loading…</Muted> : list.length ? (
-          <PhoneTable label="Estimating" rows={list} keyOf={(c) => c.id} onRow={(c) => setEdit(c)}
+          <PhoneTable key="estimating" search={!desk} label="Estimating" rows={list} keyOf={(c) => c.id} onRow={(c) => setEdit(c)}
             cols={[
               { l: 'Client', main: (c) => c.name, sub: (c) => [c.estimator_name, c.estimator_email].filter(Boolean).join(' · ') || 'No Estimator Yet' },
-              { l: 'Mark-Up', w: 64, main: (c) => (c.estimating_markup_pct != null ? `${c.estimating_markup_pct}%` : '—') },
+              { l: 'Mark-Up', w: 64, main: (c) => (c.estimating_markup_pct != null ? `${c.estimating_markup_pct}%` : '—'), sort: (c) => (c.estimating_markup_pct != null ? Number(c.estimating_markup_pct) : null) },
               { l: 'Chase', w: 52, main: (c) => (c.quote_chase === false ? 'No' : 'Yes') },
             ]} />
         ) : <Empty>No clients yet. Add them in Clients.</Empty>}
@@ -311,7 +312,8 @@ export default function FinDirectory() {
         <Pressable disabled={busy} onPress={() => void pull()} style={{ borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12 }}><Text style={{ fontSize: 12, fontWeight: '500', color: base.ink }}>{busy ? 'Pulling…' : '⟳ Pull from Xero'}</Text></Pressable>
         <Pressable onPress={() => setEdit({ toX: true })} style={{ backgroundColor: th.brand1, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12 }}><Text style={{ fontSize: 12, fontWeight: '600', color: th.brand1Text }}>+ New {sup ? 'supplier' : 'client'}</Text></Pressable>
       </View>
-      <TextInput value={q} onChangeText={setQ} placeholder={`Search ${sup ? 'suppliers' : 'clients'}`} style={box} />
+      {/* A phone's table has a search box under each heading (Andy, 14 Nov 2026); a laptop keeps the search bar. */}
+      {desk && <TextInput value={q} onChangeText={setQ} placeholder={`Search ${sup ? 'suppliers' : 'clients'}`} style={box} />}
       {isLoading ? <Muted>Loading…</Muted> : desk && list.length ? (() => {
         const jobsOf = (c: Row) => sites.filter((s) => String(s.client_name || jd?.jfBy[s.id]?.billing_name || '').trim().toLowerCase() === String(c.name).trim().toLowerCase());
         const owedOf = (c: Row) => jobsOf(c).reduce((t, s) => ({ o: t.o + (jd?.m[s.id]?.owed || 0), od: t.od + (jd?.m[s.id]?.overdue || 0) }), { o: 0, od: 0 });
@@ -337,10 +339,10 @@ export default function FinDirectory() {
             foot={(list) => <><FootText bold>{list.length} shown</FootText>{!sup && <FootText>Owed {money(list.reduce((t, c) => t + owedOf(c).o, 0))}</FootText>}{sup && <FootText>To pay {money(list.reduce((t, c) => t + Number(c._owed || 0), 0))}</FootText>}</>} />
         );
       })() : list.length ? (
-        <PhoneTable label="Directory" rows={list} keyOf={(c) => c.id || `n:${c.name}`} onRow={(c) => setEdit(c)}
+        <PhoneTable key={sup ? 'suppliers' : 'clients'} label="Directory" rows={list} keyOf={(c) => c.id || `n:${c.name}`} onRow={(c) => setEdit(c)}
           cols={[
-            { l: sup ? 'Supplier' : 'Client', main: (c) => c.name, sub: (c) => c.email || (sup ? c.category : '') || '' },
-            { l: sup ? 'Owed' : 'Terms', w: 92, right: !!sup, bold: !!sup, main: (c) => (sup ? (c._owed ? money(c._owed) : '—') : termsText(c) || '—'), sub: (c) => (sup && c._n ? `${c._n} Invoice${c._n === 1 ? '' : 's'}` : '') },
+            { l: sup ? 'Supplier' : 'Client', main: (c) => c.name, sub: (c) => c.email || (sup ? c.category : '') || '', find: (c) => `${c.name} ${c.email || ''} ${c.category || ''}` },
+            { l: sup ? 'Owed' : 'Terms', w: 92, right: !!sup, bold: !!sup, bigFirst: !!sup, main: (c) => (sup ? (c._owed ? money(c._owed) : '—') : termsText(c) || '—'), sub: (c) => (sup && c._n ? `${c._n} Invoice${c._n === 1 ? '' : 's'}` : ''), sort: (c) => (sup ? Number(c._owed || 0) : termsText(c) || '') },
             { l: 'Xero', w: 52, main: (c) => (c.xero_contact_id ? 'Yes' : 'No') },
           ]} />
       ) : <Empty>Nothing here yet.</Empty>}

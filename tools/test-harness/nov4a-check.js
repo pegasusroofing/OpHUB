@@ -1,5 +1,5 @@
 // 4 Nov 2026: unit box on material requests (managers only), PO builder lines (job, Disc %, cost code),
-// phone search on Sales, and the Purchases tab row keeping the open tab in view.
+// phone search on Sales (in the table since 14 Nov 2026), and the Purchases tab row keeping the open tab in view.
 // node nov4a-check.js   (fake database)
 const {chromium, makeContext} = require('./harness');
 const B = 'http://localhost:8081', S = '/sites/11111111-1111-1111-1111-111111111111';
@@ -54,10 +54,11 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   {
     const {page, errs, ctx} = await open(browser, 'admin', 390);
     await page.goto(B + '/fin/sales?tab=invoices'); await page.waitForTimeout(3500);
-    check(await page.locator('input[placeholder="Search invoices"]').count() > 0, 'phone: Sales invoices search');
+    // Since 14 Nov 2026 the search is in the table: a box under each heading, the status a ▾ under Gross; no bar above.
+    check(await page.locator('input[placeholder="Search invoices"]').count() === 0 && (await page.locator('[aria-label="Invoices"]').count() === 0 || await page.locator('[aria-label="Search Gross"]').count() > 0), 'phone: Sales invoices search is in the table');
     await page.screenshot({path: out('phone-sales-invoices')});
     await page.goto(B + '/fin/sales?tab=apps'); await page.waitForTimeout(3000);
-    check(await page.locator('input[placeholder="Search applications"]').count() > 0, 'phone: Sales applications search');
+    check(await page.locator('input[placeholder="Search applications"]').count() === 0 && (await page.locator('[aria-label="Applications"]').count() === 0 || await page.locator('[aria-label="Search Amount"]').count() > 0), 'phone: Sales applications search is in the table');
     for (const [route, label] of [['/fin/purchases?tab=plant', 'Plant Hire'], ['/fin/yard', 'Yard']]) {
       await page.goto(B + route); await page.waitForTimeout(3500);
       const box = await page.getByText(label, {exact: true}).last().boundingBox();

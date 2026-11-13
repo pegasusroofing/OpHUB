@@ -3,14 +3,17 @@
 // and what they owe. A laptop filters by column (Status starts on Live) and has no filter row. A phone keeps the search box
 // and the Status, PM, Client and Start date filters, over a small table: Job No, Project (client underneath), Value and PM
 // (Andy, 7 Nov 2026: Option 2 of the three, without Owed; Job No, Value and PM centred, the project on the left).
+// Phone, like the laptop table (Andy, 14 Nov 2026): tap a heading to sort, a search box under each (Project also finds the
+// client, PO and postcode; Value takes ">50k"), Live / Upcoming / Closed / All in a strip above, + New Project full width.
+// The Filter / Sort buttons and the search bar went.
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
-import { FinFilterBar, type FilterSel } from '@/components/FinFilterBar';
 import { FinPage } from '@/components/FinNav';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
+import { PhoneClear, PhoneFindRow, PhoneHeads, usePhoneFind, type PCol } from '@/components/PhoneTable';
 import { askDate } from '@/components/DateField';
 import { Button, Empty, Muted } from '@/components/ui';
 import { finStatus, selectAll } from '@/data/finance';
@@ -21,9 +24,8 @@ import { byJobNoDesc, fdate, invOutstandingNet, invOverdue, money, today, type F
 import { DATE_RANGES, dateRange, valueTest } from '@/lib/rules/finFilters';
 import { isFullManager } from '@/lib/roles';
 import type { Site } from '@/lib/types';
-import { base, radius, useDesk, useTheme } from '@/theme/theme';
+import { base, useDesk, useTheme } from '@/theme/theme';
 
-const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card };
 type JF = { site_id: string; contract_value: number | null; billing_name: string | null; billing_email: string | null };
 type SiteX = Site & { job_number?: string | null; responsible_pm_id?: string | null; client_name?: string | null; client_email?: string | null; start_date?: string | null };
 
@@ -52,26 +54,17 @@ export default function FinJobs() {
   const { data: sitesRaw } = useSites();
   const { data: people = [] } = usePeople();
   const { data } = useJobsData(me?.org_id);
-  const [sel, setSel] = useState<FilterSel>({ status: ['live'], pm: [], client: [], start: [] });
-  const [q, setQ] = useState('');
-  const dr = sel.start[0] || ''; // Start: a date range (9219t)
+  // A phone shows Live, Upcoming, Closed or All from the strip above the table (it was in the Filter).
+  const [stat, setStat] = useState<'live' | 'upcoming' | 'closed' | 'all'>('live');
   const [custom, setCustom] = useState<{ from?: string; to?: string }>({});
-  const [val, setVal] = useState(''); // Value: 50k, >100k, <25k, 25k-100k
   const sites = ((sitesRaw || []) as SiteX[]).slice().sort(byJobNoDesc);
   const cliOf = (s: SiteX) => data?.jfBy[s.id]?.billing_name || s.client_name || '';
   const pmName = (id?: string | null) => (id ? people.find((p) => p.id === id)?.name || 'PM' : '');
   const counts: Record<string, number> = { live: 0, upcoming: 0, closed: 0, all: sites.length };
   sites.forEach((s) => { counts[finStatus(s)] = (counts[finStatus(s)] || 0) + 1; });
-  const ql = desk ? '' : q.trim().toLowerCase();
-  let shown = sites.filter((s) => desk || ((!sel.status.length || sel.status.includes(finStatus(s))) && (!sel.pm.length || sel.pm.includes(s.responsible_pm_id || 'none'))
-    && (!sel.client.length || sel.client.includes(cliOf(s)))))
-    .filter((s) => (!ql || [s.job_number, s.name, cliOf(s), s.client_name, (data?.posBy[s.id] || []).join(' '), pmName(s.responsible_pm_id), s.postcode].join(' ').toLowerCase().includes(ql)));
   const nm = (s: SiteX) => String(s.name || '');
-  const range = dateRange(dr, today(), custom), vt = valueTest(val);
   const startOf = (s: SiteX) => String(s.start_date || (s as { created_at?: string }).created_at || '').slice(0, 10);
-  if (range && !desk) shown = shown.filter((s) => { const d = startOf(s); return !!d && d >= range[0] && d <= range[1]; });
-  if (vt && !desk) shown = shown.filter((s) => vt(Number(data?.jfBy[s.id]?.contract_value || 0)));
-  shown = shown.slice().sort((a, b) => nm(a).localeCompare(nm(b), 'en-GB', { sensitivity: 'base' }));
+  const shown = sites.filter((s) => desk || stat === 'all' || finStatus(s) === stat).slice().sort((a, b) => nm(a).localeCompare(nm(b), 'en-GB', { sensitivity: 'base' }));
   // Start › Choose dates…: ask for the dates, then filter (the drop-down on the Start heading).
   const pickStart = async (k: string, v: string) => {
     if (k !== 'start' || v !== 'custom') return true;
@@ -79,52 +72,37 @@ export default function FinJobs() {
     const to = await askDate('Start dates to', { min: from || undefined }); if (to === null) return false;
     setCustom({ from: from || undefined, to: to || undefined }); return true;
   };
-  const pms = Array.from(new Set(sites.map((s) => s.responsible_pm_id).filter(Boolean))) as string[];
   // A running tally of whatever the filters leave showing (Andy, 2 Nov 2026).
   const valueOf = (list: typeof shown) => list.reduce((t, s) => t + Number(data?.jfBy[s.id]?.contract_value || 0), 0);
   const tallyText = (list: typeof shown) => `${list.length} Project${list.length === 1 ? '' : 's'}`;
-  // The phone table sorts by tapping a heading: Project A to Z to start with; Value starts biggest first.
-  const [psort, setPsort] = useState<{ k: 'no' | 'name' | 'v' | 'pm'; dir: 'asc' | 'desc' }>({ k: 'name', dir: 'asc' });
+  // The phone table: the columns, what each searches and sorts by. Rows start Project A to Z.
   const valOf = (s: SiteX) => Number(data?.jfBy[s.id]?.contract_value || 0);
-  const byName = (a: SiteX, b: SiteX) => nm(a).localeCompare(nm(b), 'en-GB', { sensitivity: 'base' });
-  const phoneRows = desk ? shown : shown.slice().sort((a, b) => {
-    const d = psort.dir === 'asc' ? 1 : -1;
-    if (psort.k === 'v') return d * (valOf(a) - valOf(b)) || byName(a, b);
-    if (psort.k === 'no') return d * String(a.job_number || '').localeCompare(String(b.job_number || ''), 'en-GB', { numeric: true });
-    if (psort.k === 'pm') return d * pmName(a.responsible_pm_id).localeCompare(pmName(b.responsible_pm_id), 'en-GB') || byName(a, b);
-    return d * byName(a, b);
-  });
   const W = { no: 58, v: 74, pm: 66 };
-  const head = (k: typeof psort.k, l: string, w?: number) => (
-    <Pressable key={k} accessibilityRole="button" accessibilityLabel={`Sort by ${l}`} onPress={() => setPsort((p) => (p.k === k ? { k, dir: p.dir === 'asc' ? 'desc' : 'asc' } : { k, dir: k === 'v' ? 'desc' : 'asc' }))}
-      style={w ? { width: w, alignItems: 'center' } : { flex: 1, minWidth: 0 }}>
-      <Text numberOfLines={1} style={{ fontSize: 11.5, fontWeight: '600', color: psort.k === k ? t.brand1 : base.slate }}>{l}{psort.k === k ? (psort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</Text>
-    </Pressable>
-  );
+  const pcols: PCol<SiteX>[] = [
+    { k: 'no', l: 'Job No', w: W.no, center: true, main: (s) => s.job_number || '—', sort: (s) => s.job_number || '', find: (s) => String(s.job_number || '') },
+    { k: 'name', l: 'Project', main: (s) => s.name, sub: (s) => cliOf(s) || 'No Client', sort: (s) => nm(s).toLowerCase(), find: (s) => [s.name, cliOf(s), s.client_name, (data?.posBy[s.id] || []).join(' '), s.postcode].join(' ') },
+    { k: 'v', l: 'Value', w: W.v, center: true, bigFirst: true, main: (s) => (valOf(s) ? money(valOf(s), 0) : '—'), sort: (s) => valOf(s) || null, match: (s, qv) => { const tv = valueTest(qv); return tv ? tv(valOf(s)) : money(valOf(s), 0).toLowerCase().includes(qv.toLowerCase()); } },
+    { k: 'pm', l: 'PM', w: W.pm, center: true, main: (s) => pmName(s.responsible_pm_id) || '—', sort: (s) => pmName(s.responsible_pm_id) },
+  ];
+  const find = usePhoneFind(pcols, shown, !desk);
+  const phoneRows = find.shown;
   const newBtn = me && isFullManager(me) ? <Button small title="+ New Project" onPress={() => router.push('/fin/newjob' as never)} /> : undefined;
-  // + New Project sits at the end of the Finance tab row on a laptop (Andy, 5 Nov 2026). On a phone it's the left two-thirds
-  // of the Filter row, Filter the right third, the same height (Andy, 7 Nov 2026), so the tabs get the whole width.
-  const newBtnPhone = me && isFullManager(me) ? (
-    <Pressable accessibilityRole="button" onPress={() => router.push('/fin/newjob' as never)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radius.input, backgroundColor: t.brand1, paddingHorizontal: 10 }}>
-      <Text style={{ color: t.brand1Text, fontSize: 13, fontWeight: '600' }}>+ New Project</Text>
-    </Pressable>
-  ) : undefined;
+  // + New Project sits at the end of the Finance tab row on a laptop (Andy, 5 Nov 2026); full width above the table on a phone.
   // The phone's bottom bar: the count on the left, the value of works on the right, small and grey (Andy, 7 Nov 2026).
   return (
-    <FinPage title="Projects" section="jobs" subRight={desk ? newBtn : undefined} foot={!desk && data && shown.length ? <View accessibilityLabel="Value of works" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 8 }}><Text style={{ fontSize: 11.5, color: base.slate }}>{tallyText(shown)}</Text><Text style={{ fontSize: 11.5, fontWeight: '500', color: base.slate }}>Value Of Works {money(valueOf(shown), 0)}</Text></View> : undefined}>
-      {!desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search Projects' }} sel={sel} moreOn={!!val} beside={newBtnPhone}
-        onClear={() => { setSel({ status: [], pm: [], client: [], start: [] }); setVal(''); }}
-        onChange={async (next) => {
-          if (next.start[0] === 'custom' && dr !== 'custom') { const from = await askDate('Start dates from'); if (from === null) return; const to = await askDate('Start dates to', { min: from || undefined }); if (to === null) return; setCustom({ from: from || undefined, to: to || undefined }); }
-          setSel(next);
-        }}
-        parts={[
-          { key: 'status', label: 'Status', items: (['live', 'upcoming', 'closed'] as const).map((k) => ({ v: k, l: k[0].toUpperCase() + k.slice(1), n: counts[k] })) },
-          { key: 'pm', label: 'PM', items: [...pms.map((id) => ({ v: id, l: pmName(id) })), { v: 'none', l: 'No PM' }] },
-          { key: 'client', label: 'Client', items: [...new Set(sites.map(cliOf).filter(Boolean))].sort().map((v) => ({ v, l: v })) },
-          { key: 'start', label: 'Start date', single: true, items: DATE_RANGES.filter(([k]) => k).map(([k, l]) => ({ v: k, l: k === 'custom' && dr === 'custom' && (custom.from || custom.to) ? `${custom.from ? fdate(custom.from) : '…'} – ${custom.to ? fdate(custom.to) : '…'}` : l })) },
-        ]}
-        more={<TextInput value={val} onChangeText={setVal} placeholder="Value e.g. >50k, 25k-100k" style={[box, { fontSize: 16 }, val && !vt ? { borderColor: '#C0392B' } : null]} />} />}
+    <FinPage title="Projects" section="jobs" subRight={desk ? newBtn : undefined} foot={!desk && data && phoneRows.length ? <View accessibilityLabel="Value of works" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 8 }}><Text style={{ fontSize: 11.5, color: base.slate }}>{tallyText(phoneRows)}</Text><Text style={{ fontSize: 11.5, fontWeight: '500', color: base.slate }}>Value Of Works {money(valueOf(phoneRows), 0)}</Text></View> : undefined}>
+      {!desk && <>
+        {!!newBtn && <View style={{ marginBottom: 10 }}><Button title="+ New Project" onPress={() => router.push('/fin/newjob' as never)} /></View>}
+        <View style={{ flexDirection: 'row', backgroundColor: '#EEF0F2', borderRadius: 10, padding: 3, gap: 2, marginBottom: 10 }}>
+          {([['live', 'Live'], ['upcoming', 'Upcoming'], ['closed', 'Closed'], ['all', 'All']] as const).map(([k, l]) => (
+            <Pressable key={k} accessibilityRole="button" accessibilityState={{ selected: stat === k }} accessibilityLabel={`${l} ${counts[k] || 0}`} onPress={() => setStat(k)}
+              style={{ flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 8, backgroundColor: stat === k ? base.card : 'transparent' }}>
+              <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: stat === k ? '700' : '500', color: stat === k ? base.ink : base.slate }}>{l}</Text>
+              <Text style={{ fontSize: 10.5, color: base.slate }}>{counts[k] || 0}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </>}
       {!data ? <Muted>Loading…</Muted> : desk && shown.length ? (
         <FinTable colsKey="jobs" onPick={pickStart} rows={shown} keyOf={(s) => s.id} onRow={(s) => router.push(`/fin/job/${s.id}` as never)} defaultSort={{ k: 'name', dir: 'asc' }} startFilter={{ st: ['Live'] }}
           cols={[
@@ -144,27 +122,30 @@ export default function FinJobs() {
           ]}
           tally foot={(left) => <><FootText>{tallyText(left)}</FootText><FootText bold>Value Of Works {money(valueOf(left), 0)}</FootText></>} />
       ) : shown.length ? (
-        <View accessibilityLabel="Projects table" style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, overflow: 'hidden' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 9, paddingHorizontal: 8, backgroundColor: '#F6F7F9' }}>
-            {head('no', 'Job No', W.no)}{head('name', 'Project')}{head('v', 'Value', W.v)}{head('pm', 'PM', W.pm)}
+        <>
+          <View accessibilityLabel="Projects table" style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, overflow: 'hidden' }}>
+            <PhoneHeads cols={pcols} find={find} pad={8} />
+            <PhoneFindRow cols={pcols} find={find} pad={8} />
+            {!phoneRows.length && <Text style={{ padding: 14, textAlign: 'center', color: base.slate, borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>Nothing matches.</Text>}
+            {phoneRows.map((s) => {
+              const v = valOf(s), pm = pmName(s.responsible_pm_id);
+              return (
+                <Pressable key={s.id} accessibilityRole="button" accessibilityLabel={`${s.job_number || ''} ${s.name}`.trim()} onPress={() => router.push(`/fin/job/${s.id}` as never)}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 9, paddingHorizontal: 8, borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>
+                  <Text numberOfLines={1} style={{ width: W.no, textAlign: 'center', fontSize: 12, fontWeight: '600', color: base.ink }}>{s.job_number || '—'}</Text>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text numberOfLines={2} style={{ fontSize: 13.5, fontWeight: '600', color: base.ink }}>{s.name}</Text>
+                    <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate, marginTop: 1 }}>{cliOf(s) || 'No Client'}</Text>
+                  </View>
+                  {/* Red when money on the job is overdue, as on the laptop. */}
+                  <Text numberOfLines={1} style={{ width: W.v, textAlign: 'center', fontSize: 13, fontWeight: '600', color: data.m[s.id]?.overdue ? '#C0392B' : base.ink }}>{v ? money(v, 0) : '—'}</Text>
+                  <Text numberOfLines={2} style={{ width: W.pm, textAlign: 'center', fontSize: 12, color: pm ? base.ink : base.slate }}>{pm || '—'}</Text>
+                </Pressable>
+              );
+            })}
           </View>
-          {phoneRows.map((s) => {
-            const v = valOf(s), pm = pmName(s.responsible_pm_id);
-            return (
-              <Pressable key={s.id} accessibilityRole="button" accessibilityLabel={`${s.job_number || ''} ${s.name}`.trim()} onPress={() => router.push(`/fin/job/${s.id}` as never)}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 9, paddingHorizontal: 8, borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>
-                <Text numberOfLines={1} style={{ width: W.no, textAlign: 'center', fontSize: 12, fontWeight: '600', color: base.ink }}>{s.job_number || '—'}</Text>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text numberOfLines={2} style={{ fontSize: 13.5, fontWeight: '600', color: base.ink }}>{s.name}</Text>
-                  <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate, marginTop: 1 }}>{cliOf(s) || 'No Client'}</Text>
-                </View>
-                {/* Red when money on the job is overdue, as on the laptop. */}
-                <Text numberOfLines={1} style={{ width: W.v, textAlign: 'center', fontSize: 13, fontWeight: '600', color: data.m[s.id]?.overdue ? '#C0392B' : base.ink }}>{v ? money(v, 0) : '—'}</Text>
-                <Text numberOfLines={2} style={{ width: W.pm, textAlign: 'center', fontSize: 12, color: pm ? base.ink : base.slate }}>{pm || '—'}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+          <PhoneClear find={find} />
+        </>
       ) : <Empty>No projects here.</Empty>}
     </FinPage>
   );

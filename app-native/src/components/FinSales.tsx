@@ -1,13 +1,14 @@
 // Sales lists (9219 renderFinSales): applications & certificates, invoices,
 // retention — for the whole company or one project (siteId).
+// Phone (Andy, 14 Nov 2026): the tables sort by tapping a heading and have a search box under each, the status a ▾ choice
+// under the amount (starting on In Progress / Owed as the Filter did); no Filter / Sort buttons or search bar above.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { askDate, DateBox } from '@/components/DateField';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { Text, View } from 'react-native';
 
-import { FinFilterBar, type FilterSel } from '@/components/FinFilterBar';
 import { FinRow, FinStat } from '@/components/FinNav';
 import { useFinRowMenu } from '@/components/FinRowMenu';
 import { Cell, FinChoicePop, FinTable, FootPick } from '@/components/FinTable';
@@ -21,7 +22,7 @@ import { useAuth } from '@/lib/auth';
 import { byJobNoDesc, fdate, INV_STATUS, invOutstanding, invOutstandingNet, invOverdue, jobTag, money, retentionDates, retentionStillHeld, round2, type FinApp, type FinInv, type JobFin } from '@/lib/rules/finance';
 import { monthLabel, monthOf, monthsIn } from '@/lib/rules/finFilters';
 import { inPeriod, useStatPeriods } from '@/lib/useStatPeriods';
-import { base, radius, useDesk } from '@/theme/theme';
+import { base, useDesk } from '@/theme/theme';
 
 export type App = FinApp & { id: string; site_id: string; due_date?: string | null; gross?: number | null; net_due?: number | null; cert_gross?: number | null; cert_net?: number | null; cert_is_payless?: boolean | null; invoice_id?: string | null; submitted_at?: string | null; created_at?: string };
 export type Inv = FinInv & { bill_name?: string | null; bill_address?: string | null; net?: number | null; vat?: number | null; rc_vat?: number | null; xero_id?: string | null; xero_post?: boolean | null; created_at?: string; kind?: string | null; lines?: { description?: string; amount?: number | string | null }[] | null; created_by?: string | null; updated_at?: string };
@@ -88,8 +89,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   const { data: st } = useFinSettings(me?.org_id);
   const { data } = useSales(me?.org_id, siteId);
   // Filter: status, month and project, tick as many as you like. An application list with nothing chosen yet starts on the first group with anything in it.
-  const [sel0, setSel] = useState<FilterSel | null>(tab === 'apps' ? (f0 ? { status: f0 === 'all' ? [] : [f0], mon: [], job: [] } : null) : { status: f0 === 'all' ? [] : [f0 || 'outstanding'], mon: [], job: [] });
-  const [sort, setSort] = useState('new');
+  const sort = 'new';
   const rowMenu = useFinRowMenu(data?.invs);
   const [voidOpen, setVoidOpen] = useState(false); // voided invoices sit in a closed drop-down (9219zn)
   // Laptop: the current app's "All months" picker on the totals bar (9219 sales tables; cmp-fin 5 Nov 2026).
@@ -117,10 +117,9 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
     ['finSales', 'finBook', 'finOverview'].forEach((k) => void qcRet.invalidateQueries({ queryKey: [k] }));
     if (r.id) router.push(`/fin/job/${a.site_id}/invoice/${r.id}` as never);
   };
-  // No search row on a laptop (the table headings filter, Andy 3 Nov 2026); phones keep a search box (Andy, 4 Nov 2026).
-  const [q, setQ] = useState('');
-  const ql = desk ? '' : q.trim().toLowerCase();
-  const searchBox = (ph: string) => (desk ? null : <TextInput value={q} onChangeText={setQ} placeholder={ph} autoCorrect={false} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 10, paddingVertical: 8, color: base.ink, backgroundColor: base.card, marginBottom: 10 }} />);
+  // No search bar: the laptop table's headings filter (Andy, 3 Nov 2026), and a phone's table has a box under each heading
+  // (Andy, 14 Nov 2026).
+  const ql = '';
   if (!data) return <Muted>Loading…</Muted>;
   const live = data.invs.filter((i) => i.status !== 'void');
   const stage = (a: App) => appStage(a).k;
@@ -131,7 +130,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   if (tab === 'apps') {
     const F: Record<string, (a: App) => boolean> = { open: (a) => ['draft', 'submitted'].includes(stage(a)), certified: (a) => stage(a) === 'certified', invoiced: (a) => stage(a) === 'invoiced', all: (a) => stage(a) !== 'void' };
     const first = ['open', 'certified', 'invoiced'].find((k) => data.apps.filter(F[k]).length);
-    const sel = bare ? { status: [], mon: deskMon ? [deskMon] : [], job: [] } : sel0 || { status: first ? [first] : [], mon: [], job: [] };
+    const sel: { status: string[]; mon: string[]; job: string[] } = { status: [], mon: bare && deskMon ? [deskMon] : [], job: [] };
     const aMonth = (a: App) => monthOf(a.valuation_date);
     const sorter: Record<string, (x: App, y: App) => number> = { new: (x, y) => String(y.valuation_date || '').localeCompare(String(x.valuation_date || '')), old: (x, y) => String(x.valuation_date || '').localeCompare(String(y.valuation_date || '')), big: (x, y) => Number(y.cert_net ?? y.net_due ?? 0) - Number(x.cert_net ?? x.net_due ?? 0), job: (x, y) => jobTag(site(x.site_id)).localeCompare(jobTag(site(y.site_id))) };
     const list = data.apps.filter(F.all).filter((a) => !sel.status.length || sel.status.some((k) => F[k](a))).filter((a) => !sel.mon.length || sel.mon.includes(aMonth(a))).filter((a) => !sel.job.length || sel.job.includes(a.site_id)).filter((a) => !ql || `${a.number} ${jobTag(site(a.site_id))} ${site(a.site_id)?.client_name || ''}`.toLowerCase().includes(ql)).slice().sort(sorter[sort]);
@@ -140,14 +139,6 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
       <View>
         {/* No text under the tabs; + New full width above the search (Andy, 11 Nov 2026). */}
         <View style={{ marginBottom: 10 }}><Button title="+ New Application" onPress={() => void newFor('application')} /></View>
-        {searchBox('Search applications')}
-        {!bare && <FinFilterBar sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
-          sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ...(siteId ? [] : [['job', 'Project'] as [string, string]])]} sort={sort} onSort={setSort}
-          parts={[
-            { key: 'status', label: 'Status', items: [['open', 'In progress'], ['certified', 'Certified, to invoice'], ['invoiced', 'Invoiced']].map(([v, l]) => ({ v, l, n: data.apps.filter(F[v]).length })) },
-            { key: 'mon', label: 'Month', items: months.map((m) => ({ v: m, l: monthLabel(m) })) },
-            ...(siteId ? [] : [{ key: 'job', label: 'Project', items: [...new Set(data.apps.map((a) => a.site_id))].map((id) => ({ v: id, l: jobTag(site(id)) })) }]),
-          ]} />}
         {desk && list.length ? (
           <FinTable rows={list} keyOf={(a) => a.id} onMenu={(a) => void rowMenu.appMenu(a, stage(a))} onRow={(a) => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)}
             cols={[
@@ -161,11 +152,12 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
             ]}
             footLabel={(list) => `${list.length} application${list.length === 1 ? '' : 's'}`} footRight={siteId ? undefined : monthPick(months)} />
         ) : list.length ? (
-          <PhoneTable label="Applications" rows={list} keyOf={(a) => a.id} onRow={(a) => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)}
+          <PhoneTable key="apps" label="Applications" rows={list} keyOf={(a) => a.id} onRow={(a) => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)}
             cols={[
-              { l: 'App', w: 52, main: (a) => `${a.number}`, sub: (a) => fdate(a.valuation_date) },
-              { l: siteId ? 'Stage' : 'Project', main: (a) => (siteId ? appStage(a).l : jobTag(site(a.site_id))), sub: (a) => (siteId ? '' : appStage(a).l) },
-              { l: 'Amount', w: 88, right: true, bold: true, main: (a) => money(a.cert_net ?? a.net_due), sub: (a) => (a.cert_net != null ? 'Certified' : 'Applied') },
+              { l: 'App', w: 52, main: (a) => `${a.number}`, sub: (a) => fdate(a.valuation_date), sort: (a) => Number(a.number) || 0 },
+              { l: siteId ? 'Stage' : 'Project', main: (a) => (siteId ? appStage(a).l : jobTag(site(a.site_id))), sub: (a) => (siteId ? '' : appStage(a).l), find: (a) => `${jobTag(site(a.site_id))} ${site(a.site_id)?.client_name || ''} ${appStage(a).l}` },
+              { l: 'Amount', w: 88, right: true, bold: true, bigFirst: true, main: (a) => money(a.cert_net ?? a.net_due), sub: (a) => (a.cert_net != null ? 'Certified' : 'Applied'), sort: (a) => Number(a.cert_net ?? a.net_due ?? 0),
+                choose: { opts: [['', 'All'], ['open', 'In Progress'], ['certified', 'Certified'], ['invoiced', 'Invoiced']], test: (a, v) => (F[v] ? F[v](a) : true), start: f0 === 'all' ? '' : f0 || first || '' } },
             ]} />
         ) : <Empty>Nothing here.</Empty>}
         {rowMenu.form}
@@ -175,21 +167,13 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   if (tab === 'invoices') {
     const F: Record<string, (i: Inv) => boolean> = { outstanding: (i) => invOutstanding(i) > 0, overdue: (i) => invOverdue(i), draft: (i) => i.status === 'draft', paid: (i) => i.status === 'paid', all: () => true };
     const iMonth = (i: Inv) => monthOf(i.issue_date || i.created_at);
-    const sel = bare ? { status: [], mon: deskMon ? [deskMon] : [], job: [] } : sel0 || { status: ['outstanding'], mon: [], job: [] };
+    const sel: { status: string[]; mon: string[]; job: string[] } = { status: [], mon: bare && deskMon ? [deskMon] : [], job: [] };
     const sorter: Record<string, (x: Inv, y: Inv) => number> = { new: () => 0, old: (x, y) => String(x.created_at || '').localeCompare(String(y.created_at || '')), big: (x, y) => Number(y.total || 0) - Number(x.total || 0), client: (x, y) => billTo(x).localeCompare(billTo(y)) };
     const list = live.filter((i) => !sel.status.length || sel.status.some((k) => (F[k] || F.outstanding)(i))).filter((i) => !sel.mon.length || sel.mon.includes(iMonth(i))).filter((i) => !sel.job.length || sel.job.includes(i.site_id)).filter((i) => !ql || `${i.number || ''} ${billTo(i)} ${i.bill_address || ''} ${jobTag(site(i.site_id))}`.toLowerCase().includes(ql)).slice().sort(sorter[sort]);
     const months = monthsIn(live, iMonth);
     return (
       <View>
         <View style={{ marginBottom: 10 }}><Button title="+ New Invoice" onPress={() => void newFor('invoice')} /></View>
-        {searchBox('Search invoices')}
-        {!bare && <FinFilterBar sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
-          sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['client', 'Client A to Z']]} sort={sort} onSort={setSort}
-          parts={[
-            { key: 'status', label: 'Status', items: [['outstanding', 'Owed'], ['overdue', 'Overdue'], ['draft', 'Drafts'], ['paid', 'Paid']].map(([v, l]) => ({ v, l, n: live.filter(F[v]).length })) },
-            { key: 'mon', label: 'Month', items: months.map((m) => ({ v: m, l: monthLabel(m) })) },
-            ...(siteId ? [] : [{ key: 'job', label: 'Project', items: [...new Set(live.map((i) => i.site_id))].map((id) => ({ v: id, l: jobTag(site(id)) })) }]),
-          ]} />}
         {desk && list.length ? (
           // Starts on the owed ones, as the current app's Owed chip (9219 sales tables; cmp-fin 5 Nov 2026). Untick to see paid and drafts.
           <FinTable startFilter={f0 === 'overdue' ? { s: ['Overdue'] } : siteId ? undefined : { s: ['Issued', 'Sent', 'Part paid', 'Overdue'] }} rows={list} keyOf={(i) => i.id} onMenu={(i) => void rowMenu.invMenu(i)} onRow={(i) => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)}
@@ -206,11 +190,12 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
             ]}
             footLabel={(list) => `${list.length} invoice${list.length === 1 ? '' : 's'} · Owed ${money(list.reduce((t, i) => t + invOutstandingNet(i), 0))}`} footRight={siteId ? undefined : monthPick(months)} />
         ) : list.length ? (
-          <PhoneTable label="Invoices" rows={list} keyOf={(i) => i.id} onRow={(i) => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)}
+          <PhoneTable key="invoices" label="Invoices" rows={list} keyOf={(i) => i.id} onRow={(i) => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)}
             cols={[
-              { l: 'Invoice', w: 74, main: (i) => i.number || 'Draft', sub: (i) => (i.issue_date ? fdate(i.issue_date) : 'Not issued') },
-              { l: siteId ? 'Client' : 'Project', main: (i) => (siteId ? billTo(i) || '—' : jobTag(site(i.site_id))), sub: (i) => (siteId ? '' : billTo(i)) },
-              { l: 'Gross', w: 84, right: true, bold: true, main: (i) => money(i.total), sub: (i) => (invOverdue(i) ? 'Overdue' : INV_STATUS[i.status] || i.status), tone: (i) => (invOverdue(i) ? '#C0392B' : undefined) },
+              { l: 'Invoice', w: 74, main: (i) => i.number || 'Draft', sub: (i) => (i.issue_date ? fdate(i.issue_date) : 'Not issued'), sort: (i) => String(i.issue_date || '') },
+              { l: siteId ? 'Client' : 'Project', main: (i) => (siteId ? billTo(i) || '—' : jobTag(site(i.site_id))), sub: (i) => (siteId ? '' : billTo(i)), find: (i) => `${jobTag(site(i.site_id))} ${billTo(i)} ${i.bill_address || ''}` },
+              { l: 'Gross', w: 84, right: true, bold: true, bigFirst: true, main: (i) => money(i.total), sub: (i) => (invOverdue(i) ? 'Overdue' : INV_STATUS[i.status] || i.status), tone: (i) => (invOverdue(i) ? '#C0392B' : undefined), sort: (i) => Number(i.total || 0),
+                choose: { opts: [['', 'All'], ['outstanding', 'Owed'], ['overdue', 'Overdue'], ['draft', 'Drafts'], ['paid', 'Paid']], test: (i, v) => (F[v] ? F[v](i) : true), start: f0 === 'all' ? '' : f0 || 'outstanding' } },
             ]} />
         ) : <Empty>No invoices here.</Empty>}
         {rowMenu.form}
