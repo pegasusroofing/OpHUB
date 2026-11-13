@@ -6,6 +6,8 @@
 // Phone table (Andy, 11 Nov 2026, evening): Live = Project (client below) · Due Back (a red border once it's past) · Status;
 // Quoted = Project · Value · Chase (short date, no year) · Status; All = Project · Date · Status. Dates and values centred
 // under their headings, Status at the right. The View drop-down went: the filter narrows the list, the summaries are in Export.
+// A live quote's Status is a ▾ pick list in the phone table: Pricing, Awaiting Information, Ready For Checking (Andy, 14 Nov
+// 2026), saved the same way as on the quote's own page (its OneDrive folder moves with it).
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -16,9 +18,9 @@ import { FinFilterBar, ThinExportBar, type FilterSel } from '@/components/FinFil
 import { FinTabs } from '@/components/FinNav';
 import { Cell, FinTable } from '@/components/FinTable';
 import { pickExport } from '@/components/FootBar';
-import { useToast } from '@/components/toast';
+import { chooseAction, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
-import { receivedOn, saveQuote, useQuotes, type Quote } from '@/data/quotes';
+import { moveToStatusFolder, receivedOn, saveQuote, setQuoteStatus, useQuotes, useQuoteSettings, type Quote } from '@/data/quotes';
 import { useAuth } from '@/lib/auth';
 import { localISODate } from '@/lib/rules/driver';
 import { quoteReport, REPORTS, type ReportKey } from '@/lib/rules/quoteReports';
@@ -46,6 +48,7 @@ export default function Quotes() {
   const desk = useDesk();
   const params = useLocalSearchParams<{ tab?: string; out?: string }>();
   const { data, isLoading } = useQuotes(me?.org_id);
+  const { data: settings } = useQuoteSettings(me?.org_id);
   const [tab, setTab] = useState<Tab>((['live', 'quoted', 'all'].includes(String(params.tab)) ? params.tab : 'live') as Tab);
   const [out, setOut] = useState<'any' | Outcome>((params.out as Outcome) || 'any');
   const [q, setQ] = useState('');
@@ -121,6 +124,16 @@ export default function Quotes() {
     if (!d || !me) return;
     if (await saveQuote(me, x.id, { next_chase_date: d })) void qc.invalidateQueries({ queryKey: ['quotes'] }); else toast('Could not save. Try again.');
   };
+  // Live quotes: change the work status from the table.
+  const setWork = async (x: Quote) => {
+    if (!me) return;
+    const k = await chooseAction(`${x.title}: Status`, WORK_STATUS.map(([v, l]) => ({ key: v, label: `${x.status === v ? '✓ ' : ''}${l}` })));
+    if (!k || k === x.status) return;
+    const ok = await setQuoteStatus(me, x, k, settings?.chase_first_days ?? 30);
+    if (!ok) { toast('Could not save. Try again.'); return; }
+    if (x.folder_id) { const m = await moveToStatusFolder(x.id, k); if (m.error) toast(`Saved, but the folder stayed where it is: ${m.error}`); }
+    void qc.invalidateQueries({ queryKey: ['quotes'] });
+  };
   const phoneTable = (
     <View accessibilityLabel="Quotes table" style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, overflow: 'hidden' }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 9, paddingHorizontal: 10, backgroundColor: '#F6F7F9' }}>
@@ -144,8 +157,8 @@ export default function Quotes() {
           {tab === 'quoted' && (canChase(x)
             ? <Pressable accessibilityRole="button" accessibilityLabel={`Chase date: ${x.title}`} onPress={() => void setChase(x)} style={{ marginLeft: 6, alignSelf: 'stretch', justifyContent: 'center' }}>{mid(x.next_chase_date ? dm(x.next_chase_date) : 'Set', W.c, { sub: x.chase_on ? 'Auto' : '', bold: false })}</Pressable>
             : <Pressable accessibilityRole="button" accessibilityLabel={`${x.title}: no chase`} onPress={() => go(x)} style={{ marginLeft: 6, alignSelf: 'stretch', justifyContent: 'center' }}>{mid('—', W.c, { bold: false })}</Pressable>)}
-          <Pressable accessibilityRole="button" accessibilityLabel={`${x.title}: ${statusWord(x)}`} onPress={() => go(x)} style={{ marginLeft: 6, paddingRight: 10, alignSelf: 'stretch', justifyContent: 'center' }}>
-            <Text numberOfLines={2} style={{ width: W.s, textAlign: 'center', fontSize: 11.5, fontWeight: '600', color: x.status === 'won' ? base.ink : base.slate }}>{statusWord(x)}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${x.title}: ${statusWord(x)}`} onPress={() => (isQuoted(x) ? go(x) : void setWork(x))} style={{ marginLeft: 6, paddingRight: 10, alignSelf: 'stretch', justifyContent: 'center' }}>
+            <Text numberOfLines={2} style={{ width: W.s, textAlign: 'center', fontSize: 11.5, fontWeight: '600', color: x.status === 'won' || !isQuoted(x) ? base.ink : base.slate }}>{statusWord(x)}{isQuoted(x) ? '' : ' ▾'}</Text>
           </Pressable>
         </View>
       ))}
