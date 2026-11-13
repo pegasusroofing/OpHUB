@@ -207,6 +207,12 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
    - **Calendar:** application dates from Finance.
 70. Only a real iPhone can confirm (checked in a phone-sized browser, not Safari on an iPhone): the slider feel; no keyboard on long pick lists; the home-screen app full screen; the ☰ sidebar; where the saved-email jump happened.
 71. The private link (ophub-beta.vercel.app), 13 Nov: 40 of the 49 server functions only accept calls from approved web addresses, and this link isn't one, so emails, OneDrive, quote folders and opening stored files fail from it. The address ophub-beta-op-hub.vercel.app would be accepted with no server change.
+72. RAMS, 14 Nov (Andy started reviewing RAMS). Full list in SNAGS-2026-11-14.md (R1–R5). To try:
+    - the Ask Outstanding To Sign row;
+    - tick 3+ RAMS and scroll: the bar stays at the bottom;
+    - Create RAMS on a job with RAMS: Supersedes or Additional;
+    - the compact Reuse row;
+    - signature boxes on a builder Risk Assessment: Yes to the Method Statement, then tap each person into place.
 
 ## To discuss with Andy
 - ~~OneDrive and the full job set-up~~: talked through and built 8 Nov 2026 (item 55).

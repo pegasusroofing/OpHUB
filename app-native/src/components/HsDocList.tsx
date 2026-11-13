@@ -7,13 +7,14 @@
 // Managers can tick several RAMS / COSHH and export or email them as one signed PDF (580 exportSelectedRams,
 // 620 COSHH), with CC me / CC the client.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { testFill } from '@/data/signTemplates';
 import { supabase } from '@/lib/supabase';
-import { useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 
 import { ClientSignLines } from '@/components/ClientSignLines';
+import { Portal } from '@/components/Portal';
 import { promptEmail } from '@/components/EmailPrompt';
 import { StorageImage } from '@/components/StorageImage';
 import * as DocumentPicker from 'expo-document-picker';
@@ -118,6 +119,9 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
   const [busy, setBusy] = useState(false);
   const [supOpen, setSupOpen] = useState(false);
   const [sel, setSel] = useState<Set<string>>(new Set());
+  // The ticked-documents bar is drawn on top of the page (Portal), so it only shows while this screen is the one open.
+  const [focused, setFocused] = useState(true);
+  useFocusEffect(useCallback(() => { setFocused(true); return () => setFocused(false); }, []));
   const narrow = useWindowDimensions().width < 700;
   const desk = useDesk();
   if (!me) return null;
@@ -206,14 +210,16 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
     setSel(new Set()); void qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); void qc.invalidateQueries({ queryKey: ['hsSummary', site.id] });
     toast(n === ids.length ? `${n} deleted` : `Only ${n} of ${ids.length} could be deleted — try again.`, { confirm: true });
   };
-  const bar = manager && kind !== 'layout' && sel.size > 0 ? (
+  // Drawn on top of the page (Portal), not inside the scrolling list: inside it, the bar scrolled up with the page and
+  // sat in the middle of the screen once there were a few RAMS (Andy, 14 Nov 2026).
+  const bar = manager && kind !== 'layout' && sel.size > 0 && focused ? (<Portal>
     <View style={{ position: (Platform.OS === 'web' ? 'fixed' : 'absolute') as 'absolute', left: desk ? 264 : 12, right: desk ? 24 : 12, bottom: desk ? 16 : 84, zIndex: 50, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: base.ink, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}>
       <Text style={{ flex: 1, color: '#fff', fontWeight: '600', fontSize: 13.5 }}>{sel.size} Selected</Text>
       <Pressable accessibilityRole="button" disabled={busy} onPress={async () => { setBusy(true); toast('Building signed PDF…'); try { const b = await pack(ordered(sel)); if (b && !(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); } finally { setBusy(false); } }} style={{ paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: '#fff', fontWeight: '500' }}>📄 Export</Text></Pressable>
       <Pressable accessibilityRole="button" disabled={busy} onPress={() => void emailIds(ordered(sel))} style={{ paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: '#fff', fontWeight: '500' }}>✉ Email</Text></Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel="Delete selected" disabled={busy} onPress={() => void delSelected()} style={{ paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ fontSize: 16 }}>🗑</Text></Pressable>
     </View>
-  ) : null;
+  </Portal>) : null;
   return (
     <View style={sel.size > 0 ? { paddingBottom: 64 } : undefined}>
       {bar}

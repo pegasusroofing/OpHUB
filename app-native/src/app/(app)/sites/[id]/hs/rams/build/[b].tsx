@@ -249,12 +249,12 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
     await saveNow();
     const x = latest.current;
     if (!x.hazards.length && !x.sections.length) { toast('Add some hazards or sections first'); return; }
-    if (x.ra_doc_id && !x.hazards.length) { showAlert('This RAMS already has a Risk Assessment, but it now has no hazards. Add the hazards back on the RA tab before re-issuing — otherwise everyone keeps signing the old Risk Assessment.'); return; }
-    if (x.ms_doc_id && !x.sections.length) { showAlert('This RAMS already has a Method Statement, but it now has no sections. Add them back on the SSOW or MS tab before re-issuing — otherwise everyone keeps signing the old Method Statement.'); return; }
+    if (x.ra_doc_id && !x.hazards.length) { showAlert(x.status === 'issued' ? 'This RAMS already has a Risk Assessment, but it now has no hazards. Add the hazards back on the RA tab before re-issuing — otherwise everyone keeps signing the old Risk Assessment.' : 'This RAMS supersedes a Risk Assessment, but it has no hazards. Add them on the RA tab first — otherwise everyone keeps signing the old Risk Assessment.'); return; }
+    if (x.ms_doc_id && !x.sections.length) { showAlert(x.status === 'issued' ? 'This RAMS already has a Method Statement, but it now has no sections. Add them back on the SSOW or MS tab before re-issuing — otherwise everyone keeps signing the old Method Statement.' : 'This RAMS supersedes a Method Statement, but it has no sections. Add them on the SSOW or MS tab first — otherwise everyone keeps signing the old Method Statement.'); return; }
     const miss = missingInfo(x.details);
     if (miss.length) { toast(`Fill in ${miss.join(' and ')} on the Info tab first`); void go('details'); return; }
     const reissue = x.status === 'issued';
-    if (!(await confirmAsk(reissue ? `Re-issue "${x.title}" as revision ${x.revision + 1}?\n\nThe current Risk Assessment and Method Statement are marked superseded and everyone on the job is asked to sign the new versions.` : `Issue "${x.title}"?\n\nThis adds a Risk Assessment and a Method Statement to this job's RAMS for operatives to sign.`, reissue ? 'Re-issue' : 'Issue', 'No', true))) return;
+    if (!(await confirmAsk(reissue ? `Re-issue "${x.title}" as revision ${x.revision + 1}?\n\nThe current Risk Assessment and Method Statement are marked superseded and everyone on the job is asked to sign the new versions.` : `Issue "${x.title}"?\n\nThis adds a Risk Assessment and a Method Statement to this job's RAMS for operatives to sign.${x.ra_doc_id || x.ms_doc_id ? ' The RAMS it supersedes is marked superseded.' : ''}`, reissue ? 'Re-issue' : 'Issue', 'No', true))) return;
     setBusy(true); toast('Building documents…');
     try {
       const err = await issueBuild(me, org as never, siteId, x);
@@ -297,22 +297,27 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
     <>
       <Card>
         <SectionTitle>Issue to this job</SectionTitle>
-        <Muted style={{ marginBottom: 10 }}>Creates two documents in this job&apos;s RAMS list — Risk Assessment ({b.hazards.length} hazards) and Method Statement ({b.sections.length} sections) — each with a sign-off sheet that operatives sign in the app, exactly like an uploaded RAMS.{b.status === 'issued' ? ' Re-issuing replaces the current versions and everyone is asked to sign again.' : ''}</Muted>
+        <Muted style={{ marginBottom: 10 }}>Creates two documents in this job&apos;s RAMS list — Risk Assessment ({b.hazards.length} hazards) and Method Statement ({b.sections.length} sections) — each with a sign-off sheet that operatives sign in the app, exactly like an uploaded RAMS.{b.status === 'issued' ? ' Re-issuing replaces the current versions and everyone is asked to sign again.' : b.ra_doc_id || b.ms_doc_id ? ' It supersedes the RAMS you chose when you created it, and everyone is asked to sign the new one.' : ''}</Muted>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <View style={{ flex: 1 }}><Button kind="ghost" oneLine textSize={13} title="👁 Preview RA" onPress={() => void preview('ra')} /></View>
           <View style={{ flex: 1 }}><Button kind="ghost" oneLine textSize={13} title="👁 Preview MS" onPress={() => void preview('ms')} /></View>
         </View>
         <View style={{ marginTop: 10 }}><Button busy={busy} title={b.status === 'issued' ? `↻ Re-issue (rev ${b.revision + 1})` : '✓ Issue Risk Assessment & Method Statement'} onPress={() => void issue()} /></View>
       </Card>
-      <Card>
-        <SectionTitle>Reuse</SectionTitle>
-        <Button kind="ghost" title="📋 Save as a template" onPress={async () => {
-          const n = await promptText('Template name', b.title); if (!n || !n.trim()) return;
-          const ok = await saveAsTemplate(me, latest.current, n.trim());
-          toast(ok ? `✓ Template "${n.trim()}" saved` : 'Could not save the template — try again.', { confirm: true });
-          void qc.invalidateQueries({ queryKey: ['ramsLib'] });
-        }} />
-        <Muted style={{ marginTop: 6 }}>Saves these hazards, sections, PPE and groups — exactly as edited here — as a template for future jobs.</Muted>
+      {/* One compact row (Andy, 14 Nov 2026): what it does on the left, a small button on the right. */}
+      <Card style={{ paddingVertical: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ fontWeight: '600', color: base.ink }}>Reuse</Text>
+            <Muted style={{ fontSize: 12.5 }}>Save it as a template for future jobs.</Muted>
+          </View>
+          <View><Button small oneLine kind="ghost" title="📋 Save As Template" onPress={async () => {
+            const n = await promptText('Template name', b.title); if (!n || !n.trim()) return;
+            const ok = await saveAsTemplate(me, latest.current, n.trim());
+            toast(ok ? `✓ Template "${n.trim()}" saved` : 'Could not save the template — try again.', { confirm: true });
+            void qc.invalidateQueries({ queryKey: ['ramsLib'] });
+          }} /></View>
+        </View>
       </Card>
       <Muted style={{ marginBottom: 10 }}>Company address, phone and data protection text come from Admin Centre → RAMS Library → Company Details.</Muted>
       <Button kind="ghost" title="Delete this RAMS draft" onPress={async () => {

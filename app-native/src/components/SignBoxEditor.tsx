@@ -4,6 +4,8 @@
 // name, date). Tap boxes to select, drag to move, align, delete, and copy one
 // operative's row to the next with one tap. The drawing layer is the same on the
 // laptop and phones; phones get the page as a picture (NativePdfPage).
+// place: people already given boxes on the other half of the same RAMS (Risk Assessment ↔ Method Statement). The
+// editor lists them and each tap on the page drops that person's boxes there, same shapes and spacing (Andy, 14 Nov 2026).
 /* eslint-disable react-hooks/refs, react-hooks/immutability -- the canvas is drawn in an effect and the pointer handlers only run on touch, never during render */
 import { createElement as h, useEffect, useRef, useState } from 'react';
 import { PanResponder, Platform, Pressable, Text, View, type GestureResponderEvent } from 'react-native';
@@ -19,8 +21,8 @@ import { base, radius } from '@/theme/theme';
 
 const r4 = (n: number) => Math.round(n * 10000) / 10000;
 
-export function SignBoxEditor({ storagePath, initial, intro, saveLabel, onSave, extra }: {
-  storagePath: string; initial: SBox[]; intro: string; saveLabel: string;
+export function SignBoxEditor({ storagePath, initial, intro, saveLabel, onSave, extra, place = [], placeFrom = '' }: {
+  storagePath: string; initial: SBox[]; intro: string; saveLabel: string; place?: SBox[]; placeFrom?: string;
   onSave: (boxes: SBox[], numPages: number) => Promise<void>;
   extra?: (o: { boxes: SBox[]; numPages: number; setBoxes: (b: SBox[]) => void; setPage: (p: number) => void }) => React.ReactNode;
 }) {
@@ -32,7 +34,9 @@ export function SignBoxEditor({ storagePath, initial, intro, saveLabel, onSave, 
   const [who, setWho] = useState('op1');
   const [lastOp, setLastOp] = useState(1);
   const [lastClient, setLastClient] = useState(1);
-  const [mode, setMode] = useState<string | null>(null);
+  // Still to place from the other document: one entry per person, in the order they appear there.
+  const [queue, setQueue] = useState<string[]>(() => Array.from(new Set(place.map((b) => b.w))));
+  const [mode, setMode] = useState<string | null>(() => (place.length ? 'place' : null));
   const [sels, setSels] = useState<number[]>([]);
   const [offset, setOffset] = useState<{ dx: number; dy: number } | null>(null);
   const [drag, setDrag] = useState<number[] | null>(null);
@@ -97,7 +101,24 @@ export function SignBoxEditor({ storagePath, initial, intro, saveLabel, onSave, 
     if (!r) { toast(opNum(w) >= MAX_OPS ? "That's the most operatives a document can have." : `That would put ${whoLabel(`op${opNum(w) + 1}`)}'s boxes off the page. Draw theirs by hand, or go to the next page.`); setMode(null); return; }
     setBoxes(r.boxes); setWho(r.next); setLastOp(opNum(r.next)); setSels([]); setMode(null);
   };
+  // One person's boxes on the other document: those on the first page they appear on, as a group.
+  const groupOf = (w: string) => { const all = place.filter((b) => b.w === w); const p0 = Math.min(...all.map((b) => b.p)); return all.filter((b) => b.p === p0); };
+  const what = (w: string) => BOX_WHAT.filter((k) => groupOf(w).some((b) => b.t === k.key)).map((k) => k.label.toLowerCase()).join(', ');
+  const dropAt = (w: string, x: number | null, y: number | null) => {
+    const g = groupOf(w); if (!g.length) return;
+    const minX = Math.min(...g.map((b) => b.r[0])), minY = Math.min(...g.map((b) => b.r[1]));
+    const wide = Math.max(...g.map((b) => b.r[0] + b.r[2])) - minX, high = Math.max(...g.map((b) => b.r[1] + b.r[3])) - minY;
+    // Where tapped is the group's top-left corner, kept on the page; null = the same spot as on the other document.
+    const px = x == null ? minX : Math.max(0, Math.min(x, 1 - wide)), py = y == null ? minY : Math.max(0, Math.min(y, 1 - high));
+    const nb = g.map((b) => ({ p: page, w: b.w, t: b.t, r: [r4(px + b.r[0] - minX), r4(py + b.r[1] - minY), b.r[2], b.r[3]] }));
+    const all = boxes.concat(nb);
+    setBoxes(all); setSels(nb.map((_, k) => boxes.length + k));
+    const rest = queue.filter((q) => q !== w); setQueue(rest);
+    setMode(rest.length ? 'place' : null);
+  };
+  const skip = (w: string) => { const rest = queue.filter((q) => q !== w); setQueue(rest); setMode(rest.length ? 'place' : null); };
   const down = (x: number, y: number) => {
+    if (mode === 'place') { if (queue[0]) dropAt(queue[0], x, y); return; }
     if (mode === 'repeat') {
       const off = repeatOffset(minePage, x, y);
       if (!off) { toast("Tap on the next person's space, not the same one."); return; }
@@ -143,10 +164,30 @@ export function SignBoxEditor({ storagePath, initial, intro, saveLabel, onSave, 
     <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, borderColor: color, backgroundColor: active ? color : 'transparent' }}><Text style={{ fontWeight: '600', fontSize: 12.5, color: active ? '#fff' : color }}>{label}</Text></Pressable>
   );
   const pm = (l: string, f: () => void) => <Pressable onPress={f} style={{ width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: base.line, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 16, color: base.ink }}>{l}</Text></Pressable>;
-  const help = mode === 'repeat' ? `Tap where ${whoLabel(`op${on + 1}`)}'s space is (the next row).` : mode ? `Drag a box where ${whoLabel(who)}'s ${BOX_WHAT.find((x) => x.key === mode)?.label.toLowerCase()} goes.` : '';
+  const help = mode === 'place' && queue[0] ? `Tap the page where ${whoLabel(queue[0])} signs. Their ${what(queue[0])} go there together, with the top left where you tap.` : mode === 'repeat' ? `Tap where ${whoLabel(`op${on + 1}`)}'s space is (the next row).` : mode ? `Drag a box where ${whoLabel(who)}'s ${BOX_WHAT.find((x) => x.key === mode)?.label.toLowerCase()} goes.` : '';
   return (
     <View>
       <Card><Muted>{intro}</Muted></Card>
+      {place.length > 0 && (
+        <Card>
+          <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 6 }}>{queue.length ? `From The ${placeFrom || 'Other Document'}: ${queue.length} To Place` : `Everyone From The ${placeFrom || 'Other Document'} Is Placed`}</Text>
+          {queue.length > 0 ? (
+            <>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {queue.map((w, i) => <View key={w} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1.5, borderColor: whoColor(w), backgroundColor: i === 0 && mode === 'place' ? whoColor(w) : 'transparent' }}><Text style={{ fontSize: 12.5, fontWeight: '600', color: i === 0 && mode === 'place' ? '#fff' : whoColor(w) }}>{whoLabel(w)}</Text></View>)}
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 8 }}>
+                {mode !== 'place'
+                  ? <Button small kind="ghost" title={`Place ${whoLabel(queue[0])}`} onPress={() => { setMode('place'); setSels([]); }} />
+                  : <>
+                    <Button small kind="ghost" title="Same Spot As Before" onPress={() => dropAt(queue[0], null, null)} />
+                    <Button small kind="ghost" title={`Skip ${whoLabel(queue[0])}`} onPress={() => skip(queue[0])} />
+                  </>}
+              </View>
+            </>
+          ) : <Muted>Drag any box to adjust it, then Save.</Muted>}
+        </Card>
+      )}
       {err ? <Card><Muted>{err}</Muted></Card> : null}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         {pm('‹', () => goPage(page - 1))}

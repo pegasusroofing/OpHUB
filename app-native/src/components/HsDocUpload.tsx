@@ -55,17 +55,19 @@ export function HsDocUpload({ kind, site, companyId = null, create, createLabel,
 
   return (
     <View style={{ marginBottom: 12 }}>
-      {/* Ask, Export and Email on one row (Andy, 3 Nov 2026): Export gives Excel or PDF; Email is the Finance send pop-up. */}
+      {/* Ask, Export and Email on one row (Andy, 3 Nov 2026): Export gives Excel or PDF; Email is the Finance send pop-up.
+          Smaller buttons, with "Ask Outstanding To Sign" on one line (Andy, 14 Nov 2026): each is as wide as its words,
+          and the room left over is shared out. */}
       {!!data?.docs.length && kind !== 'layout' && !companyId && (
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 2, minWidth: 0 }}><Button grow kind="ghost" title="🔔 Ask Outstanding To Sign" onPress={async () => {
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+          <Button small grow oneLine kind="ghost" title="🔔 Ask Outstanding To Sign" onPress={async () => {
             const out = outstanding(kind, data.roster, data.docs, data.sigs);
             if (!out.length) { toast(`Everyone on this site has signed all ${label} documents.`); return; }
             if (!(await confirmAsk(`Send a sign-reminder notification to ${out.length} operative${out.length === 1 ? '' : 's'} who still have ${label} to sign?`, 'Send'))) return;
             toast(await sendSignReminder(kind, site.id, out));
-          }} /></View>
-          <View style={{ flex: 1 }}><Button grow kind="ghost" title="Export" onPress={() => setPicking('export')} /></View>
-          {isFullManager(me) && <View style={{ flex: 1 }}><Button grow kind="ghost" title="Email" onPress={() => setPicking('email')} /></View>}
+          }} />
+          <Button small grow oneLine kind="ghost" title="Export" onPress={() => setPicking('export')} />
+          {isFullManager(me) && <Button small grow oneLine kind="ghost" title="Email" onPress={() => setPicking('email')} />}
         </View>
       )}
       {picking && data && (

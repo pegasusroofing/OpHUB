@@ -35,6 +35,19 @@ export async function saveDocBoxes(docId: string, boxes: SBox[]): Promise<boolea
   return !!(await db.from('rams_docs').update({ sign_layout: { v: 2, boxes, multi: true } } as never).eq('id', docId).select('id')).data?.length;
 }
 export const boxesOf = (l: SignLayout) => layoutBoxes(l) as SBox[];
+/** The other half of a RAMS made together in the builder (its Risk Assessment ↔ Method Statement), while it's still
+ *  the current one: so the people given boxes on one can be added to the other (Andy, 14 Nov 2026). */
+export async function ramsPartner(docId: string): Promise<{ id: string; name: string; label: string; boxes: SBox[] } | null> {
+  const asRa = (await db.from('rams_builds').select('ra_doc_id,ms_doc_id').eq('ra_doc_id', docId).limit(1)).data as { ra_doc_id: string | null; ms_doc_id: string | null }[] | null;
+  const asMs = asRa?.length ? null : (await db.from('rams_builds').select('ra_doc_id,ms_doc_id').eq('ms_doc_id', docId).limit(1)).data as { ra_doc_id: string | null; ms_doc_id: string | null }[] | null;
+  const pid = asRa?.[0]?.ms_doc_id || asMs?.[0]?.ra_doc_id;
+  if (!pid || pid === docId) return null;
+  const p = (await db.from('rams_docs').select('id,name,status,sign_layout').eq('id', pid).maybeSingle()).data as { id: string; name: string; status: string | null; sign_layout: SignLayout } | null;
+  if (!p || (p.status && p.status !== 'current')) return null;
+  return { id: p.id, name: p.name, label: asRa?.length ? 'Method Statement' : 'Risk Assessment', boxes: boxesOf(p.sign_layout) };
+}
+/** Who has boxes, in the order they first appear (Operative 1, Client 1, …). */
+export const signersOf = (boxes: SBox[]) => Array.from(new Set(boxes.map((b) => b.w)));
 export function layoutSummary(l: SignLayout) {
   const n = layoutBoxes(l).length; if (!n) return '';
   const ops = layoutSlots(l), cl = layoutClients(l), pm = layoutBoxes(l).some((b) => b.w === 'pm');

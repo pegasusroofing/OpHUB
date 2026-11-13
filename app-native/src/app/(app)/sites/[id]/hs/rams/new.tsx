@@ -1,6 +1,7 @@
 // Create RAMS (586 renderRamsNew): name it, then start blank, from one or more templates (a closed drop-down, Andy
 // 4 Nov 2026), by copying other jobs' RAMS, and / or with the AI writer (admins). Extra tasks are added in the builder.
-// PMs and admins only.
+// PMs and admins only. When the job already has RAMS, Create asks whether the new one replaces one of them or is
+// additional to them (Andy, 14 Nov 2026).
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -9,7 +10,8 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { chooseAction, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted, Toggle } from '@/components/ui';
 import { AiTasksInput, askAiCharge } from '@/components/RamsAiBox';
-import { aiFillBuild, createBuild, useLibrary, useOrgBuilds } from '@/data/ramsBuilder';
+import { useHsDocs } from '@/data/hs';
+import { aiFillBuild, createBuild, useLibrary, useOrgBuilds, useSiteBuilds } from '@/data/ramsBuilder';
 import { useSite, useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { starterRows } from '@/lib/rules/ramsStarter';
@@ -26,6 +28,8 @@ export default function RamsNew() {
   const { data: sites = [] } = useSites();
   const { data: lib = [] } = useLibrary(me?.org_id);
   const { data: builds = [] } = useOrgBuilds(me?.org_id);
+  const { data: hs } = useHsDocs('rams', site);
+  const { data: jobBuilds = [] } = useSiteBuilds(id);
   const qc = useQueryClient();
   const toast = useToast();
   const [title, setTitle] = useState<string | null>(null);
@@ -45,6 +49,27 @@ export default function RamsNew() {
   const bySite: Record<string, typeof builds> = {};
   builds.forEach((b) => { (bySite[b.site_id] = bySite[b.site_id] || []).push(b); });
   const copySites = Object.keys(bySite).map((sid) => ({ id: sid, name: siteName(sid), n: bySite[sid].length })).sort((x, y) => x.name.localeCompare(y.name));
+  // The job's current RAMS: replace one of them, or add this one alongside. An issued RAMS made here is offered as one
+  // (its Risk Assessment and Method Statement together); an uploaded one on its own. null = closed with the ✕.
+  const askReplace = async (): Promise<{ ra?: string | null; ms?: string | null } | null> => {
+    const docs = hs?.docs ?? [];
+    if (!docs.length) return {};
+    const cur = new Set(docs.map((x) => x.id));
+    const live = (d: string | null | undefined) => (d && cur.has(d) ? d : null);
+    const sets = jobBuilds.filter((b) => live(b.ra_doc_id) || live(b.ms_doc_id));
+    const inSets = new Set(sets.flatMap((b) => [live(b.ra_doc_id), live(b.ms_doc_id)]).filter(Boolean));
+    const loose = docs.filter((x) => !inSets.has(x.id));
+    const k = await chooseAction(`This Job Has ${docs.length} RAMS: Supersede One, Or Add To Them?`, [
+      { key: 'add', label: '➕ Additional To The Existing RAMS' },
+      ...sets.map((b) => ({ key: `b:${b.id}`, label: `↻ Supersedes: ${b.title}${live(b.ra_doc_id) && live(b.ms_doc_id) ? ' (Risk Assessment + Method Statement)' : ''}` })),
+      ...loose.map((x) => ({ key: `d:${x.id}`, label: `↻ Supersedes: ${x.name}` })),
+    ]);
+    if (!k) return null;
+    const b = sets.find((x) => `b:${x.id}` === k);
+    if (b) return { ra: live(b.ra_doc_id), ms: live(b.ms_doc_id) };
+    const d = loose.find((x) => `d:${x.id}` === k);
+    return d ? (d.doc_type === 'Method Statement' ? { ms: d.id } : { ra: d.id }) : {};
+  };
   const tick = (arr: string[], set: (v: string[]) => void, v: string) => set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
@@ -86,10 +111,11 @@ export default function RamsNew() {
       </Card>}
       <View style={{ marginTop: 6 }}><Button title="Create RAMS" busy={busy} onPress={async () => {
         if (busy) return;
+        const replaces = await askReplace(); if (!replaces) return;
         if (isCompanyAdmin(me) && aiText.trim() && !(await askAiCharge())) return;
         setBusy(true);
         try {
-          const r = await createBuild(me, org as never, site, id, name.trim() || 'RAMS', tpls, copies);
+          const r = await createBuild(me, org as never, site, id, name.trim() || 'RAMS', tpls, copies, [], replaces);
           if (typeof r === 'string') { toast(r); return; }
           const ai = isCompanyAdmin(me) ? aiText.trim() : '';
           let aiErr: string | null = null;

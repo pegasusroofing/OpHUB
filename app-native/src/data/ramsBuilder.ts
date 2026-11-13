@@ -16,9 +16,9 @@ const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => 
 type Me = Profile & { signature_path?: string | null };
 type Org = (Organization & { rams_settings?: Partial<RamsSettings> | null }) | null;
 
-export type BuildRow = { id: string; title: string; site_id: string; status: string | null; revision: number; updated_at: string };
+export type BuildRow = { id: string; title: string; site_id: string; status: string | null; revision: number; updated_at: string; ra_doc_id?: string | null; ms_doc_id?: string | null };
 export function useSiteBuilds(siteId: string | undefined) {
-  return useQuery({ queryKey: ['ramsBuilds', siteId], enabled: !!siteId, queryFn: async () => ((await db.from('rams_builds').select('id,title,site_id,status,revision,updated_at').eq('site_id', siteId as string).order('updated_at', { ascending: false })).data as BuildRow[] | null) ?? [] });
+  return useQuery({ queryKey: ['ramsBuilds', siteId], enabled: !!siteId, queryFn: async () => ((await db.from('rams_builds').select('id,title,site_id,status,revision,updated_at,ra_doc_id,ms_doc_id').eq('site_id', siteId as string).order('updated_at', { ascending: false })).data as BuildRow[] | null) ?? [] });
 }
 export function useOrgBuilds(orgId: string | null | undefined) {
   return useQuery({ queryKey: ['ramsBuildsOrg', orgId], enabled: !!orgId, queryFn: async () => ((await db.from('rams_builds').select('id,title,site_id,status,updated_at,revision').eq('org_id', orgId as string).order('updated_at', { ascending: false }).limit(500)).data as BuildRow[] | null) ?? [] });
@@ -67,7 +67,9 @@ async function takeNumbers(): Promise<{ ra: number; ms: number } | null> {
     return d && d.ok && Number(d.ra) > 0 && Number(d.ms) > 0 ? { ra: Number(d.ra), ms: Number(d.ms) } : null;
   } catch { return null; }
 }
-export async function createBuild(me: Me, org: Org, site: Site | undefined, siteId: string, title: string, tplIds: string[], copyIds: string[], ownTasks: string[] = []): Promise<{ id: string; missing: string[] } | string> {
+/** replaces: the job's current RAMS this new one takes over from (Andy, 14 Nov 2026). Issuing it then marks them superseded,
+ *  the same as re-issuing does. */
+export async function createBuild(me: Me, org: Org, site: Site | undefined, siteId: string, title: string, tplIds: string[], copyIds: string[], ownTasks: string[] = [], replaces: { ra?: string | null; ms?: string | null } = {}): Promise<{ id: string; missing: string[] } | string> {
   const st = await loadSettings(org);
   const details = defaultsFor(me, site, st);
   const pm = await pmContact(me, site);
@@ -77,7 +79,7 @@ export async function createBuild(me: Me, org: Org, site: Site | undefined, site
   const lib = tplIds.length ? await loadLibrary(me.org_id) : [];
   const srcs = copyIds.length ? (((await db.from('rams_builds').select('*').in('id', copyIds)).data as Record<string, unknown>[] | null) ?? []).sort((x, y) => copyIds.indexOf(String(x.id)) - copyIds.indexOf(String(y.id))) : [];
   const out = combineStart(lib, tplIds, srcs as never, details);
-  const r = await db.from('rams_builds').insert({ org_id: me.org_id, site_id: siteId, title, details: out.details, hazards: out.hazards, sections: [...out.sections, ...ownTasks.map((t) => ({ id: ramsUid(), part: 'method' as const, title: t, body: '', steps: [] }))], ppe: out.ppe, created_by: me.id } as never).select('id').single();
+  const r = await db.from('rams_builds').insert({ org_id: me.org_id, site_id: siteId, title, details: out.details, hazards: out.hazards, sections: [...out.sections, ...ownTasks.map((t) => ({ id: ramsUid(), part: 'method' as const, title: t, body: '', steps: [] }))], ppe: out.ppe, created_by: me.id, ...(replaces.ra ? { ra_doc_id: replaces.ra } : {}), ...(replaces.ms ? { ms_doc_id: replaces.ms } : {}) } as never).select('id').single();
   const id = (r.data as { id: string } | null)?.id;
   if (!id) return 'Could not create the RAMS — try again.';
   // Numbers couldn't be taken up front: move the saved counter on.
