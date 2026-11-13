@@ -29,7 +29,7 @@ import { nextSort, sortRows, type FinSort } from '@/lib/rules/finTable';
 import { quoteReport, REPORTS, type ReportKey } from '@/lib/rules/quoteReports';
 import { chaseStatus, clientNames, groupQuotes, isQuoted, outcomeOf, OUTCOMES, statusWord, WORK_STATUS, type Outcome } from '@/lib/rules/quotes';
 import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
-import { base, page, radius, useDesk } from '@/theme/theme';
+import { base, page, useDesk } from '@/theme/theme';
 
 const money = (n: number | null | undefined) => (n ? `£${Math.round(n).toLocaleString('en-GB')}` : '—');
 const ukd = (d: string | null | undefined) => (d ? new Date(`${d.slice(0, 10)}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : '—');
@@ -172,14 +172,16 @@ export default function Quotes() {
     const on = psort?.k === k;
     return (
       <Pressable key={k} accessibilityRole="button" accessibilityLabel={`Sort by ${l}`} onPress={() => setPsort(nextSort(psort, k))} style={w ? { width: w } : { flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={1} style={{ textAlign: align, fontSize: 10.5, fontWeight: '700', color: on ? base.ink : base.slate, letterSpacing: 0.3, textDecorationLine: 'underline' }}>{l.toUpperCase()}{on ? (psort?.dir === 'asc' ? ' ▲' : ' ▼') : ''}</Text>
+        <Text numberOfLines={1} style={{ textAlign: align, fontSize: 9, fontWeight: '700', color: on ? base.ink : base.slate, letterSpacing: 0.3, textDecorationLine: 'underline' }}>{l.toUpperCase()}{on ? (psort?.dir === 'asc' ? ' ▲' : ' ▼') : ''}</Text>
       </Pressable>
     );
   };
-  // A box per column, the same size as the app's other boxes on a phone (the page set-up stops an iPhone zooming into them).
+  // A box per column. The heading and search rows are 1.2 × smaller than the app's usual (Andy, 14 Nov 2026): 25px boxes
+  // with 12px writing (data-compact, see lib/webShell); the page set-up stops an iPhone zooming into them.
   const colBox = (k: string, ph: string, w?: number) => (
     <TextInput key={k} value={colQ[k] || ''} onChangeText={(t) => { setColQ({ ...colQ, [k]: t }); setShown(100); }} placeholder={ph} accessibilityLabel={`Search ${ph}`} placeholderTextColor="#9AA1AB" autoCapitalize="none" autoCorrect={false}
-      style={[{ height: 30, paddingHorizontal: 6, paddingVertical: 0, borderWidth: 1, borderColor: colQ[k]?.trim() ? base.ink : base.line, borderRadius: 7, backgroundColor: '#fff', fontSize: 16, color: base.ink }, w ? { width: w } : { flex: 1, minWidth: 0 }]} />
+      {...({ dataSet: { compact: '1' } } as object)}
+      style={[{ height: 25, paddingHorizontal: 5, paddingVertical: 0, borderWidth: 1, borderColor: colQ[k]?.trim() ? base.ink : base.line, borderRadius: 6, backgroundColor: '#fff', fontSize: 12, color: base.ink }, w ? { width: w } : { flex: 1, minWidth: 0 }]} />
   );
   const pickSt = async () => {
     const k = await chooseAction('Status', [{ key: '*', label: `${stPick ? '' : '✓ '}Any Status` }, ...stChoices.map((s) => ({ key: s, label: `${stPick === s ? '✓ ' : ''}${s}` }))]);
@@ -187,16 +189,16 @@ export default function Quotes() {
   };
   const phoneTable = (
     <View accessibilityLabel="Quotes table" style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, overflow: 'hidden' }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 9, paddingBottom: 6, paddingHorizontal: 10, backgroundColor: '#F6F7F9' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 7.5, paddingBottom: 5, paddingHorizontal: 10, backgroundColor: '#F6F7F9' }}>
         {sortHead('p', 'Project')}
         {tab === 'live' ? sortHead('d', 'Due Back', W.d, 'center') : tab === 'quoted' ? <>{sortHead('v', 'Value', W.v, 'center')}{sortHead('c', 'Chase', W.c, 'center')}</> : sortHead('d', 'Date', W.d, 'center')}
         {sortHead('s', 'Status', W.s, 'center')}
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingBottom: 8, paddingHorizontal: 10, backgroundColor: '#F6F7F9' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingBottom: 6.5, paddingHorizontal: 10, backgroundColor: '#F6F7F9' }}>
         {colBox('p', 'Project')}
         {tab === 'quoted' ? <>{colBox('v', 'Value', W.v)}{colBox('c', 'Chase', W.c)}</> : colBox('d', 'Date', W.d)}
-        <Pressable accessibilityRole="button" accessibilityLabel="Search Status" onPress={() => void pickSt()} style={{ width: W.s, height: 30, borderWidth: 1, borderColor: stPick ? base.ink : base.line, borderRadius: 7, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
-          <Text numberOfLines={1} style={{ fontSize: 12, color: stPick ? base.ink : '#9AA1AB' }}>{stPick || 'All'} ▾</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Search Status" onPress={() => void pickSt()} style={{ width: W.s, height: 25, borderWidth: 1, borderColor: stPick ? base.ink : base.line, borderRadius: 6, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
+          <Text numberOfLines={1} style={{ fontSize: 10, color: stPick ? base.ink : '#9AA1AB' }}>{stPick || 'All'} ▾</Text>
         </Pressable>
       </View>
       {!rows.length && <Text style={{ padding: 14, textAlign: 'center', color: base.slate, borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>No quotes match.</Text>}
@@ -217,7 +219,7 @@ export default function Quotes() {
             ? <Pressable accessibilityRole="button" accessibilityLabel={`Chase date: ${x.title}`} onPress={() => void setChase(x)} style={{ marginLeft: 6, alignSelf: 'stretch', justifyContent: 'center' }}>{mid(x.next_chase_date ? dm(x.next_chase_date) : 'Set', W.c, { sub: x.chase_on ? 'Auto' : '', bold: false })}</Pressable>
             : <Pressable accessibilityRole="button" accessibilityLabel={`${x.title}: no chase`} onPress={() => go(x)} style={{ marginLeft: 6, alignSelf: 'stretch', justifyContent: 'center' }}>{mid('—', W.c, { bold: false })}</Pressable>)}
           <Pressable accessibilityRole="button" accessibilityLabel={`${x.title}: ${statusWord(x)}`} onPress={() => (isQuoted(x) ? go(x) : void setWork(x))} style={{ marginLeft: 6, paddingRight: 10, alignSelf: 'stretch', justifyContent: 'center' }}>
-            <Text numberOfLines={2} style={{ width: W.s, textAlign: 'center', fontSize: 11.5, fontWeight: '600', color: x.status === 'won' || !isQuoted(x) ? base.ink : base.slate }}>{statusWord(x)}{isQuoted(x) ? '' : ' ▾'}</Text>
+            <Text numberOfLines={2} style={{ width: W.s, textAlign: 'center', fontSize: 11.5, fontWeight: '600', color: x.status === 'won' || !isQuoted(x) ? base.ink : base.slate }}>{statusWord(x) === 'Awaiting Information' ? 'Awaiting Info' : statusWord(x)}{isQuoted(x) ? '' : ' ▾'}</Text>
           </Pressable>
         </View>
       ))}
@@ -278,8 +280,7 @@ export default function Quotes() {
           { key: 'year', label: 'Year', items: distinct(yearOf).reverse().map((v) => ({ v, l: v })) },
         ]} /> : (
         <>
-          <TextInput value={q} onChangeText={(t) => { setQ(t); setShown(100); }} placeholder="Search Customer, Project, Address…" placeholderTextColor="#9AA1AB" accessibilityLabel="Search quotes"
-            style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: base.card, color: base.ink, marginBottom: 10, fontSize: 16 }} />
+          {/* No search bar above the table on a phone (Andy, 14 Nov 2026): the Project box finds the customer and address too. */}
           {/* A filter set elsewhere (the Win Rate tile picks this year): shown, with ✕ to show everything again. */}
           {selWords.length > 0 && (
             <Pressable accessibilityRole="button" accessibilityLabel="Show all quotes" onPress={() => setSel({ client: [], disc: [], by: [], year: [], st: [] })} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>

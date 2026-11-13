@@ -22,6 +22,8 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     #root { width: 100%; height: 100%; height: 100dvh; overflow: hidden; }
     /* Boxes a touch smaller on a phone (Andy, 7 Nov 2026: 0.9x); maximum-scale=1 above stops Safari zooming into them. */
     @media (pointer: coarse), (max-width: 1099px) { input, textarea, select { font-size: 14.4px !important; } }
+    /* The small search boxes under a phone table's headings (Quotes, Andy 14 Nov 2026: 1.2x smaller). */
+    @media (pointer: coarse), (max-width: 1099px) { input[data-compact="1"] { font-size: 12px !important; } }
   `;
   document.head.appendChild(style);
 }

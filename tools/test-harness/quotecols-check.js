@@ -1,5 +1,6 @@
 // Quotes on a phone, as the laptop table (Andy, 14 Nov 2026): tap a heading to sort (A to Z, Z to A, off), a search box
-// under each column (Status a ▾ choice), and no Filter / Sort buttons. Touch phone, fake database. node quotecols-check.js
+// under each column (Status a ▾ choice), and no Filter / Sort buttons. Then (same day): those two rows 1.2 × smaller and no
+// search bar above the table. Touch phone, fake database. node quotecols-check.js
 const {chromium, makeContext} = require('./harness');
 const path = require('path');
 const B = 'http://localhost:8081';
@@ -31,10 +32,12 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   const tap = async (label) => { await page.locator(`[aria-label="${label}"] >> visible=true`).first().click(); await page.waitForTimeout(500); };
 
   check(await page.locator('[aria-label="Filter"] >> visible=true').count() === 0 && await page.locator('[aria-label="Sort"] >> visible=true').count() === 0, 'no Filter or Sort buttons on the phone');
-  check(await page.locator('[aria-label="Search quotes"] >> visible=true').count() === 1, 'the search box at the top is still there');
+  check(await page.locator('[aria-label="Search quotes"] >> visible=true').count() === 0 && !/Search Customer, Project, Address/.test(await page.locator('body').innerText()), 'no search bar above the table');
   const fs = await page.locator('[aria-label="Search Project"] >> visible=true').first().evaluate((e) => getComputedStyle(e).fontSize);
   const vp = await page.evaluate(() => document.querySelector('meta[name="viewport"]').getAttribute('content'));
-  check(fs === '14.4px' && /maximum-scale=1/.test(vp), `the column boxes are the app's phone size (${fs}) and the page won't zoom into them`);
+  const bh = (await page.locator('[aria-label="Search Project"] >> visible=true').first().boundingBox()).height;
+  const hs = await page.locator('[aria-label="Sort by Project"] >> visible=true').first().evaluate((e) => getComputedStyle(e.querySelector('div') || e).fontSize);
+  check(fs === '12px' && Math.round(bh) === 25 && hs === '9px' && /maximum-scale=1/.test(vp), `heading and search rows 1.2 × smaller: boxes ${Math.round(bh)}px high, writing ${fs}, headings ${hs}; the page won't zoom into them`);
   const o0 = await order();
   await tap('Sort by Project'); const o1 = await order();
   check(o1.join('|') === 'Brighton Depot|Hove Flats re-roof|Lewes Barns', `Project heading: A to Z (${o1.join(', ')})`);
