@@ -1,7 +1,7 @@
 // Andy's notes of 14 Nov 2026 (2), touch phone, fake database:
 //  1. signature boxes: ‹ Page 1 of 2 › sits just above the document, with "1 more page after this one";
 //  2. ↶ Undo takes back a box drawn by mistake; 🗑 deletes the box tapped on;
-//  3. sending a RAMS to the client: the second pop-up (their name) sits in the middle of the screen;
+//  3. sending a RAMS to the client: one pop-up, the name with the email below it;
 //  4. viewing a RAMS: two-finger pinch and double-tap zoom the pages.
 // node andy14b-check.js
 const {chromium, makeContext, S1} = require('./harness');
@@ -63,19 +63,24 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByLabel('Next page').first().click(); await page.waitForTimeout(800);
   check(await page.getByText(/^Page 2 of 2$/).count() === 1 && await page.getByText(/more page/).count() === 0, '› goes to page 2');
 
-  // ---- 3: client pop-ups ----
+  // ---- 3: sending to the client: one pop-up, name then email (Andy, 14 Nov 2026) ----
+  const sent = []; global.__fn = (name, body) => { if (name === 'client-sign') { sent.push(body); return {ok: true, id: 'cs1'}; } return undefined; };
   await page.goto(B + '/sites/' + S1 + '/hs/rams'); await page.waitForTimeout(5000);
+  const vp = page.viewportSize();
   const sendLine = page.getByText(/Send to client to sign/).first();
   await sendLine.scrollIntoViewIfNeeded(); await sendLine.click(); await page.waitForTimeout(800);
-  const vp = page.viewportSize();
-  await page.locator('input >> visible=true').last().fill('client@example.com');
-  await page.screenshot({path: path.join(SHOTS, 'b-client-1.png')});
-  await page.getByText('OK', {exact: true}).last().click(); await page.waitForTimeout(900);
-  const card = await page.getByText(/Client’s name/).first().evaluate((e) => { let n = e; while (n && !(getComputedStyle(n).position === 'absolute' && getComputedStyle(n).borderRadius === '16px')) n = n.parentElement; const r = (n || e).getBoundingClientRect(); return {x: r.x, y: r.y, w: r.width, h: r.height}; });
-  const cx = card.x + card.w / 2, cy = card.y + card.h / 2;
-  check(Math.abs(cx - vp.width / 2) < 20 && Math.abs(cy - vp.height / 2) < 40, `the second pop-up (client's name) is in the middle of the screen (centre ${Math.round(cx)}, ${Math.round(cy)} of ${vp.width}×${vp.height})`);
-  await page.screenshot({path: path.join(SHOTS, 'b-client-2.png')});
-  await page.getByLabel('Close').last().click(); await page.waitForTimeout(500);
+  const nm = await page.getByLabel('Client name').first().boundingBox(), em = await page.getByLabel('Client email').first().boundingBox();
+  check(/Send To Client To Sign/.test(await page.locator('body').innerText()) && nm && em && nm.y < em.y, 'one pop-up: Name, with Email below it');
+  await page.getByLabel('Client name').first().fill('Sue Client');
+  await page.getByLabel('Client email').first().fill('');
+  await page.getByText('Send', {exact: true}).last().click(); await page.waitForTimeout(500);
+  check(/Enter a valid email address/.test(await page.locator('body').innerText()) && await page.getByLabel('Client name').count() === 1 && !sent.length, 'no email: it says so and stays open');
+  await page.getByLabel('Client email').first().fill('sue@example.com');
+  await page.screenshot({path: path.join(SHOTS, 'b-client-one.png')});
+  await page.getByText('Send', {exact: true}).last().click(); await page.waitForTimeout(1500);
+  check(sent.length === 1 && sent[0].client_email === 'sue@example.com' && sent[0].client_name === 'Sue Client' && sent[0].rams_id === 'rd1', `Send sends it, with the name and email (${JSON.stringify(sent[0] || {})})`);
+  check(await page.getByLabel('Client name').count() === 0 && !/Client’s name/.test(await page.locator('body').innerText()), 'and no second pop-up follows');
+  global.__fn = undefined;
 
   // ---- 4: viewer zoom ----
   await page.getByText('View', {exact: true}).first().click(); await page.waitForTimeout(5000);
