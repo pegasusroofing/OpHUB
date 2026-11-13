@@ -60,6 +60,17 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.goto(B + '/fin/sales?tab=apps'); await page.waitForTimeout(5000);
   t = await tableText('Applications');
   check(await noBars() && /▾/.test(t) && await page.locator('[aria-label="Search Amount"] >> visible=true').count() === 1, 'Applications: a ▾ under Amount, no Filter / Sort');
+  // Andy, 14 Nov: the Amount heading and its ▾ box centred in the column; the amounts stay on the right.
+  const am = await page.evaluate(() => {
+    const v = (sel) => [...document.querySelectorAll(sel)].find((e) => e.getBoundingClientRect().width > 0);
+    const mid = (e) => { const r = e.getBoundingClientRect(); return r.left + r.width / 2; };
+    const h = v('[aria-label="Sort by Amount"]'), ht = h.querySelector('div') || h, b = v('[aria-label="Search Amount"]'), bt = b.querySelector('div') || b;
+    const rng = document.createRange(); rng.selectNodeContents(ht); const hw = rng.getBoundingClientRect();
+    const rng2 = document.createRange(); rng2.selectNodeContents(bt); const bw = rng2.getBoundingClientRect();
+    const tbl = v('[aria-label="Applications"]'), money = [...tbl.querySelectorAll('div')].find((e) => /^£/.test(e.textContent) && !e.children.length);
+    return {head: hw.left + hw.width / 2 - mid(h), box: bw.left + bw.width / 2 - mid(b), cols: mid(h) - mid(b), moneyRight: money ? tbl.getBoundingClientRect().right - money.getBoundingClientRect().right : null};
+  });
+  check(Math.abs(am.head) <= 1 && Math.abs(am.box) <= 1 && Math.abs(am.cols) <= 1 && am.moneyRight !== null && am.moneyRight < 14, `Applications: AMOUNT and its ▾ centred, amounts still on the right (${am.head.toFixed(1)}, ${am.box.toFixed(1)}, ${am.cols.toFixed(1)}, ${am.moneyRight && am.moneyRight.toFixed(1)})`);
   await page.screenshot({path: path.join(SHOTS, 'fin-apps.png')});
 
   // ---- Labour invoices ----

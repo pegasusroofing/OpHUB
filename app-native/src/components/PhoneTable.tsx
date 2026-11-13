@@ -17,14 +17,16 @@ export type PChoose<T> = { opts: [string, string][]; test: (r: T, v: string) => 
 // k: the column's key (the heading if not given). center: the column's writing is centred. sort: what it sorts by (else
 // the words shown). find: the words its search box looks through (else what's shown, both lines). match: the box's own
 // test (Value ">50k"). ph: the box's grey word (else the heading). choose: a ▾ choice instead of a box. noFind: no box.
-// bigFirst: the first tap sorts biggest first (money; Andy, 7 Nov 2026), then smallest, then off.
+// bigFirst: the first tap sorts biggest first (money; Andy, 7 Nov 2026), then smallest, then off. headCenter: the heading
+// and its search box centred, the rows keep their own alignment (Applications' Amount; Andy, 14 Nov 2026).
 export type PCol<T> = {
   k?: string; l: string; w?: number; right?: boolean; center?: boolean; main: (r: T) => ReactNode; sub?: (r: T) => ReactNode; tone?: (r: T) => string | undefined; bold?: boolean;
-  sort?: (r: T) => string | number | null | undefined; noSort?: boolean; find?: (r: T) => string; match?: (r: T, q: string) => boolean; ph?: string; choose?: PChoose<T>; noFind?: boolean; bigFirst?: boolean;
+  sort?: (r: T) => string | number | null | undefined; noSort?: boolean; find?: (r: T) => string; match?: (r: T, q: string) => boolean; ph?: string; choose?: PChoose<T>; noFind?: boolean; bigFirst?: boolean; headCenter?: boolean;
 };
 
 const keyOfCol = <T,>(c: PCol<T>) => c.k || c.l;
 const alignOf = <T,>(c: PCol<T>): 'left' | 'center' | 'right' => (c.right ? 'right' : c.center ? 'center' : 'left');
+const headAlign = <T,>(c: PCol<T>) => (c.headCenter ? 'center' : alignOf(c));
 const boxOf = <T,>(c: PCol<T>) => (c.w ? { width: c.w } : { flex: 1, minWidth: 0 });
 /** The words in a cell, for searching and sorting. */
 export function plainText(n: ReactNode): string {
@@ -65,7 +67,7 @@ export function PhoneHeads<T>({ cols, find, pad = 10 }: { cols: PCol<T>[]; find:
         const k = keyOfCol(c), on = find.sort?.k === k, can = !c.noSort;
         return (
           <Pressable key={k} disabled={!can} accessibilityRole={can ? 'button' : undefined} accessibilityLabel={can ? `Sort by ${c.l}` : undefined} onPress={() => find.setSort(c.bigFirst ? (find.sort?.k !== k ? { k, dir: 'desc' } : find.sort.dir === 'desc' ? { k, dir: 'asc' } : null) : nextSort(find.sort, k))} style={boxOf(c)}>
-            <Text numberOfLines={1} style={{ textAlign: alignOf(c), fontSize: 10.5, fontWeight: '700', color: on ? base.ink : base.slate, letterSpacing: 0.3, textDecorationLine: can ? 'underline' : 'none' }}>{c.l.toUpperCase()}{on ? (find.sort?.dir === 'asc' ? ' ▲' : ' ▼') : ''}</Text>
+            <Text numberOfLines={1} style={{ textAlign: headAlign(c), fontSize: 10.5, fontWeight: '700', color: on ? base.ink : base.slate, letterSpacing: 0.3, textDecorationLine: can ? 'underline' : 'none' }}>{c.l.toUpperCase()}{on ? (find.sort?.dir === 'asc' ? ' ▲' : ' ▼') : ''}</Text>
           </Pressable>
         );
       })}
@@ -80,7 +82,7 @@ export function PhoneFindRow<T>({ cols, find, pad = 10 }: { cols: PCol<T>[]; fin
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingBottom: 6.5, paddingHorizontal: pad, backgroundColor: '#F6F7F9' }}>
       {cols.map((c, i) => {
-        const k = keyOfCol(c), a = alignOf(c);
+        const k = keyOfCol(c), a = headAlign(c);
         const pos = a === 'left' ? (i === 0 ? { marginLeft: -6, paddingLeft: 5, paddingRight: 5 } : { marginLeft: -4, paddingLeft: 3, paddingRight: 3 })
           : a === 'right' ? (i === cols.length - 1 ? { marginRight: -6, paddingRight: 5, paddingLeft: 5 } : { marginRight: -4, paddingRight: 3, paddingLeft: 3 }) : { paddingHorizontal: 3 };
         const frame = { height: 25, borderWidth: 1, borderRadius: 6, backgroundColor: '#fff' };

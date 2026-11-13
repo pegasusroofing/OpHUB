@@ -156,7 +156,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
             cols={[
               { l: 'App', w: 52, main: (a) => `${a.number}`, sub: (a) => fdate(a.valuation_date), sort: (a) => Number(a.number) || 0 },
               { l: siteId ? 'Stage' : 'Project', main: (a) => (siteId ? appStage(a).l : jobTag(site(a.site_id))), sub: (a) => (siteId ? '' : appStage(a).l), find: (a) => `${jobTag(site(a.site_id))} ${site(a.site_id)?.client_name || ''} ${appStage(a).l}` },
-              { l: 'Amount', w: 88, right: true, bold: true, bigFirst: true, main: (a) => money(a.cert_net ?? a.net_due), sub: (a) => (a.cert_net != null ? 'Certified' : 'Applied'), sort: (a) => Number(a.cert_net ?? a.net_due ?? 0),
+              { l: 'Amount', w: 88, right: true, headCenter: true, bold: true, bigFirst: true, main: (a) => money(a.cert_net ?? a.net_due), sub: (a) => (a.cert_net != null ? 'Certified' : 'Applied'), sort: (a) => Number(a.cert_net ?? a.net_due ?? 0),
                 choose: { opts: [['', 'All'], ['open', 'In Progress'], ['certified', 'Certified'], ['invoiced', 'Invoiced']], test: (a, v) => (F[v] ? F[v](a) : true), start: f0 === 'all' ? '' : f0 || first || '' } },
             ]} />
         ) : <Empty>Nothing here.</Empty>}
