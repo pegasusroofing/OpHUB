@@ -85,6 +85,9 @@ export function PhoneFindRow<T>({ cols, find, pad = 10 }: { cols: PCol<T>[]; fin
         const k = keyOfCol(c), a = headAlign(c);
         const pos = a === 'left' ? (i === 0 ? { marginLeft: -6, paddingLeft: 5, paddingRight: 5 } : { marginLeft: -4, paddingLeft: 3, paddingRight: 3 })
           : a === 'right' ? (i === cols.length - 1 ? { marginRight: -6, paddingRight: 5, paddingLeft: 5 } : { marginRight: -4, paddingRight: 3, paddingLeft: 3 }) : { paddingHorizontal: 3 };
+        // A set-width box reaching past its column is that much wider, so the boxes after it stay under their headings.
+        const out = -Number((pos as { marginLeft?: number }).marginLeft || (pos as { marginRight?: number }).marginRight || 0);
+        const size = c.w ? { width: c.w + out } : boxOf(c);
         const frame = { height: 25, borderWidth: 1, borderRadius: 6, backgroundColor: '#fff' };
         if (c.noFind) return <View key={k} style={boxOf(c)} />;
         if (c.choose) {
@@ -93,7 +96,7 @@ export function PhoneFindRow<T>({ cols, find, pad = 10 }: { cols: PCol<T>[]; fin
             <Pressable key={k} accessibilityRole="button" accessibilityLabel={`Search ${c.l}`} onPress={async () => {
               const got = await chooseAction(c.l, ch.opts.map(([x, l]) => ({ key: x || '*', label: `${x === v ? '✓ ' : ''}${l}` })));
               if (got) find.setPick({ ...find.pick, [k]: got === '*' ? '' : got });
-            }} style={[boxOf(c), frame, pos, { borderColor: v ? base.ink : base.line, justifyContent: 'center', alignItems: a === 'left' ? 'flex-start' : a === 'right' ? 'flex-end' : 'center' }]}>
+            }} style={[size, frame, pos, { borderColor: v ? base.ink : base.line, justifyContent: 'center', alignItems: a === 'left' ? 'flex-start' : a === 'right' ? 'flex-end' : 'center' }]}>
               <Text numberOfLines={1} style={{ fontSize: 10, color: v ? base.ink : '#9AA1AB' }}>{label} ▾</Text>
             </Pressable>
           );
@@ -101,7 +104,7 @@ export function PhoneFindRow<T>({ cols, find, pad = 10 }: { cols: PCol<T>[]; fin
         return (
           <TextInput key={k} value={find.q[k] || ''} onChangeText={(t) => find.setQ({ ...find.q, [k]: t })} placeholder={c.ph || c.l} accessibilityLabel={`Search ${c.l}`} placeholderTextColor="#9AA1AB" autoCapitalize="none" autoCorrect={false}
             {...({ dataSet: { compact: '1' } } as object)}
-            style={[boxOf(c), frame, pos, { paddingVertical: 0, borderColor: (find.q[k] || '').trim() ? base.ink : base.line, fontSize: 12, color: base.ink, textAlign: a }]} />
+            style={[size, frame, pos, { paddingVertical: 0, borderColor: (find.q[k] || '').trim() ? base.ink : base.line, fontSize: 12, color: base.ink, textAlign: a }]} />
         );
       })}
     </View>

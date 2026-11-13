@@ -16,6 +16,7 @@ import { FinFilterBar, ThinExportBar, type FilterPart, type FilterSel } from '@/
 import { exportTableExcel, exportTablePdf, type TCol } from '@/lib/tableExport';
 import { FinRow, FinStat, FinTabs } from '@/components/FinNav';
 import { Cell, FinChoicePop, FinInfoPop, FinTable, FootPick } from '@/components/FinTable';
+import { PhoneTable } from '@/components/PhoneTable';
 import { SelectBox } from '@/components/SelectBox';
 import { TypePick } from '@/components/TypePick';
 import { pickJob } from '@/components/FinSales';
@@ -245,7 +246,10 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     return (
       <View>
         {!!siteId && <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ New PO" onPress={() => void withJob('New purchase order', (sid) => `/fin/po/new?site=${sid}`)} /></View>}
-        {bar('Search PO, supplier or project', [{ key: 'status', label: 'Status', items: [['open', 'Open'], ['invoiced', 'Invoiced'], ['cancelled', 'Cancelled']].map(([v, l]) => ({ v, l, n: data.pos.filter(F[v]).filter(fOK).length })) }])}
+        {/* On a phone + New PO is full width above the table, not squeezing the tabs (as + New Project; Andy, 14 Nov 2026). */}
+        {!siteId && !desk && <View style={{ marginBottom: 10 }}><Button title="+ New PO" onPress={() => router.push('/fin/po/new' as never)} /></View>}
+        {/* A phone's table searches and filters itself (Andy, 14 Nov 2026): no Filter / Sort / search bar. */}
+        {desk && bar('Search PO, supplier or project', [{ key: 'status', label: 'Status', items: [['open', 'Open'], ['invoiced', 'Invoiced'], ['cancelled', 'Cancelled']].map(([v, l]) => ({ v, l, n: data.pos.filter(F[v]).filter(fOK).length })) }])}
         {desk && list.length ? (
           <FinTable startFilter={{ s: ['Open'] }} rows={list} keyOf={(p) => p.id} onRow={(p) => router.push(`/fin/po/${p.id}` as never)}
             cols={[
@@ -259,9 +263,17 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               { k: 's', l: 'Status', noSort: true, choices: ['Open', 'Invoiced', 'Cancelled', 'Draft'], render: (p: Row) => <Text style={{ fontSize: 10.5, fontWeight: '600', color: p.status === 'open' ? '#1d4ed8' : '#6b7280', backgroundColor: p.status === 'open' ? '#EEF3FD' : '#EEF0F2', borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden' }}>● {p.is_draft && p.status === 'open' ? 'Draft' : PO_STATUS[p.status] || p.status}</Text> },
             ]}
             footLabel={(list) => `${list.length} shown`} footRight={monthPick} />
-        ) : list.length ? list.map((p) => { const inv = poInvoiced(p, live), left = p.value != null ? Math.max(0, round2(Number(p.value) - inv)) : null; return (
-          <FinRow compact key={p.id} left={p.number} title={p.supplier_name || '—'} sub={[siteId ? '' : jobTag(site(p.site_id)), fdate(String(p.issue_date || p.created_at || '').slice(0, 10)), p.is_draft && p.status === 'open' ? 'Draft' : PO_STATUS[p.status] || p.status, `invoiced ${money(inv)}`, left != null && p.status === 'open' ? `${money(left)} left` : ''].filter(Boolean).join(' · ')} right={p.value != null ? money(p.value) : 'No value'} onPress={() => router.push(`/fin/po/${p.id}` as never)} />
-        ); }) : <Empty>No purchase orders here.</Empty>}
+        ) : !desk && data.pos.length ? (
+          // The phone table like the rest of Finance (Andy, 14 Nov 2026): tap a heading to sort, a box under each, ▾ Open.
+          <PhoneTable key="orders" label="Purchase orders" rows={data.pos} keyOf={(p) => p.id} onRow={(p) => router.push(`/fin/po/${p.id}` as never)}
+            cols={[
+              { l: 'PO', w: 96, main: (p) => p.number || '—', sub: (p) => fdate(String(p.issue_date || p.created_at || '').slice(0, 10)), sort: (p) => String(p.issue_date || p.created_at || '') },
+              { l: 'Supplier', main: (p) => p.supplier_name || '—', sub: (p) => (siteId ? '' : jobTag(site(p.site_id))), find: (p) => `${p.supplier_name || ''} ${jobTag(site(p.site_id))} ${p.number || ''}` },
+              { l: 'Value', w: 84, right: true, bold: true, bigFirst: true, main: (p) => (p.value != null ? money(p.value) : '—'), sort: (p) => Number(p.value || 0),
+                sub: (p) => { const left = p.value != null ? Math.max(0, round2(Number(p.value) - poInvoiced(p, live))) : null; return p.status === 'open' && !p.is_draft && left != null ? `${money(left, 0)} Left` : p.is_draft && p.status === 'open' ? 'Draft' : PO_STATUS[p.status] || p.status; },
+                choose: { opts: [['', 'All'], ['open', 'Open'], ['draft', 'Drafts'], ['invoiced', 'Invoiced'], ['cancelled', 'Cancelled']], test: (p, v) => (F[v] ? F[v](p) : true), start: 'open' } },
+            ]} />
+        ) : list.length ? null : <Empty>No purchase orders here.</Empty>}
         {desk && exportBar('Purchase orders', [{ l: 'PO', w: 80 }, { l: 'Supplier', w: 140 }, { l: 'Project', w: 160 }, { l: 'Date', w: 70 }, { l: 'Value £', w: 75, money: true }, { l: 'Invoiced £', w: 75, money: true }, { l: 'Status', w: 70 }],
           list.map((p) => [p.number, p.supplier_name || '', jobTag(site(p.site_id)), fdate(String(p.issue_date || p.created_at || '').slice(0, 10)), p.value != null ? round2(Number(p.value)) : '', round2(poInvoiced(p, live)), p.is_draft && p.status === 'open' ? 'Draft' : PO_STATUS[p.status] || p.status]))}
         <Muted style={{ marginTop: 10 }}>{openPos.length} open · {money(committed, 0)} ordered but not invoiced yet. Orders sent from a project&apos;s Materials tile appear here by themselves.</Muted>

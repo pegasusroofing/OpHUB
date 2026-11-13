@@ -47,7 +47,7 @@ export function parentOf(rawPath: string): string {
 }
 const PM_LIST: Record<string, string> = { delivery: '/pm/deliveries', piquery: '/pm/hub', survey: '/pm/reports' };
 // Finance pages for one record belong to the list they're picked from.
-const FIN_LIST: Record<string, string> = { po: '/fin/purchases', pinv: '/fin/purchases?tab=invoices', plant: '/fin/purchases?tab=plant', inbox: '/fin/purchases?tab=invoices', labour: '/fin/subs', sub: '/fin/subs?tab=orders', sapp: '/fin/subs?tab=apps' };
+const FIN_LIST: Record<string, string> = { po: '/fin/purchases?tab=orders', pinv: '/fin/purchases?tab=invoices', plant: '/fin/purchases?tab=plant', inbox: '/fin/purchases?tab=invoices', labour: '/fin/subs', sub: '/fin/subs?tab=orders', sapp: '/fin/subs?tab=apps' };
 
 /** The first page you see on opening a part of the app (Andy, 1 Nov 2026): where the top bar's bold line goes, from anywhere inside it. */
 export function areaHome(rawPath: string): string {

@@ -39,8 +39,8 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(await noBars() && await page.locator('input[placeholder="Search invoices"]').count() === 0, 'Invoices: no Filter, Sort or search bar');
   let t = await tableText('Invoices');
   check(/Owed ▾/.test(t) && /INV-1001/.test(t) && /INV-1003/.test(t) && !/INV-1002/.test(t), 'Invoices: Gross ▾ starts on Owed (the paid one hidden)');
-  const inv = await lined('Invoice'), gro = await lined('Gross');
-  check(inv && Math.abs(inv.left) <= 1 && gro && Math.abs(gro.right) <= 1, `Invoices: Invoice starts under its heading, Gross ends under its (${inv && inv.left.toFixed(1)}, ${gro && gro.right.toFixed(1)})`);
+  const inv = await lined('Invoice'), prj = await lined('Project'), gro = await lined('Gross');
+  check(inv && Math.abs(inv.left) <= 1 && prj && Math.abs(prj.left) <= 1 && gro && Math.abs(gro.right) <= 1, `Invoices: Invoice and Project start under their headings, Gross ends under its (${inv && inv.left.toFixed(1)}, ${prj && prj.left.toFixed(1)}, ${gro && gro.right.toFixed(1)})`);
   await page.screenshot({path: path.join(SHOTS, 'fin-invoices.png')});
   await vis('[aria-label="Search Gross"]').click(); await page.waitForTimeout(600);
   await page.getByText('All', {exact: true}).last().click(); await page.waitForTimeout(600);

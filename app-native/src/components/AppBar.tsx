@@ -26,7 +26,7 @@ import { fullSiteAddress } from '@/lib/rules/checkin';
 import { base, useDesk, useTheme } from '@/theme/theme';
 
 // Pages with no section of their own: the trail takes you back to the list they came from.
-const FIN_PARENT: Record<string, [string, string]> = { po: ['Purchases', '/fin/purchases'], pinv: ['Purchases', '/fin/purchases?tab=invoices'], plant: ['Purchases', '/fin/purchases?tab=plant'], yardin: ['Yard stock', '/fin/yard'], sub: ['Subcontractors', '/fin/subs?tab=orders'], labour: ['Subcontractors', '/fin/subs?tab=opinv'], inbox: ['Purchases', '/fin/purchases?tab=invoices'], templates: ['Settings', '/fin/settings'] };
+const FIN_PARENT: Record<string, [string, string]> = { po: ['Purchases', '/fin/purchases?tab=orders'], pinv: ['Purchases', '/fin/purchases?tab=invoices'], plant: ['Purchases', '/fin/purchases?tab=plant'], yardin: ['Yard stock', '/fin/yard'], sub: ['Subcontractors', '/fin/subs?tab=orders'], labour: ['Subcontractors', '/fin/subs?tab=opinv'], inbox: ['Purchases', '/fin/purchases?tab=invoices'], templates: ['Settings', '/fin/settings'] };
 const FIN_SUB: Record<string, string> = { '': 'Overview', jobs: 'Projects', sales: 'Sales', purchases: 'Purchases', subs: 'Subcontractors & Labour', reports: 'Reports', settings: 'Settings', directory: 'Directory', statements: 'Statements', yard: 'Yard stock', inbox: 'Inbox', newjob: 'New project' };
 // A project's Finance tabs and the pages inside it, for the trail.
 const FIN_JOB_TABS: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ['setup', 'Project Admin'], ['docs', 'Documents']];
