@@ -44,9 +44,9 @@ export function useAppFonts(): boolean {
   return web || ok || !!err;
 }
 
-/** Sora at a weight: only the top bar's title and the company name (shared with Finance). */
-export const brand = (w: 600 | 700 | 800 = 700): TextStyle => (web ? { fontFamily: 'Sora', fontWeight: String(w) as TextStyle['fontWeight'] } : { fontFamily: `Sora_${w}` });
+/** Sora at a weight: only the top bar's title and the company name (shared with Finance), with a plain sans font behind it on the web, so a font that fails to load never shows as the browser's Times (Andy, 14 Nov 2026). */
+export const brand = (w: 600 | 700 | 800 = 700): TextStyle => (web ? { fontFamily: 'Sora, "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif', fontWeight: String(w) as TextStyle['fontWeight'] } : { fontFamily: `Sora_${w}` });
 /** Titles, tile names and big numbers, in Finance's style (Andy, 3 Nov 2026): the body font, semi-bold (bold for the biggest). */
 export const heading = (_w: 600 | 700 | 800 = 700): TextStyle => ({ fontWeight: '600', letterSpacing: 0 }); // Finance's semi-bold everywhere (Andy, 5 Nov 2026)
 /** IBM Plex Mono (figures, the header's sub-line). */
-export const mono = (w: 500 | 600 = 600): TextStyle => (web ? { fontFamily: '"IBM Plex Mono"', fontWeight: String(w) as TextStyle['fontWeight'] } : { fontFamily: `PlexMono_${w}` });
+export const mono = (w: 500 | 600 = 600): TextStyle => (web ? { fontFamily: '"IBM Plex Mono", ui-monospace, Menlo, monospace', fontWeight: String(w) as TextStyle['fontWeight'] } : { fontFamily: `PlexMono_${w}` });

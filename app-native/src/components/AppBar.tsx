@@ -4,7 +4,6 @@
 // company name in its own colour over "OpHUB" with a refresh button. A job's
 // pages also get the job-home button on the right and the trail under the bar
 // (9219x navCrumbs): Projects › SBX-109 Andy House 2 › Schedule Of Works.
-import { useQueryClient } from '@tanstack/react-query';
 import { router, useGlobalSearchParams, usePathname } from 'expo-router';
 import { type ReactNode, useState } from 'react';
 import { Platform, Pressable, Share, Text, View } from 'react-native';
@@ -14,6 +13,7 @@ import { useTrail } from '@/components/Crumbs';
 import { FIN_SUBS, FinJobTabs } from '@/components/FinNav';
 import { openSideMenu } from '@/components/SideMenu';
 import { OphIcon } from '@/components/OphIcon';
+import { RefreshButton } from '@/components/RefreshButton';
 import { StorageImage } from '@/components/StorageImage';
 import { showAlert } from '@/components/toast';
 import { isManager } from '@/lib/roles';
@@ -54,7 +54,6 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   const { org, me } = useAuth();
   const t = useTheme();
   const desk = useDesk();
-  const qc = useQueryClient();
   const insets = useSafeAreaInsets();
   const path = usePathname();
   const { tab: qTab, kind: qKind, id: qId, sub: qSub, sup: qSup } = useGlobalSearchParams<{ tab?: string; kind?: string; id?: string; sub?: string; sup?: string }>();
@@ -203,11 +202,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
                 <OphIcon name="home" size={18} color={base.ink} />
               </Pressable>
             ))}
-            {home && (
-              <Pressable onPress={() => void qc.invalidateQueries()} hitSlop={10} accessibilityLabel="Refresh" style={roundBtn}>
-                <Text style={{ fontSize: 17, color: base.ink }}>↻</Text>
-              </Pressable>
-            )}
+            {home && <RefreshButton style={roundBtn} />}
           </View>
         </View>
       </View>
