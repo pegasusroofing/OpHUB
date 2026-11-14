@@ -1,19 +1,19 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OpHUB — The site hub for trade & specialist contractors</title>
-<meta name="description" content="Schedule of Works, Health & Safety (RAMS, Toolbox Talks & HAVS), Snagging/Variations, Drawings & Programme, Material Orders, Delivery Scheduling and team messaging — all in one branded app your operatives will actually use.">
-<meta property="og:title" content="OpHUB — The site hub for trade & specialist contractors">
-<meta property="og:description" content="Run every site from one place. Schedule of Works, Health & Safety, Snagging/Variations, Drawings & Programme, Material Orders, Deliveries and messaging, branded as your own company's app.">
+<title>OpHUB: Projects for site teams, Finance for cost management</title>
+<meta name="description" content="Two systems that talk to each other: OpHUB Projects runs your sites (Schedule of Works, RAMS &amp; COSHH, check-in, snagging, materials, deliveries), OpHUB Finance runs the money (valuations, invoices, purchases, CIS, Xero), with AI that reads the invoices and writes the RAMS.">
+<meta property="og:title" content="OpHUB: Projects for site teams, Finance for cost management">
+<meta property="og:description" content="Two systems that talk to each other: OpHUB Projects runs your sites (Schedule of Works, RAMS &amp; COSHH, check-in, snagging, materials, deliveries), OpHUB Finance runs the money (valuations, invoices, purchases, CIS, Xero), with AI that reads the invoices and writes the RAMS.">
 <meta property="og:image" content="assets/ophub-logo.png?v=2">
 <meta name="theme-color" content="#0B0E14">
 <link rel="apple-touch-icon" href="assets/ophub-logo.png?v=2">
 <link rel="icon" href="assets/ophub-logo.png?v=2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
   :root{
     --brand1:#4E8FD1; --brand-deep:#2F6FB3; --brand-soft:#EAF2FB;
@@ -237,26 +237,96 @@
   }
   @media (min-width:601px) and (max-width:900px){ .featgrid{grid-template-columns:1fr 1fr;} }
   @media (prefers-reduced-motion:reduce){ .featcard{transition:none;} .featcard:hover{transform:none;} }
+
+/* ---- style C, Blueprint ---- */
+.s-paper{background:#F3F6FA;background-image:linear-gradient(rgba(47,111,179,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(47,111,179,.07) 1px,transparent 1px);background-size:28px 28px;}
+.s-paper.alt{background-color:#EEF2F8;}
+.s-paper .kicker{font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.04em;background:#0B0E14;color:#9CC8F2;border-radius:6px;}
+.sectionhead h2 em,.together h2 em{font-style:normal;color:#2F6FB3;text-decoration:underline;text-decoration-thickness:3px;text-underline-offset:8px;text-decoration-color:rgba(78,143,209,.4);}
+.navlinks a.cur{color:#fff;}
+.tag{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;font-size:12px;letter-spacing:.04em;text-transform:uppercase;padding:6px 11px;border-radius:4px;}
+.p .tag{background:#2F6FB3;color:#fff;} .f .tag{background:#1F9D62;color:#fff;}
+/* home: pick your system */
+.choose{display:grid;gap:30px;}
+.cpanel{display:grid;grid-template-columns:1fr 1fr;gap:34px;align-items:center;background:#fff;border:1.5px solid;border-radius:6px;padding:40px;}
+.cpanel.p{border-color:#2F6FB3;box-shadow:8px 8px 0 #2F6FB3;} .cpanel.f{border-color:#1F9D62;box-shadow:8px 8px 0 #1F9D62;}
+.cpanel h3{font-size:34px;margin:16px 0 10px;letter-spacing:-.02em;} .cpanel p{color:#566072;font-size:16.5px;margin-bottom:18px;}
+.cpanel .btn-primary{margin-top:6px;} .cpanel.f .btn-primary{background:#1F9D62;box-shadow:0 8px 20px -8px rgba(31,157,98,.6);} .cpanel.f .btn-primary:hover{background:#17804A;}
+.mini{list-style:none;padding:0;margin:0 0 22px;display:flex;flex-wrap:wrap;gap:8px;}
+.mini li{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;padding:5px 10px;border-radius:4px;border:1px solid;}
+.p .mini li{color:#2F6FB3;border-color:#BCD3EC;background:#F3F8FD;} .f .mini li{color:#17804A;border-color:#BFE3CF;background:#F2FAF5;}
+.cart{display:flex;justify-content:center;} .cart .phone{transform:rotate(2deg) scale(.92);}
+/* the flow, in style B's tinted boxes */
+.flowlabel{display:flex;gap:18px;justify-content:center;margin-bottom:18px;font-size:13px;font-weight:700;color:#566072;flex-wrap:wrap;}
+.flowlabel span{display:inline-flex;align-items:center;gap:7px;} .flowlabel i{width:12px;height:12px;border-radius:4px;display:inline-block;}
+.flowlabel i.kp{background:#4E8FD1;} .flowlabel i.kf{background:#1F9D62;}
+.flows{display:grid;gap:14px;} .flow{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+.step{position:relative;border-radius:14px;padding:14px 14px 14px 16px;font-size:14px;font-weight:700;line-height:1.3;display:flex;align-items:center;border:1px solid #E3E7EE;box-shadow:0 8px 20px -14px rgba(11,14,20,.25);}
+.step.p{background:#EEF4FC;border-color:#CFE0F4;color:#1F4E86;} .step.f{background:#EAF6EF;border-color:#C9E8D6;color:#14653B;}
+.step:not(:last-child):after{content:"";position:absolute;right:-9px;top:50%;width:8px;height:8px;transform:translateY(-50%) rotate(45deg);z-index:2;background:#fff;border-top:1.5px solid #9AA5B5;border-right:1.5px solid #9AA5B5;}
+/* AI */
+.aigrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+.aicard{background:#fff;border:1.5px solid #D4DCE7;border-radius:6px;position:relative;padding:26px;}
+.aicard:after{content:"AI";position:absolute;top:18px;right:18px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:#2F6FB3;border:1px solid #2F6FB3;border-radius:3px;padding:1px 5px;}
+.aicard .ic{width:46px;height:46px;border-radius:6px;background:#0B0E14;color:#9CC8F2;display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
+.aiin{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;margin-bottom:6px;} .aiin.p{color:#2F6FB3;} .aiin.f{color:#17804A;}
+.aicard h3{font-size:18px;} .aicard p{font-size:14.5px;margin-top:8px;color:#566072;line-height:1.55;}
+/* simple */
+.simplegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;}
+.simple{background:#fff;border:1.5px solid #D4DCE7;border-radius:6px;padding:28px;} .simple .ic{width:42px;height:42px;border-radius:6px;background:#2F6FB3;color:#fff;display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
+.simple h3{font-size:18px;} .simple p{font-size:14.5px;margin-top:8px;color:#566072;}
+/* demo + final */
+#demo .democard{border-radius:6px;border:1.5px solid #0B0E14;box-shadow:8px 8px 0 #2F6FB3;}
+.demolist li:before{border-radius:4px;}
+.finalcta{background:#0B0E14;border-radius:8px;box-shadow:10px 10px 0 #2F6FB3;}
+.finalcta .btn-primary{background:#4E8FD1;color:#fff;} .finalcta .btn-primary:hover{background:#2F6FB3;}
+/* laptop mock */
+.laptop{width:100%;max-width:520px;margin:0 auto;}
+.lscreen{background:#F4F5F7;border:10px solid #0B0E14;border-bottom-width:14px;border-radius:14px 14px 4px 4px;overflow:hidden;font-size:11px;color:#0B0E14;}
+.lbase{height:12px;background:linear-gradient(#cfd5de,#9aa3b0);border-radius:0 0 14px 14px;margin:0 -28px;}
+.lbar{background:#fff;padding:9px 12px;text-align:center;font-weight:700;color:#C0392B;border-bottom:1px solid #E6E8EC;} .lbar b{color:#111318;} .lbar i{color:#8A93A3;font-style:normal;margin:0 4px;}
+.ltabs{display:flex;gap:10px;padding:6px 12px;font-size:10px;color:#6b7280;font-weight:600;background:#fff;border-bottom:1px solid #E6E8EC;overflow:hidden;white-space:nowrap;} .ltabs .on{color:#111;border-bottom:2px solid #C0392B;}
+.lstats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:8px 10px;} .lstats div{background:#fff;border:1px solid #ECEEF2;border-radius:6px;padding:6px;} .lstats b{display:block;font-size:13px;} .lstats small{font-size:8px;color:#566072;line-height:1.2;display:block;}
+.ltable{width:calc(100% - 20px);margin:0 10px 10px;border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;font-size:9.5px;}
+.ltable th{font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;text-decoration:underline;padding:6px;text-align:center;} .ltable td{padding:7px 6px;border-top:1px solid #EEF0F2;text-align:center;}
+.ltable span{font-size:8.5px;font-weight:700;padding:2px 6px;border-radius:999px;white-space:nowrap;} .ok{background:#E5F5EC;color:#17804A;} .ai{background:#EAF2FB;color:#2F6FB3;} .wait{background:#FDF1E6;color:#B35A00;}
+/* a system's own page */
+.phero{padding:76px 0 88px;} .phero h1{font-size:clamp(34px,5vw,58px);} .phero .phone{transform:rotate(2.5deg);}
+.phero.f h1 em{background:linear-gradient(90deg,#6FD3A6,#1F9D62);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.phero.f .kicker{color:#9FE3C2;} .phero.f .btn-primary{background:#1F9D62;box-shadow:0 8px 20px -8px rgba(31,157,98,.7);} .phero.f .btn-primary:hover{background:#17804A;}
+.phero .laptop{max-width:540px;transform:perspective(1200px) rotateY(-8deg);filter:drop-shadow(0 40px 60px rgba(0,0,0,.6));}
+.fgroup{margin-top:46px;} .fgroup:first-of-type{margin-top:0;}
+.fghead{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;border-bottom:1.5px dashed #9AB7DA;padding-bottom:10px;margin-bottom:18px;}
+.fghead h3{font-size:22px;letter-spacing:-.01em;} .fghead p{color:#566072;font-size:15px;}
+.featgrid2{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.fcard{background:#fff;border:1.5px solid #D4DCE7;border-radius:6px;padding:22px;position:relative;}
+.fcard .ic{width:40px;height:40px;border-radius:6px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;}
+.fcard.p .ic{background:#EEF4FC;color:#2F6FB3;} .fcard.f .ic{background:#EAF6EF;color:#17804A;}
+.fcard h4{margin:0;font-size:16.5px;letter-spacing:-.01em;} .fcard p{color:#566072;font-size:14.2px;margin-top:6px;line-height:1.5;}
+.aibadge{position:absolute;top:16px;right:16px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:#2F6FB3;border:1px solid #2F6FB3;border-radius:3px;padding:1px 5px;}
+.together{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;background:#fff;border:1.5px solid;border-radius:6px;padding:40px;}
+.together.p{border-color:#1F9D62;box-shadow:8px 8px 0 #1F9D62;} .together.f{border-color:#2F6FB3;box-shadow:8px 8px 0 #2F6FB3;}
+.together h2{font-size:clamp(26px,3.4vw,36px);margin:14px 0 12px;} .together p{color:#566072;font-size:16px;}
+.together ul{list-style:none;margin:0;padding:0;display:grid;gap:12px;}
+.together li{display:flex;gap:12px;align-items:flex-start;font-weight:600;font-size:15.5px;}
+.together li svg{flex:0 0 26px;width:26px;height:26px;padding:5px;border-radius:6px;}
+.together.p li svg{background:#EAF6EF;color:#17804A;} .together.f li svg{background:#EEF4FC;color:#2F6FB3;}
+@media (max-width:900px){
+  .choose{grid-template-columns:minmax(0,1fr);} .cpanel,.together{grid-template-columns:minmax(0,1fr);padding:26px 22px;} .cpanel h3{font-size:28px;}
+  .cpanel>*,.together>*{min-width:0;} .cart{overflow:hidden;padding:6px 0 14px;} .lscreen{font-size:10px;} .ltable{font-size:8.5px;} .ltable td,.ltable th{padding:5px 3px;} .ltable span{padding:2px 4px;} .lbase{margin:0 -10px;}
+  .flow{grid-template-columns:1fr;} .step:not(:last-child):after{right:50%;top:auto;bottom:-9px;transform:translateX(50%) rotate(45deg);}
+  .aigrid,.simplegrid,.featgrid2{grid-template-columns:1fr;}
+  .phero .laptop{transform:none;} .cart .phone{transform:none;}
+}
+@media (min-width:601px) and (max-width:900px){ .featgrid2,.aigrid{grid-template-columns:1fr 1fr;} }
 </style>
 </head>
 <body>
-
-<div class="nav">
-  <div class="navrow">
-    <a href="/" class="navlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
-    <div class="navlinks">
-      <a href="#features">Features</a>
-      <a href="#pricing">Plans</a>
-      <a href="#about">About</a>
-      <a href="#demo">Book a Demo</a>
-    </div>
-    <div class="navcta">
-      <a href="/app.html" class="btn btn-glass btn-sm">Sign In</a>
-      <a href="#demo" class="btn btn-primary btn-sm">Book a Demo</a>
-    </div>
-  </div>
-</div>
-
+<div class="nav"><div class="navrow">
+  <a href="/" class="navlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
+  <div class="navlinks"><a href="/projects.html">Projects</a><a href="/finance.html">Finance</a><a href="/#ai">AI</a><a href="/#demo">Book a Demo</a></div>
+  <div class="navcta"><a href="/app.html" class="btn btn-glass btn-sm">Sign In</a><a href="/#demo" class="btn btn-primary btn-sm">Book a Demo</a></div>
+</div></div>
 <section class="hero">
   <div class="wrap herogrid">
     <div>
@@ -268,7 +338,7 @@
       </div>
       <div class="herobtns">
         <a href="#demo" class="btn btn-primary">Book a Demo</a>
-        <a href="#features" class="btn btn-glass">See what's inside</a>
+        <a href="#systems" class="btn btn-glass">See what's inside</a>
       </div>
       <p class="heroreassure">iPhone, Android &amp; web · No per-user fees · Pricing tailored to your team</p>
     </div>
@@ -286,176 +356,52 @@
     </div>
   </div>
 </section>
-
-<div class="proof">
-  <div class="wrap proofrow">
-    <span>Schedule of Works</span>
-    <span>RAMS &amp; COSHH builders</span>
-    <span>GPS check-in</span>
-    <span>Delivery scheduling &amp; driver app</span>
-    <span>Material orders</span>
-    <span>Snagging &amp; variations</span>
-    <span>O&amp;M handover manuals</span>
-    <span>Repairs &amp; maintenance</span>
-    <span>HR &amp; holidays</span>
-    <span>OneDrive sync</span>
-    <span>Your own branding</span>
-  </div>
-</div>
-
-<section id="about">
-  <div class="wrap">
-    <div class="sectionhead">
-      <span class="kicker">Why OpHUB</span>
-      <h2>Built around the people actually on site</h2>
-      <p>OpHUB was built with one focus: giving site operatives a single, clear destination for everything a job needs — not another system to fight with. It's just as easy for project managers too, taking away the need for multiple systems by bringing it all into one operative-friendly app. Think of it as a job folder in an app, with no ties to any commercial software. Originally designed for on-site roofing teams, OpHUB has since grown to support every trade on site.</p>
-    </div>
-    <div class="problemgrid">
-      <div class="problemcard">
-        <div class="ic">👷</div>
-        <h3>Built for operatives</h3>
-        <p>Designed around the people on site, not the office — simple enough that it actually gets used every day.</p>
-      </div>
-      <div class="problemcard">
-        <div class="ic">🛡</div>
-        <h3>Peace of mind for management</h3>
-        <p>Schedule of Works, Health &amp; Safety, Snagging/Variations, Drawings and Messages — all logged in one clear, auditable place.</p>
-      </div>
-      <div class="problemcard">
-        <div class="ic">📁</div>
-        <h3>No ties to commercial software</h3>
-        <p>OpHUB isn't bolted onto anyone else's platform — it's your own job folder in an app, nothing to license or integrate.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section id="features" class="featband">
-  <div class="wrap">
-    <div class="sectionhead">
-      <span class="kicker">Everything in one place</span>
-      <h2>One app for the whole site team</h2>
-      <p>From check-in to handover — set it up once, brand it as your own, and give every operative, driver, PM and admin exactly what they need.</p>
-    </div>
-    <div class="featgrid">
-      <div class="featcard"><div class="ic" style="background:#FDECEC;">📍</div><h3>GPS Check-in</h3><p>Geofenced check-in and check-out — including multi-address jobs — so you always know who's on site.</p></div>
-      <div class="featcard"><div class="ic" style="background:#EAF2FB;">📋</div><h3>Schedule of Works</h3><p>Sections and tasks with progress and photos, built from your own library or imported, exported as a branded PDF.</p></div>
-      <div class="featcard"><div class="ic" style="background:#EEF0F4;">🛡</div><h3>RAMS &amp; COSHH builders</h3><p>Build RAMS from your hazard library, and turn a safety data sheet into a COSHH assessment automatically. Signed digitally by every operative.</p></div>
-      <div class="featcard"><div class="ic" style="background:#E3F5EC;">🧪</div><h3>COSHH Library</h3><p>Assessments filed in folders, shared across jobs, with yearly review reminders — tick several to export or email.</p></div>
-      <div class="featcard"><div class="ic" style="background:#EAF2FB;">🗣</div><h3>Toolbox Talks &amp; Briefings</h3><p>Live toolbox talks and daily briefings signed on the phone, plus inductions, site rules and your H&amp;S policy.</p></div>
-      <div class="featcard"><div class="ic" style="background:#FDECEC;">⚠️</div><h3>PPE, Incidents &amp; Inspections</h3><p>PPE issue log, accident and near-miss reports, HAVS, PUWER, LOLER and permits to work.</p></div>
-      <div class="featcard"><div class="ic" style="background:#FDF1DE;">🏷</div><h3>Snagging / Variations</h3><p>Log and photograph snags or variations, mark up the photo, close out with evidence and export a PDF.</p></div>
-      <div class="featcard"><div class="ic" style="background:#EAF2FB;">📐</div><h3>Drawings &amp; Programme</h3><p>Drawings, specs and programmes in folders — superseded versions kept, mark-up on the plan.</p></div>
-      <div class="featcard"><div class="ic" style="background:#FDECF1;">📝</div><h3>Reports &amp; Surveys</h3><p>Your own report templates, filled on site with photos and signatures — even with no signal.</p></div>
-      <div class="featcard"><div class="ic" style="background:#E3F5EC;">🧱</div><h3>Materials &amp; Suppliers</h3><p>Operatives request materials; you approve and email the order to the right supplier branch.</p></div>
-      <div class="featcard"><div class="ic" style="background:#FDF1DE;">🚚</div><h3>Delivery Scheduler</h3><p>Plan the day's drops and collections slot by slot and assign them to drivers.</p></div>
-      <div class="featcard"><div class="ic" style="background:#EAF2FB;">🚐</div><h3>Driver App</h3><p>Drivers see today's runs in order, take completion photos and mark them up, and do their weekly vehicle checks.</p></div>
-      <div class="featcard"><div class="ic" style="background:#E4F6F4;">🔧</div><h3>Repairs &amp; Maintenance</h3><p>Repair surveys with photos, approval, closed subject to invoice, then invoiced — photos synced to OneDrive.</p></div>
-      <div class="featcard"><div class="ic" style="background:#E3F5EC;">📘</div><h3>O&amp;M Handover</h3><p>When a job closes, build the O&amp;M manual from the job — data sheets, COSHH, guarantees, maintenance — and export to PDF or Word.</p></div>
-      <div class="featcard"><div class="ic" style="background:#F2E8F7;">🌴</div><h3>HR &amp; Holidays</h3><p>Holiday requests and approvals with bank holidays booked automatically, plus policies and the staff handbook.</p></div>
-      <div class="featcard"><div class="ic" style="background:#EAF2FB;">👷</div><h3>Operatives &amp; Training</h3><p>Every operative's cards, certificates and expiry dates in a training matrix.</p></div>
-      <div class="featcard"><div class="ic" style="background:#EEF0F4;">🏢</div><h3>Main Contractor Mode</h3><p>Run subcontractors, their operatives, RAMS, COSHH and inspections when you're the main contractor.</p></div>
-      <div class="featcard"><div class="ic" style="background:#EFEAFB;">📅</div><h3>Calendars &amp; Dashboards</h3><p>Key dates per job, a company calendar, and a dashboard across every project.</p></div>
-      <div class="featcard"><div class="ic" style="background:#F2E8F7;">💬</div><h3>HUB &amp; Messaging</h3><p>One inbox for messages, sign-offs and alerts, with push notifications.</p></div>
-      <div class="featcard"><div class="ic" style="background:#E1F0F8;">☁️</div><h3>OneDrive Sync &amp; Exports</h3><p>Photos, drawings and exports sync straight to each project's OneDrive folder.</p></div>
-      <div class="featcard"><div class="ic" style="background:#EEF0F4;">🎨</div><h3>Your Branding</h3><p>Your logo and colours throughout the app and every PDF — it feels like your own app.</p></div>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="wrap">
-    <div class="benefits">
-      <div class="sectionhead">
-        <span class="kicker">Why teams switch</span>
-        <h2>Less admin. More proof. One place to work from.</h2>
-      </div>
-      <div class="benefitsgrid">
-        <div class="benefititem"><div class="check">✓</div><h3>Save hours of admin every week</h3><p>No more chasing paperwork or re-typing what's already on someone's phone.</p></div>
-        <div class="benefititem"><div class="check">✓</div><h3>Stay compliant, automatically</h3><p>Every sign-off, snag and check-in is timestamped and easy to pull up if you're ever asked.</p></div>
-        <div class="benefititem"><div class="check">✓</div><h3>One place for every operative</h3><p>Operatives, PMs and admins all work from the same live picture, on site or in the office.</p></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section id="pricing" style="padding-top:0;">
-  <div class="wrap">
-    <div class="sectionhead">
-      <span class="kicker">Plans</span>
-      <h2>Plans that grow with your team</h2>
-      <p>One plan per company — no per-user fees. Every company is different, so we'll tailor the price to your team after a quick demo.</p>
-    </div>
-    <div class="pricegrid">
-      <div class="pricecard">
-        <h3>OpHUB Basic</h3>
-        <p class="setupfee">Pricing tailored to your team</p>
-        <p class="desc">For smaller teams getting off paper and spreadsheets.</p>
-        <ul>
-          <li>Up to 25 members of staff</li>
-          <li>Up to 10 live sites</li>
-          <li>GPS check-in &amp; geofencing</li>
-          <li>Schedule of Works with progress photos &amp; PDF export</li>
-          <li>RAMS, COSHH &amp; toolbox talk sign-off, briefings, PPE &amp; incident reports</li>
-          <li>Snagging &amp; variations, site reports &amp; custom templates</li>
-          <li>Material orders to your suppliers &amp; their branches</li>
-          <li>Operatives directory, certifications &amp; training matrix</li>
-          <li>Notifications, calendars, to-dos &amp; your own branding</li>
-        </ul>
-        <a href="#demo" class="btn btn-ghost btn-block" onclick="pickPlan('OpHUB Basic')">Get a Quote</a>
-      </div>
-      <div class="pricecard featured">
-        <span class="tag">Most popular</span>
-        <h3>OpHUB Pro</h3>
-        <p class="setupfee">Pricing tailored to your team</p>
-        <p class="desc">For growing contractors running multiple sites at once.</p>
-        <ul>
-          <li>Up to 50 employees</li>
-          <li>Up to 150 live sites</li>
-          <li>Everything in Basic</li>
-          <li>Team messaging, check-in logs &amp; device lock</li>
-          <li>Delivery schedule &amp; driver app (breaks &amp; hours)</li>
-          <li>Pricing, rate cards &amp; labour invoices</li>
-          <li>RAMS builder, HAVS, LOLER &amp; permits to work</li>
-          <li>Photo &amp; drawing mark-up, multi-site jobs</li>
-          <li>HR: holidays &amp; policies · OneDrive sync</li>
-        </ul>
-        <a href="#demo" class="btn btn-primary btn-block" onclick="pickPlan('OpHUB Pro')">Get a Quote</a>
-      </div>
-      <div class="pricecard">
-        <h3>OpHUB Enterprise</h3>
-        <p class="setupfee">Pricing tailored to your team</p>
-        <p class="desc">For larger operations that need full oversight.</p>
-        <ul>
-          <li>Up to 150 employees</li>
-          <li>Up to 500 live sites</li>
-          <li>Everything in Pro</li>
-          <li>Handover: O&amp;M manual builder (PDF &amp; Word)</li>
-          <li>COSHH builder from data sheets</li>
-          <li>Main contractor &amp; subcontractor management, inductions</li>
-          <li>Repair &amp; maintenance jobs · client access</li>
-          <li>Priority support, dedicated onboarding &amp; training</li>
-        </ul>
-        <a href="#demo" class="btn btn-ghost btn-block" onclick="pickPlan('OpHUB Enterprise')">Get a Quote</a>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section id="demo" style="padding-top:0;">
-  <div class="wrap demogrid">
-    <div class="demotext">
-      <span class="kicker">Book a demo</span>
-      <h2>See OpHUB with your own jobs in mind</h2>
-      <p class="lead">Tell us a little about your company and we'll get in touch to arrange a walkthrough.</p>
-      <ul class="demolist">
-        <li>A guided look at the app from the operative, driver and PM side</li>
-        <li>Your questions answered by the people who built it</li>
-        <li>No obligation — see if it fits before you sign up</li>
-      </ul>
-      <p class="alt">Prefer email? <a href="mailto:sales@operativehub.co.uk">sales@operativehub.co.uk</a></p>
-    </div>
-    <div class="democard">
+<section id="systems" class="s-paper"><div class="wrap">
+  <div class="sectionhead"><span class="kicker">Two systems · one connection</span><h2>Which part of the business <em>are you running?</em></h2>
+  <p>Each works on its own. Use both and everything done on site lands in the numbers by itself.</p></div>
+  <div class="choose">
+    <div class="cpanel p"><div class="ctext"><span class="tag"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/></svg> OpHUB Projects</span><h3>For site teams</h3>
+      <p>Schedule of Works, RAMS and COSHH, GPS check-in, snagging, materials, deliveries and handover, in one branded app your operatives will actually use.</p>
+      <ul class="mini"><li>Operatives, drivers and PMs</li><li>iPhone, Android and web</li><li>Works with no signal</li></ul>
+      <a href="/projects.html" class="btn btn-primary">Explore OpHUB Projects <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div><div class="cart"><div class="phone"><div class="screen">
+        <div class="mstatus"></div>
+        <div class="mhead"><b>OpHUB</b><small>RTB Roofing Ltd</small></div>
+        <div class="mbody">
+          <div class="mgreet"><small>Tuesday 13 October</small><b>Good morning, Andy</b></div>
+          <div class="mstats"><div><b>12</b><span>Live jobs</span></div><div><b>4</b><span>Upcoming</span></div><div><b>7</b><span>To do</span></div><div><b class="hot">3</b><span>Alerts</span></div></div>
+          <div class="mhero"><span class="mhero-top"><span class="mhero-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span><b>Live projects</b><small>12 live · 4 upcoming</small></div>
+          <div class="mtiles"><div class="mtile"><span class="mtic t-teal"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><span class="mtt">Dashboard</span><span class="mts">Company overview</span></div><div class="mtile"><span class="mtic t-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span><span class="mtt">Calendar</span><span class="mts">All projects</span></div><div class="mtile"><span class="mtic t-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></span><span class="mtt">HUB</span><span class="mts">3 notifications</span></div><div class="mtile"><span class="mtic t-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h11v10H3z"/><path d="M14 9h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></span><span class="mtt">Deliveries</span><span class="mts">Next drop 10am</span></div><div class="mtile"><span class="mtic t-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></span><span class="mtt">Reports</span><span class="mts">2 in progress</span></div><div class="mtile"><span class="mtic t-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></span><span class="mtt">Operatives</span><span class="mts">Certs &amp; training</span></div><div class="mtile"><span class="mtic t-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c1-3.5 4-5.5 7-5.5s6 2 7 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .8 3.4 2.6 4 5.5"/></svg></span><span class="mtt">HR</span><span class="mts">Holidays &amp; policies</span></div><div class="mtile"><span class="mtic t-grey"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></span><span class="mtt">Admin</span><span class="mts">Team &amp; settings</span></div></div>
+        </div>
+      </div></div></div></div>
+    <div class="cpanel f"><div class="ctext"><span class="tag"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20H7c2-2 2-4 2-7V8a3 3 0 0 1 6-1"/><path d="M6 13h8"/></svg> OpHUB Finance</span><h3>For complete cost management</h3>
+      <p>Forecasts, valuations and applications, sales and purchase invoices, subcontractors and CIS, with Xero, and AI that reads the paperwork.</p>
+      <ul class="mini"><li>Directors, QSs and accounts</li><li>Every pound on every job</li><li>Posts to Xero</li></ul>
+      <a href="/finance.html" class="btn btn-primary">Explore OpHUB Finance <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div><div class="cart"><div class="laptop"><div class="lscreen"><div class="lbar"><b><span style="color:#2F6FB3">Op</span>HUB</b> <i>×</i> RTB Roofing Ltd</div>
+<div class="ltabs"><span>Overview</span><span>Projects</span><span>Sales</span><span class="on">Purchases</span><span>Subcontractors</span><span>Reports</span></div>
+<div class="lstats"><div><b style="color:#2457C5">2</b><small>Received, no job yet</small></div><div><b style="color:#17804A">£18,420</b><small>To pay suppliers</small></div><div><b style="color:#C0392B">1</b><small>Needs checking</small></div><div><b style="color:#B35A00">£82,000</b><small>Ordered, not invoiced</small></div></div>
+<table class="ltable"><tr><th>Supplier</th><th>Invoice</th><th>Project</th><th>Status</th><th>Gross</th></tr>
+<tr><td><b>SIG Roofing</b></td><td>SIG-88231</td><td>J101 · Studley Rd</td><td><span class="ok">Matched to PO</span></td><td><b>£2,160.00</b></td></tr>
+<tr><td><b>Travis Perkins</b></td><td>TP-4410</td><td>J102 · Cleveland</td><td><span class="ai">Read by AI</span></td><td><b>£240.00</b></td></tr>
+<tr><td><b>Jewson</b></td><td>JW-12</td><td>J101 · Studley Rd</td><td><span class="wait">With a PM</span></td><td><b>£600.00</b></td></tr>
+<tr><td><b>Bauder</b></td><td>BD-2291</td><td>J103 · Senlis</td><td><span class="ok">Approved</span></td><td><b>£4,812.50</b></td></tr></table></div><div class="lbase"></div></div></div></div>
+  </div></div></section>
+<section id="flow" class="s-paper alt"><div class="wrap">
+  <div class="sectionhead"><span class="kicker">How Finance talks to Projects</span><h2>From the site to the numbers, <em>without retyping a thing</em></h2><p>Every step on site is a step in the accounts. Three examples of how it flows.</p></div>
+  <div class="flowlabel"><span><i class="kp"></i>Happens in OpHUB Projects</span><span><i class="kf"></i>Happens in OpHUB Finance</span></div>
+  <div class="flows"><div class="flow"><div class="step p">Material request on site</div><div class="step p">PO priced from your price lists</div><div class="step f">Delivery booked and signed for</div><div class="step f">Supplier invoice read and matched</div><div class="step f">Cost on the job, live</div></div><div class="flow"><div class="step p">Variation raised on site</div><div class="step p">Priced and approved</div><div class="step f">Onto the next application</div><div class="step f">Certified and invoiced</div><div class="step f">Retention tracked to release</div></div><div class="flow"><div class="step p">Operatives check in by GPS</div><div class="step p">Hours and rates on the job</div><div class="step f">Subcontractor applications</div><div class="step f">CIS worked out</div><div class="step f">Labour cost on the job, live</div></div></div>
+</div></section>
+<section id="ai" class="s-paper"><div class="wrap">
+  <div class="sectionhead"><span class="kicker"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg> AI that does the admin</span><h2>The paperwork <em>reads itself</em></h2><p>OpHUB's AI reads the invoices, writes the RAMS and keeps the price book up to date, so your team checks rather than types.</p></div>
+  <div class="aigrid"><div class="aicard"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></div><span class="aiin f">OpHUB Finance</span><h3>Invoice Reader</h3><p>Supplier invoices land in your inbox. OpHUB reads them, finds the PO and the job, and puts them in front of the right person to approve.</p></div><div class="aicard"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div><span class="aiin p">OpHUB Projects</span><h3>RAMS Builder</h3><p>A site-specific RAMS from the job, the task and your own hazard library, ready for every operative to sign on the phone.</p></div><div class="aicard"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6L4 19a1.5 1.5 0 0 0 1.3 2h13.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/></svg></div><span class="aiin p">OpHUB Projects</span><h3>COSHH From Data Sheets</h3><p>Upload a safety data sheet and the COSHH assessment is written for you, filed and shared across jobs.</p></div><div class="aicard"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg></div><span class="aiin f">OpHUB Finance</span><h3>Price List Reader</h3><p>Supplier price lists in Excel or PDF become your price book, so every PO is priced before the invoice arrives.</p></div><div class="aicard"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 7h14M5 7l-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z"/></svg></div><span class="aiin f">OpHUB Finance</span><h3>Statement Matching</h3><p>Supplier statements matched to the invoices you have, with anything missing flagged.</p></div><div class="aicard"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg></div><span class="aiin f">OpHUB Finance</span><h3>Quote Reader</h3><p>Supplier quotes read into line items you can order from, line by line.</p></div></div>
+</div></section>
+<section class="s-paper alt"><div class="wrap"><div class="sectionhead"><span class="kicker">Simple by design</span><h2>Less admin. <em>More proof.</em></h2><p>Built with one focus: one clear place for everything a job needs, on site and in the office.</p></div>
+  <div class="simplegrid"><div class="simple"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div><h3>Enter it once</h3><p>An order on site is the PO, the delivery, the invoice match and the job cost. Nobody types it twice.</p></div><div class="simple"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></div><h3>Everything finds its job</h3><p>Photos, check-ins, invoices and variations land on the right project by themselves.</p></div><div class="simple"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h11v10H3z"/><path d="M14 9h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></div><h3>Built for the phone</h3><p>Operatives and drivers get one simple app. The office gets the full picture on the laptop.</p></div></div></div></section>
+<section id="demo" class="s-paper"><div class="wrap demogrid">
+  <div class="demotext"><span class="kicker">Book a demo</span><h2>See OpHUB with your own jobs in mind</h2>
+    <p class="lead">Tell us a little about your company and we'll get in touch to arrange a walkthrough of OpHUB Projects, OpHUB Finance, or both.</p>
+    <ul class="demolist"><li>A guided look from the operative, driver, PM and office side</li><li>How Finance and Projects talk to each other on your kind of job</li><li>Your questions answered by the people who built it</li><li>No obligation: see if it fits before you sign up</li></ul>
+    <p class="alt">Prefer email? <a href="mailto:sales@operativehub.co.uk">sales@operativehub.co.uk</a></p></div>
+  <div class="democard">
       <form id="demoForm" onsubmit="return sendDemo(event)" novalidate>
         <div class="formrow">
           <div class="formfield"><label for="dName">Your name</label><input id="dName" type="text" autocomplete="name" maxlength="100" required></div>
@@ -481,38 +427,12 @@
       </div>
     </div>
   </div>
-</section>
-
-<section style="padding-top:0;">
-  <div class="wrap">
-    <div class="finalcta">
-      <h2>Ready to run every site from one place?</h2>
-      <p>Book a demo and we'll show you OpHUB with your own jobs in mind.</p>
-      <div class="herobtns">
-        <a href="#demo" class="btn btn-primary">Book a Demo</a>
-        <a href="/app.html" class="btn btn-glass">Sign In</a>
-      </div>
-    </div>
-  </div>
-</section>
-
-<footer>
-  <div class="wrap">
-    <div class="footrow">
-      <a href="/" class="footlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
-      <div class="footlinks">
-        <a href="#features">Features</a>
-        <a href="#pricing">Plans</a>
-        <a href="#demo">Book a Demo</a>
-        <a href="/app.html">Sign In</a>
-        <a href="/privacy.html">Privacy</a>
-        <a href="mailto:sales@operativehub.co.uk">Contact</a>
-      </div>
-    </div>
-    <p class="footmeta">© 2026 OpHUB · operativehub.co.uk · sales@operativehub.co.uk</p>
-  </div>
-</footer>
-
+</div></section>
+<section class="s-paper alt"><div class="wrap"><div class="finalcta"><h2>Ready to run every site, and every pound, from one place?</h2><p>Book a demo and we'll show you OpHUB with your own jobs in mind.</p><div class="herobtns"><a href="/#demo" class="btn btn-primary">Book a Demo</a><a href="/app.html" class="btn btn-glass">Sign In</a></div></div></div></section>
+<footer><div class="wrap"><div class="footrow">
+  <a href="/" class="footlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
+  <div class="footlinks"><a href="/projects.html">OpHUB Projects</a><a href="/finance.html">OpHUB Finance</a><a href="/#ai">AI</a><a href="/#demo">Book a Demo</a><a href="/app.html">Sign In</a><a href="/privacy.html">Privacy</a><a href="mailto:sales@operativehub.co.uk">Contact</a></div>
+</div><p class="footmeta">© 2026 OpHUB · operativehub.co.uk · sales@operativehub.co.uk</p></div></footer>
 <script>
   const SUPABASE_URL = 'https://dtrfupmcazoioubhwdml.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0cmZ1cG1jYXpvaW91Ymh3ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4ODI2MTEsImV4cCI6MjEwMjQ1ODYxMX0.RpPi02zvyPCrw9CxfkK0hNvmEEnILlXQ5qoMwxYsSKc';
@@ -543,10 +463,6 @@
     demoBusy = false; btn.disabled = false; btn.textContent = 'Request a Demo';
     return false;
   }
-</script>
-<script>
-  // "Get a Quote" on a plan: note the plan in the demo request message.
-  function pickPlan(name){ const m = document.getElementById('dMsg'); if(m && !m.value.trim()) m.value = 'Interested in '+name+'. '; }
 </script>
 </body>
 </html>

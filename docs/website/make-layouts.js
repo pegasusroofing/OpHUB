@@ -3,7 +3,7 @@
 // Makes layout-1.html, layout-2.html, layout-3.html beside this file. node docs/website/make-layouts.js
 const fs = require('fs');
 const path = require('path');
-const src = fs.readFileSync(path.join(__dirname, '..', '..', 'index.html'), 'utf8');
+const src = fs.readFileSync(path.join(__dirname, 'old-index.html'), 'utf8');
 const baseCss = src.slice(src.indexOf('<style>') + 7, src.indexOf('</style>'));
 const hero = src.slice(src.indexOf('<section class="hero">'), src.indexOf('</section>', src.indexOf('<section class="hero">')) + 10);
 // The hero's phone, whole: from <div class="phone"> to its own closing </div>.

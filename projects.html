@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpHUB Projects: the site app for trade &amp; specialist contractors</title>
+<meta name="description" content="OpHUB Projects: Schedule of Works, RAMS &amp; COSHH builders, GPS check-in, snagging, drawings, materials, deliveries, repairs, O&amp;M handover and HR, in one branded app your operatives will actually use.">
+<meta property="og:title" content="OpHUB Projects: the site app for trade &amp; specialist contractors">
+<meta property="og:description" content="OpHUB Projects: Schedule of Works, RAMS &amp; COSHH builders, GPS check-in, snagging, drawings, materials, deliveries, repairs, O&amp;M handover and HR, in one branded app your operatives will actually use.">
+<meta property="og:image" content="assets/ophub-logo.png?v=2">
+<meta name="theme-color" content="#0B0E14">
+<link rel="apple-touch-icon" href="assets/ophub-logo.png?v=2">
+<link rel="icon" href="assets/ophub-logo.png?v=2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand1:#4E8FD1; --brand-deep:#2F6FB3; --brand-soft:#EAF2FB;
+    --ink:#0B0E14; --ink2:#141926; --paper:#F7F8FA; --card:#FFFFFF;
+    --line:#E3E7EE; --slate:#566072; --mute:#8A93A3; --ok:#1F9D62;
+    --r:20px; --shadow:0 1px 2px rgba(11,14,20,.04),0 12px 32px -16px rgba(11,14,20,.18);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:'Manrope',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;}
+  a{color:inherit;text-decoration:none;}
+  img{max-width:100%;display:block;}
+  [onclick]{cursor:pointer;}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 24px;}
+  section{padding:96px 0;}
+  h1,h2,h3{margin:0;line-height:1.1;letter-spacing:-.025em;font-weight:800;}
+  p{margin:0;}
+
+  /* nav */
+  .nav{position:sticky;top:0;z-index:30;background:rgba(11,14,20,.82);backdrop-filter:saturate(160%) blur(14px);-webkit-backdrop-filter:saturate(160%) blur(14px);border-bottom:1px solid rgba(255,255,255,.08);}
+  .navrow{max-width:1160px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:28px;}
+  .navlogo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;color:#fff;margin-right:auto;letter-spacing:-.01em;}
+  .navlogo img{width:34px;height:34px;border-radius:10px;object-fit:cover;}
+  .navlinks{display:flex;gap:28px;font-weight:600;font-size:14.5px;color:rgba(255,255,255,.72);}
+  .navlinks a:hover{color:#fff;}
+  .navcta{display:flex;gap:10px;align-items:center;}
+
+  /* buttons */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 24px;border-radius:12px;
+    font-family:inherit;font-weight:700;font-size:15px;border:1.5px solid transparent;cursor:pointer;white-space:nowrap;
+    transition:transform .15s ease,box-shadow .15s ease,background .15s ease,border-color .15s ease,color .15s ease;}
+  .btn:hover{transform:translateY(-1px);}
+  .btn-primary{background:var(--brand1);color:#fff;box-shadow:0 8px 20px -8px rgba(78,143,209,.7);}
+  .btn-primary:hover{background:var(--brand-deep);}
+  .btn-ghost{background:transparent;color:var(--ink);border-color:var(--line);}
+  .btn-ghost:hover{border-color:var(--brand1);color:var(--brand-deep);}
+  .btn-glass{background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.18);}
+  .btn-glass:hover{background:rgba(255,255,255,.14);}
+  .btn-sm{padding:9px 16px;font-size:13.5px;border-radius:10px;}
+  .btn-block{width:100%;}
+  .btn:disabled{background:#D9DEE6;color:#8A93A3;cursor:default;box-shadow:none;transform:none;}
+
+  .kicker{display:inline-flex;align-items:center;gap:8px;background:var(--brand-soft);color:var(--brand-deep);
+    font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;padding:7px 13px;border-radius:999px;margin-bottom:18px;}
+  .sectionhead{max-width:700px;margin:0 auto 52px;text-align:center;}
+  .sectionhead h1,.sectionhead h2{font-size:clamp(28px,4vw,42px);}
+  .sectionhead p{color:var(--slate);font-size:17px;margin-top:16px;}
+
+  /* pricing cards (shared by home + pricing page) */
+  .pricegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;align-items:stretch;}
+  .pricecard{background:var(--card);border:1.5px solid var(--line);border-radius:24px;padding:32px;display:flex;flex-direction:column;position:relative;
+    box-shadow:var(--shadow);transition:border-color .15s,box-shadow .15s,transform .15s;}
+  .pricecard:hover{border-color:var(--brand1);transform:translateY(-3px);}
+  .pricecard.featured{background:linear-gradient(180deg,#121826 0%,#0B0E14 100%);border-color:#22304a;color:#fff;box-shadow:0 30px 60px -28px rgba(47,111,179,.65);}
+  .pricecard.selected{border-color:var(--brand1);box-shadow:0 0 0 4px rgba(78,143,209,.22),0 30px 60px -30px rgba(47,111,179,.6);}
+  .pricecard .tag{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--brand1);color:#fff;
+    font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;padding:6px 14px;border-radius:999px;white-space:nowrap;}
+  .pricecard h3{font-size:18px;letter-spacing:-.01em;}
+  .pricecard .amt{font-size:52px;font-weight:800;margin-top:16px;letter-spacing:-.04em;line-height:1;}
+  .pricecard .amt span{font-size:15px;font-weight:600;color:var(--slate);letter-spacing:0;}
+  .pricecard .amt span.vat{font-size:12px;color:var(--mute);}
+  .pricecard .setupfee{font-size:13px;font-weight:700;color:var(--brand-deep);margin-top:10px;}
+  .pricecard .desc{color:var(--slate);font-size:14.5px;margin-top:10px;min-height:46px;}
+  .pricecard ul{list-style:none;margin:22px 0 0;padding:22px 0 0;border-top:1px solid var(--line);flex:1;}
+  .pricecard li{display:flex;gap:10px;align-items:flex-start;font-size:14.5px;margin-bottom:11px;line-height:1.45;}
+  .pricecard li:before{content:"✓";flex:0 0 20px;height:20px;border-radius:50%;background:#E3F5EC;color:var(--ok);font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;margin-top:1px;}
+  .pricecard .btn{margin-top:24px;}
+  .pricecard.featured .amt span,.pricecard.featured .desc{color:rgba(255,255,255,.66);}
+  .pricecard.featured .amt span.vat{color:rgba(255,255,255,.5);}
+  .pricecard.featured .setupfee{color:#8FBDEB;}
+  .pricecard.featured ul{border-top-color:rgba(255,255,255,.12);}
+  .pricecard.featured li:before{background:rgba(78,143,209,.25);color:#9CC8F2;}
+
+  /* footer */
+  footer{background:var(--ink);color:rgba(255,255,255,.7);padding:52px 0 40px;}
+  .footrow{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:20px;}
+  .footlogo{display:flex;align-items:center;gap:10px;font-weight:800;color:#fff;font-size:17px;}
+  .footlogo img{width:30px;height:30px;border-radius:8px;object-fit:cover;}
+  .footlinks{display:flex;gap:24px;font-size:14px;font-weight:600;flex-wrap:wrap;}
+  .footlinks a:hover{color:#fff;}
+  .footmeta{color:rgba(255,255,255,.45);font-size:13px;margin-top:28px;padding-top:24px;border-top:1px solid rgba(255,255,255,.1);}
+
+  @media (max-width:900px){
+    section{padding:64px 0;}
+    .pricegrid{grid-template-columns:1fr;}
+    .navlinks{display:none;}
+    .sectionhead{margin-bottom:36px;}
+  }
+  @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto;} .btn,.pricecard{transition:none;} .btn:hover,.pricecard:hover{transform:none;} }
+
+  /* hero */
+  .hero{position:relative;overflow:hidden;background:var(--ink);color:#fff;padding:88px 0 104px;}
+  .hero:before{content:"";position:absolute;inset:0;background:
+    radial-gradient(700px 420px at 78% 18%,rgba(78,143,209,.42),transparent 62%),
+    radial-gradient(520px 360px at 8% 96%,rgba(78,143,209,.2),transparent 60%);}
+  .hero:after{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);background-size:56px 56px;
+    -webkit-mask-image:radial-gradient(ellipse at 50% 30%,#000 30%,transparent 75%);mask-image:radial-gradient(ellipse at 50% 30%,#000 30%,transparent 75%);}
+  .herogrid{position:relative;z-index:1;display:grid;grid-template-columns:1.15fr .85fr;gap:56px;align-items:center;}
+  .hero .kicker{background:rgba(255,255,255,.08);color:#B7D6F5;border:1px solid rgba(255,255,255,.14);}
+  .hero h1{font-size:clamp(36px,5.4vw,64px);line-height:1.03;}
+  .hero h1 em{font-style:normal;background:linear-gradient(90deg,#7FB6EC,#4E8FD1);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .hero p.lead{font-size:18.5px;color:rgba(255,255,255,.74);margin-top:22px;max-width:540px;}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px;max-width:560px;}
+  .chips span{font-size:13px;font-weight:600;color:rgba(255,255,255,.86);background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.13);padding:6px 12px;border-radius:999px;}
+  .herobtns{display:flex;gap:12px;margin-top:32px;flex-wrap:wrap;}
+  .heroreassure{margin-top:18px;font-size:13.5px;color:rgba(255,255,255,.55);}
+  /* phone */
+  .phonewrap{display:flex;justify-content:center;}
+  .phone{width:300px;background:#05070B;border-radius:44px;padding:11px;border:1px solid rgba(255,255,255,.16);box-shadow:0 50px 90px -30px rgba(0,0,0,.8),0 0 0 1px rgba(0,0,0,.6),0 0 80px -10px rgba(78,143,209,.45);transform:rotate(2.5deg);}
+  .screen{background:#F4F5F7;border-radius:34px;overflow:hidden;color:var(--ink);}
+  .scrtop{background:var(--ink);color:#fff;padding:26px 18px 18px;position:relative;}
+  .scrtop:before{content:"";position:absolute;top:9px;left:50%;transform:translateX(-50%);width:82px;height:7px;border-radius:9px;background:#1b2130;}
+  .scrtop small{display:block;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:rgba(255,255,255,.55);font-weight:700;}
+  .scrtop b{display:block;font-size:17px;margin-top:3px;letter-spacing:-.01em;}
+  .scrbody{padding:12px;display:grid;gap:8px;}
+  .mocktile{background:#fff;border:1px solid #E6E9EF;border-radius:14px;padding:11px 12px;display:flex;align-items:center;gap:11px;}
+  .mocktile .ic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 34px;}
+  .mocktile .t{font-weight:800;font-size:13px;line-height:1.2;}
+  .mocktile .s{color:var(--mute);font-size:11.5px;margin-top:2px;line-height:1.2;}
+  .mocktile .pill{margin-left:auto;font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:999px;background:#E3F5EC;color:var(--ok);white-space:nowrap;}
+  /* new-look app mock */
+  .mstatus{height:26px;background:#fff;position:relative;}
+  .mstatus:before{content:"";position:absolute;top:8px;left:50%;transform:translateX(-50%);width:82px;height:7px;border-radius:9px;background:#1b2130;}
+  .mhead{background:#fff;text-align:center;padding:2px 0 10px;border-bottom:1px solid #ECEEF2;}
+  .mhead b{display:block;font-size:15px;font-weight:800;letter-spacing:-.01em;}
+  .mhead small{display:block;font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--mute);text-transform:uppercase;}
+  .mbody{padding:11px 11px 14px;}
+  .mgreet small{display:block;font-size:9.5px;color:var(--slate);font-weight:600;}
+  .mgreet b{display:block;font-size:15.5px;font-weight:800;letter-spacing:-.01em;margin-bottom:8px;}
+  .mstats{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px;}
+  .mstats div{background:#fff;border:1px solid #ECEEF2;border-radius:11px;padding:6px 6px;}
+  .mstats b{display:block;font-size:15px;font-weight:800;line-height:1.1;}
+  .mstats b.hot{color:#D23B2E;}
+  .mstats span{display:block;font-size:7.5px;color:var(--slate);font-weight:600;}
+  .mhero{background:var(--brand1);color:#fff;border-radius:16px;padding:11px 13px;margin-bottom:8px;}
+  .mhero-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .mhero-ic{width:30px;height:30px;border-radius:10px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;}
+  .mhero b{display:block;font-size:14px;font-weight:800;}
+  .mhero small{display:block;font-size:9.5px;opacity:.9;}
+  .mtiles{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .mtile{background:#fff;border:1px solid #ECEEF2;border-radius:14px;padding:9px;display:flex;flex-direction:column;}
+  .mtic{width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:9px;}
+  .mtic svg{width:15px;height:15px;}
+  .mtt{font-size:11px;font-weight:800;line-height:1.2;}
+  .mts{font-size:8.5px;color:var(--slate);font-weight:500;line-height:1.25;}
+  .t-blue{background:#EEF3FD;color:#2457C5;} .t-orange{background:#FDF1E6;color:#B35A00;} .t-green{background:#EAF6EF;color:#17804A;}
+  .t-purple{background:#F3EEFA;color:#6B3FA8;} .t-grey{background:#F1F2F4;color:var(--ink);} .t-teal{background:#E7F5F5;color:#0E7F7C;}
+  /* proof */
+  .proof{background:#fff;border-bottom:1px solid var(--line);padding:22px 0;}
+  .proofrow{display:flex;align-items:center;justify-content:center;gap:10px 26px;flex-wrap:wrap;color:var(--slate);font-weight:700;font-size:13px;letter-spacing:.02em;}
+  .proofrow span{display:inline-flex;align-items:center;gap:8px;}
+  .proofrow span:before{content:"";width:6px;height:6px;border-radius:50%;background:var(--brand1);}
+  /* why */
+  .problemgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;}
+  .problemcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:30px;box-shadow:var(--shadow);}
+  .problemcard .ic{width:48px;height:48px;border-radius:14px;background:var(--brand-soft);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:18px;}
+  .problemcard h3{font-size:19px;letter-spacing:-.015em;}
+  .problemcard p{color:var(--slate);font-size:15px;margin-top:10px;}
+  /* features */
+  .featband{background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+  .featgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+  .featcard{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:26px;transition:transform .15s,box-shadow .15s,border-color .15s,background .15s;}
+  .featcard:hover{transform:translateY(-3px);background:#fff;border-color:#C9DBF0;box-shadow:var(--shadow);}
+  .featcard .ic{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:21px;margin-bottom:16px;}
+  .featcard h3{font-size:17px;letter-spacing:-.01em;}
+  .featcard p{color:var(--slate);font-size:14.5px;margin-top:8px;line-height:1.55;}
+  /* benefits */
+  .benefits{position:relative;overflow:hidden;background:var(--ink);color:#fff;border-radius:32px;padding:64px 56px;}
+  .benefits:before{content:"";position:absolute;inset:0;background:radial-gradient(600px 320px at 100% 0%,rgba(78,143,209,.35),transparent 65%);}
+  .benefits>*{position:relative;}
+  .benefits .sectionhead{margin-bottom:40px;}
+  .benefits .kicker{background:rgba(255,255,255,.08);color:#B7D6F5;}
+  .benefitsgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+  .benefititem{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:26px;}
+  .benefititem .check{width:34px;height:34px;border-radius:50%;background:var(--brand1);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px;margin-bottom:16px;}
+  .benefititem h3{font-size:17.5px;color:#fff;letter-spacing:-.01em;}
+  .benefititem p{color:rgba(255,255,255,.66);font-size:14.5px;margin-top:8px;}
+
+  /* book a demo */
+  .demogrid{display:grid;grid-template-columns:.9fr 1.1fr;gap:48px;align-items:start;}
+  .demotext h2{font-size:clamp(28px,4vw,42px);}
+  .demotext p.lead{color:var(--slate);font-size:17px;margin-top:16px;}
+  .demolist{list-style:none;margin:26px 0 0;padding:0;display:grid;gap:14px;}
+  .demolist li{display:flex;gap:12px;align-items:flex-start;font-size:15.5px;font-weight:600;}
+  .demolist li:before{content:"✓";flex:0 0 24px;height:24px;border-radius:50%;background:var(--brand-soft);color:var(--brand-deep);font-weight:900;font-size:12px;display:flex;align-items:center;justify-content:center;}
+  .demotext .alt{margin-top:26px;font-size:14.5px;color:var(--slate);}
+  .demotext .alt a{color:var(--brand-deep);font-weight:700;}
+  .democard{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:32px;box-shadow:var(--shadow);}
+  .formrow{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .formfield{margin:0 0 14px;}
+  .formfield label{display:block;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--slate);margin:0 0 7px;}
+  .formfield label i{font-style:normal;font-weight:600;text-transform:none;letter-spacing:0;color:var(--mute);}
+  .formfield input,.formfield select,.formfield textarea{width:100%;padding:13px 14px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;font-family:inherit;background:#fff;color:var(--ink);transition:border-color .15s,box-shadow .15s;}
+  .formfield textarea{min-height:104px;resize:vertical;}
+  .formfield input:focus,.formfield select:focus,.formfield textarea:focus{outline:none;border-color:var(--brand1);box-shadow:0 0 0 4px rgba(78,143,209,.18);}
+  .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;}
+  .formmsg{font-size:14px;border-radius:10px;padding:11px 14px;margin:0 0 14px;}
+  .formmsg.err{color:#8A5A0B;background:#FBF0D9;}
+  .demodone{text-align:center;padding:28px 8px;}
+  .demodone .tick{width:56px;height:56px;border-radius:50%;background:#E3F5EC;color:var(--ok);font-size:26px;font-weight:900;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+  .demodone h3{font-size:22px;}
+  .demodone p{color:var(--slate);margin-top:10px;font-size:15.5px;}
+  .formnote{text-align:center;font-size:13px;color:var(--mute);margin-top:14px;}
+  @media (max-width:900px){ .demogrid{grid-template-columns:1fr;gap:32px;} .formrow{grid-template-columns:1fr;gap:0;} .democard{padding:24px 20px;} }
+  /* cta */
+  .finalcta{position:relative;overflow:hidden;text-align:center;background:linear-gradient(135deg,#2F6FB3 0%,#4E8FD1 55%,#7FB6EC 100%);color:#fff;border-radius:32px;padding:76px 32px;}
+  .finalcta h2{font-size:clamp(28px,4vw,42px);}
+  .finalcta p{color:rgba(255,255,255,.88);font-size:17px;margin-top:14px;}
+  .finalcta .herobtns{justify-content:center;}
+  .finalcta .btn-primary{background:#fff;color:var(--brand-deep);box-shadow:0 12px 28px -12px rgba(0,0,0,.45);}
+  .finalcta .btn-primary:hover{background:#F1F6FC;}
+  @media (max-width:900px){
+    .hero{padding:56px 0 72px;}
+    .herogrid{grid-template-columns:1fr;gap:44px;}
+    .phone{width:270px;transform:none;}
+    .problemgrid,.benefitsgrid,.featgrid{grid-template-columns:1fr;}
+    .benefits{padding:44px 22px;border-radius:24px;}
+    .finalcta{padding:56px 22px;border-radius:24px;}
+  }
+  @media (min-width:601px) and (max-width:900px){ .featgrid{grid-template-columns:1fr 1fr;} }
+  @media (prefers-reduced-motion:reduce){ .featcard{transition:none;} .featcard:hover{transform:none;} }
+
+/* ---- style C, Blueprint ---- */
+.s-paper{background:#F3F6FA;background-image:linear-gradient(rgba(47,111,179,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(47,111,179,.07) 1px,transparent 1px);background-size:28px 28px;}
+.s-paper.alt{background-color:#EEF2F8;}
+.s-paper .kicker{font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.04em;background:#0B0E14;color:#9CC8F2;border-radius:6px;}
+.sectionhead h2 em,.together h2 em{font-style:normal;color:#2F6FB3;text-decoration:underline;text-decoration-thickness:3px;text-underline-offset:8px;text-decoration-color:rgba(78,143,209,.4);}
+.navlinks a.cur{color:#fff;}
+.tag{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;font-size:12px;letter-spacing:.04em;text-transform:uppercase;padding:6px 11px;border-radius:4px;}
+.p .tag{background:#2F6FB3;color:#fff;} .f .tag{background:#1F9D62;color:#fff;}
+/* home: pick your system */
+.choose{display:grid;gap:30px;}
+.cpanel{display:grid;grid-template-columns:1fr 1fr;gap:34px;align-items:center;background:#fff;border:1.5px solid;border-radius:6px;padding:40px;}
+.cpanel.p{border-color:#2F6FB3;box-shadow:8px 8px 0 #2F6FB3;} .cpanel.f{border-color:#1F9D62;box-shadow:8px 8px 0 #1F9D62;}
+.cpanel h3{font-size:34px;margin:16px 0 10px;letter-spacing:-.02em;} .cpanel p{color:#566072;font-size:16.5px;margin-bottom:18px;}
+.cpanel .btn-primary{margin-top:6px;} .cpanel.f .btn-primary{background:#1F9D62;box-shadow:0 8px 20px -8px rgba(31,157,98,.6);} .cpanel.f .btn-primary:hover{background:#17804A;}
+.mini{list-style:none;padding:0;margin:0 0 22px;display:flex;flex-wrap:wrap;gap:8px;}
+.mini li{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;padding:5px 10px;border-radius:4px;border:1px solid;}
+.p .mini li{color:#2F6FB3;border-color:#BCD3EC;background:#F3F8FD;} .f .mini li{color:#17804A;border-color:#BFE3CF;background:#F2FAF5;}
+.cart{display:flex;justify-content:center;} .cart .phone{transform:rotate(2deg) scale(.92);}
+/* the flow, in style B's tinted boxes */
+.flowlabel{display:flex;gap:18px;justify-content:center;margin-bottom:18px;font-size:13px;font-weight:700;color:#566072;flex-wrap:wrap;}
+.flowlabel span{display:inline-flex;align-items:center;gap:7px;} .flowlabel i{width:12px;height:12px;border-radius:4px;display:inline-block;}
+.flowlabel i.kp{background:#4E8FD1;} .flowlabel i.kf{background:#1F9D62;}
+.flows{display:grid;gap:14px;} .flow{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+.step{position:relative;border-radius:14px;padding:14px 14px 14px 16px;font-size:14px;font-weight:700;line-height:1.3;display:flex;align-items:center;border:1px solid #E3E7EE;box-shadow:0 8px 20px -14px rgba(11,14,20,.25);}
+.step.p{background:#EEF4FC;border-color:#CFE0F4;color:#1F4E86;} .step.f{background:#EAF6EF;border-color:#C9E8D6;color:#14653B;}
+.step:not(:last-child):after{content:"";position:absolute;right:-9px;top:50%;width:8px;height:8px;transform:translateY(-50%) rotate(45deg);z-index:2;background:#fff;border-top:1.5px solid #9AA5B5;border-right:1.5px solid #9AA5B5;}
+/* AI */
+.aigrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+.aicard{background:#fff;border:1.5px solid #D4DCE7;border-radius:6px;position:relative;padding:26px;}
+.aicard:after{content:"AI";position:absolute;top:18px;right:18px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:#2F6FB3;border:1px solid #2F6FB3;border-radius:3px;padding:1px 5px;}
+.aicard .ic{width:46px;height:46px;border-radius:6px;background:#0B0E14;color:#9CC8F2;display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
+.aiin{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;margin-bottom:6px;} .aiin.p{color:#2F6FB3;} .aiin.f{color:#17804A;}
+.aicard h3{font-size:18px;} .aicard p{font-size:14.5px;margin-top:8px;color:#566072;line-height:1.55;}
+/* simple */
+.simplegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;}
+.simple{background:#fff;border:1.5px solid #D4DCE7;border-radius:6px;padding:28px;} .simple .ic{width:42px;height:42px;border-radius:6px;background:#2F6FB3;color:#fff;display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
+.simple h3{font-size:18px;} .simple p{font-size:14.5px;margin-top:8px;color:#566072;}
+/* demo + final */
+#demo .democard{border-radius:6px;border:1.5px solid #0B0E14;box-shadow:8px 8px 0 #2F6FB3;}
+.demolist li:before{border-radius:4px;}
+.finalcta{background:#0B0E14;border-radius:8px;box-shadow:10px 10px 0 #2F6FB3;}
+.finalcta .btn-primary{background:#4E8FD1;color:#fff;} .finalcta .btn-primary:hover{background:#2F6FB3;}
+/* laptop mock */
+.laptop{width:100%;max-width:520px;margin:0 auto;}
+.lscreen{background:#F4F5F7;border:10px solid #0B0E14;border-bottom-width:14px;border-radius:14px 14px 4px 4px;overflow:hidden;font-size:11px;color:#0B0E14;}
+.lbase{height:12px;background:linear-gradient(#cfd5de,#9aa3b0);border-radius:0 0 14px 14px;margin:0 -28px;}
+.lbar{background:#fff;padding:9px 12px;text-align:center;font-weight:700;color:#C0392B;border-bottom:1px solid #E6E8EC;} .lbar b{color:#111318;} .lbar i{color:#8A93A3;font-style:normal;margin:0 4px;}
+.ltabs{display:flex;gap:10px;padding:6px 12px;font-size:10px;color:#6b7280;font-weight:600;background:#fff;border-bottom:1px solid #E6E8EC;overflow:hidden;white-space:nowrap;} .ltabs .on{color:#111;border-bottom:2px solid #C0392B;}
+.lstats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:8px 10px;} .lstats div{background:#fff;border:1px solid #ECEEF2;border-radius:6px;padding:6px;} .lstats b{display:block;font-size:13px;} .lstats small{font-size:8px;color:#566072;line-height:1.2;display:block;}
+.ltable{width:calc(100% - 20px);margin:0 10px 10px;border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;font-size:9.5px;}
+.ltable th{font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;text-decoration:underline;padding:6px;text-align:center;} .ltable td{padding:7px 6px;border-top:1px solid #EEF0F2;text-align:center;}
+.ltable span{font-size:8.5px;font-weight:700;padding:2px 6px;border-radius:999px;white-space:nowrap;} .ok{background:#E5F5EC;color:#17804A;} .ai{background:#EAF2FB;color:#2F6FB3;} .wait{background:#FDF1E6;color:#B35A00;}
+/* a system's own page */
+.phero{padding:76px 0 88px;} .phero h1{font-size:clamp(34px,5vw,58px);} .phero .phone{transform:rotate(2.5deg);}
+.phero.f h1 em{background:linear-gradient(90deg,#6FD3A6,#1F9D62);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.phero.f .kicker{color:#9FE3C2;} .phero.f .btn-primary{background:#1F9D62;box-shadow:0 8px 20px -8px rgba(31,157,98,.7);} .phero.f .btn-primary:hover{background:#17804A;}
+.phero .laptop{max-width:540px;transform:perspective(1200px) rotateY(-8deg);filter:drop-shadow(0 40px 60px rgba(0,0,0,.6));}
+.fgroup{margin-top:46px;} .fgroup:first-of-type{margin-top:0;}
+.fghead{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;border-bottom:1.5px dashed #9AB7DA;padding-bottom:10px;margin-bottom:18px;}
+.fghead h3{font-size:22px;letter-spacing:-.01em;} .fghead p{color:#566072;font-size:15px;}
+.featgrid2{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.fcard{background:#fff;border:1.5px solid #D4DCE7;border-radius:6px;padding:22px;position:relative;}
+.fcard .ic{width:40px;height:40px;border-radius:6px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;}
+.fcard.p .ic{background:#EEF4FC;color:#2F6FB3;} .fcard.f .ic{background:#EAF6EF;color:#17804A;}
+.fcard h4{margin:0;font-size:16.5px;letter-spacing:-.01em;} .fcard p{color:#566072;font-size:14.2px;margin-top:6px;line-height:1.5;}
+.aibadge{position:absolute;top:16px;right:16px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:#2F6FB3;border:1px solid #2F6FB3;border-radius:3px;padding:1px 5px;}
+.together{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;background:#fff;border:1.5px solid;border-radius:6px;padding:40px;}
+.together.p{border-color:#1F9D62;box-shadow:8px 8px 0 #1F9D62;} .together.f{border-color:#2F6FB3;box-shadow:8px 8px 0 #2F6FB3;}
+.together h2{font-size:clamp(26px,3.4vw,36px);margin:14px 0 12px;} .together p{color:#566072;font-size:16px;}
+.together ul{list-style:none;margin:0;padding:0;display:grid;gap:12px;}
+.together li{display:flex;gap:12px;align-items:flex-start;font-weight:600;font-size:15.5px;}
+.together li svg{flex:0 0 26px;width:26px;height:26px;padding:5px;border-radius:6px;}
+.together.p li svg{background:#EAF6EF;color:#17804A;} .together.f li svg{background:#EEF4FC;color:#2F6FB3;}
+@media (max-width:900px){
+  .choose{grid-template-columns:minmax(0,1fr);} .cpanel,.together{grid-template-columns:minmax(0,1fr);padding:26px 22px;} .cpanel h3{font-size:28px;}
+  .cpanel>*,.together>*{min-width:0;} .cart{overflow:hidden;padding:6px 0 14px;} .lscreen{font-size:10px;} .ltable{font-size:8.5px;} .ltable td,.ltable th{padding:5px 3px;} .ltable span{padding:2px 4px;} .lbase{margin:0 -10px;}
+  .flow{grid-template-columns:1fr;} .step:not(:last-child):after{right:50%;top:auto;bottom:-9px;transform:translateX(50%) rotate(45deg);}
+  .aigrid,.simplegrid,.featgrid2{grid-template-columns:1fr;}
+  .phero .laptop{transform:none;} .cart .phone{transform:none;}
+}
+@media (min-width:601px) and (max-width:900px){ .featgrid2,.aigrid{grid-template-columns:1fr 1fr;} }
+</style>
+</head>
+<body>
+<div class="nav"><div class="navrow">
+  <a href="/" class="navlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
+  <div class="navlinks"><a href="/projects.html" class="cur">Projects</a><a href="/finance.html">Finance</a><a href="/#ai">AI</a><a href="/#demo">Book a Demo</a></div>
+  <div class="navcta"><a href="/app.html" class="btn btn-glass btn-sm">Sign In</a><a href="/#demo" class="btn btn-primary btn-sm">Book a Demo</a></div>
+</div></div>
+<section class="hero phero p"><div class="wrap herogrid">
+  <div><span class="kicker">OpHUB Projects · for site teams</span><h1>Everything a job needs, <em>on every phone</em></h1><p class="lead">One branded app for operatives, drivers, supervisors and PMs. Simple enough that it actually gets used, every day, on every site.</p>
+    <div class="chips"><span>iPhone, Android &amp; web</span><span>Works with no signal</span><span>Your logo and colours</span><span>No per-user fees</span></div>
+    <div class="herobtns"><a href="/#demo" class="btn btn-primary">Book a Demo</a><a href="/finance.html" class="btn btn-glass">See OpHUB Finance <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div></div>
+  <div class="phonewrap" aria-hidden="true"><div class="phone"><div class="screen">
+        <div class="mstatus"></div>
+        <div class="mhead"><b>OpHUB</b><small>RTB Roofing Ltd</small></div>
+        <div class="mbody">
+          <div class="mgreet"><small>Tuesday 13 October</small><b>Good morning, Andy</b></div>
+          <div class="mstats"><div><b>12</b><span>Live jobs</span></div><div><b>4</b><span>Upcoming</span></div><div><b>7</b><span>To do</span></div><div><b class="hot">3</b><span>Alerts</span></div></div>
+          <div class="mhero"><span class="mhero-top"><span class="mhero-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span><b>Live projects</b><small>12 live · 4 upcoming</small></div>
+          <div class="mtiles"><div class="mtile"><span class="mtic t-teal"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><span class="mtt">Dashboard</span><span class="mts">Company overview</span></div><div class="mtile"><span class="mtic t-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span><span class="mtt">Calendar</span><span class="mts">All projects</span></div><div class="mtile"><span class="mtic t-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></span><span class="mtt">HUB</span><span class="mts">3 notifications</span></div><div class="mtile"><span class="mtic t-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h11v10H3z"/><path d="M14 9h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></span><span class="mtt">Deliveries</span><span class="mts">Next drop 10am</span></div><div class="mtile"><span class="mtic t-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></span><span class="mtt">Reports</span><span class="mts">2 in progress</span></div><div class="mtile"><span class="mtic t-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></span><span class="mtt">Operatives</span><span class="mts">Certs &amp; training</span></div><div class="mtile"><span class="mtic t-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c1-3.5 4-5.5 7-5.5s6 2 7 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .8 3.4 2.6 4 5.5"/></svg></span><span class="mtt">HR</span><span class="mts">Holidays &amp; policies</span></div><div class="mtile"><span class="mtic t-grey"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></span><span class="mtt">Admin</span><span class="mts">Team &amp; settings</span></div></div>
+        </div>
+      </div></div></div></div></section>
+<section class="s-paper"><div class="wrap"><div class="sectionhead"><span class="kicker"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/></svg> What's inside</span><h2>From the first RAMS <em>to the final handover</em></h2><p>Set it up once, brand it as your own, and give every person on the job exactly what they need.</p></div>
+<div class="fgroup"><div class="fghead"><h3>On site, every day</h3><p>What your operatives and supervisors use on every job.</p></div>
+  <div class="featgrid2"><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></div><h4>GPS Check-in</h4><p>Geofenced check-in and check-out, including multi-address jobs, so you always know who's on site.</p></div><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 12h6M9 16h4"/></svg></div><h4>Schedule of Works</h4><p>Sections and tasks with progress and photos, built from your own library or imported, exported as a branded PDF.</p></div><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12V3h9l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></div><h4>Snagging &amp; Variations</h4><p>Log and photograph snags or variations, mark up the photo, close out with evidence and export a PDF.</p></div><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/></svg></div><h4>Drawings &amp; Programme</h4><p>Drawings, specs and programmes in folders, superseded versions kept, mark-up on the plan.</p></div><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></div><h4>Reports &amp; Surveys</h4><p>Your own report templates, filled on site with photos and signatures, even with no signal.</p></div></div></div>
+<div class="fgroup"><div class="fghead"><h3>Health & safety</h3><p>Compliance that gets done, signed and filed, on the phone.</p></div>
+  <div class="featgrid2"><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div><span class="aibadge">AI</span><h4>RAMS Builder</h4><p>Build RAMS from your hazard library for the job and the task. Signed digitally by every operative.</p></div><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6L4 19a1.5 1.5 0 0 0 1.3 2h13.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/></svg></div><span class="aibadge">AI</span><h4>COSHH Builder &amp; Library</h4><p>Turn a safety data sheet into a COSHH assessment automatically, filed in folders with yearly review reminders.</p></div><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></div><h4>Toolbox Talks &amp; Briefings</h4><p>Live toolbox talks and daily briefings signed on the phone, plus inductions, site rules and your H&amp;S policy.</p></div><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18h20"/><path d="M4 18v-2a8 8 0 0 1 16 0v2"/><path d="M10 8V5h4v3"/></svg></div><h4>PPE, Incidents &amp; Inspections</h4><p>PPE issue log, accident and near-miss reports, HAVS, PUWER, LOLER and permits to work.</p></div></div></div>
+<div class="fgroup"><div class="fghead"><h3>Materials & logistics</h3><p>From the request on site to the drop at the gate.</p></div>
+  <div class="featgrid2"><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg></div><h4>Materials &amp; Suppliers</h4><p>Operatives request materials; you approve and the order goes to the right supplier branch, priced.</p></div><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h11v10H3z"/><path d="M14 9h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></div><h4>Delivery Scheduler</h4><p>Plan the day's drops and collections slot by slot and assign them to drivers.</p></div><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h12v9H2z"/><path d="M14 10h4l4 3v3h-8"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg></div><h4>Driver App</h4><p>Drivers see today's runs in order, take completion photos and do their weekly vehicle checks.</p></div><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg></div><h4>Yard &amp; Plant</h4><p>Every item of plant numbered and signed for, with who has it, where, and when it's due an inspection.</p></div></div></div>
+<div class="fgroup"><div class="fghead"><h3>Running the company</h3><p>The office side of every project and every person.</p></div>
+  <div class="featgrid2"><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg></div><h4>Repairs &amp; Maintenance</h4><p>Repair jobs with surveys, photos, approval and close-out, ready to invoice.</p></div><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h9a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z"/><path d="M20 4h-4v16"/></svg></div><h4>O&amp;M Handover</h4><p>Build the O&amp;M manual from the job: data sheets, COSHH, guarantees and maintenance, to PDF or Word.</p></div><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c1-3.5 4-5.5 7-5.5s6 2 7 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .8 3.4 2.6 4 5.5"/></svg></div><h4>HR &amp; Holidays</h4><p>Holiday requests and approvals with bank holidays booked automatically, plus policies and the handbook.</p></div><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6 16c.6-1.4 1.7-2 3-2s2.4.6 3 2M14 10h4M14 13h3"/></svg></div><h4>Operatives &amp; Training</h4><p>Every operative's cards, certificates and expiry dates in a training matrix.</p></div><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2M10 21v-3h4v3"/></svg></div><h4>Main Contractor Mode</h4><p>Run subcontractors, their operatives, RAMS, COSHH and inspections when you're the main contractor.</p></div><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></div><h4>Calendars &amp; Dashboards</h4><p>Key dates per job, a company calendar and a dashboard across every project.</p></div><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></div><h4>HUB &amp; Messaging</h4><p>One inbox for messages, sign-offs and alerts, with push notifications.</p></div><div class="fcard p"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a5 5 0 1 1 .9-9.9A6 6 0 0 1 19 10a4 4 0 0 1-1 8z"/></svg></div><h4>OneDrive &amp; Your Branding</h4><p>Photos and exports sync to each project's OneDrive folder; your logo and colours on the app and every PDF.</p></div></div></div></div></section>
+<section class="s-paper"><div class="wrap"><div class="together p">
+  <div class="tt"><span class="kicker"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg> Better together</span><h2>Add OpHUB Finance and the site <em>runs the numbers</em></h2><p>Everything your team does on site carries straight through to the accounts, with nobody retyping it.</p></div>
+  <ul><li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span>Material requests become priced POs</span></li><li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span>Deliveries signed for on site are matched to the supplier's invoice</span></li><li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span>Variations raised on site go onto the next application</span></li><li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span>Check-ins and hours become labour cost on the job</span></li><li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span>Subcontractors' work flows into their applications and CIS</span></li></ul></div></div></section>
+<section id="flow" class="s-paper alt"><div class="wrap">
+  <div class="sectionhead"><span class="kicker">How Finance talks to Projects</span><h2>From the site to the numbers, <em>without retyping a thing</em></h2><p>Every step on site is a step in the accounts. Three examples of how it flows.</p></div>
+  <div class="flowlabel"><span><i class="kp"></i>Happens in OpHUB Projects</span><span><i class="kf"></i>Happens in OpHUB Finance</span></div>
+  <div class="flows"><div class="flow"><div class="step p">Material request on site</div><div class="step p">PO priced from your price lists</div><div class="step f">Delivery booked and signed for</div><div class="step f">Supplier invoice read and matched</div><div class="step f">Cost on the job, live</div></div><div class="flow"><div class="step p">Variation raised on site</div><div class="step p">Priced and approved</div><div class="step f">Onto the next application</div><div class="step f">Certified and invoiced</div><div class="step f">Retention tracked to release</div></div><div class="flow"><div class="step p">Operatives check in by GPS</div><div class="step p">Hours and rates on the job</div><div class="step f">Subcontractor applications</div><div class="step f">CIS worked out</div><div class="step f">Labour cost on the job, live</div></div></div>
+</div></section>
+<section class="s-paper alt"><div class="wrap"><div class="finalcta"><h2>See the site side of OpHUB</h2><p>Book a demo and we'll walk through it from the operative, driver and PM side.</p><div class="herobtns"><a href="/#demo" class="btn btn-primary">Book a Demo</a><a href="/app.html" class="btn btn-glass">Sign In</a></div></div></div></section>
+<footer><div class="wrap"><div class="footrow">
+  <a href="/" class="footlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
+  <div class="footlinks"><a href="/projects.html">OpHUB Projects</a><a href="/finance.html">OpHUB Finance</a><a href="/#ai">AI</a><a href="/#demo">Book a Demo</a><a href="/app.html">Sign In</a><a href="/privacy.html">Privacy</a><a href="mailto:sales@operativehub.co.uk">Contact</a></div>
+</div><p class="footmeta">© 2026 OpHUB · operativehub.co.uk · sales@operativehub.co.uk</p></div></footer>
+</body>
+</html>
