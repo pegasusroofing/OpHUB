@@ -57,7 +57,6 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
         { k: 'pm/hr', ic: 'users', lbl: 'HR', go: '/pm/hr' },
       ] },
       ...(isFinanceUser(me, org) ? [{ k: 'fin', ic: 'pound', lbl: 'Finance', go: '/fin', sec: 'Office' }] : []),
-      { k: 'pm/admin', ic: 'gear', lbl: 'Admin', go: '/pm/admin', sec: 'Office' },
     ]
     : [
       ...(me.role === 'operative' ? [{ k: 'home', ic: 'home', lbl: 'Home', go: '/home' }] : []),
@@ -112,15 +111,20 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
     ...(mgr ? [{ k: 'admin', ic: 'gear', lbl: 'Project Settings', go: `/sites/${siteId}/admin` }] : []),
   ] : [];
   const subPart = siteId ? (path.split('/')[3] || '') : null;
+  // Admin sits at the bottom, just above the name and role (Andy, 14 Nov 2026).
+  const adminItem: Item | null = mgr && kind !== 'finance' && kind !== 'superadmin' ? { k: 'pm/admin', ic: 'gear', lbl: 'Admin', go: '/pm/admin' } : null;
   return (
-    <View style={drawer ? { flex: 1, backgroundColor: NAV.bg, paddingTop: 18, paddingHorizontal: 12, paddingBottom: 14 } : { width: 248, backgroundColor: NAV.bg, paddingTop: 18, paddingHorizontal: 12, paddingBottom: 14 }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}>
-        <Pressable onPress={() => router.navigate('/home' as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 8, paddingTop: 4, paddingBottom: 16 }}>
+    <View style={drawer ? { flex: 1, backgroundColor: NAV.bg, paddingBottom: 14 } : { width: 248, backgroundColor: NAV.bg, paddingBottom: 14 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 12 }}>
+        {/* The top in the company's colour, the name in the Home header's style with OpHUB under it (Andy, 14 Nov 2026). */}
+        <Pressable onPress={() => router.navigate('/home' as never)} accessibilityRole="link" accessibilityLabel={`${org?.name || 'OpHUB'}: Home`}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: t.brand1, marginHorizontal: -12, paddingHorizontal: 18, paddingTop: 22, paddingBottom: 18, marginBottom: 10 }}>
           <View style={{ width: 40, height: 40, borderRadius: 10, borderWidth: 1, borderColor: '#EEE', overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
             {org?.logo_path ? <StorageImage bucket="org-logos" path={org.logo_path} style={{ width: 38, height: 38, resizeMode: 'contain' }} /> : <Image source={require('@/../assets/images/icon.png')} style={{ width: 38, height: 38 }} />}
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text numberOfLines={2} style={[brand(700), { fontSize: 14, color: '#fff', lineHeight: 17 }]}>{org?.name || 'OpHUB'}</Text>
+            <Text numberOfLines={2} style={[brand(700), { fontSize: 15.5, color: t.brand1Text, lineHeight: 19, letterSpacing: 0.4 }]}>{org?.name || 'OpHUB'}</Text>
+            <Text numberOfLines={1} style={[brand(800), { fontSize: 11.5, color: t.brand1Text, opacity: 0.85, letterSpacing: 0.4, marginTop: 2 }]}>OpHUB</Text>
           </View>
         </Pressable>
         {kind !== 'finance' && kind !== 'superadmin' && (
@@ -145,7 +149,8 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
           </>
         )}
         <View style={{ flex: 1 }} />
-        <View style={{ marginTop: 14, paddingTop: 14, paddingHorizontal: 8, borderTopWidth: 1, borderTopColor: NAV.line, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        {adminItem && <View style={{ flexDirection: 'row', marginTop: 14 }}>{row(adminItem, isOn(adminItem.k))}</View>}
+        <View style={{ marginTop: adminItem ? 8 : 14, paddingTop: 14, paddingHorizontal: 8, borderTopWidth: 1, borderTopColor: NAV.line, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: NAV.avatar, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 11.5, fontWeight: '600' }}>{(me.name || '?').split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()}</Text></View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text numberOfLines={1} style={{ fontSize: 12.5, fontWeight: '600', color: '#fff' }}>{me.name}</Text>

@@ -15,7 +15,7 @@ import { base, page, radius, useTheme } from '@/theme/theme';
 
 export const FIN_SECTIONS = [
   { k: 'overview', l: 'Overview', go: '/fin' }, { k: 'jobs', l: 'Projects', go: '/fin/jobs' }, { k: 'sales', l: 'Sales', go: '/fin/sales' },
-  { k: 'purchases', l: 'Purchases', go: '/fin/purchases' }, { k: 'subs', l: 'Subcontractors & Labour', go: '/fin/subs' }, { k: 'reports', l: 'Reports', go: '/fin/reports' }, { k: 'directory', l: 'Directory', go: '/fin/directory' }, { k: 'settings', l: 'Settings', go: '/fin/settings' },
+  { k: 'purchases', l: 'Purchases', go: '/fin/purchases?tab=invoices' }, { k: 'subs', l: 'Subcontractors & Labour', go: '/fin/subs' }, { k: 'reports', l: 'Reports', go: '/fin/reports' }, { k: 'directory', l: 'Directory', go: '/fin/directory' }, { k: 'settings', l: 'Settings', go: '/fin/settings' },
 ];
 export const FIN_SUBS: Record<string, [string, string][]> = {
   sales: [['apps', 'Applications & Certificates'], ['invoices', 'Invoices'], ['retention', 'Retention']],
@@ -81,16 +81,18 @@ export function FinTabs({ items, value, onChange, right, amber, style, even }: {
 }
 // How the project is billed, and whether it's a repair contract (billed by invoice unless set; Works Orders, no BoQ).
 const useJobKind = (id: string) => useQuery({ queryKey: ['finJobBilling', id], queryFn: async () => {
-  const [jf, s] = await Promise.all([fdb.from('job_finance').select('billing_type').eq('site_id', id).maybeSingle(), fdb.from('sites').select('repair_contract').eq('id', id).maybeSingle()]);
-  const repair = !!(s.data as { repair_contract?: boolean | null } | null)?.repair_contract;
-  return { billing: (jf.data as { billing_type: string | null } | null)?.billing_type ?? (repair ? 'invoice' : null), repair };
+  const [jf, s] = await Promise.all([fdb.from('job_finance').select('billing_type').eq('site_id', id).maybeSingle(), fdb.from('sites').select('repair_contract,multi_site').eq('id', id).maybeSingle()]);
+  const sd = s.data as { repair_contract?: boolean | null; multi_site?: boolean | null } | null;
+  const repair = !!sd?.repair_contract;
+  return { billing: (jf.data as { billing_type: string | null } | null)?.billing_type ?? (repair ? 'invoice' : null), repair, multi: !!sd?.multi_site };
 } });
-const useJobBilling = (id: string) => { const q = useJobKind(id); return { data: q.data?.billing ?? null }; };
 /** Inside the Bill of Quantities tab: the Bill, its Variations and the Plots (Andy, 2 Nov 2026). An invoice job has no Bill, so those two only. */
 export function BoqTabs({ id, on }: { id: string; on: 'boq' | 'variations' | 'plots' | 'parts' }) {
-  const { data: billing } = useJobBilling(id);
+  const { data: kind } = useJobKind(id);
+  const billing = kind?.billing ?? null;
   // Costs By Plot (Andy, 8 Nov 2026): each plot's costs, value and margin, a tab rather than a button you have to find.
-  return <FinTabs items={([['boq', 'BoQ'], ['variations', 'Variations'], ['plots', 'Plots'], ['parts', 'Costs By Plot']] as [string, string][]).filter(([k]) => k !== 'boq' || billing !== 'invoice')} value={on} onChange={(k) => { if (on !== k) router.replace(`/fin/job/${id}/${k}` as never); }} />;
+  // Not on a single-site project, which has no plots (Andy, 14 Nov 2026); Plots stays, to make it multi-site.
+  return <FinTabs items={([['boq', 'BoQ'], ['variations', 'Variations'], ['plots', 'Plots'], ['parts', 'Costs By Plot']] as [string, string][]).filter(([k]) => (k !== 'boq' || billing !== 'invoice') && (k !== 'parts' || !kind || kind.multi || on === 'parts'))} value={on} onChange={(k) => { if (on !== k) router.replace(`/fin/job/${id}/${k}` as never); }} />;
 }
 /** A repair contract's Live Jobs tab (Andy, 8 Nov 2026): the jobs, each job's costs, and the schedule of rates, as tabs. */
 export function RepairTabs({ id, on }: { id: string; on: 'repairs' | 'parts' | 'rates' }) {

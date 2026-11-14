@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react';
 import { inPeriod, useStatPeriods } from '@/lib/useStatPeriods';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
-import { FinFilterBar, ThinExportBar, type FilterPart, type FilterSel } from '@/components/FinFilterBar';
+import { FinFilterBar, stickyFoot, ThinExportBar, type FilterPart, type FilterSel } from '@/components/FinFilterBar';
 import { exportTableExcel, exportTablePdf, type TCol } from '@/lib/tableExport';
 import { FinRow, FinStat, FinTabs } from '@/components/FinNav';
 import { Cell, FinChoicePop, FinInfoPop, FinTable, FootPick } from '@/components/FinTable';
@@ -235,7 +235,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     if (!rows.length) return null;
     const t = { title, sub: siteId ? jobTag(site(siteId)) : '', site: siteId ? site(siteId)?.name || '' : '', cols, rows };
     return (
-      <View style={{ marginTop: 10, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: base.line }}>
+      <View style={[{ marginTop: 10, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: base.line }, stickyFoot]}>
         <ThinExportBar onExcel={() => void exportTableExcel(t, org ?? null)} onPdf={async () => { if (!(await exportTablePdf(t, org ?? null).catch(() => false))) toast('Could not build the PDF.'); }} />
       </View>
     );

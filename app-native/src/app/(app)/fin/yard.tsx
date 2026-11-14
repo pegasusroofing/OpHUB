@@ -175,16 +175,16 @@ export default function FinYard() {
     <FinPage title="Purchases" section="purchases" badges={badges} sub="yard" top={<PurchasesStats />} onSub={onSub}>
       <YardSubTabs on={sub === 'plant' ? 'plant' : 'stock'} />
       {sub === 'plant' ? <PlantRegister /> : <><YardLeftovers />
-      <YardList items={items} rateBy={rateBy} loading={isLoading} onNew={() => setEdit('new')} onIn={() => void bookIn()} onOut={() => void bookOut()} onIssue={(sid) => openMove('issue', sid)} /></>}
+      <YardList items={items} rateBy={rateBy} loading={isLoading} onNew={() => setEdit('new')} onIn={() => void bookIn()} onOut={() => void bookOut()}/></>}
       {forms}
     </FinPage>
   );
 }
 
-function YardList({ items, rateBy, loading, onNew, onIn, onOut, onIssue }: { items: Item[]; rateBy: Record<string, number>; loading: boolean; onNew: () => void; onIn: () => void; onOut: () => void; onIssue: (id: string) => void }) {
+function YardList({ items, rateBy, loading, onNew, onIn, onOut }: { items: Item[]; rateBy: Record<string, number>; loading: boolean; onNew: () => void; onIn: () => void; onOut: () => void }) {
   const [sel, setSel] = useState<FilterSel>({ show: ['all'], cat: [] });
   const [sort, setSort] = useState('as');
-  const desk = useDesk(); // laptop: the current app's yard table with an Issue button on each row (9219m; cmp-fin 5 Nov 2026)
+  const desk = useDesk(); // laptop: a full table in the laptop's style, with the phone's columns (Andy, 14 Nov 2026)
   const f = (sel.show[0] || 'all') as 'all' | 'low' | 'off';
   const [q, setQ] = useState('');
   const F = { all: (s: Item) => s.active !== false, low: (s: Item) => s.active !== false && yardLow(s), off: (s: Item) => s.active === false };
@@ -204,7 +204,8 @@ function YardList({ items, rateBy, loading, onNew, onIn, onOut, onIssue }: { ite
     { k: 'v', l: 'Value', w: 76, right: true, bold: true, bigFirst: true, main: (s) => (val(s) ? money(val(s)) : '—'), sort: (s) => val(s) },
   ];
   const find = usePhoneFind(pcols, items, !desk);
-  const btn = { small: true, grow: true, oneLine: true } as const;
+  // The phone's buttons on a laptop too (Andy, 14 Nov 2026), at their own width rather than stretched across the page.
+  const btn = { small: true, grow: !desk, oneLine: true } as const;
   return (
     <>
       <Muted style={{ marginBottom: 8 }}>Materials held in the yard. Book them out to a job and the cost goes on that job (qty × price). PMs can see the list and book out to their projects from Material Requests, but don’t see prices.</Muted>
@@ -226,14 +227,12 @@ function YardList({ items, rateBy, loading, onNew, onIn, onOut, onIssue }: { ite
       {loading ? <Muted>Loading…</Muted> : desk && list.length ? (
         <FinTable rows={list} keyOf={(s) => s.id} onRow={(s) => openItem(s.id)}
           cols={[
-            { k: 'i', l: 'Item', flex: 1.6, min: 160, render: (s: Item) => <Cell bold>{s.item}</Cell> },
-            { k: 'c', l: 'Category', render: (s: Item) => <Cell>{s.category || '—'}</Cell> },
-            { k: 'loc', l: 'Location', render: (s: Item) => <Cell>{s.location || '—'}</Cell> },
-            { k: 'q', l: 'In Yard', sort: (s: Item) => Number(s.qty || 0), render: (s: Item) => <Cell bold tone={yardLow(s) ? '#C0392B' : undefined}>{yardQty(s.qty)} {s.unit || ''}{yardLow(s) ? ' · LOW' : ''}</Cell> },
-            { k: 'm', l: 'Min', render: (s: Item) => <Cell>{s.min_qty != null ? yardQty(s.min_qty) : '—'}</Cell> },
-            { k: 'r', l: 'Rate', render: (s: Item) => (rateBy[s.id] != null ? <Cell>{money(rateBy[s.id])}{s.unit ? ` / ${s.unit}` : ''}</Cell> : <Text style={{ fontSize: 11, fontWeight: '600', color: '#92400E', backgroundColor: '#FEF3C7', borderRadius: 999, paddingVertical: 2, paddingHorizontal: 8, overflow: 'hidden' }}>● No rate</Text>) },
-            { k: 'v', l: 'Value', sort: (s: Item) => val(s), total: (rows: Item[]) => money(rows.reduce((x, s) => x + val(s), 0)), render: (s: Item) => <Cell>{val(s) ? money(val(s)) : '—'}</Cell> },
-            { k: 'go', l: '', noSort: true, min: 70, flex: 0.6, render: (s: Item) => s.active === false ? null : <Pressable onPress={() => onIssue(s.id)} accessibilityRole="button" accessibilityLabel={`Issue ${s.item}`} style={{ borderWidth: 1, borderColor: base.line, borderRadius: 7, paddingVertical: 5, paddingHorizontal: 12, backgroundColor: '#fff' }}><Text style={{ fontSize: 12.5, fontWeight: '600', color: base.ink }}>Issue</Text></Pressable> },
+            // The phone's columns (Andy, 14 Nov 2026): the item, what's in stock, the price per unit and the value; the
+            // location, minimum and the rest are on the item's own page, and Book Out is in the row of buttons above.
+            { k: 'i', l: 'Item', flex: 2, min: 180, render: (s: Item) => <Cell bold>{s.item}</Cell> },
+            { k: 'q', l: 'In Stock', sort: (s: Item) => Number(s.qty || 0), render: (s: Item) => <Cell bold tone={yardLow(s) ? '#C0392B' : undefined}>{yardQty(s.qty)} {s.unit || ''}</Cell> },
+            { k: 'r', l: 'Unit Price', sort: (s: Item) => rateBy[s.id] ?? -1, render: (s: Item) => <Cell>{rateBy[s.id] != null ? money(rateBy[s.id]) : '—'}</Cell> },
+            { k: 'v', l: 'Value', sort: (s: Item) => val(s), total: (rows: Item[]) => money(rows.reduce((x, s) => x + val(s), 0)), render: (s: Item) => <Cell bold>{val(s) ? money(val(s)) : '—'}</Cell> },
           ]}
           footLabel={(rows) => `${rows.length} shown`} />
       ) : desk && !list.length ? <Empty>{f === 'low' ? 'Nothing is below its minimum level.' : 'No yard stock yet — add the first item.'}</Empty>

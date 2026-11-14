@@ -19,7 +19,7 @@ import { supabase } from '@/lib/supabase';
 import { base, page as pageStyle, radius, space } from '@/theme/theme';
 
 // Line icons and tints for each item (260 ADMIN_ICON / ADMIN_TINT).
-const ICON: Record<string, string> = { finance: 'pound', subapplications: 'building', branding: 'brush', expensesemail: 'mail', onedrive: 'cloud', reporttemplates: 'reports', signtemplates: 'pen', sowlibrary: 'layers', ratecard: 'pound', suppliers: 'store', maincontractor: 'building', hspolicy: 'book', havstools: 'wrench', ramslibrary: 'shield', coshhbuilder: 'flask', tbt: 'chat', ppelog: 'shield', invites: 'mail', users: 'users', devicelocks: 'phone', checkinlogs: 'pin', drivercheckins: 'truck' };
+const ICON: Record<string, string> = { hometiles: 'home', finance: 'pound', subapplications: 'building', branding: 'brush', expensesemail: 'mail', onedrive: 'cloud', reporttemplates: 'reports', signtemplates: 'pen', sowlibrary: 'layers', ratecard: 'pound', suppliers: 'store', maincontractor: 'building', hspolicy: 'book', havstools: 'wrench', ramslibrary: 'shield', coshhbuilder: 'flask', tbt: 'chat', ppelog: 'shield', invites: 'mail', users: 'users', devicelocks: 'phone', checkinlogs: 'pin', drivercheckins: 'truck' };
 const TINT: Record<AdminPage, keyof typeof TINTS> = { company: 'grey', libraries: 'green', people: 'blue' };
 
 const Row = ListRow;

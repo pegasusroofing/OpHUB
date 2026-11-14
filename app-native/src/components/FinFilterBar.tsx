@@ -1,7 +1,7 @@
 // Search, then a Filter drop-down (tick as many as you like) and a Sort drop-down, for the Finance lists: the same
 // style as the Quotes list. Also the thin export bar that sits at the bottom of a page.
 import { useState, type ReactNode } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View, Platform } from 'react-native';
 
 import { Button } from '@/components/ui';
 import { base, radius } from '@/theme/theme';
@@ -85,11 +85,16 @@ export function FinFilterBar({ search, parts, sel, onChange, onClear, sorts, sor
   );
 }
 
-/** Excel and PDF as links in a thin bar: goes below the page's scrolling part, as on the Quotes list. */
+/** On the web: stays at the bottom of the screen while the page above it scrolls, then settles where it is. */
+export const stickyFoot = (Platform.OS === 'web' ? { position: 'sticky', bottom: 0, zIndex: 5 } : {}) as unknown as object;
+
+/** Excel and PDF as links in a thin bar: goes below the page's scrolling part, as on the Quotes list. On the web it stays at
+ *  the bottom of the screen as a footer while the page scrolls (Andy, 14 Nov 2026: "the export to excel etc throughout
+ *  finance needs to sit at the bottom of the screen as a footer"), and settles under the list at the end. */
 export function ThinExportBar({ onExcel, onPdf, busy, excelLabel = 'Export To Excel', pdfLabel = 'Export To PDF', excelA11y, pdfA11y }: { onExcel?: () => void; onPdf?: () => void; busy?: string; excelLabel?: string; pdfLabel?: string; excelA11y?: string; pdfA11y?: string }) {
   const link = (t: string, press: () => void, a11y?: string) => <Pressable accessibilityRole="button" accessibilityLabel={a11y || t} onPress={press}><Text style={{ fontSize: 13, fontWeight: '500', color: base.blue }}>{t}</Text></Pressable>;
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 9 }}>
+    <View accessibilityLabel="Export footer" style={[{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 9 }, stickyFoot]}>
       {onExcel ? link(busy === 'x' ? 'Making…' : excelLabel, onExcel, excelA11y) : <View />}
       {onPdf ? link(busy === 'p' ? 'Making…' : pdfLabel, onPdf, pdfA11y) : <View />}
     </View>

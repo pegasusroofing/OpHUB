@@ -25,7 +25,8 @@ import { useAuth } from '@/lib/auth';
 import { heading } from '@/lib/fonts';
 import { greeting, siteStatusKey } from '@/lib/rules/checkin';
 import { isQuoted } from '@/lib/rules/quotes';
-import { isFinanceUser, roleLabel } from '@/lib/roles';
+import { seesHomeFinance } from '@/lib/homeTiles';
+import { roleLabel } from '@/lib/roles';
 import { base, space, useDesk, useTheme } from '@/theme/theme';
 
 export function PmHome() {
@@ -44,7 +45,8 @@ export function PmHome() {
   // A company with Finance and Projects (Andy, 13 Nov 2026): the middle two numbers are the money due in (Finance users)
   // and the quotes still to price (PMs and admins), in place of On Site Now and To Do.
   const both = !!org?.has_finance && org?.has_pm !== false;
-  const showMoney = both && !!me && isFinanceUser(me, org);
+  // Who sees the money on Home is the company admin's choice (Admin › Company › Home Page; Andy, 14 Nov 2026).
+  const showMoney = both && seesHomeFinance(me, org);
   const showQuotes = both && (me?.role === 'pm' || me?.role === 'admin');
   const { data: finOv } = useFinOverview(showMoney ? me ?? null : null, sites);
   const { data: quotes } = useQuotes(showQuotes ? me?.org_id : null);
@@ -74,14 +76,15 @@ export function PmHome() {
   const wxSite = live.find((s2) => !!s2.postcode) ?? (sites ?? []).find((s2) => !!s2.postcode);
   const todayCard = (
     <Card style={{ paddingHorizontal: 0, paddingVertical: 10, marginBottom: desk ? 0 : space.m, ...(desk ? { flex: 1, minWidth: 0 } : {}) }}>
-      <Text style={{ fontWeight: '600', color: base.ink, fontSize: 14, paddingHorizontal: 14, paddingBottom: 6 }}>Today</Text>
+      <Text style={{ fontWeight: desk ? '700' : '600', color: base.ink, fontSize: desk ? 16 : 14, paddingHorizontal: 14, paddingBottom: 6 }}>Today</Text>
       {!!me && !!wxSite && <View style={{ paddingHorizontal: 14, paddingBottom: 8 }}><WeatherTile me={me} site={wxSite} company={org?.name || ''} width="100%" /></View>}
       {todayRows.map((r, k) => (
-        <Pressable key={k} onPress={go(r.go)} style={(st) => [{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 14, borderTopWidth: 1, borderTopColor: '#f0f1f3' }, (st as { hovered?: boolean }).hovered && { backgroundColor: '#F7F8FA' }]}>
-          <OphIcon name={r.ic} size={18} color={base.ink} />
+        <Pressable key={k} onPress={go(r.go)} style={(st) => [{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: desk ? 13 : 10, paddingHorizontal: 14, borderTopWidth: 1, borderTopColor: '#f0f1f3' }, (st as { hovered?: boolean }).hovered && { backgroundColor: '#F7F8FA' }]}>
+          {/* Bigger rows and words on a laptop (Andy, 14 Nov 2026). */}
+          <OphIcon name={r.ic} size={desk ? 21 : 18} color={base.ink} />
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text numberOfLines={1} style={{ fontWeight: '600', color: base.ink, fontSize: 13.5 }}>{r.t}</Text>
-            {!!r.sub && <Text numberOfLines={1} style={{ fontSize: 12, color: base.slate }}>{r.sub}</Text>}
+            <Text numberOfLines={1} style={{ fontWeight: '600', color: base.ink, fontSize: desk ? 15 : 13.5 }}>{r.t}</Text>
+            {!!r.sub && <Text numberOfLines={1} style={{ fontSize: desk ? 13 : 12, color: base.slate, marginTop: desk ? 1 : 0 }}>{r.sub}</Text>}
           </View>
         </Pressable>
       ))}
@@ -141,12 +144,14 @@ export function PmHome() {
       <HomeWeek sites={sites} />
       {/* Yard & Plant is under Deliveries now, not a tile (Andy, 5 Nov 2026). No Calendar tile: the Next 5 Days row above opens it (Andy, 11 Nov 2026). */}
       <TileGrid cols={desk ? 4 : 2}>
-        {isFinanceUser(me, org) && <Tile plain ic="pound" tint="" title="OpHUB Finance" sub="Money in & out" onPress={go('/fin')} />}
+        {seesHomeFinance(me, org) && <Tile plain ic="pound" tint="" title="OpHUB Finance" sub="Money in & out" onPress={go('/fin')} />}
         <Tile plain ic="reports" tint="" title="Quotes" sub="Tender tracker" onPress={go('/pm/quotes')} />
         {/* Deliveries is under Dashboard (Andy, 11 Nov 2026); deliveries to schedule still show under Today and as the badge here. */}
         <Tile plain ic="chart" tint="" title="Dashboards" sub={dlvN ? `${dlvN} deliver${dlvN === 1 ? 'y' : 'ies'} to schedule` : 'Company, operatives & deliveries'} badge={dlvN || undefined} onPress={go('/pm/dashboards')} />
         <Tile plain ic="reports" tint="" title="Reports & Surveys" sub={open.length ? `${open.length} in progress` : 'All projects'} onPress={go('/pm/reports')} />
-        <Tile plain ic="users" tint="" title="HR" sub="Holidays, policies & handbook" onPress={go('/pm/hr')} />
+        {/* On a laptop no HR tile: it's in the bar on the left (Andy, 14 Nov 2026: "just 4 tiles remain"). The phone
+            keeps HR and Admin, so its two columns stay even. */}
+        {(!desk || !seesHomeFinance(me, org)) && <Tile plain ic="users" tint="" title="HR" sub="Holidays, policies & handbook" onPress={go('/pm/hr')} />}
         {!desk && <Tile plain ic="gear" tint="" title="Admin" sub="Team, libraries, settings" onPress={go('/pm/admin')} />}
       </TileGrid>
       {mine.length > 0 && (
@@ -166,13 +171,18 @@ export function PmHome() {
           ))}
         </>
       )}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 22 }}>
-        <Text style={{ fontSize: 11, color: base.slateLight, fontStyle: 'italic' }}>{me?.name}</Text>
-        <Text style={{ fontSize: 11, color: base.slateLight, fontStyle: 'italic' }}>{roleLabel(me)}</Text>
-      </View>
-      <Pressable onPress={signOut} style={{ alignSelf: 'center', marginTop: 10 }}>
-        <Text style={{ color: base.warn, textDecorationLine: 'underline', fontSize: 11, fontStyle: 'italic' }}>Sign out</Text>
-      </Pressable>
+      {/* On a laptop the name, role and Sign out are at the bottom of the bar on the left, so not here too (Andy, 14 Nov 2026). */}
+      {!desk && (
+        <>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 22 }}>
+            <Text style={{ fontSize: 11, color: base.slateLight, fontStyle: 'italic' }}>{me?.name}</Text>
+            <Text style={{ fontSize: 11, color: base.slateLight, fontStyle: 'italic' }}>{roleLabel(me)}</Text>
+          </View>
+          <Pressable onPress={signOut} style={{ alignSelf: 'center', marginTop: 10 }}>
+            <Text style={{ color: base.warn, textDecorationLine: 'underline', fontSize: 11, fontStyle: 'italic' }}>Sign out</Text>
+          </Pressable>
+        </>
+      )}
     </Screen>
   );
 }

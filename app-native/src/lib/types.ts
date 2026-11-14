@@ -37,6 +37,8 @@ export type Organization = {
   plan_tier: string;
   has_pm: boolean;
   has_finance: boolean;
+  /** Who sees the money on Home (lib/homeTiles). */
+  home_tiles?: { finance_pm?: boolean; finance_site_manager?: boolean; finance_other?: boolean } | null;
 };
 
 export type DeviceLockResult = {

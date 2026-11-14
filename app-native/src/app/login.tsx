@@ -1,7 +1,11 @@
-// Sign-in page. Ported from 140-login.js.
-import { useTheme } from '@/theme/theme';
+// Sign-in page. Ported from 140-login.js. The old app's header across the top: "OpHUB - Welcome to your Operative Hub"
+// with Op in blue (130 shell centerTitle; Andy, 14 Nov 2026), the card staying full width on a laptop.
+import { base, useDesk, useTheme } from '@/theme/theme';
 import { useEffect, useState } from 'react';
-import { Image, Platform, Text } from 'react-native';
+import { Image, Platform, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { brand } from '@/lib/fonts';
 
 import { Button, Card, Check, Field, Link, Muted, Notice, Screen } from '@/components/ui';
 import { sendPasswordReset, useAuth } from '@/lib/auth';
@@ -9,6 +13,8 @@ import { loadRemembered } from '@/lib/remember';
 
 export default function Login() {
   const t = useTheme();
+  const desk = useDesk();
+  const insets = useSafeAreaInsets();
   const { signIn, notice, setNotice } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,8 +47,13 @@ export default function Login() {
   };
 
   return (
+    <View style={{ flex: 1, backgroundColor: base.paper }}>
+    <View style={{ backgroundColor: base.card, borderBottomWidth: 1, borderBottomColor: desk ? '#E5E8ED' : '#E6E8EC', paddingTop: insets.top + (desk ? 14 : 12), paddingBottom: desk ? 14 : 10, paddingHorizontal: desk ? 40 : 20, alignItems: 'center' }}>
+      <Text accessibilityRole="header" style={[brand(700), { fontSize: desk ? 22.8 : 20.3, lineHeight: (desk ? 22.8 : 20.3) * 1.25, letterSpacing: desk ? -0.23 : -0.2, color: base.ink, textAlign: 'center', maxWidth: '92%' }]}>
+        <Text style={{ color: t.brand1 }}>Op</Text>HUB - Welcome to your Operative Hub
+      </Text>
+    </View>
     <Screen center>
-      <Text style={{ fontSize: 24, fontWeight: '600', textAlign: 'center', marginBottom: 16, color: t.brand1 }}>OpHUB</Text>
       <Card>
         {notice && <Notice kind={notice.kind} text={notice.text} />}
         <Field label="Email" value={email} onChangeText={setEmail} placeholder="you@yourcompany.co.uk"
@@ -73,5 +84,6 @@ export default function Login() {
       </Card>
       <Image source={require('../../assets/images/logo-light.png')} style={{ width: 120, height: 120, borderRadius: 24, alignSelf: 'center', marginTop: 16 }} />
     </Screen>
+    </View>
   );
 }

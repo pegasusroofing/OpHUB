@@ -39,6 +39,9 @@ export function SitesMapView({ sites, mini, show, people, onPoints, handle, heig
       try {
         map = new ml.Map({ container: el, style: MAP_STYLE, center: [-1.5, 52.6], zoom: 5.3, attributionControl: { compact: true }, interactive: !mini, dragRotate: false, pitchWithRotate: false }) as AnyMap;
       } catch { setFailed(true); return; }
+      // A grey map (Andy, 14 Nov 2026): only the map itself goes grey; the pins and their pop-ups keep their colours.
+      const cv = el.querySelector('canvas') as HTMLCanvasElement | null;
+      if (cv) cv.style.filter = 'grayscale(1)';
       if (!mini) map.addControl(new ml.NavigationControl({ showCompass: false }), 'top-right');
       const markers: Record<string, AnyMarker> = {};
       shown.forEach((p) => {
@@ -101,7 +104,7 @@ export function SitesMapCard({ sites, fill }: { sites: Site[]; fill?: boolean })
   if (!desk) return null;
   return (
     <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 18, padding: 12, marginBottom: 12, ...(fill ? { flex: 1, marginBottom: 0, marginTop: 0, borderRadius: 12 } : {}) }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 4, paddingTop: 2, paddingBottom: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10, paddingHorizontal: 4, paddingTop: 2, paddingBottom: 10 }}>
         <Text style={[heading(700), { fontSize: 14, color: base.ink }]}>Sites map</Text>
         <Text style={{ fontSize: 11, color: base.slateLight, fontStyle: 'italic' }}>{count}</Text>
         <View style={{ flex: 1 }} />

@@ -12,7 +12,7 @@ import { isFinanceUser } from '@/lib/roles';
 import { localISODate } from '@/lib/rules/driver';
 import { supabase } from '@/lib/supabase';
 import type { Site } from '@/lib/types';
-import { base, useTheme } from '@/theme/theme';
+import { base, useDesk, useTheme } from '@/theme/theme';
 
 /** The next five weekdays from today (today counts if it's a weekday). */
 export function nextWorkingDays(from: Date, n = 5): string[] {
@@ -26,6 +26,7 @@ export function HomeWeek({ sites }: { sites: Site[] | undefined }) {
   // Application dates from Finance too, for PMs, admins and Finance users (Andy, 13 Nov 2026).
   const apps = !!me && (['pm', 'admin'].includes(me.role) || isFinanceUser(me, org));
   const t = useTheme();
+  const desk = useDesk();
   const days = nextWorkingDays(new Date());
   const today = localISODate(new Date());
   const ids = new Set((sites ?? []).map((s) => s.id));
@@ -46,7 +47,8 @@ export function HomeWeek({ sites }: { sites: Site[] | undefined }) {
   return (
     <View style={{ marginBottom: 14 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-        <Text style={{ flex: 1, fontWeight: '700', color: base.ink, fontSize: 16 }}>Next 5 Days</Text>
+        {/* Bigger heading and dates (Andy, 14 Nov 2026). */}
+        <Text style={{ flex: 1, fontWeight: '700', color: base.ink, fontSize: desk ? 18 : 17 }}>Next 5 Days</Text>
         {/* Calendar as a tile like the day boxes under it, with the calendar icon and an arrow (Andy, 14 Nov 2026: the
             round "Calendar ›" pill looked cheap; same place). */}
         <Pressable accessibilityRole="button" accessibilityLabel="Open the calendar" onPress={() => router.push('/pm/calendar' as never)} hitSlop={6}
@@ -62,9 +64,9 @@ export function HomeWeek({ sites }: { sites: Site[] | undefined }) {
           return (
             <Pressable key={d} accessibilityRole="button" accessibilityLabel={`${dt.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}: ${list.length} on. Tap to add.`}
               onPress={() => router.push({ pathname: '/pm/calendar', params: { date: d, add: '1' } } as never)}
-              style={{ flex: 1, minWidth: 0, minHeight: 92, backgroundColor: base.card, borderWidth: isToday ? 1.5 : 1, borderColor: isToday ? t.brand1 : base.cardLine, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 6 }}>
-              <Text numberOfLines={1} style={{ fontSize: 12.5, fontWeight: '700', color: isToday ? t.brand1 : base.slate }}>{dt.toLocaleDateString('en-GB', { weekday: 'short' })} {dt.getDate()}</Text>
-              {list.slice(0, 2).map((e) => <Text key={e.id} numberOfLines={2} style={{ fontSize: 12, color: base.ink, marginTop: 3 }}>{e.title}</Text>)}
+              style={{ flex: 1, minWidth: 0, minHeight: 92, backgroundColor: base.card, borderWidth: isToday ? 1.5 : 1, borderColor: isToday ? t.brand1 : base.cardLine, borderRadius: 10, paddingVertical: desk ? 8 : 6, paddingHorizontal: desk ? 9 : 6 }}>
+              <Text numberOfLines={1} style={{ fontSize: desk ? 14.5 : 13.5, fontWeight: '700', color: isToday ? t.brand1 : base.slate }}>{dt.toLocaleDateString('en-GB', { weekday: 'short' })} {dt.getDate()}</Text>
+              {list.slice(0, 2).map((e) => <Text key={e.id} numberOfLines={2} style={{ fontSize: desk ? 13 : 12, color: base.ink, marginTop: 3 }}>{e.title}</Text>)}
               {list.length > 2 && <Text style={{ fontSize: 11.5, fontWeight: '600', color: base.slate, marginTop: 2 }}>+{list.length - 2} More</Text>}
               {!list.length && <Text style={{ fontSize: 18, color: base.slateLight, marginTop: 6, textAlign: 'center' }}>+</Text>}
             </Pressable>

@@ -32,6 +32,8 @@ export const ADMIN_ITEMS: AdminItem[] = [
   { key: 'coshhbuilder', page: 'libraries', group: 'Health & Safety', icon: '🧪', label: 'COSHH Library', sub: 'Data sheets → products → assessments in folders', kw: 'coshh substance product data sheet', route: '/pm/admin/coshh', show: isFullManager },
   { key: 'tbt', page: 'libraries', group: 'Health & Safety', icon: '🗣️', label: 'Toolbox Talk Templates', sub: 'All sites', kw: 'toolbox talk tbt', route: '/pm/admin/tbt', show: (me) => isFullManager(me) && admin(me) },
   { key: 'ppelog', page: 'libraries', group: 'Health & Safety', icon: '🦺', label: 'PPE Log', sub: 'Issued PPE and the register', kw: 'ppe register', route: '/pm/admin/ppelog', show: isFullManager },
+  // Who sees the money on Home (Andy, 14 Nov 2026).
+  { key: 'hometiles', page: 'company', group: 'Branding', icon: '🏠', label: 'Home Page', sub: 'Who sees the finance tiles on Home', kw: 'home page tiles finance money due in pm project manager site manager', route: '/pm/admin/hometiles', show: admin },
   { key: 'branding', page: 'company', group: 'Branding', icon: '🖼️', label: 'Company Logo & Theme', sub: 'Logo and colours', kw: 'logo theme colour color brand', route: '/pm/admin/branding', show: admin },
   { key: 'expensesemail', page: 'company', group: 'Integrations', icon: '🧾', label: 'Expenses Email', sub: 'Where expense receipts go', kw: 'expenses receipts email', route: '/pm/admin/expensesemail', show: admin },
   { key: 'onedrive', page: 'company', group: 'Integrations', icon: '☁️', label: 'OneDrive', sub: 'New job folders, where things save, and each job’s folders', kw: 'onedrive sync folder sharepoint microsoft integrations save template job pack', route: '/pm/admin/onedrive', show: admin },
