@@ -49,7 +49,8 @@ const signIn = async (page, email) => {
   {
     const ctx = await browser.newContext({viewport: {width: 390, height: 844}, isMobile: true, hasTouch: true, deviceScaleFactor: 2});
     const sent = [];
-    ctx.on('request', (r) => { if (/supabase\.co/.test(r.url())) sent.push(r.url()); });
+    // Only what really goes out: a picture the demo's own service worker answers (the company logo) never reaches Supabase.
+    ctx.on('response', (r) => { if (/supabase\.co/.test(r.url()) && !r.fromServiceWorker()) sent.push(r.url()); });
     const page = await ctx.newPage();
     await page.goto(B + '/'); await page.waitForTimeout(6000);
     const kept = await page.evaluate(async () => { const r = await navigator.serviceWorker.ready; await new Promise((ok) => setTimeout(ok, 4000)); const ks = await caches.keys(); const c = ks.length ? await caches.open(ks[0]) : null; return {active: !!r.active, files: c ? (await c.keys()).length : 0}; });
@@ -62,7 +63,7 @@ const signIn = async (page, email) => {
     await page.goto(`${B}/sites/${S4}/repairs`); await page.waitForTimeout(6000);
     check(/WO-100/.test(await page.locator('body').innerText()), 'phone: his repair jobs, offline');
     await page.screenshot({path: path.join(SHOTS, 'offline-phone-repairs.png')});
-    check(!sent.length, `phone: nothing sent to Supabase (${sent.length})`);
+    check(!sent.length, `phone: nothing sent to Supabase (${sent.length})${sent.length ? " " + sent.slice(0, 4).join(" ") : ""}`);
     await ctx.close();
   }
   await browser.close();

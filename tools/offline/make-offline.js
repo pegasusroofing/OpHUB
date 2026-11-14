@@ -79,6 +79,16 @@ const head = '<!--offline--><script src="/offline/demo-db.js"></script><script s
 html = html.replace(/<head>/i, '<head>' + head);
 fs.writeFileSync(idx, html);
 
+// The fonts and a few images are exported under assets/node_modules/, which Vercel never uploads (the header fell back
+// to a plain font on the link). Move them to assets/pkg/ and point the app there, as tools/beta/make-beta.js does
+// (14 Nov 2026).
+const nmDir = path.join(APP, 'assets', 'node_modules'), pkgDir = path.join(APP, 'assets', 'pkg');
+if (fs.existsSync(nmDir)) {
+  fs.rmSync(pkgDir, {recursive: true, force: true});
+  fs.renameSync(nmDir, pkgDir);
+  (function fix(d) { for (const f of fs.readdirSync(d)) { const p = path.join(d, f); if (p.startsWith(pkgDir)) continue; if (fs.statSync(p).isDirectory()) fix(p); else if (/\.(js|html|css|json|map)$/.test(f)) { const s = fs.readFileSync(p, 'utf8'); if (s.includes('/assets/node_modules/')) fs.writeFileSync(p, s.split('/assets/node_modules/').join('/assets/pkg/')); } } })(APP);
+}
+
 // Every file, so the phone keeps the whole app.
 const files = [];
 (function walk(d) { for (const f of fs.readdirSync(d)) { const p = path.join(d, f); if (fs.statSync(p).isDirectory()) walk(p); else files.push('/' + path.relative(APP, p).split(path.sep).join('/')); } })(APP);
