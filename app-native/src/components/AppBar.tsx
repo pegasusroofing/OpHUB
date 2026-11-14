@@ -1,7 +1,7 @@
 // The top bar on every page (130 shell .appbar): a back arrow on the left, the
 // title centred in Sora with a small sub-line under it in IBM Plex Mono — the
 // job's address on a job's pages, otherwise the company — and on Home the
-// company name in its own colour over "OpHUB" with a refresh button. A job's
+// company name in its own colour over "OpHUB" (tap it to refresh) and the logo top right. A job's
 // pages also get the job-home button on the right and the trail under the bar
 // (9219x navCrumbs): Projects › SBX-109 Andy House 2 › Schedule Of Works.
 import { router, useGlobalSearchParams, usePathname } from 'expo-router';
@@ -13,7 +13,7 @@ import { useTrail } from '@/components/Crumbs';
 import { FIN_SUBS, FinJobTabs } from '@/components/FinNav';
 import { openSideMenu } from '@/components/SideMenu';
 import { OphIcon } from '@/components/OphIcon';
-import { RefreshButton } from '@/components/RefreshButton';
+import { CompanyLogo, useAppRefresh } from '@/components/HomeHeader';
 import { StorageImage } from '@/components/StorageImage';
 import { showAlert } from '@/components/toast';
 import { isManager } from '@/lib/roles';
@@ -54,6 +54,8 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   const { org, me } = useAuth();
   const t = useTheme();
   const desk = useDesk();
+  // Home: the company name is the refresh, and the company logo sits top right (Andy, 14 Nov 2026).
+  const app = useAppRefresh();
   const insets = useSafeAreaInsets();
   const path = usePathname();
   const { tab: qTab, kind: qKind, id: qId, sub: qSub, sup: qSup } = useGlobalSearchParams<{ tab?: string; kind?: string; id?: string; sub?: string; sup?: string }>();
@@ -116,7 +118,8 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   // The phone's sidebar (Andy, 13 Nov 2026): ☰ at the top left of every page; on Home it takes the gear's place (Settings is in it).
   const menuBtn = !desk && !!me && me.role !== 'client';
   const settingsBtn = home && isFullManager(me) && !menuBtn;
-  const sideW = menuBtn && onBack ? 80 : 44;
+  const logoW = desk ? 52 : 46;
+  const sideW = menuBtn && onBack ? 80 : home ? logoW : 44;
   const menu = menuBtn ? (
     <Pressable onPress={openSideMenu} hitSlop={8} accessibilityRole="button" accessibilityLabel="Open the menu" style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: home ? base.paper : 'transparent' }}>
       <Text style={{ fontSize: 20, lineHeight: 22, color: base.ink }}>☰</Text>
@@ -191,14 +194,15 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
               </Pressable>
             )}
           </View>
-          <View style={{ flex: 1, alignItems: fin ? 'flex-start' : 'center', minWidth: 0 }}>
-            <Pressable disabled={!titleGo} onPress={() => { if (titleGo) router.navigate(titleGo as never); }} accessibilityRole={titleGo ? 'link' : undefined} style={noSelect}><Text numberOfLines={1} style={[brand(700), home
+          <View style={{ flex: 1, alignItems: fin ? 'flex-start' : 'center', minWidth: 0, opacity: home && app.busy ? 0.45 : 1 }}>
+            <Pressable disabled={!titleGo && !home} onPress={() => { if (home) void app.refresh(); else if (titleGo) router.navigate(titleGo as never); }}
+              accessibilityRole={home ? 'button' : titleGo ? 'link' : undefined} accessibilityLabel={home ? `${main}: refresh` : undefined} accessibilityState={home ? { busy: app.busy } : undefined} style={noSelect}><Text numberOfLines={1} style={[brand(700), home
               // Home as the old app (130 shell centerHeader; Andy, 14 Nov 2026): the company name in Sora 700 in its colour,
               // a short grey line, then "OpHUB" in dark Sora 800 (not grey capitals).
               ? { fontSize: desk ? 21.4 : 18.5, color: t.brand1, letterSpacing: 0.7 }
               : { fontSize: fin ? 21 : desk ? 22.8 : 19, color: fin ? '#111827' : base.ink, letterSpacing: -0.2 }]}>{main}</Text></Pressable>
             {home && <View style={{ width: 28, height: 2.5, backgroundColor: '#E6E8EC', marginTop: 3, marginBottom: 2 }} />}
-            {!!sub && <Pressable disabled={!copyable} onPress={async () => { if (await copyAddress(copyLine)) { setCopied(true); setTimeout(() => setCopied(false), 1300); } }} accessibilityRole={copyable ? 'button' : undefined} accessibilityHint={copyable ? 'Copies the site name and address' : undefined} style={noSelect}><Text numberOfLines={1} style={home ? [brand(800), { fontSize: desk ? 14.25 : 12.5, color: base.ink, marginTop: 1, letterSpacing: 0.5 }] : { fontSize: 12.5, color: '#6b7280', marginTop: 3 }}>{sub}</Text></Pressable>}
+            {!!sub && <Pressable disabled={!copyable && !home} onPress={async () => { if (home) { void app.refresh(); return; } if (await copyAddress(copyLine)) { setCopied(true); setTimeout(() => setCopied(false), 1300); } }} accessibilityRole={copyable ? 'button' : undefined} accessibilityHint={copyable ? 'Copies the site name and address' : undefined} style={noSelect}><Text numberOfLines={1} style={home ? [brand(800), { fontSize: desk ? 14.25 : 12.5, color: base.ink, marginTop: 1, letterSpacing: 0.5 }] : { fontSize: 12.5, color: '#6b7280', marginTop: 3 }}>{sub}</Text></Pressable>}
             {copied && <View pointerEvents="none" style={{ position: 'absolute', bottom: -8, alignSelf: 'center', backgroundColor: base.ink, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 2, zIndex: 5 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>Copied</Text></View>}
           </View>
           <View style={{ minWidth: sideW, alignItems: 'flex-end' }}>
@@ -207,7 +211,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
                 <OphIcon name="home" size={18} color={base.ink} />
               </Pressable>
             ))}
-            {home && <RefreshButton style={roundBtn} />}
+            {home && <CompanyLogo size={logoW} />}
           </View>
         </View>
       </View>
