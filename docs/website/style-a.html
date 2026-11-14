@@ -1,0 +1,355 @@
+<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OpHUB Website: Style A (Night Shift)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand1:#4E8FD1; --brand-deep:#2F6FB3; --brand-soft:#EAF2FB;
+    --ink:#0B0E14; --ink2:#141926; --paper:#F7F8FA; --card:#FFFFFF;
+    --line:#E3E7EE; --slate:#566072; --mute:#8A93A3; --ok:#1F9D62;
+    --r:20px; --shadow:0 1px 2px rgba(11,14,20,.04),0 12px 32px -16px rgba(11,14,20,.18);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:'Manrope',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;}
+  a{color:inherit;text-decoration:none;}
+  img{max-width:100%;display:block;}
+  [onclick]{cursor:pointer;}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 24px;}
+  section{padding:96px 0;}
+  h1,h2,h3{margin:0;line-height:1.1;letter-spacing:-.025em;font-weight:800;}
+  p{margin:0;}
+
+  /* nav */
+  .nav{position:sticky;top:0;z-index:30;background:rgba(11,14,20,.82);backdrop-filter:saturate(160%) blur(14px);-webkit-backdrop-filter:saturate(160%) blur(14px);border-bottom:1px solid rgba(255,255,255,.08);}
+  .navrow{max-width:1160px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:28px;}
+  .navlogo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;color:#fff;margin-right:auto;letter-spacing:-.01em;}
+  .navlogo img{width:34px;height:34px;border-radius:10px;object-fit:cover;}
+  .navlinks{display:flex;gap:28px;font-weight:600;font-size:14.5px;color:rgba(255,255,255,.72);}
+  .navlinks a:hover{color:#fff;}
+  .navcta{display:flex;gap:10px;align-items:center;}
+
+  /* buttons */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 24px;border-radius:12px;
+    font-family:inherit;font-weight:700;font-size:15px;border:1.5px solid transparent;cursor:pointer;white-space:nowrap;
+    transition:transform .15s ease,box-shadow .15s ease,background .15s ease,border-color .15s ease,color .15s ease;}
+  .btn:hover{transform:translateY(-1px);}
+  .btn-primary{background:var(--brand1);color:#fff;box-shadow:0 8px 20px -8px rgba(78,143,209,.7);}
+  .btn-primary:hover{background:var(--brand-deep);}
+  .btn-ghost{background:transparent;color:var(--ink);border-color:var(--line);}
+  .btn-ghost:hover{border-color:var(--brand1);color:var(--brand-deep);}
+  .btn-glass{background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.18);}
+  .btn-glass:hover{background:rgba(255,255,255,.14);}
+  .btn-sm{padding:9px 16px;font-size:13.5px;border-radius:10px;}
+  .btn-block{width:100%;}
+  .btn:disabled{background:#D9DEE6;color:#8A93A3;cursor:default;box-shadow:none;transform:none;}
+
+  .kicker{display:inline-flex;align-items:center;gap:8px;background:var(--brand-soft);color:var(--brand-deep);
+    font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;padding:7px 13px;border-radius:999px;margin-bottom:18px;}
+  .sectionhead{max-width:700px;margin:0 auto 52px;text-align:center;}
+  .sectionhead h1,.sectionhead h2{font-size:clamp(28px,4vw,42px);}
+  .sectionhead p{color:var(--slate);font-size:17px;margin-top:16px;}
+
+  /* pricing cards (shared by home + pricing page) */
+  .pricegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;align-items:stretch;}
+  .pricecard{background:var(--card);border:1.5px solid var(--line);border-radius:24px;padding:32px;display:flex;flex-direction:column;position:relative;
+    box-shadow:var(--shadow);transition:border-color .15s,box-shadow .15s,transform .15s;}
+  .pricecard:hover{border-color:var(--brand1);transform:translateY(-3px);}
+  .pricecard.featured{background:linear-gradient(180deg,#121826 0%,#0B0E14 100%);border-color:#22304a;color:#fff;box-shadow:0 30px 60px -28px rgba(47,111,179,.65);}
+  .pricecard.selected{border-color:var(--brand1);box-shadow:0 0 0 4px rgba(78,143,209,.22),0 30px 60px -30px rgba(47,111,179,.6);}
+  .pricecard .tag{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--brand1);color:#fff;
+    font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;padding:6px 14px;border-radius:999px;white-space:nowrap;}
+  .pricecard h3{font-size:18px;letter-spacing:-.01em;}
+  .pricecard .amt{font-size:52px;font-weight:800;margin-top:16px;letter-spacing:-.04em;line-height:1;}
+  .pricecard .amt span{font-size:15px;font-weight:600;color:var(--slate);letter-spacing:0;}
+  .pricecard .amt span.vat{font-size:12px;color:var(--mute);}
+  .pricecard .setupfee{font-size:13px;font-weight:700;color:var(--brand-deep);margin-top:10px;}
+  .pricecard .desc{color:var(--slate);font-size:14.5px;margin-top:10px;min-height:46px;}
+  .pricecard ul{list-style:none;margin:22px 0 0;padding:22px 0 0;border-top:1px solid var(--line);flex:1;}
+  .pricecard li{display:flex;gap:10px;align-items:flex-start;font-size:14.5px;margin-bottom:11px;line-height:1.45;}
+  .pricecard li:before{content:"✓";flex:0 0 20px;height:20px;border-radius:50%;background:#E3F5EC;color:var(--ok);font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;margin-top:1px;}
+  .pricecard .btn{margin-top:24px;}
+  .pricecard.featured .amt span,.pricecard.featured .desc{color:rgba(255,255,255,.66);}
+  .pricecard.featured .amt span.vat{color:rgba(255,255,255,.5);}
+  .pricecard.featured .setupfee{color:#8FBDEB;}
+  .pricecard.featured ul{border-top-color:rgba(255,255,255,.12);}
+  .pricecard.featured li:before{background:rgba(78,143,209,.25);color:#9CC8F2;}
+
+  /* footer */
+  footer{background:var(--ink);color:rgba(255,255,255,.7);padding:52px 0 40px;}
+  .footrow{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:20px;}
+  .footlogo{display:flex;align-items:center;gap:10px;font-weight:800;color:#fff;font-size:17px;}
+  .footlogo img{width:30px;height:30px;border-radius:8px;object-fit:cover;}
+  .footlinks{display:flex;gap:24px;font-size:14px;font-weight:600;flex-wrap:wrap;}
+  .footlinks a:hover{color:#fff;}
+  .footmeta{color:rgba(255,255,255,.45);font-size:13px;margin-top:28px;padding-top:24px;border-top:1px solid rgba(255,255,255,.1);}
+
+  @media (max-width:900px){
+    section{padding:64px 0;}
+    .pricegrid{grid-template-columns:1fr;}
+    .navlinks{display:none;}
+    .sectionhead{margin-bottom:36px;}
+  }
+  @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto;} .btn,.pricecard{transition:none;} .btn:hover,.pricecard:hover{transform:none;} }
+
+  /* hero */
+  .hero{position:relative;overflow:hidden;background:var(--ink);color:#fff;padding:88px 0 104px;}
+  .hero:before{content:"";position:absolute;inset:0;background:
+    radial-gradient(700px 420px at 78% 18%,rgba(78,143,209,.42),transparent 62%),
+    radial-gradient(520px 360px at 8% 96%,rgba(78,143,209,.2),transparent 60%);}
+  .hero:after{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);background-size:56px 56px;
+    -webkit-mask-image:radial-gradient(ellipse at 50% 30%,#000 30%,transparent 75%);mask-image:radial-gradient(ellipse at 50% 30%,#000 30%,transparent 75%);}
+  .herogrid{position:relative;z-index:1;display:grid;grid-template-columns:1.15fr .85fr;gap:56px;align-items:center;}
+  .hero .kicker{background:rgba(255,255,255,.08);color:#B7D6F5;border:1px solid rgba(255,255,255,.14);}
+  .hero h1{font-size:clamp(36px,5.4vw,64px);line-height:1.03;}
+  .hero h1 em{font-style:normal;background:linear-gradient(90deg,#7FB6EC,#4E8FD1);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .hero p.lead{font-size:18.5px;color:rgba(255,255,255,.74);margin-top:22px;max-width:540px;}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px;max-width:560px;}
+  .chips span{font-size:13px;font-weight:600;color:rgba(255,255,255,.86);background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.13);padding:6px 12px;border-radius:999px;}
+  .herobtns{display:flex;gap:12px;margin-top:32px;flex-wrap:wrap;}
+  .heroreassure{margin-top:18px;font-size:13.5px;color:rgba(255,255,255,.55);}
+  /* phone */
+  .phonewrap{display:flex;justify-content:center;}
+  .phone{width:300px;background:#05070B;border-radius:44px;padding:11px;border:1px solid rgba(255,255,255,.16);box-shadow:0 50px 90px -30px rgba(0,0,0,.8),0 0 0 1px rgba(0,0,0,.6),0 0 80px -10px rgba(78,143,209,.45);transform:rotate(2.5deg);}
+  .screen{background:#F4F5F7;border-radius:34px;overflow:hidden;color:var(--ink);}
+  .scrtop{background:var(--ink);color:#fff;padding:26px 18px 18px;position:relative;}
+  .scrtop:before{content:"";position:absolute;top:9px;left:50%;transform:translateX(-50%);width:82px;height:7px;border-radius:9px;background:#1b2130;}
+  .scrtop small{display:block;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:rgba(255,255,255,.55);font-weight:700;}
+  .scrtop b{display:block;font-size:17px;margin-top:3px;letter-spacing:-.01em;}
+  .scrbody{padding:12px;display:grid;gap:8px;}
+  .mocktile{background:#fff;border:1px solid #E6E9EF;border-radius:14px;padding:11px 12px;display:flex;align-items:center;gap:11px;}
+  .mocktile .ic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 34px;}
+  .mocktile .t{font-weight:800;font-size:13px;line-height:1.2;}
+  .mocktile .s{color:var(--mute);font-size:11.5px;margin-top:2px;line-height:1.2;}
+  .mocktile .pill{margin-left:auto;font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:999px;background:#E3F5EC;color:var(--ok);white-space:nowrap;}
+  /* new-look app mock */
+  .mstatus{height:26px;background:#fff;position:relative;}
+  .mstatus:before{content:"";position:absolute;top:8px;left:50%;transform:translateX(-50%);width:82px;height:7px;border-radius:9px;background:#1b2130;}
+  .mhead{background:#fff;text-align:center;padding:2px 0 10px;border-bottom:1px solid #ECEEF2;}
+  .mhead b{display:block;font-size:15px;font-weight:800;letter-spacing:-.01em;}
+  .mhead small{display:block;font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--mute);text-transform:uppercase;}
+  .mbody{padding:11px 11px 14px;}
+  .mgreet small{display:block;font-size:9.5px;color:var(--slate);font-weight:600;}
+  .mgreet b{display:block;font-size:15.5px;font-weight:800;letter-spacing:-.01em;margin-bottom:8px;}
+  .mstats{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px;}
+  .mstats div{background:#fff;border:1px solid #ECEEF2;border-radius:11px;padding:6px 6px;}
+  .mstats b{display:block;font-size:15px;font-weight:800;line-height:1.1;}
+  .mstats b.hot{color:#D23B2E;}
+  .mstats span{display:block;font-size:7.5px;color:var(--slate);font-weight:600;}
+  .mhero{background:var(--brand1);color:#fff;border-radius:16px;padding:11px 13px;margin-bottom:8px;}
+  .mhero-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .mhero-ic{width:30px;height:30px;border-radius:10px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;}
+  .mhero b{display:block;font-size:14px;font-weight:800;}
+  .mhero small{display:block;font-size:9.5px;opacity:.9;}
+  .mtiles{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .mtile{background:#fff;border:1px solid #ECEEF2;border-radius:14px;padding:9px;display:flex;flex-direction:column;}
+  .mtic{width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:9px;}
+  .mtic svg{width:15px;height:15px;}
+  .mtt{font-size:11px;font-weight:800;line-height:1.2;}
+  .mts{font-size:8.5px;color:var(--slate);font-weight:500;line-height:1.25;}
+  .t-blue{background:#EEF3FD;color:#2457C5;} .t-orange{background:#FDF1E6;color:#B35A00;} .t-green{background:#EAF6EF;color:#17804A;}
+  .t-purple{background:#F3EEFA;color:#6B3FA8;} .t-grey{background:#F1F2F4;color:var(--ink);} .t-teal{background:#E7F5F5;color:#0E7F7C;}
+  /* proof */
+  .proof{background:#fff;border-bottom:1px solid var(--line);padding:22px 0;}
+  .proofrow{display:flex;align-items:center;justify-content:center;gap:10px 26px;flex-wrap:wrap;color:var(--slate);font-weight:700;font-size:13px;letter-spacing:.02em;}
+  .proofrow span{display:inline-flex;align-items:center;gap:8px;}
+  .proofrow span:before{content:"";width:6px;height:6px;border-radius:50%;background:var(--brand1);}
+  /* why */
+  .problemgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;}
+  .problemcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:30px;box-shadow:var(--shadow);}
+  .problemcard .ic{width:48px;height:48px;border-radius:14px;background:var(--brand-soft);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:18px;}
+  .problemcard h3{font-size:19px;letter-spacing:-.015em;}
+  .problemcard p{color:var(--slate);font-size:15px;margin-top:10px;}
+  /* features */
+  .featband{background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+  .featgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+  .featcard{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:26px;transition:transform .15s,box-shadow .15s,border-color .15s,background .15s;}
+  .featcard:hover{transform:translateY(-3px);background:#fff;border-color:#C9DBF0;box-shadow:var(--shadow);}
+  .featcard .ic{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:21px;margin-bottom:16px;}
+  .featcard h3{font-size:17px;letter-spacing:-.01em;}
+  .featcard p{color:var(--slate);font-size:14.5px;margin-top:8px;line-height:1.55;}
+  /* benefits */
+  .benefits{position:relative;overflow:hidden;background:var(--ink);color:#fff;border-radius:32px;padding:64px 56px;}
+  .benefits:before{content:"";position:absolute;inset:0;background:radial-gradient(600px 320px at 100% 0%,rgba(78,143,209,.35),transparent 65%);}
+  .benefits>*{position:relative;}
+  .benefits .sectionhead{margin-bottom:40px;}
+  .benefits .kicker{background:rgba(255,255,255,.08);color:#B7D6F5;}
+  .benefitsgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+  .benefititem{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:26px;}
+  .benefititem .check{width:34px;height:34px;border-radius:50%;background:var(--brand1);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px;margin-bottom:16px;}
+  .benefititem h3{font-size:17.5px;color:#fff;letter-spacing:-.01em;}
+  .benefititem p{color:rgba(255,255,255,.66);font-size:14.5px;margin-top:8px;}
+
+  /* book a demo */
+  .demogrid{display:grid;grid-template-columns:.9fr 1.1fr;gap:48px;align-items:start;}
+  .demotext h2{font-size:clamp(28px,4vw,42px);}
+  .demotext p.lead{color:var(--slate);font-size:17px;margin-top:16px;}
+  .demolist{list-style:none;margin:26px 0 0;padding:0;display:grid;gap:14px;}
+  .demolist li{display:flex;gap:12px;align-items:flex-start;font-size:15.5px;font-weight:600;}
+  .demolist li:before{content:"✓";flex:0 0 24px;height:24px;border-radius:50%;background:var(--brand-soft);color:var(--brand-deep);font-weight:900;font-size:12px;display:flex;align-items:center;justify-content:center;}
+  .demotext .alt{margin-top:26px;font-size:14.5px;color:var(--slate);}
+  .demotext .alt a{color:var(--brand-deep);font-weight:700;}
+  .democard{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:32px;box-shadow:var(--shadow);}
+  .formrow{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .formfield{margin:0 0 14px;}
+  .formfield label{display:block;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--slate);margin:0 0 7px;}
+  .formfield label i{font-style:normal;font-weight:600;text-transform:none;letter-spacing:0;color:var(--mute);}
+  .formfield input,.formfield select,.formfield textarea{width:100%;padding:13px 14px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;font-family:inherit;background:#fff;color:var(--ink);transition:border-color .15s,box-shadow .15s;}
+  .formfield textarea{min-height:104px;resize:vertical;}
+  .formfield input:focus,.formfield select:focus,.formfield textarea:focus{outline:none;border-color:var(--brand1);box-shadow:0 0 0 4px rgba(78,143,209,.18);}
+  .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;}
+  .formmsg{font-size:14px;border-radius:10px;padding:11px 14px;margin:0 0 14px;}
+  .formmsg.err{color:#8A5A0B;background:#FBF0D9;}
+  .demodone{text-align:center;padding:28px 8px;}
+  .demodone .tick{width:56px;height:56px;border-radius:50%;background:#E3F5EC;color:var(--ok);font-size:26px;font-weight:900;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+  .demodone h3{font-size:22px;}
+  .demodone p{color:var(--slate);margin-top:10px;font-size:15.5px;}
+  .formnote{text-align:center;font-size:13px;color:var(--mute);margin-top:14px;}
+  @media (max-width:900px){ .demogrid{grid-template-columns:1fr;gap:32px;} .formrow{grid-template-columns:1fr;gap:0;} .democard{padding:24px 20px;} }
+  /* cta */
+  .finalcta{position:relative;overflow:hidden;text-align:center;background:linear-gradient(135deg,#2F6FB3 0%,#4E8FD1 55%,#7FB6EC 100%);color:#fff;border-radius:32px;padding:76px 32px;}
+  .finalcta h2{font-size:clamp(28px,4vw,42px);}
+  .finalcta p{color:rgba(255,255,255,.88);font-size:17px;margin-top:14px;}
+  .finalcta .herobtns{justify-content:center;}
+  .finalcta .btn-primary{background:#fff;color:var(--brand-deep);box-shadow:0 12px 28px -12px rgba(0,0,0,.45);}
+  .finalcta .btn-primary:hover{background:#F1F6FC;}
+  @media (max-width:900px){
+    .hero{padding:56px 0 72px;}
+    .herogrid{grid-template-columns:1fr;gap:44px;}
+    .phone{width:270px;transform:none;}
+    .problemgrid,.benefitsgrid,.featgrid{grid-template-columns:1fr;}
+    .benefits{padding:44px 22px;border-radius:24px;}
+    .finalcta{padding:56px 22px;border-radius:24px;}
+  }
+  @media (min-width:601px) and (max-width:900px){ .featgrid{grid-template-columns:1fr 1fr;} }
+  @media (prefers-reduced-motion:reduce){ .featcard{transition:none;} .featcard:hover{transform:none;} }
+
+/* ---- shared new sections ---- */
+.two{display:grid;grid-template-columns:1fr 120px 1fr;gap:0;align-items:stretch;}
+.sys{border-radius:24px;padding:34px;}
+.sys .tag{display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;padding:6px 12px;border-radius:999px;}
+.sys h3{font-size:30px;margin-top:16px;letter-spacing:-.02em;}
+.sys .for{font-size:16px;margin-top:8px;}
+.sys ul{list-style:none;padding:0;margin:22px 0 0;display:grid;grid-template-columns:1fr 1fr;gap:9px 14px;}
+.sys li{display:flex;gap:9px;align-items:center;font-size:14.5px;font-weight:600;}
+.sys li:before{content:"";width:7px;height:7px;border-radius:50%;flex:0 0 7px;}
+.bridge{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;}
+.bridge .knot{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+.bridge small{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;line-height:1.3;}
+.bridge .line{flex:1;width:2px;}
+.flows{display:grid;gap:14px;}
+.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:stretch;}
+.step{position:relative;border-radius:14px;padding:14px 14px 14px 16px;font-size:14px;font-weight:700;line-height:1.3;display:flex;align-items:center;}
+.step:not(:last-child):after{content:"";position:absolute;right:-9px;top:50%;width:8px;height:8px;transform:translateY(-50%) rotate(45deg);z-index:2;}
+.step.p{} .step.f{}
+.flowlabel{display:flex;gap:18px;justify-content:center;margin-bottom:18px;font-size:13px;font-weight:700;}
+.flowlabel span{display:inline-flex;align-items:center;gap:7px;}
+.flowlabel i{width:12px;height:12px;border-radius:4px;display:inline-block;}
+.aigrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+.aicard{border-radius:20px;padding:26px;}
+.aicard .ic{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;}
+.aicard h3{font-size:18px;letter-spacing:-.01em;}
+.aicard p{font-size:14.5px;margin-top:8px;line-height:1.55;}
+.simplegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;}
+.simple{border-radius:20px;padding:28px;}
+.simple .ic{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
+.simple h3{font-size:18px;} .simple p{font-size:14.5px;margin-top:8px;}
+.navlinks a.cur{color:#fff;}
+@media (max-width:900px){
+  .two{grid-template-columns:1fr;gap:0;} .bridge{flex-direction:row;padding:14px 0;} .bridge .line{height:2px;width:auto;flex:1;}
+  .flow{grid-template-columns:1fr;} .step:not(:last-child):after{right:50%;top:auto;bottom:-9px;transform:translateX(50%) rotate(45deg);}
+  .aigrid,.simplegrid{grid-template-columns:1fr;} .sys ul{grid-template-columns:1fr;}
+}
+/* ---- Style A: Night Shift ---- */
+
+body{background:#0B0E14;color:#fff;}
+section{position:relative;}
+.s-systems,.s-flow,.s-ai,.s-simple{background:#0B0E14;}
+.s-flow,.s-simple{background:#0E121B;}
+.s-systems:before{content:"";position:absolute;inset:0;background:radial-gradient(600px 300px at 50% 0%,rgba(78,143,209,.18),transparent 70%);pointer-events:none;}
+.sectionhead h2 em{font-style:normal;background:linear-gradient(90deg,#7FB6EC,#4E8FD1);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.sectionhead p{color:rgba(255,255,255,.66);}
+.kicker{background:rgba(255,255,255,.07);color:#B7D6F5;border:1px solid rgba(255,255,255,.12);}
+.sys{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.12);box-shadow:0 30px 60px -30px rgba(0,0,0,.8);}
+.sys-p{box-shadow:0 0 0 1px rgba(78,143,209,.25),0 40px 80px -40px rgba(78,143,209,.55);}
+.sys-f{box-shadow:0 0 0 1px rgba(45,190,140,.25),0 40px 80px -40px rgba(45,190,140,.45);}
+.sys-p .tag{background:rgba(78,143,209,.18);color:#9CC8F2;} .sys-f .tag{background:rgba(45,190,140,.16);color:#7FE0BC;}
+.sys .for{color:rgba(255,255,255,.66);} .sys li{color:rgba(255,255,255,.88);}
+.sys-p li:before{background:#4E8FD1;box-shadow:0 0 10px #4E8FD1;} .sys-f li:before{background:#2DBE8C;box-shadow:0 0 10px #2DBE8C;}
+.bridge .knot{background:#0B0E14;border:1px solid rgba(255,255,255,.2);color:#fff;box-shadow:0 0 30px rgba(78,143,209,.6);}
+.bridge .line{background:linear-gradient(180deg,transparent,rgba(127,182,236,.7),transparent);} .bridge small{color:rgba(255,255,255,.6);}
+.step{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#fff;}
+.step.p{border-left:3px solid #4E8FD1;} .step.f{border-left:3px solid #2DBE8C;}
+.step:after{background:#0E121B;border-top:1px solid rgba(255,255,255,.25);border-right:1px solid rgba(255,255,255,.25);}
+.flowlabel{color:rgba(255,255,255,.7);} .flowlabel i.kp{background:#4E8FD1;} .flowlabel i.kf{background:#2DBE8C;}
+.aicard{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);}
+.aicard .ic{background:linear-gradient(135deg,rgba(127,182,236,.3),rgba(78,143,209,.12));color:#B7D6F5;box-shadow:0 0 24px -6px rgba(78,143,209,.8);}
+.aicard p{color:rgba(255,255,255,.64);}
+.simple{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);} .simple .ic{background:#4E8FD1;color:#fff;} .simple p{color:rgba(255,255,255,.64);}
+footer{background:#07090D;}
+
+</style></head><body class="style-a">
+<div class="nav"><div class="navrow">
+  <a href="/" class="navlogo"><img src="../../assets/ophub-logo.png?v=2" alt="OpHUB">OpHUB</a>
+  <div class="navlinks"><a href="#systems">Projects</a><a href="#systems">Finance</a><a href="#ai">AI</a><a href="#pricing">Pricing</a></div>
+  <div class="navcta"><a href="/app.html" class="btn btn-glass btn-sm">Sign In</a><a href="#demo" class="btn btn-primary btn-sm">Book a Demo</a></div>
+</div></div>
+<section class="hero">
+  <div class="wrap herogrid">
+    <div>
+      <span class="kicker">Built for site teams, across every trade</span>
+      <h1>The site hub that keeps <em>every job on track</em></h1>
+      <p class="lead">Everything a job needs, in one branded app your operatives will actually use.</p>
+      <div class="chips">
+        <span>Schedule of Works</span><span>RAMS &amp; COSHH</span><span>Snagging / Variations</span><span>Drawings</span><span>Materials</span><span>Deliveries</span><span>Repairs</span><span>O&amp;M Handover</span><span>HR</span>
+      </div>
+      <div class="herobtns">
+        <a href="#demo" class="btn btn-primary">Book a Demo</a>
+        <a href="#features" class="btn btn-glass">See what's inside</a>
+      </div>
+      <p class="heroreassure">iPhone, Android &amp; web · No per-user fees · Pricing tailored to your team</p>
+    </div>
+    <div class="phonewrap" aria-hidden="true">
+      <div class="phone"><div class="screen">
+        <div class="mstatus"></div>
+        <div class="mhead"><b>OpHUB</b><small>RTB Roofing Ltd</small></div>
+        <div class="mbody">
+          <div class="mgreet"><small>Tuesday 13 October</small><b>Good morning, Andy</b></div>
+          <div class="mstats"><div><b>12</b><span>Live jobs</span></div><div><b>4</b><span>Upcoming</span></div><div><b>7</b><span>To do</span></div><div><b class="hot">3</b><span>Alerts</span></div></div>
+          <div class="mhero"><span class="mhero-top"><span class="mhero-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span><b>Live projects</b><small>12 live · 4 upcoming</small></div>
+          <div class="mtiles"><div class="mtile"><span class="mtic t-teal"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><span class="mtt">Dashboard</span><span class="mts">Company overview</span></div><div class="mtile"><span class="mtic t-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span><span class="mtt">Calendar</span><span class="mts">All projects</span></div><div class="mtile"><span class="mtic t-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></span><span class="mtt">HUB</span><span class="mts">3 notifications</span></div><div class="mtile"><span class="mtic t-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h11v10H3z"/><path d="M14 9h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></span><span class="mtt">Deliveries</span><span class="mts">Next drop 10am</span></div><div class="mtile"><span class="mtic t-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></span><span class="mtt">Reports</span><span class="mts">2 in progress</span></div><div class="mtile"><span class="mtic t-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></span><span class="mtt">Operatives</span><span class="mts">Certs &amp; training</span></div><div class="mtile"><span class="mtic t-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c1-3.5 4-5.5 7-5.5s6 2 7 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .8 3.4 2.6 4 5.5"/></svg></span><span class="mtt">HR</span><span class="mts">Holidays &amp; policies</span></div><div class="mtile"><span class="mtic t-grey"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></span><span class="mtt">Admin</span><span class="mts">Team &amp; settings</span></div></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+</section>
+<section id="systems" class="s-systems"><div class="wrap">
+  <div class="sectionhead"><span class="kicker">Two systems · one connection</span><h2>Run the site. Run the money. <em>They talk to each other.</em></h2>
+  <p>OpHUB Projects is for the people on site. OpHUB Finance is complete cost management for the office. Use one, or both together, and everything done on site lands in the numbers by itself.</p></div>
+  <div class="two">
+    <div class="sys sys-p"><span class="tag"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/></svg> OpHUB Projects</span><h3>For site teams</h3><p class="for">One branded app your PMs, supervisors, operatives and drivers will actually use.</p>
+      <ul><li>Schedule of Works</li><li>RAMS &amp; COSHH</li><li>GPS Check-in</li><li>Snagging &amp; Variations</li><li>Materials &amp; Deliveries</li><li>Drawings</li><li>Reports &amp; Surveys</li><li>O&amp;M Handover</li><li>Repairs</li><li>HR &amp; Holidays</li></ul></div>
+    <div class="bridge"><div class="line"></div><div class="knot"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></div><small>Live<br>link</small><div class="line"></div></div>
+    <div class="sys sys-f"><span class="tag"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20H7c2-2 2-4 2-7V8a3 3 0 0 1 6-1"/><path d="M6 13h8"/></svg> OpHUB Finance</span><h3>For complete cost management</h3><p class="for">Forecasts, valuations, invoices, purchases and CIS in one place, with Xero.</p>
+      <ul><li>Forecasts &amp; OHP</li><li>BoQ &amp; Applications</li><li>Sales Invoices &amp; Retention</li><li>Purchase Orders</li><li>Purchase Invoices</li><li>Subcontractors &amp; CIS</li><li>Yard Stock &amp; Plant</li><li>Price Lists</li><li>Reports &amp; Budgets</li><li>Xero</li></ul></div>
+  </div>
+</div></section>
+<section id="flow" class="s-flow"><div class="wrap">
+  <div class="sectionhead"><span class="kicker">How Finance talks to Projects</span><h2>From the site to the numbers, <em>without retyping a thing</em></h2>
+  <p>Every step on site is a step in the accounts. Three examples of how it flows.</p></div>
+  <div class="flowlabel"><span><i class="kp"></i>Happens in Projects</span><span><i class="kf"></i>Happens in Finance</span></div>
+  <div class="flows"><div class="flow"><div class="step p">Material request on site</div><div class="step p">PO priced from your price lists</div><div class="step f">Delivery booked and signed for</div><div class="step f">Supplier invoice read and matched</div><div class="step f">Cost on the job, live</div></div><div class="flow"><div class="step p">Variation raised on site</div><div class="step p">Priced and approved</div><div class="step f">Onto the next application</div><div class="step f">Certified and invoiced</div><div class="step f">Retention tracked to release</div></div><div class="flow"><div class="step p">Operatives check in by GPS</div><div class="step p">Hours and rates on the job</div><div class="step f">Subcontractor applications</div><div class="step f">CIS worked out</div><div class="step f">Labour cost on the job, live</div></div></div>
+</div></section>
+<section id="ai" class="s-ai"><div class="wrap">
+  <div class="sectionhead"><span class="kicker"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg> AI that does the admin</span><h2>The paperwork reads itself</h2>
+  <p>OpHUB's AI reads the invoices, writes the RAMS and keeps the price book up to date, so your team checks rather than types.</p></div>
+  <div class="aigrid"><div class="aicard"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></div><h3>Invoice Reader</h3><p>Supplier invoices land in your inbox. OpHUB reads them, finds the PO and the job, and puts them in front of the right person to approve.</p></div><div class="aicard"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div><h3>RAMS Builder</h3><p>A site-specific RAMS from the job, the task and your own library, ready to sign on the phone.</p></div><div class="aicard"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6L4 19a1.5 1.5 0 0 0 1.3 2h13.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/></svg></div><h3>COSHH From Data Sheets</h3><p>Upload a safety data sheet and the COSHH assessment is written for you.</p></div><div class="aicard"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg></div><h3>Price List Reader</h3><p>Supplier price lists in Excel or PDF become your price book, so every PO is priced before the invoice arrives.</p></div><div class="aicard"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 7h14M5 7l-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z"/></svg></div><h3>Statement Matching</h3><p>Supplier statements matched to the invoices you have, with anything missing flagged.</p></div><div class="aicard"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg></div><h3>Quote Reader</h3><p>Quotes read into line items you can order from, line by line.</p></div></div>
+</div></section>
+<section class="s-simple"><div class="wrap">
+  <div class="sectionhead"><span class="kicker">Simple by design</span><h2>Less admin. <em>More proof.</em></h2></div>
+  <div class="simplegrid"><div class="simple"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div><h3>Enter it once</h3><p>An order on site is the PO, the delivery, the invoice match and the job cost. Nobody types it twice.</p></div><div class="simple"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></div><h3>Everything finds its job</h3><p>Photos, check-ins, invoices and variations land on the right project by themselves.</p></div><div class="simple"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h11v10H3z"/><path d="M14 9h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></div><h3>Built for the phone</h3><p>Operatives and drivers get one simple app. The office gets the full picture on the laptop.</p></div></div>
+</div></section>
+<footer><div class="wrap"><div class="footrow"><div class="footlogo"><img src="../../assets/ophub-logo.png?v=2" alt="">OpHUB</div><div class="footlinks"><a>Projects</a><a>Finance</a><a>AI</a><a>Pricing</a><a>Book a Demo</a></div></div><div class="footmeta">Style A · Night Shift · a draft to choose from, not the live site</div></div></footer>
+</body></html>
