@@ -192,8 +192,13 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
             )}
           </View>
           <View style={{ flex: 1, alignItems: fin ? 'flex-start' : 'center', minWidth: 0 }}>
-            <Pressable disabled={!titleGo} onPress={() => { if (titleGo) router.navigate(titleGo as never); }} accessibilityRole={titleGo ? 'link' : undefined} style={noSelect}><Text numberOfLines={1} style={[brand(home ? 800 : 700), { fontSize: fin ? 21 : desk ? 22.8 : 19, color: home ? t.brand1 : fin ? '#111827' : base.ink, letterSpacing: -0.2 }]}>{main}</Text></Pressable>
-            {!!sub && <Pressable disabled={!copyable} onPress={async () => { if (await copyAddress(copyLine)) { setCopied(true); setTimeout(() => setCopied(false), 1300); } }} accessibilityRole={copyable ? 'button' : undefined} accessibilityHint={copyable ? 'Copies the site name and address' : undefined} style={noSelect}><Text numberOfLines={1} style={[home ? brand(700) : {}, { fontSize: home ? 11 : 12.5, color: home ? base.slate : '#6b7280', marginTop: 3, letterSpacing: home ? 1 : 0, textTransform: home ? 'uppercase' : 'none' }]}>{sub}</Text></Pressable>}
+            <Pressable disabled={!titleGo} onPress={() => { if (titleGo) router.navigate(titleGo as never); }} accessibilityRole={titleGo ? 'link' : undefined} style={noSelect}><Text numberOfLines={1} style={[brand(700), home
+              // Home as the old app (130 shell centerHeader; Andy, 14 Nov 2026): the company name in Sora 700 in its colour,
+              // a short grey line, then "OpHUB" in dark Sora 800 (not grey capitals).
+              ? { fontSize: desk ? 21.4 : 18.5, color: t.brand1, letterSpacing: 0.7 }
+              : { fontSize: fin ? 21 : desk ? 22.8 : 19, color: fin ? '#111827' : base.ink, letterSpacing: -0.2 }]}>{main}</Text></Pressable>
+            {home && <View style={{ width: 28, height: 2.5, backgroundColor: '#E6E8EC', marginTop: 3, marginBottom: 2 }} />}
+            {!!sub && <Pressable disabled={!copyable} onPress={async () => { if (await copyAddress(copyLine)) { setCopied(true); setTimeout(() => setCopied(false), 1300); } }} accessibilityRole={copyable ? 'button' : undefined} accessibilityHint={copyable ? 'Copies the site name and address' : undefined} style={noSelect}><Text numberOfLines={1} style={home ? [brand(800), { fontSize: desk ? 14.25 : 12.5, color: base.ink, marginTop: 1, letterSpacing: 0.5 }] : { fontSize: 12.5, color: '#6b7280', marginTop: 3 }}>{sub}</Text></Pressable>}
             {copied && <View pointerEvents="none" style={{ position: 'absolute', bottom: -8, alignSelf: 'center', backgroundColor: base.ink, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 2, zIndex: 5 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>Copied</Text></View>}
           </View>
           <View style={{ minWidth: sideW, alignItems: 'flex-end' }}>

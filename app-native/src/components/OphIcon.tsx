@@ -42,10 +42,7 @@ const I: Record<string, El[]> = {
   eye: [['p','M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z'],['c',12,12,3]],
   hash: [['p','M5 9h15M4 15h15M10 3L8 21M16 3l-2 18']],
   percent: [['p','M19 5L5 19'],['c',7,7,2.5],['c',17,17,2.5]],
-  bin: [['p','M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6']],
-  // Two arrows chasing round (Home's refresh button, 14 Nov 2026).
-  refresh: [['p','M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8'],['p','M21 3v5h-5'],['p','M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16'],['p','M8 16H3v5']],
-};
+  bin: [['p','M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6']],};
 export type IconName = keyof typeof I;
 
 export function OphIcon({ name, size = 22, color = '#1E2124', stroke = 2 }: { name: string; size?: number; color?: string; stroke?: number }) {

@@ -1,5 +1,6 @@
 // Home's refresh button, top right (Andy, 14 Nov 2026: "Does the refresh button top right work. Also make it a better
-// symbol"): the two-arrow icon (not the ↻ character), it turns while it works, it fetches the screen again (new data
+// symbol" / "Or design as per old app"): the header as the old app (the company name, a short line, then "OpHUB" in
+// dark bold), the old app's refresh arrow (not the ↻ character), it turns while it works, it fetches the screen again (new data
 // shows), and on the web link it reloads the page when a newer version has gone live, but not when it hasn't.
 // Touch phone, fake database. node refresh-check.js
 const {chromium, makeContext} = require('./harness');
@@ -20,10 +21,15 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
 
   const btn = page.locator('[aria-label="Refresh"] >> visible=true').first();
   check(await btn.count() === 1, 'home: the refresh button is there, top right');
-  check(await btn.locator('svg').count() === 1 && !(await btn.innerText()).includes('↻'), 'it is the two-arrow icon, not the ↻ character');
+  const d = (await btn.locator('path').first().getAttribute('d')) || '';
+  check(await btn.locator('svg').count() === 1 && !(await btn.innerText()).includes('↻') && d.startsWith('M17.65 6.35'), 'it is the old app\'s refresh arrow, not the ↻ character');
+  const bar = await page.evaluate(() => { const el = [...document.querySelectorAll('div')].find((x) => x.childElementCount === 0 && x.innerText === 'OpHUB'); return el ? {font: getComputedStyle(el).fontFamily, weight: getComputedStyle(el).fontWeight, colour: getComputedStyle(el).color} : null; });
+  check(!!bar && /Sora/.test(bar.font) && bar.weight === '800' && bar.colour === 'rgb(30, 33, 36)', `header: "OpHUB" in dark bold Sora, not grey capitals (${JSON.stringify(bar)})`);
+  const top = (await page.locator('body').innerText()).slice(0, 60);
+  check(!/OPHUB/.test(top), 'no "OPHUB" in capitals');
   const box = await btn.boundingBox();
   check(!!box && box.x > 300 && box.y < 120, `top right (${box && Math.round(box.x)}, ${box && Math.round(box.y)})`);
-  await page.screenshot({path: path.join(SHOTS, 'home-refresh.png'), clip: {x: 0, y: 0, width: 390, height: 110}});
+  await page.screenshot({path: path.join(SHOTS, 'home-refresh.png'), clip: {x: 0, y: 0, width: 390, height: 130}});
 
   // New data appears after a tap: a new live project.
   const before = await page.locator('body').innerText();

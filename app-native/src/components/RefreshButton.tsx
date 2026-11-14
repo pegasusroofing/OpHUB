@@ -1,12 +1,13 @@
 // Home's refresh button, top right (Andy, 14 Nov 2026: "Does the refresh button top right work. Also make it a better
-// symbol"). It always fetched everything on the screen again, but nothing showed it had. Now it's the two-arrow refresh
-// icon, which turns while it fetches; and on the web link it also checks whether a newer version of the app has gone
-// live and, if so, reloads the page, so a phone isn't left on an old copy.
+// symbol" / "Or design as per old app"). It always fetched everything on the screen again, but nothing showed it had.
+// Now it's the old app's refresh arrow (130 shell, showRefresh), which turns while it fetches; and on the web link it
+// also checks whether a newer version of the app has gone live and, if so, reloads the page, so a phone isn't left on
+// an old copy.
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Platform, Pressable } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
-import { OphIcon } from '@/components/OphIcon';
 import { base } from '@/theme/theme';
 
 /** The build this page is running, stamped into the page by tools/beta/make-beta.js ('' on the dev server). */
@@ -50,7 +51,9 @@ export function RefreshButton({ style }: { style: object }) {
   return (
     <Pressable onPress={() => void go()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Refresh" accessibilityState={{ busy }} style={style}>
       <Animated.View style={{ transform: [{ rotate }] }}>
-        <OphIcon name="refresh" size={19} color={base.ink} stroke={2.1} />
+        <Svg width={20} height={20} viewBox="0 0 24 24" fill={base.ink}>
+          <Path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
+        </Svg>
       </Animated.View>
     </Pressable>
   );
