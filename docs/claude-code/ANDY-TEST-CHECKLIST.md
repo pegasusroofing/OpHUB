@@ -221,6 +221,15 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
     - Yard: a row is item, qty, price, value; open one: the name at the top, the details table, Book In (New Delivery / Returned) and Book Out (To A Job / Lost, admin only);
     - Price Lists: pick Bauder (or any supplier), upload their price list, Add A Price.
 
+74. Laptop list, 14 Nov (evening). To try on the laptop:
+    - Home: four tiles; the map (light grey, darker roads, London boroughs named once, town names like Ilford); Today and Next 5 Days bigger; no Sign out at the bottom;
+    - the left bar: company colour at the top, Admin at the bottom; Ctrl F (Finance), Ctrl P (Projects), Ctrl K (Search);
+    - Projects: All ▼, + New Project and PM ▼ the same size;
+    - Quotes: Submitted (was No News); tabs under + New Enquiry; search boxes under the table's headings;
+    - Finance: Yard with Book In / Book Out on each row and Stock Take by the tabs; Plant as a table; Price Lists as the Finance table; back goes to the tab you were on; Retention's Date Of PC, Retention and Released; a draft invoice: Tab into an empty Bill To and type; the Export footer;
+    - Admin › Company › Home Page (who sees money on Home); Platform Admin › Systems (Projects / Finance / Both);
+    - the sign-in page (logo above the box).
+
 ## To discuss with Andy
 - ~~OneDrive and the full job set-up~~: talked through and built 8 Nov 2026 (item 55).
 - Sort out plots: how multi-site (multi-plot) jobs should work (Andy, 2 Nov 2026; asked again 5 Nov 2026: "we need to discuss and sort plots out"). Bring this up before Finance is signed off. Plots show today on BoQ lines and as a column on PO lines (only when the project has plots).
