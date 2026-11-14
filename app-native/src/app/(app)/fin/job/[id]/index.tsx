@@ -30,7 +30,7 @@ import { useAuth } from '@/lib/auth';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { plainGet, plainSet } from '@/lib/kv';
 import { forecast, marginOn, pctTxt, type MarginBasis } from '@/lib/rules/finBook';
-import { appDueThisMonth, plantCost, today, appDateFor, FIN_VAT_LABEL, fdate, invOutstanding, invOutstandingNet, invOverdue, money, num, retentionAlerts, retentionDates, retentionHeld, retHalfAmt, type FinApp, type FinInv } from '@/lib/rules/finance';
+import { appOverdue, plantCost, today, appDateFor, FIN_VAT_LABEL, fdate, invOutstanding, invOutstandingNet, invOverdue, money, num, retentionAlerts, retentionDates, retentionHeld, retHalfAmt, type FinApp, type FinInv } from '@/lib/rules/finance';
 import { isFinanceController, isFinanceOnlyOrg, isFinanceUser, isFullManager } from '@/lib/roles';
 import { base, page, space, useTheme } from '@/theme/theme';
 
@@ -526,7 +526,7 @@ function NeedsAttention({ id, site, fc, settings, invs, apps, book }: { id: stri
   const isLive = siteStatusKey(site as never) === 'live';
   const items: { tone: 'bad' | 'warn' | 'blue' | 'grey'; t: string; s: string; n: number; go: string }[] = [];
   if (od.length) items.push({ tone: 'bad', t: 'Overdue invoices', s: `${money(overdue, 0)} to chase`, n: od.length, go: `/fin/job/${id}?tab=sales&sub=invoices&f=overdue` });
-  if (!fc.isInvoiceJob && isLive && appDueThisMonth(apps, appDateFor(fc.jf as never, settings, today().slice(0, 7)))) items.push({ tone: 'warn', t: 'Application due this month', s: 'Value the work and send it to the client', n: 1, go: `/fin/job/${id}?tab=sales` });
+  if (!fc.isInvoiceJob && isLive && appOverdue(apps, appDateFor(fc.jf as never, settings, today().slice(0, 7)))) items.push({ tone: 'bad', t: 'Application not raised by its date', s: 'Value the work and send it to the client', n: 1, go: `/fin/job/${id}?tab=sales` });
   const drafts = invs.filter((i) => i.status === 'draft').length + apps.filter((a) => a.status === 'draft').length;
   if (drafts) items.push({ tone: 'blue', t: 'Drafts not sent yet', s: 'Invoices or applications still in draft', n: drafts, go: `/fin/job/${id}?tab=sales` });
   const toApp = at(book.pinvs).filter((p) => ['to_approve', 'query'].includes(p.status));

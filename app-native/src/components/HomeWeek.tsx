@@ -64,7 +64,7 @@ export function HomeWeek({ sites }: { sites: Site[] | undefined }) {
           return (
             <Pressable key={d} accessibilityRole="button" accessibilityLabel={`${dt.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}: ${list.length} on. Tap to add.`}
               onPress={() => router.push({ pathname: '/pm/calendar', params: { date: d, add: '1' } } as never)}
-              style={{ flex: 1, minWidth: 0, minHeight: 92, backgroundColor: base.card, borderWidth: isToday ? 1.5 : 1, borderColor: isToday ? t.brand1 : base.cardLine, borderRadius: 10, paddingVertical: desk ? 8 : 6, paddingHorizontal: desk ? 9 : 6 }}>
+              style={{ flex: 1, minWidth: 0, minHeight: 92, backgroundColor: base.card, borderWidth: isToday ? 1.5 : 1, borderColor: isToday ? t.brand1 : base.cardLine, borderRadius: 10, paddingVertical: desk ? 8 : 6, paddingHorizontal: desk ? 18 : 6 }}>
               <Text numberOfLines={1} style={{ fontSize: desk ? 14.5 : 13.5, fontWeight: '700', color: isToday ? t.brand1 : base.slate }}>{dt.toLocaleDateString('en-GB', { weekday: 'short' })} {dt.getDate()}</Text>
               {list.slice(0, 2).map((e) => <Text key={e.id} numberOfLines={2} style={{ fontSize: desk ? 13 : 12, color: base.ink, marginTop: 3 }}>{e.title}</Text>)}
               {list.length > 2 && <Text style={{ fontSize: 11.5, fontWeight: '600', color: base.slate, marginTop: 2 }}>+{list.length - 2} More</Text>}

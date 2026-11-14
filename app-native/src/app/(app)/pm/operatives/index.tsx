@@ -1,7 +1,7 @@
 // Operatives (320 renderOperativesList): every operative with their site and
 // certificate counts; search; tap one for their full record. Opened from a job's
-// H&S › Operatives tile with ?site= it lists just the people on that job. Training
-// Matrix Excel / PDF at the top, Operative Tools (everyone's tools) underneath.
+// H&S › Operatives tile with ?site= it lists just the people on that job. 14 Nov 2026 (Andy): the Training Matrix
+// Excel / PDF are a footer row, half each; no Operative Tools list here (each operative's tools are on their page).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -10,16 +10,16 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { CertsPanel } from '@/components/CertsPanel';
 import { DashTabs } from '@/components/DashTabs';
 import { ManualOpsList } from '@/components/ManualOpsList';
-import { MyToolsList } from '@/components/MyToolsList';
 import { confirmAsk, useToast } from '@/components/toast';
-import { Button, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
+import { stickyFoot } from '@/components/FinFilterBar';
+import { Button, Empty, Muted, SectionTitle } from '@/components/ui';
 import { addManualPerson, removeManualPerson, useManualPeople, useOperativeList } from '@/data/certs';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { exportTrainingMatrixExcel, exportTrainingMatrixPdf, loadTrainingMatrix } from '@/lib/trainingMatrix';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, useDesk } from '@/theme/theme';
 
 export default function Operatives() {
   const { site } = useLocalSearchParams<{ site?: string }>();
@@ -27,19 +27,11 @@ export default function Operatives() {
   const toast = useToast();
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState('');
-  const [toolsOpen, setToolsOpen] = useState(false);
   const [openFor, setOpenFor] = useState<Set<string>>(new Set());
   const [newName, setNewName] = useState('');
   const qc = useQueryClient();
   const { data: manual = [] } = useManualPeople(site);
-  const { data: toolCount } = useQuery({
-    queryKey: ['opToolCounts', me?.org_id], enabled: toolsOpen && !!me?.org_id,
-    queryFn: async () => {
-      const n: Record<string, number> = {};
-      (((await supabase.from('operative_tools').select('user_id').eq('org_id', me?.org_id as string)).data ?? []) as { user_id: string }[]).forEach((t) => { n[t.user_id] = (n[t.user_id] || 0) + 1; });
-      return n;
-    },
-  });
+  const desk = useDesk();
   const matrix = async (k: 'x' | 'p') => {
     if (!me?.org_id) return;
     setBusy(k);
@@ -59,17 +51,12 @@ export default function Operatives() {
   const siteName = site ? sites.find((s) => s.id === site)?.name : null;
   const shown = ops.filter((o) => (!site || onSite?.has(o.id)) && (!q.trim() || (o.name || '').toLowerCase().includes(q.trim().toLowerCase())));
   return (
+    <View style={{ flex: 1 }}>
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: siteName ? `Operatives · ${siteName}` : 'Dashboards' }} />
       {!site && <DashTabs on="operatives" />}
       <TextInput value={q} onChangeText={setQ} placeholder="Search operatives…" style={{ borderWidth: 1.5, borderColor: base.line, borderRadius: radius.input, padding: 12, color: base.ink, backgroundColor: base.card, marginBottom: 10 }} />
-      {!site && (
-        <View style={{ gap: 10, marginBottom: 10 }}>
-          <Button kind="ghost" busy={busy === 'x'} title="📊 Export Training Matrix (Excel)" onPress={() => void matrix('x')} />
-          <Button kind="ghost" busy={busy === 'p'} title="📄 Export Training Matrix (PDF)" onPress={() => void matrix('p')} />
-          <Pressable onPress={() => router.push('/pm/operatives/matrix' as never)} style={{ alignSelf: 'center' }}><Text style={{ fontSize: 12, color: base.blue }}>View the matrix on screen ›</Text></Pressable>
-        </View>
-      )}
+      {!site && <Pressable onPress={() => router.push('/pm/operatives/matrix' as never)} style={{ alignSelf: 'center', marginBottom: 10 }}><Text style={{ fontSize: 12.5, color: base.blue }}>View The Training Matrix On Screen ›</Text></Pressable>}
       {/* 9219zzg (4 Nov 2026): + Add Operative, and the ones not signed up yet. */}
       {!site && isManager(me) && <ManualOpsList q={q} />}
       {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((o) => (
@@ -105,23 +92,14 @@ export default function Operatives() {
           )}
         </>
       )}
-      {!site && (
-        <>
-          <Toggle title="Operative Tools" open={toolsOpen} onPress={() => setToolsOpen(!toolsOpen)} />
-          {toolsOpen && (ops.length ? ops.map((o) => {
-            const on = openFor.has(o.id);
-            return (
-              <View key={o.id}>
-                <Pressable onPress={() => setOpenFor((x) => { const n = new Set(x); if (n.has(o.id)) n.delete(o.id); else n.add(o.id); return n; })} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 4 }}>
-                  <Text style={{ color: base.slate, marginRight: 8 }}>{on ? '▼' : '▶'}</Text>
-                  <Text style={{ fontWeight: '600', color: base.ink }}>{o.name} ({toolCount?.[o.id] ?? 0})</Text>
-                </Pressable>
-                {on && <View style={{ backgroundColor: base.card, borderRadius: 14, borderWidth: 1, borderColor: base.cardLine, padding: 12, marginBottom: 10 }}><MyToolsList userId={o.id} name={o.name} /></View>}
-              </View>
-            );
-          }) : <Empty>No operatives yet.</Empty>)}
-        </>
-      )}
     </ScrollView>
+    {/* The Training Matrix exports: a footer row, half each (Andy, 14 Nov 2026). */}
+    {!site && (
+      <View accessibilityLabel="Export footer" style={[{ flexDirection: 'row', gap: 10, backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: desk ? 40 : 16, paddingVertical: 10 }, stickyFoot]}>
+        <View style={{ flex: 1, flexBasis: 0 }}><Button kind="ghost" busy={busy === 'x'} title="Export Training Matrix (Excel)" onPress={() => void matrix('x')} /></View>
+        <View style={{ flex: 1, flexBasis: 0 }}><Button kind="ghost" busy={busy === 'p'} title="Export Training Matrix (PDF)" onPress={() => void matrix('p')} /></View>
+      </View>
+    )}
+    </View>
   );
 }

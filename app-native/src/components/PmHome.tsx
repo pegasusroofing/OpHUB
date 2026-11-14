@@ -76,10 +76,10 @@ export function PmHome() {
   const wxSite = live.find((s2) => !!s2.postcode) ?? (sites ?? []).find((s2) => !!s2.postcode);
   const todayCard = (
     <Card style={{ paddingHorizontal: 0, paddingVertical: 10, marginBottom: desk ? 0 : space.m, ...(desk ? { flex: 1, minWidth: 0 } : {}) }}>
-      <Text style={{ fontWeight: desk ? '700' : '600', color: base.ink, fontSize: desk ? 16 : 14, paddingHorizontal: 14, paddingBottom: 6 }}>Today</Text>
-      {!!me && !!wxSite && <View style={{ paddingHorizontal: 14, paddingBottom: 8 }}><WeatherTile me={me} site={wxSite} company={org?.name || ''} width="100%" /></View>}
+      <Text style={{ fontWeight: desk ? '700' : '600', color: base.ink, fontSize: desk ? 16 : 14, paddingHorizontal: desk ? 18 : 14, paddingBottom: 6 }}>Today</Text>
+      {!!me && !!wxSite && <View style={{ paddingHorizontal: desk ? 18 : 14, paddingBottom: 8 }}><WeatherTile me={me} site={wxSite} company={org?.name || ''} width="100%" /></View>}
       {todayRows.map((r, k) => (
-        <Pressable key={k} onPress={go(r.go)} style={(st) => [{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: desk ? 13 : 10, paddingHorizontal: 14, borderTopWidth: 1, borderTopColor: '#f0f1f3' }, (st as { hovered?: boolean }).hovered && { backgroundColor: '#F7F8FA' }]}>
+        <Pressable key={k} onPress={go(r.go)} style={(st) => [{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: desk ? 13 : 10, paddingHorizontal: desk ? 18 : 14, borderTopWidth: 1, borderTopColor: '#f0f1f3' }, (st as { hovered?: boolean }).hovered && { backgroundColor: '#F7F8FA' }]}>
           {/* Bigger rows and words on a laptop (Andy, 14 Nov 2026). */}
           <OphIcon name={r.ic} size={desk ? 21 : 18} color={base.ink} />
           <View style={{ flex: 1, minWidth: 0 }}>
@@ -88,7 +88,7 @@ export function PmHome() {
           </View>
         </Pressable>
       ))}
-      {!today.length && <Text style={{ fontSize: 12, color: base.slateLight, paddingHorizontal: 14, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#f0f1f3' }}>No key dates or deliveries on the calendars today.</Text>}
+      {!today.length && <Text style={{ fontSize: 12, color: base.slateLight, paddingHorizontal: desk ? 18 : 14, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#f0f1f3' }}>No key dates or deliveries on the calendars today.</Text>}
     </Card>
   );
 
@@ -120,7 +120,7 @@ export function PmHome() {
       </View>
       {/* The red Live projects card below the four numbers, phone and laptop, as before (Andy, 6 Nov 2026). */}
       <Pressable onPress={go('/sites')} accessibilityRole="button"
-        style={({ pressed }) => [{ backgroundColor: t.brand1, borderRadius: 22, paddingVertical: 18, paddingHorizontal: 20, marginBottom: space.m }, pressed && { opacity: 0.9 }]}>
+        style={({ pressed }) => [{ backgroundColor: t.brand1, borderRadius: 22, paddingVertical: 18, paddingHorizontal: desk ? 18 : 20, marginBottom: space.m }, pressed && { opacity: 0.9 }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}><OphIcon name="projects" size={22} color={t.brand1Text} /></View>
           <OphIcon name="chevron" size={22} color={t.brand1Text} stroke={2.4} />

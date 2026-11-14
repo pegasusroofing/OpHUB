@@ -44,7 +44,7 @@ export default function PmTodos() {
   rows.forEach((t) => { (groups[t.site_id || 'general'] ||= []).push(t); });
   const keys = Object.keys(groups).sort((a, b) => (a === 'general' ? -1 : b === 'general' ? 1 : (sites?.find((s) => s.id === a)?.name || '').localeCompare(sites?.find((s) => s.id === b)?.name || '')));
   const live = (sites ?? []).filter((s) => siteStatusKey(s) !== 'closed').sort((a, b) => a.name.localeCompare(b.name));
-  const reload = () => void qc.invalidateQueries({ queryKey: ['pmTodos'] });
+  const reload = () => ['pmTodos', 'hubTodos', 'hub', 'todos'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
   const generalMenu = async (t: Todo) => {
     const k = await chooseAction(t.text, [{ key: 'done', label: 'Mark done' }, { key: 'edit', label: 'Change the wording' }, { key: 'date', label: 'Change the date required' }, { key: 'del', label: 'Delete', danger: true }]);
     if (k === 'done') { toast((await setTodoDone(t.id, true)) ? 'Marked done' : 'Could not save — try again.'); reload(); }

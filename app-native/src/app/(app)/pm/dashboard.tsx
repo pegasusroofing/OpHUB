@@ -3,19 +3,21 @@
 // signing cycle), Schedule of Works progress, recent incidents — each with the
 // list of live jobs behind the number. Since 11 Nov 2026 (Andy: "make sure everything we need is on there"): Money (a
 // company with Finance, for people with Finance), Quotes and Deliveries; a company with only Finance sees Money alone.
+// 14 Nov 2026 (Andy: "have this replicate the finance styling"): the numbers are Finance Overview's tiles (figure on
+// top, words under, tinted by what they mean) and each list is a Needs Attention card (a count, the name, ›).
 import { useQuery } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { DashTabs } from '@/components/DashTabs';
-import { Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { FinStat, TONE } from '@/components/FinNav';
+import { Card, Muted, SectionTitle } from '@/components/ui';
 import { useDeliveryRequests } from '@/data/deliveries';
 import { useFinOverview } from '@/data/finance';
 import { useQuotes } from '@/data/quotes';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { heading } from '@/lib/fonts';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { currentCycleSigs } from '@/lib/rules/hs';
 import { overallPct } from '@/lib/rules/sow';
@@ -23,7 +25,7 @@ import { isFinanceUser, isFullManager, isManager } from '@/lib/roles';
 import { groupQuotes, isQuoted } from '@/lib/rules/quotes';
 import { supabase } from '@/lib/supabase';
 import type { Site } from '@/lib/types';
-import { base, page, radius, space, useTheme } from '@/theme/theme';
+import { base, page, space, useDesk } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 const rows = <T,>(r: { data: unknown }) => ((r.data as T[] | null) ?? []);
@@ -84,7 +86,7 @@ export default function CompanyDashboard() {
   const { data: quotes } = useQuotes(pmCo && me && isFullManager(me) ? me.org_id : null);
   const { data: dlv } = useDeliveryRequests(pmCo ? me?.org_id : null);
   const [show, setShow] = useState<string | null>(null);
-  const t = useTheme();
+  const desk = useDesk();
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const all = sites ?? [];
@@ -92,15 +94,29 @@ export default function CompanyDashboard() {
   const count = (k: string) => all.filter((s) => siteStatusKey(s) === k).length;
   const gbp = (n: number) => `£${Math.round(n || 0).toLocaleString('en-GB')}`;
   const sum = (m: Record<string, number> | undefined) => Object.values(m ?? {}).reduce((a, b) => a + b, 0);
-  const stat = (label: string, value: string | number, sub: string | null, onPress?: () => void) => (
-    <Pressable onPress={onPress} disabled={!onPress} style={{ flex: 1, minWidth: 100 }}>
-      <Card style={{ alignItems: 'center', paddingVertical: 16, borderRadius: 18, marginBottom: 0 }}>
-        <Text style={[heading(800), { fontSize: 22, color: base.ink }]}>{value}</Text>
-        <Text style={{ fontSize: 13, color: base.ink, textAlign: 'center', marginTop: 2 }}>{label}</Text>
-        {!!sub && <Text style={{ fontSize: 10.5, color: base.slateLight, fontStyle: 'italic', textAlign: 'center' }}>{sub}</Text>}
-        {!!onPress && <Text style={{ fontSize: 10.5, color: base.slateLight, fontStyle: 'italic', marginTop: 4 }}>Tap to open ›</Text>}
-      </Card>
-    </Pressable>
+  // Three to a row on a laptop, two on a phone, as Finance Overview.
+  const basis = desk ? '31%' : '45%';
+  type Tone = 'blue' | 'green' | 'red' | 'amber';
+  const stat = (label: string, value: string | number, sub: string | null, onPress?: () => void, tone?: Tone) => (
+    <FinStat key={label} basis={basis} v={String(value)} label={label} sub={sub} tone={tone} onPress={onPress} />
+  );
+  const tiles = (children: React.ReactNode) => <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>{children}</View>;
+  // A Needs Attention card: a title, then a row each (a count, the name and a line under it, ›).
+  const badge = (n: string | number, tone: string) => <Text style={{ minWidth: 22, height: 22, lineHeight: 22, paddingHorizontal: 4, textAlign: 'center', fontWeight: '600', fontSize: 12, color: TONE[tone], backgroundColor: `${TONE[tone]}1F`, borderRadius: 6, overflow: 'hidden' }}>{n}</Text>;
+  const listCard = (title: string, items: { key: string; n: string | number; tone: string; label: string; sub?: string; go: string }[], empty: string) => (
+    <Card key={title} style={{ marginBottom: 10 }}>
+      <Text style={{ fontWeight: '600', fontSize: 15, color: '#111827', marginBottom: 4 }}>{title}</Text>
+      {items.length ? items.map((x) => (
+        <Pressable key={x.key} onPress={() => router.push(x.go as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7, borderTopWidth: 1, borderColor: '#F0F1F4' }}>
+          {badge(x.n, x.tone)}
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontWeight: '500', fontSize: 13.5, color: '#111827' }}>{x.label}</Text>
+            {!!x.sub && <Text numberOfLines={1} style={{ fontSize: 12, color: base.slate }}>{x.sub}</Text>}
+          </View>
+          <Text style={{ color: base.slate }}>›</Text>
+        </Pressable>
+      )) : <Muted style={{ paddingTop: 6, borderTopWidth: 1, borderColor: '#F0F1F4' }}>{empty}</Muted>}
+    </Card>
   );
   const lists: Record<string, { title: string; map?: Record<string, number>; go: (id: string) => string }> = {
     snags: { title: 'Live Projects With Open Snags', map: data?.snagBy, go: (id) => `/sites/${id}/snagging` },
@@ -109,34 +125,30 @@ export default function CompanyDashboard() {
     tbt: { title: 'Live Projects With TBT Outstanding', map: data?.tbtBy, go: (id) => `/sites/${id}/hs/tbt` },
   };
   const toggle = (k: string) => () => setShow(show === k ? null : k);
-  // 230 .sitecard: a company-colour swatch (the project's initials, or ⚠️), the name, the count underneath.
-  const swatch = (txt: string) => <View style={{ width: 50, height: 43, borderRadius: 14, backgroundColor: t.brand1, alignItems: 'center', justifyContent: 'center' }}><Text style={[heading(800), { color: t.brand1Text, fontSize: 12 }]}>{txt}</Text></View>;
-  const initials = (n: string) => (n || '?').split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  const KEEP = new Set(['PO', 'POs', 'VAT', 'CIS']);
+  const titleCase = (x: string) => x.replace(/[A-Za-z][A-Za-z'’.]*/g, (w) => (KEEP.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)));
   const sel = show && lists[show];
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Dashboards' }} />
       <DashTabs on="company" />
-      {pmCo && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
-        {stat('Live Projects', live.length, null, () => router.push('/sites'))}
-        {stat('Upcoming', count('upcoming'), null, () => router.push('/sites?tab=upcoming' as never))}
+      {pmCo && tiles(<>
+        {stat('Live Projects', live.length, null, () => router.push('/sites'), 'blue')}
+        {stat('Upcoming', count('upcoming'), null, () => router.push('/sites?tab=upcoming' as never), 'blue')}
         {stat('Closed', count('closed'), null, () => router.push('/sites?tab=closed' as never))}
-      </View>}
+      </>)}
       {finOn && money && (
         <>
           <SectionTitle>Money</SectionTitle>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
-            {stat('Live Contract Value', gbp(money.liveValue), `${money.liveCount} live project${money.liveCount === 1 ? '' : 's'}`, () => router.push('/fin/jobs' as never))}
-            {stat('Still To Invoice', gbp(money.toInvoice), 'on live projects', () => router.push('/fin/jobs' as never))}
-            {stat('Owed To Us', gbp(money.owed), money.overdue ? `${gbp(money.overdue)} overdue` : 'nothing overdue', () => router.push('/fin/sales?tab=invoices' as never))}
-            {stat('Retention Held', gbp(money.retHeld), 'still with clients', () => router.push('/fin/sales?tab=retention' as never))}
-          </View>
-          {money.todo.slice(0, 6).map((x) => (
-            <Pressable key={x.t} onPress={() => router.push(x.go as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 11, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
-              <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: base.ink, fontSize: 13.5 }}>{x.t} ({x.n})</Text><Text numberOfLines={1} style={{ fontSize: 12, color: base.slate }}>{x.s}</Text></View>
-              <Text style={{ color: base.slate }}>›</Text>
-            </Pressable>
-          ))}
+          {tiles(<>
+            {stat('Live Contract Value', gbp(money.liveValue), null, () => router.push('/fin/jobs' as never), 'blue')}
+            {stat('Total Live Jobs', money.liveCount, null, () => router.push('/fin/jobs' as never), 'blue')}
+            {stat('Still To Invoice', gbp(money.toInvoice), null, () => router.push('/fin/jobs' as never), 'blue')}
+            {stat('Owed To You', gbp(money.owed), null, () => router.push('/fin/sales?tab=invoices' as never), 'green')}
+            {stat('Overdue', gbp(money.overdue), null, () => router.push('/fin/sales?tab=invoices&f=overdue' as never), 'red')}
+            {stat('Retention Held By Clients', gbp(money.retHeld), null, () => router.push('/fin/sales?tab=retention' as never), 'amber')}
+          </>)}
+          {money.todo.length > 0 && listCard('Needs Attention', money.todo.map((x) => ({ key: x.t, n: x.n, tone: x.tone, label: titleCase(x.t), sub: x.s, go: x.go })), '')}
         </>
       )}
       {pmCo && !!quotes && (() => {
@@ -146,63 +158,36 @@ export default function CompanyDashboard() {
         return (
           <>
             <SectionTitle>Quotes</SectionTitle>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
-              {stat('Being Priced', liveQ.length, liveQ.filter((x) => x.status === 'checking').length ? `${liveQ.filter((x) => x.status === 'checking').length} ready for checking` : null, () => router.push('/pm/quotes?tab=live' as never))}
-              {stat('Quoted', gbp(quoted.reduce((t2, x) => t2 + (x.value || 0), 0)), `${quoted.length} quoted`, () => router.push('/pm/quotes?tab=quoted' as never))}
-              {stat(`Won ${yr}`, gbp(g?.wonValue || 0), g?.rate == null ? null : `${g.rate}% win rate`, () => router.push('/pm/quotes?tab=quoted&out=won' as never))}
-            </View>
+            {tiles(<>
+              {stat('Being Priced', liveQ.length, liveQ.filter((x) => x.status === 'checking').length ? `${liveQ.filter((x) => x.status === 'checking').length} ready for checking` : null, () => router.push('/pm/quotes?tab=live' as never), 'blue')}
+              {stat('Quoted', gbp(quoted.reduce((t2, x) => t2 + (x.value || 0), 0)), `${quoted.length} quoted`, () => router.push('/pm/quotes?tab=quoted' as never), 'blue')}
+              {stat(`Won ${yr}`, gbp(g?.wonValue || 0), g?.rate == null ? null : `${g.rate}% win rate`, () => router.push('/pm/quotes?tab=quoted&out=won' as never), 'green')}
+            </>)}
           </>
         );
       })()}
       {pmCo && !!dlv?.length && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
-          {stat('Deliveries To Schedule', dlv.length, 'requests waiting', () => router.push('/pm/deliveries' as never))}
-        </View>
+        tiles(stat('Deliveries To Schedule', dlv.length, 'requests waiting', () => router.push('/pm/deliveries' as never), 'amber'))
       )}
       {pmCo && <SectionTitle>Projects And Health & Safety</SectionTitle>}
       {!pmCo ? null : isLoading || !data ? <Muted>Loading…</Muted> : (
         <>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
-            {stat('Open Snags', sum(data.snagBy), 'across live projects', toggle('snags'))}
-            {stat('RAMS Outstanding', sum(data.ramsBy), 'signatures needed', toggle('rams'))}
-            {stat('COSHH Outstanding', sum(data.coshhBy), 'signatures needed', toggle('coshh'))}
-          </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
-            {stat('Schedule Complete', `${data.pct}%`, `${data.tasks} tasks across live projects`)}
-            {stat('Incidents', data.incidents.length, 'most recent 500 reports', toggle('incidents'))}
-            {stat('Outstanding TBT', sum(data.tbtBy), 'signatures needed', toggle('tbt'))}
-          </View>
+          {tiles(<>
+            {stat('Open Snags', sum(data.snagBy), 'across live projects', toggle('snags'), sum(data.snagBy) ? 'amber' : undefined)}
+            {stat('RAMS Outstanding', sum(data.ramsBy), 'signatures needed', toggle('rams'), sum(data.ramsBy) ? 'amber' : undefined)}
+            {stat('COSHH Outstanding', sum(data.coshhBy), 'signatures needed', toggle('coshh'), sum(data.coshhBy) ? 'amber' : undefined)}
+            {stat('Schedule Complete', `${data.pct}%`, `${data.tasks} tasks across live projects`, undefined, 'blue')}
+            {stat('Incidents', data.incidents.length, 'most recent 500 reports', toggle('incidents'), data.incidents.length ? 'red' : undefined)}
+            {stat('Outstanding TBT', sum(data.tbtBy), 'signatures needed', toggle('tbt'), sum(data.tbtBy) ? 'amber' : undefined)}
+          </>)}
           {(sel ? [show as string] : show ? [] : Object.keys(lists)).map((k) => {
             const l = lists[k];
             const ranked = live.map((s) => ({ s, n: l.map?.[s.id] || 0 })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
-            return (
-            <View key={k}>
-              <SectionTitle>{l.title}</SectionTitle>
-              {ranked.length ? ranked.map(({ s, n }) => (
-                <Pressable key={s.id} onPress={() => router.push(l.go(s.id) as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 10, backgroundColor: base.card }}>
-                  {swatch(initials(s.name))}
-                  <View style={{ flex: 1 }}>
-                    <Text style={[heading(700), { color: base.ink, fontSize: 14.5 }]}>{s.name}</Text>
-                    <Text style={{ color: base.slate, fontSize: 12 }}>{n}</Text>
-                  </View>
-                </Pressable>
-              )) : <Empty>Nothing outstanding.</Empty>}
-            </View>
-            );
+            return listCard(l.title, ranked.map(({ s, n }) => ({ key: s.id, n, tone: 'warn', label: `${s.job_number ? `${s.job_number} · ` : ''}${s.name}`, go: l.go(s.id) })), 'Nothing outstanding.');
           })}
           {(show === 'incidents' || !show) && (
-            <>
-              <SectionTitle>Recent Accident / Incident Reports</SectionTitle>
-              {data.incidents.slice(0, 8).length ? data.incidents.slice(0, 8).map((r) => (
-                <Pressable key={r.id} onPress={() => router.push(`/sites/${r.site_id}/hs/incidents/${r.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 10, backgroundColor: base.card }}>
-                  {swatch('⚠️')}
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontWeight: '600', color: base.ink }}>{all.find((x) => x.id === r.site_id)?.name || 'Unknown project'}</Text>
-                    <Muted>{r.location || ''} · {new Date(r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}{r.riddor_reportable ? ' · RIDDOR' : ''}</Muted>
-                  </View>
-                </Pressable>
-              )) : <Empty>No accidents, incidents or near misses reported recently.</Empty>}
-            </>
+            listCard('Recent Accident / Incident Reports', data.incidents.slice(0, 8).map((r) => ({ key: r.id, n: '!', tone: 'bad', label: all.find((x) => x.id === r.site_id)?.name || 'Unknown project',
+              sub: [r.location, new Date(r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }), r.riddor_reportable ? 'RIDDOR' : ''].filter(Boolean).join(' · '), go: `/sites/${r.site_id}/hs/incidents/${r.id}` })), 'No accidents, incidents or near misses reported recently.')
           )}
         </>
       )}

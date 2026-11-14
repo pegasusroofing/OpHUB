@@ -230,6 +230,15 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
     - Admin › Company › Home Page (who sees money on Home); Platform Admin › Systems (Projects / Finance / Both);
     - the sign-in page (logo above the box).
 
+75. Laptop list, 14 Nov (late). To try on the laptop:
+    - Hub: tick a to-do off, and close one from its project page then press back: gone both times; tapping a to-do opens it ready to Mark Complete; Finance only shows an application once its date has gone with none raised (the dates are on the calendar);
+    - Admin › Libraries › Toolbox Talks Required: pick how often (every week to every 6 months, or Not Required); the Hub and each project's Toolbox Talks page follow it;
+    - Calendar: + Add To (the day) at the foot of the day panel; the filter pills and Month View the same size;
+    - Home: the words in every tile start the same distance in;
+    - Dashboards › Company: Finance-style tiles and Needs Attention cards;
+    - Dashboards › Operatives: the two Training Matrix exports as a footer, half each; no Operative Tools list;
+    - an operative's page: + Add Certificate, OneDrive under Certificates, more room above Tools and Subcontractor Form, no matrix export.
+
 ## To discuss with Andy
 - ~~OneDrive and the full job set-up~~: talked through and built 8 Nov 2026 (item 55).
 - Sort out plots: how multi-site (multi-plot) jobs should work (Andy, 2 Nov 2026; asked again 5 Nov 2026: "we need to discuss and sort plots out"). Bring this up before Finance is signed off. Plots show today on BoQ lines and as a column on PO lines (only when the project has plots).

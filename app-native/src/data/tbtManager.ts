@@ -9,6 +9,7 @@ import type { Profile, Site } from '@/lib/types';
 
 import type { Tbt } from './hs';
 import { mustHit } from '@/lib/mustHit';
+import { tbtNeed, type TbtEvery } from '@/lib/rules/tbt';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Me = Profile & { signature_path?: string | null };
@@ -110,15 +111,13 @@ export async function remindTbt(siteId: string, tbtId: string, userIds: string[]
   } catch { return 'Could not send reminder.'; }
 }
 
-/** The monthly TBT warning for a live job (710). */
-export function tbtDue(site: Site, talks: Tbt[], now = new Date()): string | null {
+/** The TBT warning for a live job (710), as often as the company admin set (every month if not set). */
+export function tbtDue(site: Site, talks: Tbt[], every: TbtEvery = 'month', now = new Date()): string | null {
   if (siteStatusKey(site) !== 'live') return null;
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const issued = talks.some((t) => (t.status === 'live' || t.status === 'completed') && new Date(t.created_at) >= monthStart);
-  const ever = talks.some((t) => t.status === 'completed');
-  if (issued && ever) return null;
-  if (!ever) return '⚠ No Toolbox Talk has ever been completed at this site';
-  return now.getDate() > 7 ? '⚠ Toolbox Talk overdue' : '⚠ Toolbox Talk due this month';
+  const need = tbtNeed(talks, every, now);
+  if (!need) return null;
+  if (need.kind === 'never') return '⚠ No Toolbox Talk has ever been completed at this site';
+  return need.kind === 'overdue' ? '⚠ Toolbox Talk overdue' : `⚠ Toolbox Talk due ${need.word}`;
 }
 
 // ---- Write a toolbox talk (Andy, 13 Nov 2026) ----

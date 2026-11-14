@@ -141,6 +141,12 @@ export function appDueThisMonth(apps: FinApp[], due: string | null, now = today(
   const ym = now.slice(0, 7);
   return !apps.some((a) => a.status !== 'void' && String(a.valuation_date || '').slice(0, 7) === ym);
 }
+/** This month's application wasn't raised by its date: the date has gone and none has been made this month (Andy, 14 Nov 2026:
+ *  "I don't want notifications for applications due, I want them on the calendar, but I want a notification if an
+ *  application isn't raised by the due date"). The due dates themselves are on the calendar (data/calendar.ts). */
+export function appOverdue(apps: FinApp[], due: string | null, now = today()) {
+  return !!due && now > due && appDueThisMonth(apps, due, now);
+}
 
 // ---------- plant hire (905) ----------
 export function plantCost(h: { on_hire: string; off_hire?: string | null; rate?: number | null; rate_period?: string | null }, now = today()) {

@@ -32,7 +32,7 @@ const login = async (page) => { await page.goto('http://localhost:8081/login'); 
     await page.getByText('Jake Morris').first().locator('xpath=ancestor::div[2]').getByText(/Assign/).first().click(); await page.waitForTimeout(2000);
     console.log('assigned', JSON.stringify(db.site_assignments.map(a=>a.user_id)));
     await page.goto('http://localhost:8081/pm/calendar'); await page.waitForTimeout(5000);
-    await page.getByText('🚚 Driver diary').click(); await page.waitForTimeout(3000);
+    await page.getByText('🚚 Driver Diary').click(); await page.waitForTimeout(3000);
     await page.getByText(/Slates/).first().click(); await page.waitForTimeout(1200); await page.getByText(/Slates/).last().click(); await page.waitForTimeout(3000);
     console.log('diary tap →', page.url().replace('http://localhost:8081',''));
     await page.goto('http://localhost:8081/sites/'+S1+'/hs/coshh/new'); await page.waitForTimeout(5000);

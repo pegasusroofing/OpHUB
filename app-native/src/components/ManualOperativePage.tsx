@@ -15,13 +15,12 @@ import { EMAIL_OK, linkManualOperative, removeManualOperative, saveManualOperati
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { exportTrainingMatrixExcel, loadTrainingMatrix } from '@/lib/trainingMatrix';
 import { base, page, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
 export function ManualOperativePage({ uuid }: { uuid: string }) {
-  const { me, org } = useAuth();
+  const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: m, isLoading } = useManualOperative(uuid);
@@ -114,16 +113,14 @@ export function ManualOperativePage({ uuid }: { uuid: string }) {
         </Card>
       </>}
 
-      {me.org_id && <><SectionTitle>OneDrive Sync</SectionTitle><OperativeOneDrive orgId={me.org_id} opId={opId} /></>}
+      {/* As a signed-up operative's page (Andy, 14 Nov 2026): Certificates, then OneDrive; the Training Matrix export is on
+          the Operative Dashboard's footer; room above each heading. */}
+      <View style={{ height: 14 }} />
       <SectionTitle>Certificates</SectionTitle>
       <Muted style={{ marginBottom: 6 }}>This is {m.name}&apos;s record in the company Training Matrix.</Muted>
       <CertsPanel userId={uuid} manual="operative" />
-      <Button kind="ghost" busy={busy === 'x'} title="📊 Export Full Training Matrix (Excel)" onPress={async () => {
-        if (!me.org_id) return; setBusy('x');
-        try { await exportTrainingMatrixExcel(await loadTrainingMatrix(me.org_id), org ?? null); } catch { toast('Could not make the Training Matrix — try again.'); }
-        setBusy('');
-      }} />
-      <View style={{ height: space.m }} />
+      {me.org_id && <><View style={{ height: 14 }} /><SectionTitle>OneDrive Sync</SectionTitle><OperativeOneDrive orgId={me.org_id} opId={opId} /></>}
+      <View style={{ height: space.l }} />
       <Button kind="ghost" title={`Remove ${m.name}`} onPress={remove} />
       <View style={{ height: space.xl }} />
     </ScrollView>

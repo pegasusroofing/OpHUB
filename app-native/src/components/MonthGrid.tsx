@@ -82,14 +82,15 @@ export function CalTools({ view, onView, label = 'View', extra = [] }: { view: C
   const t = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <Text style={{ fontSize: 10.5, fontWeight: '600', color: base.slate }}>{VIEW_LABEL[view]} view</Text>
+      {/* The same size as the filter buttons beside it (Andy, 14 Nov 2026). */}
+      <Text style={{ fontSize: 13.5, fontWeight: '600', color: base.slate }}>{VIEW_LABEL[view]} View</Text>
       <Pressable onPress={async () => {
         const k = await chooseAction(label, [...extra.map((x) => ({ key: x.key, label: x.label })),
           ...(['week', 'twoweek', 'month'] as CalView[]).map((v) => ({ key: `v:${v}`, label: `${view === v ? '✓ ' : ''}${VIEW_LABEL[v]}` }))]);
         if (!k) return;
         if (k.startsWith('v:')) onView(k.slice(2) as CalView); else extra.find((x) => x.key === k)?.run();
-      }} style={{ backgroundColor: t.brand1, borderRadius: 10, paddingVertical: 5, paddingHorizontal: 10 }}>
-        <Text style={{ color: t.brand1Text, fontSize: 11, fontWeight: '600' }}>{label} ▾</Text>
+      }} accessibilityRole="button" style={{ height: 38, paddingHorizontal: 16, borderRadius: 999, backgroundColor: t.brand1, justifyContent: 'center' }}>
+        <Text style={{ color: t.brand1Text, fontSize: 13.5, fontWeight: '600' }}>{label} ▾</Text>
       </Pressable>
     </View>
   );

@@ -42,7 +42,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
 
   // 2. Their page
   await page.waitForTimeout(2000);
-  for (const t of ['Not Signed Up Yet', 'Details', 'Signed Up Already?', 'OneDrive Sync', 'Link OneDrive Folder', 'Certificates', 'Add a certificate', '📊 Export Full Training Matrix (Excel)', 'Remove Sam Price'])
+  for (const t of ['Not Signed Up Yet', 'Details', 'Signed Up Already?', 'OneDrive Sync', 'Link OneDrive Folder', 'Certificates', '+ Add Certificate', 'Remove Sam Price'])
     check(await page.getByText(t, {exact: true}).count() > 0, `their page shows "${t}"`);
   check(await page.getByText(/When they sign up with sam@example.com/).count() > 0, 'says they link up by themselves with that email');
   await page.screenshot({path: path.join(SHOTS, 'manualop-page-phone.png'), fullPage: true});

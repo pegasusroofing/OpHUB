@@ -24,6 +24,7 @@ import { deliverPdf, emailPdf, exportFilename, PDFDocument, emailPdfsSeparately 
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { base, page, radius, space, live } from '@/theme/theme';
+import { tbtEvery, tbtEveryLabel } from '@/lib/rules/tbt';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -60,7 +61,8 @@ export default function Tbts() {
   const hasLive = (talks ?? []).some((t) => t.status === 'live');
   const cur = tab ?? (hasLive ? 'live' : 'bank');
   const shown = mgr ? (talks ?? []).filter((t) => t.status === cur) : talks ?? [];
-  const due = mgr && site && talks ? tbtDue(site, talks) : null;
+  const every = tbtEvery(org?.tbt_every);
+  const due = mgr && site && talks ? tbtDue(site, talks, every) : null;
   const refresh = () => void qc.invalidateQueries({ queryKey: ['tbts', id] });
   // Before anything new goes in the bank: are there talks like it already? (Yes / No to carry on.)
   const okToAdd = async (t: string) => {
@@ -86,7 +88,7 @@ export default function Tbts() {
       {!!due && (
         <Card style={{ borderColor: base.warn, borderWidth: 1.5 }}>
           <Text style={{ fontWeight: '600', color: base.warn }}>{due}</Text>
-          <Muted>A Toolbox Talk must be issued and signed off every month. Issue one from TBT Library below.</Muted>
+          <Muted>{`A Toolbox Talk must be issued and signed off ${tbtEveryLabel(every).toLowerCase()}. Issue one from TBT Library below.`}</Muted>
         </Card>
       )}
       {mgr && (

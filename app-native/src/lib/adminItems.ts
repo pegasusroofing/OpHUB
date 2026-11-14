@@ -31,6 +31,8 @@ export const ADMIN_ITEMS: AdminItem[] = [
   { key: 'ramslibrary', page: 'libraries', group: 'Health & Safety', icon: '🦺', label: 'RAMS Library', sub: 'Hazards, method statements, templates', kw: 'rams risk assessment method statement hazard template', route: '/pm/admin/ramslibrary', show: isFullManager },
   { key: 'coshhbuilder', page: 'libraries', group: 'Health & Safety', icon: '🧪', label: 'COSHH Library', sub: 'Data sheets → products → assessments in folders', kw: 'coshh substance product data sheet', route: '/pm/admin/coshh', show: isFullManager },
   { key: 'tbt', page: 'libraries', group: 'Health & Safety', icon: '🗣️', label: 'Toolbox Talk Templates', sub: 'All sites', kw: 'toolbox talk tbt', route: '/pm/admin/tbt', show: (me) => isFullManager(me) && admin(me) },
+  // How often each live project needs a talk (Andy, 14 Nov 2026).
+  { key: 'tbtrule', page: 'libraries', group: 'Health & Safety', icon: '🗓️', label: 'Toolbox Talks Required', sub: 'How often on each live project', kw: 'toolbox talk tbt how often monthly frequency rule required', route: '/pm/admin/tbtrule', show: admin },
   { key: 'ppelog', page: 'libraries', group: 'Health & Safety', icon: '🦺', label: 'PPE Log', sub: 'Issued PPE and the register', kw: 'ppe register', route: '/pm/admin/ppelog', show: isFullManager },
   // Who sees the money on Home (Andy, 14 Nov 2026).
   { key: 'hometiles', page: 'company', group: 'Branding', icon: '🏠', label: 'Home Page', sub: 'Who sees the finance tiles on Home', kw: 'home page tiles finance money due in pm project manager site manager', route: '/pm/admin/hometiles', show: admin },

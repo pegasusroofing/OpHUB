@@ -65,7 +65,7 @@ export default function Hub() {
   const first = useRef(true);
   useFocusEffect(useCallback(() => {
     if (first.current) { first.current = false; return; }
-    void qc.invalidateQueries({ queryKey: ['hub'] }); void qc.invalidateQueries({ queryKey: ['finOverview'] }); void qc.invalidateQueries({ queryKey: ['companyChatUnread'] });
+    ['hub', 'hubTodos', 'finOverview', 'companyChatUnread'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
   }, [qc]));
   if (!me) return null;
 
@@ -83,9 +83,9 @@ export default function Hub() {
     const late = !!x.date_required_by && todoDay(x.date_required_by)! < now;
     return (
       <View key={x.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderTopWidth: i ? 1 : 0, borderTopColor: '#EEF0F2' }}>
-        <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: false }} accessibilityLabel={`Done: ${x.text}`} hitSlop={8} onPress={async () => { if (await setTodoDone(x.id, true)) { void refetchTodos(); void qc.invalidateQueries({ queryKey: ['pmTodos'] }); } else toast('Could not save — try again.'); }}
+        <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: false }} accessibilityLabel={`Done: ${x.text}`} hitSlop={8} onPress={async () => { if (await setTodoDone(x.id, true)) { void refetchTodos(); ['hub', 'pmTodos', 'todos'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); } else toast('Could not save — try again.'); }}
           style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: '#C9CDD3', backgroundColor: '#fff', marginTop: 1 }} />
-        <Pressable accessibilityRole="button" accessibilityLabel={x.text} onPress={() => router.push((x.site_id ? `/sites/${x.site_id}/todos` : '/pm/todos') as never)} style={{ flex: 1, minWidth: 0 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={x.text} onPress={() => router.push((x.site_id ? `/sites/${x.site_id}/todos?open=${x.id}` : '/pm/todos') as never)} style={{ flex: 1, minWidth: 0 }}>
           <Text numberOfLines={2} style={{ fontSize: 14, fontWeight: '700', color: base.ink }}>{x.text}</Text>
           <Text numberOfLines={1} style={{ fontSize: 12, color: late ? RED : base.slate, marginTop: 2 }}>{[siteName(x.site_id), x.date_required_by ? `${late ? 'Overdue · ' : ''}Due ${fmt(todoDay(x.date_required_by)!)}` : 'No Due Date', x.message_id ? 'From A Message' : ''].filter(Boolean).join(' · ')}</Text>
           {who.length > 0 && <Text numberOfLines={2} style={{ fontSize: 12, fontWeight: '600', color: base.ink, marginTop: 3 }}>{who.map((u) => `@${(nameOf(people, u) || 'Someone').split(' ')[0]}`).join('  ')}</Text>}
@@ -160,7 +160,7 @@ export default function Hub() {
   const drop = (label: string, value: string, onPress: () => void) => (
     <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, backgroundColor: base.card }}>
       <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 12.5, fontWeight: '500', color: base.ink }}>{label}: {value}</Text>
-      <Text style={{ fontSize: 10, color: base.slate }}>▼</Text>
+      <Text style={{ fontSize: 12, color: base.slate }}>▾</Text>
     </Pressable>
   );
 

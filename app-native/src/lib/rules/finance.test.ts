@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { addMonths, appDateFor, appDueThisMonth, finBlocked, FIN_TRIAL, invOutstandingNet, invOverdue, money, num, plantCost, retentionAlerts, retentionStillHeld, retHalf, retHalfAmt } from './finance.ts';
+import { addMonths, appDateFor, appDueThisMonth, appOverdue, finBlocked, FIN_TRIAL, invOutstandingNet, invOverdue, money, num, plantCost, retentionAlerts, retentionStillHeld, retHalf, retHalfAmt } from './finance.ts';
 
 test('trial blocks everything that leaves Finance, except the sandbox and Directory contacts', () => {
   assert.equal(FIN_TRIAL, true);
@@ -32,6 +32,11 @@ test('application dates and plant hire', () => {
   assert.equal(appDateFor({ app_reminder_day: 31 }, {}, '2026-02'), '2026-02-28');
   assert.equal(appDueThisMonth([], '2026-02-25', '2026-02-26'), true);
   assert.equal(appDueThisMonth([{ number: 1, status: 'draft', valuation_date: '2026-02-20' }], '2026-02-25', '2026-02-26'), false);
+  // Only a to-do once the date has gone with nothing raised (Andy, 14 Nov 2026); on the day itself there's still time.
+  assert.equal(appOverdue([], '2026-02-25', '2026-02-25'), false);
+  assert.equal(appOverdue([], '2026-02-25', '2026-02-26'), true);
+  assert.equal(appOverdue([{ number: 1, status: 'draft', valuation_date: '2026-02-20' }], '2026-02-25', '2026-02-26'), false);
+  assert.equal(appOverdue([], null, '2026-02-26'), false);
   assert.deepEqual(plantCost({ on_hire: '2026-01-01', off_hire: '2026-01-14', rate: 70, rate_period: 'week' }), { days: 14, weeks: 2, cost: 140 });
 });
 

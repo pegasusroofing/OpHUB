@@ -33,12 +33,12 @@ const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supab
 type Ev = { id: string; site_id: string | null; title: string; event_date: string; is_private?: boolean; tagged?: string[] | null; recurrence_group_id?: string | null; created_by?: string | null; reminder_recipient_ids?: string[] | null; reminder_timing?: string | null; reminder_date?: string | null; kind: 'event' | 'start' | 'driver' | 'app' | 'delivery'; colour: string; where?: string };
 const addDays = (iso: string, n: number) => { const d = new Date(`${iso}T00:00:00`); d.setDate(d.getDate() + n); return localISODate(d); };
 
-/** The small uppercase filter buttons (Filter by PM ▼ …). */
+/** The filter buttons (Filter By PM ▾ …): white pills like Projects' buttons, not small capitals (Andy, 14 Nov 2026). */
 function Chip({ on, label, onPress }: { on: boolean; label: string; onPress: () => void }) {
   const t = useTheme();
   return (
-    <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: base.line, backgroundColor: on ? t.brand1 : '#fff' }}>
-      <Text style={{ fontWeight: '600', color: on ? t.brand1Text : base.slate, fontSize: 11, letterSpacing: 0.4, textTransform: 'uppercase' }}>{label}</Text>
+    <Pressable onPress={onPress} accessibilityRole="button" style={{ height: 38, paddingHorizontal: 16, borderRadius: 999, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : '#fff', justifyContent: 'center' }}>
+      <Text style={{ fontWeight: '600', color: on ? '#fff' : base.ink, fontSize: 13.5 }}>{label}</Text>
     </Pressable>
   );
 }
@@ -188,9 +188,9 @@ export default function AllCalendar() {
       <Stack.Screen options={{ title: 'Calendar' }} />
       <HowTo k="calendar" />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-        <Chip on={!!pmF.length} label={`${pmF.length ? (pmF.length === 1 ? nameOf(people, pmF[0]) : `${pmF.length} PMs`) : 'Filter by PM'} ▼`} onPress={() => void pickMany('Filter by PM', pms ?? [], pmF, setPmF)} />
-        <Chip on={!!siteF.length} label={`${siteF.length ? `${siteF.length} sites` : 'Filter by site'} ▼`} onPress={() => void pickMany('Filter by site', sites ?? [], siteF, setSiteF)} />
-        <Chip on={driver} label="🚚 Driver diary" onPress={() => setDriver(!driver)} />
+        <Chip on={!!pmF.length} label={`${pmF.length ? (pmF.length === 1 ? nameOf(people, pmF[0]) : `${pmF.length} PMs`) : 'Filter By PM'} ▾`} onPress={() => void pickMany('Filter by PM', pms ?? [], pmF, setPmF)} />
+        <Chip on={!!siteF.length} label={`${siteF.length ? `${siteF.length} Sites` : 'Filter By Site'} ▾`} onPress={() => void pickMany('Filter by site', sites ?? [], siteF, setSiteF)} />
+        <Chip on={driver} label="🚚 Driver Diary" onPress={() => setDriver(!driver)} />
         <View style={{ flex: 1 }} />
         <CalTools view={view} onView={setView} />
       </View>
@@ -199,9 +199,13 @@ export default function AllCalendar() {
         desk ? (
           <View style={{ flexDirection: 'row', gap: 20, alignItems: 'flex-start' }}>
             <View style={{ flex: 1, minWidth: 0 }}>{monthGridEl}</View>
-            <View style={{ width: 360, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 20, padding: 16 }}>
+            {/* The chosen day the full height of the month beside it, with + Add for that day at its foot (Andy, 14 Nov 2026). */}
+            <View style={{ width: 360, alignSelf: 'stretch', backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 20, padding: 16 }}>
               {selHead}
               {dayItems(sel)}
+              <View style={{ flex: 1, minHeight: 12 }} />
+              <Button title={`+ Add To ${new Date(`${sel}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}`}
+                onPress={() => setAdding({ site: siteF.length === 1 ? siteF[0] : '', title: '', date: sel, tagged: [] })} />
             </View>
           </View>
         ) : (

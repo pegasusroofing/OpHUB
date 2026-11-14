@@ -3,7 +3,7 @@
 // trial switch stops anything going out (emails, Xero, inbox, PM pushes).
 import { useQuery } from '@tanstack/react-query';
 
-import { appDateFor, appDueThisMonth, FIN_DEFAULTS, finBlocked, FIN_TRIAL_MSG, invOutstandingNet, invOverdue, jobTag, plantCost, retentionAlerts, retentionStillHeld, today, type FinApp, type FinInv, type FinSettings, type JobFin } from '@/lib/rules/finance';
+import { appDateFor, appOverdue, FIN_DEFAULTS, finBlocked, FIN_TRIAL_MSG, invOutstandingNet, invOverdue, jobTag, plantCost, retentionAlerts, retentionStillHeld, today, type FinApp, type FinInv, type FinSettings, type JobFin } from '@/lib/rules/finance';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
@@ -51,7 +51,7 @@ export function useFinOverview(me: Profile | null, sites: Site[] | undefined) {
     queryFn: async () => {
       const org = me!.org_id as string;
       const [jf, pos, invs, apps, st, toApprove, onHire, inbox, subApps] = await Promise.all([
-        selectAll<JobFin & { site_id: string }>('job_finance', 'site_id,contract_value,app_reminder_day,app_dates,pc_date,defects_months,final_release_date,ret1_invoice_id,ret2_invoice_id,ret1_app_id,ret2_app_id', (q) => q.eq('org_id', org)),
+        selectAll<JobFin & { site_id: string }>('job_finance', 'site_id,contract_value,billing_type,app_reminder_day,app_dates,pc_date,defects_months,final_release_date,ret1_invoice_id,ret2_invoice_id,ret1_app_id,ret2_app_id', (q) => q.eq('org_id', org)),
         selectAll<{ site_id: string }>('client_pos', 'id,site_id', (q) => q.eq('org_id', org)),
         selectAll<FinInv>('fin_invoices', 'id,site_id,status,due_date,issue_date,total,paid,net', (q) => q.eq('org_id', org).neq('status', 'void')),
         selectAll<FinApp & { site_id: string }>('fin_applications', 'id,site_id,number,valuation_date,status,cert_retention,cert_date', (q) => q.eq('org_id', org)),
@@ -74,12 +74,13 @@ export function useFinOverview(me: Profile | null, sites: Site[] | undefined) {
       const still = (s: Site) => retentionStillHeld(appsBy[s.id] || [], jfBy[s.id], invsBy[s.id] || []);
       const retHeld = S.reduce((t, s) => t + still(s), 0);
       const retDue = S.filter((s) => retentionAlerts(jfBy[s.id], st, still(s)).length);
-      const appsDue = live.filter((s) => appDueThisMonth(appsBy[s.id] || [], appDateFor(jfBy[s.id], st, today().slice(0, 7))));
+      // Invoice jobs have no applications; only one past its date with nothing raised is a to-do (the dates are on the calendar).
+      const appsDue = live.filter((s) => jfBy[s.id]?.billing_type !== 'invoice' && appOverdue(appsBy[s.id] || [], appDateFor(jfBy[s.id], st, today().slice(0, 7))));
       const longHire = onHire.filter((h) => plantCost(h).days > 28);
       const noPo = live.filter((s) => !hasPo.has(s.id)), noValue = live.filter((s) => !jfBy[s.id]?.contract_value);
       const one = (list: Site[], many: string) => (list.length === 1 ? `/fin/job/${list[0].id}` : many);
       const todo: Todo[] = [];
-      if (appsDue.length) todo.push({ tone: 'warn', t: 'Applications due this month', s: appsDue.map(jobTag).join(', '), n: appsDue.length, go: one(appsDue, '/fin/sales?tab=apps') });
+      if (appsDue.length) todo.push({ tone: 'bad', t: 'Applications not raised by their date', s: appsDue.map(jobTag).join(', '), n: appsDue.length, go: one(appsDue, '/fin/sales?tab=apps') });
       if (overdueInv.length) todo.push({ tone: 'bad', t: 'Overdue invoices', s: `£${Math.round(overdue).toLocaleString('en-GB')} to chase`, n: overdueInv.length, go: '/fin/sales?tab=invoices&f=overdue' });
       if (toApprove.length) todo.push({ tone: 'warn', t: 'Purchase invoices to approve', s: `£${Math.round(toApprove.reduce((t, i) => t + Number(i.net || 0), 0)).toLocaleString('en-GB')} excl. VAT`, n: toApprove.length, go: '/fin/purchases?tab=invoices&f=approve' });
       if (inbox.length) todo.push({ tone: 'blue', t: 'Unallocated purchase invoices', s: 'We couldn’t tell the job — allocate them or send to a PM', n: inbox.length, go: '/fin/purchases?tab=invoices&f=job' });

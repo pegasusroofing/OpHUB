@@ -21,7 +21,7 @@ export const MAP_ROADS: Record<string, string> = {
   tunnel_motorway_casing: '#B4BAC3', tunnel_motorway_inner: '#CDD2D8',
   railway: '#C3C8CF', railway_service: '#C3C8CF', railway_transit: '#C3C8CF',
 };
-type StyleMap = { getLayer: (id: string) => unknown; setPaintProperty: (id: string, k: string, v: unknown) => void; getFilter: (id: string) => unknown; setFilter: (id: string, f: unknown) => void; addSource: (id: string, s: object) => void; getSource: (id: string) => unknown; addLayer: (l: object, before?: string) => void };
+type StyleMap = { getLayer: (id: string) => unknown; setPaintProperty: (id: string, k: string, v: unknown) => void; getFilter: (id: string) => unknown; setFilter: (id: string, f: unknown) => void; addSource: (id: string, s: object) => void; getSource: (id: string) => unknown; addLayer: (l: object, before?: string) => void; getStyle?: () => { glyphs?: string } | undefined };
 const PLACE_LABELS = ['label_other', 'label_village', 'label_town', 'label_city', 'label_city_capital'];
 /** London's boroughs outlined and named, one name each (Andy, 14 Nov 2026). Inside Greater London the base map's town
  *  names stay (Ilford, Tottenham, Woolwich…) except any that would repeat a borough's name. Outside London, as it was. */
@@ -34,7 +34,8 @@ export function addBoroughs(map: StyleMap) {
     map.addSource('borough-names', { type: 'geojson', data: LONDON_BOROUGH_LABELS });
     // The outlines under the road and water names; the borough names on top, every one shown.
     map.addLayer({ id: 'borough-line', type: 'line', source: 'boroughs', paint: { 'line-color': '#6F7883', 'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.8, 12, 1.6] } }, map.getLayer('waterway_line_label') ? 'waterway_line_label' : undefined);
-    map.addLayer({ id: 'borough-name', type: 'symbol', source: 'borough-names', minzoom: 8.5,
+    // Names need the style's lettering (glyphs); without it, outlines only rather than an error.
+    if (map.getStyle?.()?.glyphs) map.addLayer({ id: 'borough-name', type: 'symbol', source: 'borough-names', minzoom: 8.5,
       layout: { 'text-field': ['get', 'name'], 'text-size': ['interpolate', ['linear'], ['zoom'], 9, 9.5, 12, 12], 'text-font': ['Noto Sans Regular'], 'text-transform': 'uppercase', 'text-letter-spacing': 0.05, 'text-max-width': 7, 'text-allow-overlap': true, 'text-ignore-placement': false },
       paint: { 'text-color': '#4E5763', 'text-halo-color': 'rgba(242,243,240,.92)', 'text-halo-width': 1.5 } });
   } catch { /* the map still works without them */ }

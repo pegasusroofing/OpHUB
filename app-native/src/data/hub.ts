@@ -17,6 +17,8 @@ import { siteStatusKey } from '@/lib/rules/checkin';
 import { currentCycleSigs } from '@/lib/rules/hs';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile, Site } from '@/lib/types';
+import { useAuth } from '@/lib/auth';
+import { tbtEvery, tbtNeed } from '@/lib/rules/tbt';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -30,8 +32,9 @@ type Row = Record<string, any>;
 const rows = <T,>(r: { data: unknown }) => ((r.data as T[] | null) ?? []);
 
 export function useHub(me: Profile | null, allSites: Site[] | undefined, pmId: string) {
+  const every = tbtEvery(useAuth().org?.tbt_every);
   return useQuery({
-    queryKey: ['hub', me?.id, pmId, (allSites ?? []).length],
+    queryKey: ['hub', me?.id, pmId, (allSites ?? []).length, every],
     enabled: !!me && !!allSites,
     queryFn: async () => {
       const p = me as Profile;
@@ -122,15 +125,13 @@ export function useHub(me: Profile | null, allSites: Site[] | undefined, pmId: s
         return n;
       };
       const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const dueTbt = new Date(now.getFullYear(), now.getMonth(), 7, 23, 59, 59);
       const talkList = rows<{ site_id: string; status: string; created_at: string }>(talks);
       const items: HubItem[] = [];
       for (const s of sites) {
         const t = talkList.filter((x) => x.site_id === s.id);
-        const issued = t.some((x) => (x.status === 'live' || x.status === 'completed') && new Date(x.created_at) >= monthStart);
-        const ever = t.some((x) => x.status === 'completed');
-        if (siteStatusKey(s) === 'live' && (!issued || !ever)) items.push({ key: `tbt-${s.id}`, type: 'tbt', area: 'projects', typeLbl: 'Toolbox Talk', label: ever ? 'Toolbox Talk due for this month' : 'Toolbox Talk — none ever completed at this site', siteId: s.id, siteName: s.name, due: dueTbt, at: null, route: `/sites/${s.id}/hs/tbt` });
+        // As often as the company admin set (Admin › Toolbox Talks Required; every month if not set).
+        const need = siteStatusKey(s) === 'live' ? tbtNeed(t, every, now) : null;
+        if (need) items.push({ key: `tbt-${s.id}`, type: 'tbt', area: 'projects', typeLbl: 'Toolbox Talk', label: need.kind === 'never' ? 'Toolbox Talk — none ever completed at this site' : `Toolbox Talk due for ${need.word}`, siteId: s.id, siteName: s.name, due: need.due, at: null, route: `/sites/${s.id}/hs/tbt` });
         rows<{ id: string; site_id: string }>(snags).filter((x) => x.site_id === s.id).forEach((x) => items.push({ key: `snag-${x.id}`, type: 'snag', area: 'projects', typeLbl: 'Snag', label: 'Open snag', siteId: s.id, siteName: s.name, due: null, at: null, route: `/sites/${s.id}/snagging/list` }));
         if (started.has(s.id)) {
           const r = missing(s.id, ramsD, rsCur as never, 'rams_id');
@@ -141,7 +142,7 @@ export function useHub(me: Profile | null, allSites: Site[] | undefined, pmId: s
       }
       rows<{ id: string; site_id: string; text: string; date_required_by: string | null }>(todos).forEach((t) => {
         const s = sites.find((x) => x.id === t.site_id);
-        if (s) items.push({ key: `task-${t.id}`, type: 'task', area: 'projects', typeLbl: 'Task', label: t.text, siteId: s.id, siteName: s.name, due: t.date_required_by ? new Date(`${t.date_required_by}T00:00:00`) : null, at: null, route: `/sites/${s.id}/todos` });
+        if (s) items.push({ key: `task-${t.id}`, type: 'task', area: 'projects', typeLbl: 'Task', label: t.text, siteId: s.id, siteName: s.name, due: t.date_required_by ? new Date(`${t.date_required_by}T00:00:00`) : null, at: null, route: `/sites/${s.id}/todos?open=${t.id}` });
       });
       (Array.isArray(alerts.data) ? (alerts.data as { site_id: string; photos: number; latest: string }[]) : []).forEach((a) => {
         const s = sites.find((x) => x.id === a.site_id);

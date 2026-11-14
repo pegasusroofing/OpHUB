@@ -102,10 +102,8 @@ export function CertsPanel({ userId, manual = false }: { userId: string; manual?
         {stat(s.missing, 'Missing Types', base.warn, () => setShowMissing(!showMissing))}
       </View>
       {showMissing && <Muted style={{ marginBottom: 8 }}>{s.missingKeys.length ? `Missing: ${s.missingKeys.map(certCategoryLabel).join(', ')}` : 'All standard requirements are on file.'}</Muted>}
-      <Pressable onPress={() => setAdding(!adding)} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 }}>
-        <Text style={{ fontWeight: '600', color: base.ink }}>Add a certificate</Text>
-        <Text style={{ fontSize: 20, color: base.ink }}>{adding ? '−' : '+'}</Text>
-      </Pressable>
+      {/* A clear button, not a small + at the far side (Andy, 14 Nov 2026). */}
+      <View style={{ marginBottom: 8 }}><Button kind={adding ? 'ghost' : 'primary'} title={adding ? '✕ Close' : '+ Add Certificate'} onPress={() => setAdding(!adding)} /></View>
       {adding && (
         <Card>
           <Muted style={{ fontWeight: '600', marginBottom: 6 }}>Type</Muted>

@@ -39,6 +39,8 @@ export type Organization = {
   has_finance: boolean;
   /** Who sees the money on Home (lib/homeTiles). */
   home_tiles?: { finance_pm?: boolean; finance_site_manager?: boolean; finance_other?: boolean } | null;
+  /** How often each live project needs a Toolbox Talk (lib/rules/tbt); null = every month. */
+  tbt_every?: string | null;
 };
 
 export type DeviceLockResult = {

@@ -30,7 +30,8 @@ const pickFiles = async (): Promise<Asset[]> => {
 };
 
 export default function TodoList() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // ?open=<to-do>: opened from the Hub, that one comes up open with its Mark Complete (Andy, 14 Nov 2026).
+  const { id, open } = useLocalSearchParams<{ id: string; open?: string }>();
   const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -40,7 +41,7 @@ export default function TodoList() {
   const { data: people } = usePeople();
   const [tab, setTab] = useState<'live' | 'closed'>('live');
   const [when, setWhen] = useState<'all' | 'overdue' | 'week'>('all');
-  const [openRows, setOpenRows] = useState<Set<string>>(new Set());
+  const [openRows, setOpenRows] = useState<Set<string>>(() => new Set(open ? [open] : []));
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [edit, setEdit] = useState<{ id: string; text: string; date: string } | null>(null);
   const [comment, setComment] = useState<Record<string, string>>({});
@@ -49,7 +50,8 @@ export default function TodoList() {
   const [email, setEmail] = useState<null | { ids: string[] | null }>(null);
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!isManager(me) && !site.repair_contract) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
-  const refresh = () => void qc.invalidateQueries({ queryKey: ['todos', id] });
+  // The Hub's lists too, so a closed to-do drops off there (Andy, 14 Nov 2026).
+  const refresh = () => [['todos', id], ['hubTodos'], ['hub'], ['pmTodos']].forEach((k) => void qc.invalidateQueries({ queryKey: k }));
   const all = data?.todos ?? [];
   const today = todayIso();
   const weekEnd = (() => { const d = new Date(`${today}T12:00:00`); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10); })();
