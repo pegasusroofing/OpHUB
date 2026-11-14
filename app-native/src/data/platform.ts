@@ -45,6 +45,16 @@ export async function setOrgModules(orgId: string, key: 'has_pm' | 'has_finance'
   if (patch.has_finance) { try { await db.from('profiles').update({ finance_enabled: true } as never).eq('org_id', orgId).eq('role', 'admin'); } catch { /* best effort */ } }
   return true;
 }
+/** Which systems a company has, set by the platform's super admin (Andy, 14 Nov 2026): OpHUB Projects, OpHUB Finance or
+ *  both. Turning Finance on gives the company's admins Finance access; nothing is deleted when a system goes off. */
+export type OrgSystems = 'projects' | 'finance' | 'both';
+export const orgSystems = (o: { has_pm?: boolean | null; has_finance?: boolean | null }): OrgSystems => (o.has_pm === false ? 'finance' : o.has_finance ? 'both' : 'projects');
+export async function setOrgSystems(orgId: string, sys: OrgSystems): Promise<boolean> {
+  const patch: Row = { has_pm: sys !== 'finance', has_finance: sys !== 'projects' };
+  if (!(await db.from('organizations').update(patch as never).eq('id', orgId).select('id')).data?.length) return false;
+  if (patch.has_finance) { try { await db.from('profiles').update({ finance_enabled: true } as never).eq('org_id', orgId).eq('role', 'admin'); } catch { /* best effort */ } }
+  return true;
+}
 export const setOrgPlan = async (orgId: string, tier: string) => !!(await db.from('organizations').update({ plan_tier: tier } as never).eq('id', orgId).select('id')).data?.length;
 /** "estimator" is a PM with the no-notifications flag. */
 export async function setUserRole(userId: string, role: string): Promise<boolean> {

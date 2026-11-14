@@ -9,13 +9,14 @@ import { Platform, Pressable, ScrollView, Share, Text, TextInput, View } from 'r
 import { CompanySetupSteps } from '@/components/CompanySetupSteps';
 import { FinChip } from '@/components/FinNav';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
-import { Button, Card, Check, Field, Muted, SectionTitle } from '@/components/ui';
+import { Button, Card, Field, Muted, SectionTitle } from '@/components/ui';
 import { joinLink } from '@/data/admin';
-import { createCompany, deleteCompany, deleteUser, resetPassword, setOrgModules, setOrgPlan, setUserRole, usePlatform, viewAsOrg } from '@/data/platform';
+import { createCompany, deleteCompany, deleteUser, orgSystems, resetPassword, setOrgPlan, setOrgSystems, setUserRole, usePlatform, viewAsOrg, type OrgSystems } from '@/data/platform';
 import { useAuth } from '@/lib/auth';
 import { base, page, space } from '@/theme/theme';
 
 const PLAN_LABEL: Record<string, string> = { starter: 'OpHUB Basic', growth: 'OpHUB Pro', enterprise: 'OpHUB Enterprise' };
+const SYS_LABEL: Record<OrgSystems, string> = { projects: 'OpHUB Projects', finance: 'OpHUB Finance', both: 'Projects + Finance' };
 const ROLES: [string, string][] = [['operative', 'Operative'], ['site_manager', 'Site Manager'], ['pm', 'Project Manager'], ['estimator', 'Estimator'], ['finance_controller', 'Finance Controller'], ['driver', 'Delivery Driver'], ['client', 'Client'], ['admin', 'Admin']];
 type Row = Record<string, any>;
 
@@ -80,7 +81,7 @@ export function PlatformAdmin() {
             <Pressable onPress={() => setOpen(ex ? null : o.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: '600', color: base.ink }}>{o.name}</Text>
-                <Muted>{o.has_pm === false ? 'OpHUB Finance only' : `${PLAN_LABEL[o.plan_tier] || o.plan_tier || '—'}${o.has_finance ? ' + Finance' : ''}`} · {sub ? sub.status : 'no Stripe subscription'} · {people.length} member{people.length === 1 ? '' : 's'}</Muted>
+                <Muted>{SYS_LABEL[orgSystems(o)]}{o.has_pm === false ? '' : ` · ${PLAN_LABEL[o.plan_tier] || o.plan_tier || '—'}`} · {sub ? sub.status : 'no Stripe subscription'} · {people.length} member{people.length === 1 ? '' : 's'}</Muted>
               </View>
               <Text style={{ color: base.slate }}>{ex ? '▲' : '▼'}</Text>
             </Pressable>
@@ -90,13 +91,17 @@ export function PlatformAdmin() {
                 <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
                   {Object.entries(PLAN_LABEL).map(([k, l]) => <FinChip key={k} on={o.plan_tier === k} label={l} onPress={async () => { toast((await setOrgPlan(o.id, k)) ? `Package updated — ${l}` : 'Could not save — try again.'); reload(); }} />)}
                 </View>
-                <Muted style={{ fontWeight: '600' }}>Modules</Muted>
-                <Check label="Project management (site app)" value={o.has_pm !== false} onChange={async (on) => {
-                  if (!on && !(await confirmAsk('Make this company Finance only? Their people will only see OpHUB Finance.', 'Finance only'))) return;
-                  toast((await setOrgModules(o.id, 'has_pm', on)) ? 'Modules updated' : 'Could not save — try again.'); reload();
-                }} />
-                <Check label="OpHUB Finance" value={!!o.has_finance} onChange={async (on) => { toast((await setOrgModules(o.id, 'has_finance', on)) ? 'Modules updated' : 'Could not save — try again.'); reload(); }} />
-                <Muted style={{ fontSize: 11.5, marginBottom: 8 }}>Finance only = project management off. Finance is then given per person by their admin.</Muted>
+                {/* Projects, Finance or Both, per company (Andy, 14 Nov 2026): the two systems are sold on their own or together. */}
+                <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Systems</Muted>
+                <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+                  {(['projects', 'finance', 'both'] as const).map((k) => <FinChip key={k} on={orgSystems(o) === k} label={SYS_LABEL[k]} onPress={async () => {
+                    const cur = orgSystems(o); if (cur === k) return;
+                    const lose = cur !== 'projects' && k === 'projects' ? 'OpHUB Finance' : cur !== 'finance' && k === 'finance' ? 'OpHUB Projects' : '';
+                    if (lose && !(await confirmAsk(`Switch ${o.name} to ${SYS_LABEL[k]}? Their people won't see ${lose} any more. Nothing is deleted; switch it back to see it again.`, 'Switch'))) return;
+                    toast((await setOrgSystems(o.id, k)) ? `${o.name}: ${SYS_LABEL[k]}` : 'Could not save — try again.'); reload();
+                  }} />)}
+                </View>
+                <Muted style={{ fontSize: 11.5, marginBottom: 8 }}>With Finance on, their admins get Finance; they give it to anyone else per person.</Muted>
                 <CompanySetupSteps org={o as never} />
                 <Button title="🛠 Open this company's app" onPress={async () => {
                   if (!(await confirmAsk(`Open ${o.name} as their admin? You'll see and can change everything they can. Use Exit on the bar at the top to come back.`, 'Open'))) return;

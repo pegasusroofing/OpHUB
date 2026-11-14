@@ -16,5 +16,13 @@ const seed = require('./fresh/seed');
   const name = (db.organizations[0]||{}).name; if(name){ await page.getByText(name, {exact:true}).last().click(); await page.waitForTimeout(1000); const s = await t(); const i = s.indexOf('Package'); console.log('expanded:', s.slice(i, i+260)); }
   await page.getByText('OpHUB Pro', {exact:true}).first().click(); await page.waitForTimeout(1500);
   console.log('plan now:', db.organizations[0].plan_tier, '|', errs.join(' / ') || 'no errors');
+  // Systems per company (Andy, 14 Nov 2026): OpHUB Projects / OpHUB Finance / Projects + Finance.
+  await page.getByText('OpHUB Finance', {exact:true}).filter({visible:true}).last().click(); await page.waitForTimeout(800);
+  await page.getByText('Switch', {exact:true}).filter({visible:true}).last().click(); await page.waitForTimeout(1800);
+  const o = db.organizations[0];
+  console.log((o.has_pm === false && o.has_finance === true ? 'PASS' : 'FAIL') + ' systems: Finance only (has_pm ' + o.has_pm + ', has_finance ' + o.has_finance + ')');
+  await page.getByText('Projects + Finance', {exact:true}).filter({visible:true}).last().click(); await page.waitForTimeout(1800);
+  console.log((o.has_pm === true && o.has_finance === true ? 'PASS' : 'FAIL') + ' systems: both (has_pm ' + o.has_pm + ', has_finance ' + o.has_finance + ')');
+  await page.screenshot({path: require('path').join(__dirname, 'shots', 'rams14', 'platform-systems.png')});
   await browser.close(); process.exit(0);
 })();
