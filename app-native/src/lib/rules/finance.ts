@@ -86,6 +86,18 @@ export function retentionReleased(jf: JobFin | null | undefined, invs: FinInv[],
   const before = list.filter((i) => !drop.date || !i.issue_date || String(i.issue_date).slice(0, 10) <= drop.date), after = list.filter((i) => !before.includes(i));
   return round2(sum(after) + Math.max(0, sum(before) - drop.amt));
 }
+/** The most retention a job's certificates have held: its total retention before any was released (Andy, 14 Nov 2026). */
+export function retentionTotal(apps: FinApp[]) {
+  return round2(apps.filter((a) => a.cert_retention != null && a.status !== 'void').reduce((m, a) => Math.max(m, Number(a.cert_retention || 0)), 0));
+}
+/** The Date Of PC on the retention list (Andy, 14 Nov 2026): the practical completion date once it's set; otherwise,
+ *  for a closed job only, the date of its final invoice. */
+export function pcOrFinalDate(jf: JobFin | null | undefined, closed: boolean, invs: FinInv[], siteId: string): { date: string | null; final: boolean } {
+  if (jf?.pc_date) return { date: String(jf.pc_date).slice(0, 10), final: false };
+  if (!closed) return { date: null, final: false };
+  const last = invs.filter((i) => i.site_id === siteId && !['void', 'draft'].includes(i.status) && i.issue_date).map((i) => String(i.issue_date).slice(0, 10)).sort().pop();
+  return { date: last || null, final: !!last };
+}
 export const retentionStillHeld = (apps: FinApp[], jf: JobFin | null | undefined, invs: FinInv[]) => round2(Math.max(0, retentionHeld(apps) - retentionReleased(jf, invs, apps)));
 export function retentionDates(jf: JobFin | null | undefined, st: Partial<FinSettings>) {
   if (!jf || !jf.pc_date) return { first: null as string | null, second: jf?.final_release_date || null };

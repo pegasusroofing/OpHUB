@@ -1,6 +1,6 @@
 // The signed-in shell: bottom tabs on a phone, a left-hand menu on a computer
 // (wide web window), like 125-desktop.js in the current app.
-import { Redirect, router, Tabs, usePathname } from 'expo-router';
+import { Redirect, router, Tabs, useGlobalSearchParams, usePathname } from 'expo-router';
 import { useEffect } from 'react';
 import { Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 
@@ -21,7 +21,7 @@ import { useHsPolicy } from '@/data/hsPolicy';
 import { useAuth } from '@/lib/auth';
 import { usePushTaps } from '@/lib/push';
 import { isFinanceController, isFullManager, isManager, homeKind, isFinanceOnlyOrg, isFinanceUser } from '@/lib/roles';
-import { recordPath } from '@/lib/navBack';
+import { recordFin, recordPath } from '@/lib/navBack';
 import { setOneDriveSaver } from '@/lib/oneDriveSave';
 import { base, useTheme } from '@/theme/theme';
 
@@ -62,6 +62,15 @@ export default function AppLayout() {
   // Compulsory H&S Policy: until it's signed, nothing but the signature page (640).
   const policy = useHsPolicy();
   useEffect(() => { recordPath(path); }, [path]);
+  // Finance's own trail, with each tab's ?tab=….
+  const gp = useGlobalSearchParams();
+  const gpKey = JSON.stringify(gp);
+  useEffect(() => {
+    const segs = new Set(path.split('/').filter(Boolean));
+    // From the page's own params (the address bar can lag a moment behind a tab change).
+    const q = (() => { const e = Object.entries(gp).filter(([, v]) => typeof v === 'string' && !segs.has(v)) as [string, string][]; return e.length ? `?${e.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&')}` : ''; })();
+    recordFin(path + q);
+  }, [path, gpKey]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setOneDriveSaver(me && isManager(me) ? me.org_id ?? null : null); }, [me]);
   // Ctrl / ⌘ K opens Search on the office laptop (136).
   useEffect(() => {

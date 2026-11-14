@@ -26,7 +26,8 @@ import { money } from '@/lib/rules/finance';
 import { base, page, radius, useTheme } from '@/theme/theme';
 
 type Tab = 'todo' | 'all' | HubArea;
-const TABS: [Tab, string][] = [['todo', 'To Do'], ['all', 'Everything'], ['projects', 'Projects'], ['finance', 'Finance'], ['chat', 'Company Chat']];
+// Everything is called All and comes last (Andy, 14 Nov 2026).
+const TABS: [Tab, string][] = [['todo', 'To Do'], ['projects', 'Projects'], ['finance', 'Finance'], ['chat', 'Company Chat'], ['all', 'All']];
 type HubTodo = { id: string; site_id: string | null; text: string; assigned_to: string | null; tagged: string[] | null; date_required_by: string | null; created_by: string | null; message_id: string | null; created_at: string };
 const AREA: Record<HubArea, string> = { projects: 'Projects', finance: 'Finance', chat: 'Company Chat' };
 const DUE = [['all', 'Any Time'], ['overdue', 'Overdue'], ['week', 'Due Within 7 Days'], ['nodate', 'No Due Date']] as const;

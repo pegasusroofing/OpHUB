@@ -10,6 +10,7 @@ type Row = Record<string, any>;
 export async function buildInvoicePdf(inv: Row, site: Row | undefined, st: Row, org: { name?: string | null; color_primary?: string | null; logo_path?: string | null } | null): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const reg = await pdf.embedFont(StandardFonts.Helvetica), bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const ital = await pdf.embedFont(StandardFonts.HelveticaOblique);
   const W = 595.28, H = 841.89, M = 44;
   const INK = rgb(0.07, 0.08, 0.09), SLATE = rgb(0.36, 0.39, 0.45), LINE = rgb(0.86, 0.88, 0.9), WHITE = rgb(1, 1, 1);
   const BRAND = org?.color_primary ? hexToRgb(org.color_primary) : rgb(0.78, 0.06, 0.18);
@@ -62,7 +63,7 @@ export async function buildInvoicePdf(inv: Row, site: Row | undefined, st: Row, 
     y -= 4;
     const rcNet = vks.filter((k) => INV_VAT[k].rc).reduce((a, k) => a + t.by[k].net, 0);
     tot('Reverse charge VAT', money(t.vatDue));
-    wrap(`Reverse charge: customer to account to HMRC for the VAT. VAT on ${money(rcNet)} of this invoice: ${money(t.vatDue)}. (Domestic reverse charge for building and construction services.)`, reg, 9, W - 2 * M).forEach((l) => { txt(l, M, y, { size: 9, color: SLATE }); y -= 12; });
+    wrap(`Reverse charge: customer to account to HMRC for the VAT. VAT on ${money(rcNet)} of this invoice: ${money(t.vatDue)}. (Domestic reverse charge for building and construction services.)`, ital, 7.5, W - 2 * M).forEach((l) => { txt(l, M, y, { font: ital, size: 7.5, color: SLATE }); y -= 10; }); // 1.2x smaller, italic (Andy, 14 Nov 2026)
   }
   if (inv.notes) { y -= 6; wrap(inv.notes, reg, 10, W - 2 * M).forEach((l) => { txt(l, M, y); y -= 13; }); }
   const fy = 120;

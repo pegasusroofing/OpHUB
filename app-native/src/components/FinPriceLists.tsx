@@ -2,7 +2,8 @@
 // company so I can have a table view that opens up the supplier I choose"). One table of suppliers; tap one for
 // everything priced from them in one table: their uploaded price lists' items (fin_quotes / fin_quote_items, every
 // project) and the prices learned from their quotes and invoices or added by hand (fin_price_book, which prices new
-// POs). The two only differ in where the price came from, which each row says.
+// POs). The two only differ in where the price came from, which each row says. On a laptop the tables are the laptop's
+// Finance table, the same rows and size as the rest of Finance (Andy, 14 Nov 2026: "i want it uniform").
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -11,6 +12,7 @@ import { Text, View } from 'react-native';
 import { viewDoc } from '@/components/DocViewer';
 import { PriceForm, type PB } from '@/components/FinPriceBook';
 import { PriceListEdit, qLabel, uploadPriceFiles } from '@/components/FinPurchaseQuotes';
+import { Cell, FinTable } from '@/components/FinTable';
 import { PhoneTable } from '@/components/PhoneTable';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Empty, Muted, SectionTitle } from '@/components/ui';
@@ -18,7 +20,7 @@ import { fdb, selectAll } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { fdate, money } from '@/lib/rules/finance';
-import { base } from '@/theme/theme';
+import { base, useDesk } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const keyOf = (n: unknown) => String(n || '').trim().toLowerCase();
@@ -54,6 +56,7 @@ const open = (name: string) => router.push({ pathname: '/fin/purchases', params:
 
 /** Every supplier with prices: how many items, how many uploaded lists, when last updated. */
 function Suppliers({ data }: { data: { lists: Row[]; items: Row[]; book: PB[]; sups: Row[] } }) {
+  const desk = useDesk();
   const listBy: Record<string, Row> = {}; data.lists.forEach((l) => { listBy[l.id] = l; });
   const by: Record<string, { name: string; items: number; lists: number; date: string }> = {};
   const add = (name: unknown, date: unknown, kind: 'item' | 'list') => {
@@ -77,7 +80,16 @@ function Suppliers({ data }: { data: { lists: Row[]; items: Row[]; book: PB[]; s
     <View>
       <Muted style={{ marginBottom: 8 }}>Each supplier’s prices: their price lists, and prices picked up from their quotes and invoices. New POs from the Materials tile are priced from here until the real price comes in. Tap a supplier to see their prices.</Muted>
       <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 10 }}><Button grow title="+ Add A Supplier’s Prices" onPress={() => void addSupplier()} /></View>
-      {rows.length ? (
+      {rows.length && desk ? (
+        <FinTable rows={rows} keyOf={(r) => r.name} onRow={(r) => open(r.name)} defaultSort={{ k: 's', dir: 'asc' } as never}
+          cols={[
+            { k: 's', l: 'Supplier', flex: 2, min: 180, sort: (r) => r.name.toLowerCase(), text: (r) => r.name, render: (r) => <Cell bold>{r.name}</Cell> },
+            { k: 'l', l: 'Price Lists', sort: (r) => r.lists, render: (r) => <Cell>{r.lists ? String(r.lists) : '—'}</Cell> },
+            { k: 'n', l: 'Items', sort: (r) => r.items, render: (r) => <Cell>{String(r.items)}</Cell> },
+            { k: 'd', l: 'Updated', sort: (r) => r.date || null, date: (r) => r.date || null, render: (r) => <Cell>{r.date ? fdate(r.date) : '—'}</Cell> },
+          ]}
+          footLabel={(shown) => `${shown.length} Supplier${shown.length === 1 ? '' : 's'}`} />
+      ) : rows.length ? (
         <PhoneTable label="Price lists" rows={rows} keyOf={(r) => r.name} onRow={(r) => open(r.name)}
           cols={[
             { k: 's', l: 'Supplier', lines: 2, main: (r) => r.name, sub: (r) => (r.lists ? `${r.lists} Price List${r.lists === 1 ? '' : 's'}` : ''), sort: (r) => r.name.toLowerCase() },
@@ -97,6 +109,7 @@ function SupplierPrices({ name, data }: { name: string; data: { lists: Row[]; it
   const [busy, setBusy] = useState('');
   const [editList, setEditList] = useState<string | null>(null);
   const [price, setPrice] = useState<PB | 'new' | null>(null);
+  const desk = useDesk();
   if (!me) return null;
   const k = keyOf(name);
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['finPriceLists'] }); void qc.invalidateQueries({ queryKey: ['finPQuotes'] }); void qc.invalidateQueries({ queryKey: ['finPriceBook'] }); };
@@ -148,16 +161,37 @@ function SupplierPrices({ name, data }: { name: string; data: { lists: Row[]; it
       {lists.length > 0 && (
         <>
           <SectionTitle>Price Lists</SectionTitle>
+          {desk ? (
+            <FinTable rows={lists} keyOf={(l) => l.id} onRow={(l) => void listMenu(l)}
+              cols={[
+                { k: 'l', l: 'List', flex: 1.6, min: 160, text: (l) => String(l.quote_no || l.file_name || 'Price List'), render: (l) => <Cell bold>{l.quote_no || l.file_name || 'Price List'}</Cell> },
+                { k: 'f', l: 'File', flex: 1.4, text: (l) => String(l.file_name || ''), render: (l) => <Cell>{l.file_name || '—'}</Cell> },
+                { k: 'n', l: 'Items', sort: (l) => data.items.filter((i) => i.quote_id === l.id).length, render: (l) => <Cell>{String(data.items.filter((i) => i.quote_id === l.id).length)}</Cell> },
+                { k: 'd', l: 'Dated', sort: (l) => String(l.quote_date || l.created_at || '').slice(0, 10), date: (l) => String(l.quote_date || l.created_at || '').slice(0, 10), render: (l) => <Cell>{fdate(String(l.quote_date || l.created_at || '').slice(0, 10))}</Cell> },
+              ]} />
+          ) : (
           <PhoneTable label="Their price lists" search={false} rows={lists} keyOf={(l) => l.id} onRow={(l) => void listMenu(l)}
             cols={[
               { k: 'l', l: 'List', lines: 2, main: (l) => l.quote_no || l.file_name || 'Price List', sub: (l) => (l.quote_no && l.file_name ? l.file_name : '') },
               { k: 'n', l: 'Items', w: 56, center: true, main: (l) => String(data.items.filter((i) => i.quote_id === l.id).length) },
               { k: 'd', l: 'Dated', w: 92, right: true, main: (l) => fdate(String(l.quote_date || l.created_at || '').slice(0, 10)) },
             ]} />
+          )}
         </>
       )}
       <SectionTitle>Prices</SectionTitle>
-      {prices.length ? (
+      {prices.length && desk ? (
+        <FinTable rows={prices} keyOf={(p) => p.id} onRow={(p) => (p.pb ? setPrice(p.pb) : p.list ? setEditList(p.list) : undefined)}
+          cols={[
+            { k: 'i', l: 'Item', flex: 2.4, min: 200, sort: (p) => p.desc.toLowerCase(), text: (p) => p.desc, render: (p) => <Cell bold>{p.desc}</Cell> },
+            { k: 'c', l: 'Code', text: (p) => p.code, render: (p) => <Cell>{p.code || '—'}</Cell> },
+            { k: 'u', l: 'Unit', text: (p) => p.unit, render: (p) => <Cell>{p.unit || '—'}</Cell> },
+            { k: 'p', l: 'Price', sort: (p) => p.rate, render: (p) => <Cell bold>{p.rate != null ? money(p.rate) : '—'}</Cell> },
+            { k: 'f', l: 'From', choices: ['Price List', 'By Hand', 'Invoice', 'Quote', 'PO'], text: (p) => p.from, render: (p) => <Cell>{p.from}</Cell> },
+            { k: 'd', l: 'Dated', sort: (p) => p.date || null, date: (p) => p.date || null, render: (p) => <Cell>{p.date ? fdate(p.date) : '—'}</Cell> },
+          ]}
+          footLabel={(shown) => `${shown.length} Price${shown.length === 1 ? '' : 's'}`} />
+      ) : prices.length ? (
         <PhoneTable label="Prices" rows={prices} keyOf={(p) => p.id} onRow={(p) => (p.pb ? setPrice(p.pb) : p.list ? setEditList(p.list) : undefined)}
           cols={[
             { k: 'i', l: 'Item', lines: 2, main: (p) => p.desc, sub: (p) => p.code, find: (p) => `${p.desc} ${p.code}`, sort: (p) => p.desc.toLowerCase() },

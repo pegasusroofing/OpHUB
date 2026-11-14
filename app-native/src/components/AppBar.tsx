@@ -17,7 +17,7 @@ import { CompanyLogo, useAppRefresh } from '@/components/HomeHeader';
 import { StorageImage } from '@/components/StorageImage';
 import { showAlert } from '@/components/toast';
 import { isManager } from '@/lib/roles';
-import { areaHome, parentOf, takeJump } from '@/lib/navBack';
+import { areaHome, parentOf, takeFinBack, takeJump } from '@/lib/navBack';
 import { isFullManager } from '@/lib/roles';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -127,6 +127,8 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   ) : null;
   const noSelect = { userSelect: 'none' } as never;
   const pressBack = () => {
+    // In Finance: back to the tab or page you were on before (Andy, 14 Nov 2026).
+    if (path.startsWith('/fin')) { const prev = takeFinBack(); if (prev) { router.navigate(prev as never); return; } }
     const from = takeJump(path.replace(/\/$/, '') || path);
     if (from) { router.navigate(from as never); return; }
     // A manager on a job goes up one level; a page further in than the trail shows, and everyone else, keeps its own back.

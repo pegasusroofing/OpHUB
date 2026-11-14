@@ -19,7 +19,7 @@ import { raiseInvoiceFromCert } from '@/data/finApp';
 import { fdb, selectAll, useFinSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { byJobNoDesc, fdate, INV_STATUS, invOutstanding, invOutstandingNet, invOverdue, jobTag, money, retentionDates, retentionStillHeld, round2, type FinApp, type FinInv, type JobFin } from '@/lib/rules/finance';
+import { byJobNoDesc, fdate, INV_STATUS, invOutstanding, invOutstandingNet, invOverdue, jobTag, money, pcOrFinalDate, retentionDates, retentionStillHeld, retentionTotal, round2, type FinApp, type FinInv, type JobFin } from '@/lib/rules/finance';
 import { monthLabel, monthOf, monthsIn } from '@/lib/rules/finFilters';
 import { inPeriod, useStatPeriods } from '@/lib/useStatPeriods';
 import { base, useDesk } from '@/theme/theme';
@@ -215,7 +215,11 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   // retention
   const jfBy: Record<string, JobFin> = {}; data.jf.forEach((r) => { jfBy[r.site_id] = r; });
   const appsBy: Record<string, App[]> = {}; data.apps.forEach((a) => { (appsBy[a.site_id] = appsBy[a.site_id] || []).push(a); });
-  const rows = sites.filter((s) => !siteId || s.id === siteId).map((s) => ({ s, held: retentionStillHeld(appsBy[s.id] || [], jfBy[s.id], data.invs), jf: jfBy[s.id] || {} })).filter((x) => x.held)
+  // Total retention (the most the certificates held), what's been released, and the Date Of PC (Andy, 14 Nov 2026).
+  const rows = sites.filter((s) => !siteId || s.id === siteId).map((s) => {
+    const held = retentionStillHeld(appsBy[s.id] || [], jfBy[s.id], data.invs), tot = Math.max(retentionTotal(appsBy[s.id] || []), held);
+    return { s, held, tot, rel: round2(Math.max(0, tot - held)), pc: pcOrFinalDate(jfBy[s.id], s.status === 'closed', data.invs, s.id), jf: jfBy[s.id] || {} };
+  }).filter((x) => x.held)
     .filter((x) => !ql || `${jobTag(x.s)} ${x.s.client_name || ''}`.toLowerCase().includes(ql));
   const total = round2(rows.reduce((t, x) => t + x.held, 0));
   // The next release date for a job, as words: the dates themselves are set on the project (Andy, 11 Nov 2026).
@@ -227,16 +231,20 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
           cols={[
             { k: 'p', l: 'Project', flex: 1.8, min: 180, render: (x) => <Cell bold>{jobTag(x.s)}</Cell> },
             { k: 'c', l: 'Client', flex: 1.4, min: 140, render: (x) => <Cell>{x.s.client_name || '—'}</Cell> },
+            // The practical completion date; for a closed job with none set, its final invoice date.
+            { k: 'pc', l: 'Date Of PC', sort: (x) => x.pc.date, date: (x) => x.pc.date, render: (x) => <Cell>{x.pc.date ? `${fdate(x.pc.date)}${x.pc.final ? ' (Final Invoice)' : ''}` : '—'}</Cell> },
             { k: 'nx', l: 'Next Release', render: (x) => <Cell>{nextRelease(x)}</Cell> },
-            { k: 'h', l: 'Still Held', total: (l) => money(round2(l.reduce((t, x) => t + x.held, 0))), render: (x) => <Cell bold>{money(x.held)}</Cell> },
+            { k: 't', l: 'Total Retention', sort: (x) => x.tot, total: (l) => money(round2(l.reduce((t, x) => t + x.tot, 0))), render: (x) => <Cell>{money(x.tot)}</Cell> },
+            { k: 'r', l: 'Released', sort: (x) => x.rel, total: (l) => money(round2(l.reduce((t, x) => t + x.rel, 0))), render: (x) => <Cell>{x.rel ? money(x.rel) : '—'}</Cell> },
+            { k: 'h', l: 'Still Held', sort: (x) => x.held, total: (l) => money(round2(l.reduce((t, x) => t + x.held, 0))), render: (x) => <Cell bold>{money(x.held)}</Cell> },
           ]}
           footLabel={(left) => `${left.length} job${left.length === 1 ? '' : 's'}`} />
       ) : rows.length ? (
         <PhoneTable label="Retention" rows={rows} keyOf={(x) => x.s.id} onRow={(x) => router.push(`/fin/job/${x.s.id}?tab=setup` as never)}
           cols={[
             { l: 'Project', main: (x) => jobTag(x.s), sub: (x) => x.s.client_name || '' },
-            { l: 'Next Release', w: 92, main: (x) => nextRelease(x) },
-            { l: 'Held', w: 80, right: true, bold: true, main: (x) => money(x.held) },
+            { l: 'Next Release', w: 92, main: (x) => nextRelease(x), sub: (x) => (x.pc.date ? `PC ${fdate(x.pc.date)}` : '') },
+            { l: 'Held', w: 80, right: true, bold: true, main: (x) => money(x.held), sub: (x) => `Of ${money(x.tot)}` },
           ]} />
       ) : <Empty>No retention held.</Empty>}
       {!desk && rows.length > 0 && <Card><Text style={{ fontWeight: '600', color: base.ink }}>{rows.length} job{rows.length === 1 ? '' : 's'} · {money(total)} still held</Text></Card>}

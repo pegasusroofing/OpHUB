@@ -4,12 +4,16 @@
 //   Allocate (PM: person + job) or Request (operative, pre-use checklist) → PM approves → the operative signs for it.
 //   Hand back: the operative signs with a photo and says where it's left → a PM / yard manager confirms.
 //   A PM returning it just signs. Lost / found, out of service, inspection due as before.
+// Finance › Yard › Plant on a laptop (Andy, 14 Nov 2026: "make the plant in the yard tab table view exactly as the yard"):
+// + Add Plant across the page, then the laptop table (Item, Where, With, Status ▾, Inspection), no chips or search bar
+// above; clicking a row opens that item's buttons above the table, with an ✕.
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Image, Pressable, Text, TextInput, View } from 'react-native';
 
 import { DateBox } from '@/components/DateField';
+import { Cell, FinTable } from '@/components/FinTable';
 import { StorageImage } from '@/components/StorageImage';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
@@ -21,7 +25,7 @@ import { pickPhotos, type Picked } from '@/lib/photos';
 import { readIsoDate } from '@/lib/rules/materials';
 import { batchNames, daysOut, dueBadge, effectiveState, PLANT_CHECKLIST, PLANT_STATE, type Checkout } from '@/lib/rules/plant';
 import { isManager } from '@/lib/roles';
-import { base, radius, live } from '@/theme/theme';
+import { base, radius, live, useDesk } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 const TONE = { ok: base.ok, warn: base.warn, bad: base.red, none: base.slate };
@@ -51,6 +55,7 @@ export function PlantRegister({ siteId }: { siteId?: string }) {
   const [back, setBack] = useState<{ photo: Picked | null; notes: string } | null>(null);
   const [adding, setAdding] = useState<Adding | null>(null);
   const [busy, setBusy] = useState(false);
+  const desk = useDesk();
   if (!me) return null;
   const mgr = isManager(me);
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['plant'] }); };
@@ -178,6 +183,63 @@ export function PlantRegister({ siteId }: { siteId?: string }) {
     );
   };
 
+  const newPlant = () => setAdding({ name: '', count: '1', category: 'plant', serial: '', description: '', interval: null, nextDue: '', photo: null, here: false });
+  const addForm = mgr && adding ? (
+    <Card style={{ marginTop: 12 }}>
+      <AddPlantFields adding={adding} setAdding={setAdding} siteId={siteId} />
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+        <Button small busy={busy} title={Number(adding.count) > 1 ? `Add ${adding.count} Items` : 'Add Item'} onPress={async () => {
+          if (!adding.name.trim()) { toast('Enter the item.'); return; }
+          if (!adding.photo) { toast('A photo is needed.'); return; }
+          const due = adding.interval != null ? readIsoDate(adding.nextDue) : null;
+          if (adding.interval != null && (!due || due === 'bad')) { toast('Choose the next inspection due date.'); return; }
+          const names = batchNames(adding.name, Number(adding.count) || 1);
+          setBusy(true);
+          const err = await addPlantBatch(me, siteId && adding.here ? siteId : null, { names, category: adding.category, serial: adding.serial.trim(), description: adding.description.trim(), interval: adding.interval, nextDue: due as string | null, photo: adding.photo });
+          setBusy(false);
+          if (err) { toast(err); return; }
+          toast(names.length > 1 ? `${names.length} items added, numbered ${names[0].split(' #').pop()} to ${names[names.length - 1].split(' #').pop()}` : 'Item added'); setAdding(null); refresh();
+        }} />
+        <Button small kind="ghost" title="Cancel" onPress={() => setAdding(null)} />
+      </View>
+    </Card>
+  ) : null;
+
+  // Finance › Yard › Plant on a laptop: the same layout as Yard › Stock.
+  if (desk && !siteId) {
+    const sel = open ? all.find((x) => x.id === open) : undefined;
+    const label = (it: PlantRow) => { const c = latest[it.id], s = st(it); return s === 'awaiting_op' && c?.operative_id === me.id ? 'Sign for it' : (PLANT_STATE[s] ?? { label: s }).label; };
+    const withWho = (it: PlantRow) => { const c = latest[it.id]; return c?.operative_id && !['available', 'lost', 'out_of_service'].includes(st(it)) ? nameOf(people, c.operative_id) : ''; };
+    return (
+      <View>
+        {mgr && !adding && <View style={{ marginBottom: 10 }}><Button title="+ Add Plant" onPress={newPlant} /></View>}
+        {addForm}
+        {sel && (
+          <Card style={{ marginBottom: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              {sel.photo_path ? <StorageImage bucket="operative-tools" path={sel.photo_path} style={{ width: 40, height: 40, borderRadius: 8 }} /> : <Text style={{ fontSize: 22 }}>🏗</Text>}
+              <Text style={{ flex: 1, fontSize: 16, fontWeight: '600', color: base.ink }}>{sel.name}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Close" hitSlop={8} onPress={() => { setOpen(null); setAns(null); setBack(null); }}><Text style={{ fontSize: 18, color: base.slate }}>✕</Text></Pressable>
+            </View>
+            {actions(sel, latest[sel.id])}
+          </Card>
+        )}
+        {isLoading ? <Muted>Loading…</Muted> : all.length ? (
+          <FinTable rows={all} keyOf={(it) => it.id} onRow={(it) => { setOpen(it.id); setAns(null); setBack(null); }}
+            cols={[
+              { k: 'i', l: 'Item', flex: 1.8, min: 170, sort: (it) => it.name.toLowerCase(), text: (it) => `${it.name} ${it.serial_number || ''}`, render: (it) => <Cell bold>{it.name}{it.serial_number ? ` · ${it.serial_number}` : ''}</Cell> },
+              { k: 'w', l: 'Where', sort: (it) => where(it), text: (it) => where(it), render: (it) => <Cell>{where(it)}</Cell> },
+              { k: 'p', l: 'With', text: withWho, render: (it) => { const d = daysOut(latest[it.id]), who = withWho(it); return <Cell>{who ? `${who}${d != null ? ` · ${d} day${d === 1 ? '' : 's'} out` : ''}` : '—'}</Cell>; } },
+              { k: 's', l: 'Status', sort: (it) => label(it), text: (it) => label(it), pick: FILTERS.map(([k, l]) => ({ v: k === 'all' ? '' : k, l, test: k === 'all' ? undefined : inF[k] })),
+                render: (it) => <Cell bold tone={TONE[(PLANT_STATE[st(it)] ?? { tone: 'none' as const }).tone]}>{label(it)}</Cell> },
+              { k: 'n', l: 'Inspection', text: (it) => (it.next_inspection_due ? dueBadge(it).label : ''), render: (it) => <Cell>{it.next_inspection_due ? dueBadge(it).label : '—'}</Cell> },
+            ]}
+            footLabel={(shown) => `${shown.length} Item${shown.length === 1 ? '' : 's'}`} />
+        ) : <Empty>No plant here yet.</Empty>}
+      </View>
+    );
+  }
+
   return (
     <View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
@@ -196,51 +258,41 @@ export function PlantRegister({ siteId }: { siteId?: string }) {
           {yardFree.filter((it) => !t || it.name.toLowerCase().includes(t)).map(row)}
         </>
       )}
-      {mgr && (adding ? (
-        <Card style={{ marginTop: 12 }}>
-          <SectionTitle>Add Plant</SectionTitle>
-          <TextInput value={adding.name} onChangeText={(v) => setAdding({ ...adding, name: v })} placeholder="Item, e.g. Propane 47kg or Harras fence panel" style={box} />
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <View style={{ flex: 1 }}><Muted style={{ fontWeight: '600' }}>How many?</Muted><TextInput value={adding.count} onChangeText={(v) => setAdding({ ...adding, count: v.replace(/[^0-9]/g, '') })} keyboardType="number-pad" style={box} /></View>
-            <View style={{ flex: 2 }}><Muted style={{ fontWeight: '600' }}>Serial / ID {Number(adding.count) > 1 ? '(numbered #01, #02 …)' : ''}</Muted><TextInput editable={!(Number(adding.count) > 1)} value={Number(adding.count) > 1 ? '' : adding.serial} onChangeText={(v) => setAdding({ ...adding, serial: v })} placeholder={Number(adding.count) > 1 ? 'Each one is numbered' : 'Optional'} style={box} /></View>
-          </View>
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-            {[['plant', 'Plant / Equipment'], ['pat', 'PAT Tested Appliance']].map(([v, l]) => (
-              <Pressable key={v} onPress={() => setAdding({ ...adding, category: v })} style={{ flex: 1, alignItems: 'center', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: adding.category === v ? live.brand1 : base.line, backgroundColor: adding.category === v ? live.brand1 : base.card }}>
-                <Text style={{ color: adding.category === v ? live.brand1Text : base.ink }}>{l}</Text>
-              </Pressable>
-            ))}
-          </View>
-          <Muted style={{ fontWeight: '600' }}>Inspection</Muted>
-          <View style={{ flexDirection: 'row', gap: 8, marginVertical: 6 }}>
-            {([[null, 'None'], [6, 'Every 6 Months'], [12, 'Every 12 Months']] as const).map(([m, l]) => (
-              <Pressable key={String(m)} onPress={() => setAdding({ ...adding, interval: m })} style={{ flex: 1, alignItems: 'center', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: adding.interval === m ? live.brand1 : base.line, backgroundColor: adding.interval === m ? live.brand1 : base.card }}>
-                <Text style={{ fontSize: 12.5, color: adding.interval === m ? live.brand1Text : base.ink }}>{l}</Text>
-              </Pressable>
-            ))}
-          </View>
-          {adding.interval != null && <DateBox value={adding.nextDue} onChange={(v) => setAdding({ ...adding, nextDue: v })} placeholder="Next inspection due" title="Next inspection due" style={{ marginBottom: 8 }} />}
-          <TextInput value={adding.description} onChangeText={(v) => setAdding({ ...adding, description: v })} placeholder="Description (optional)" style={box} />
-          {siteId && <Pressable onPress={() => setAdding({ ...adding, here: !adding.here })} style={{ paddingVertical: 6 }}><Text style={{ color: base.ink }}>{adding.here ? '☑' : '☐'} Put it on this job (otherwise it goes in the yard)</Text></Pressable>}
-          {adding.photo && <Image source={{ uri: adding.photo.uri }} style={{ width: 90, height: 90, borderRadius: 8, marginBottom: 6 }} />}
-          <Button small kind="ghost" title={adding.photo ? 'Change Photo' : '📷 Photo (Required)'} onPress={async () => { const p = await photo(); if (p) setAdding({ ...adding, photo: p }); }} />
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-            <Button small busy={busy} title={Number(adding.count) > 1 ? `Add ${adding.count} Items` : 'Add Item'} onPress={async () => {
-              if (!adding.name.trim()) { toast('Enter the item.'); return; }
-              if (!adding.photo) { toast('A photo is needed.'); return; }
-              const due = adding.interval != null ? readIsoDate(adding.nextDue) : null;
-              if (adding.interval != null && (!due || due === 'bad')) { toast('Choose the next inspection due date.'); return; }
-              const names = batchNames(adding.name, Number(adding.count) || 1);
-              setBusy(true);
-              const err = await addPlantBatch(me, siteId && adding.here ? siteId : null, { names, category: adding.category, serial: adding.serial.trim(), description: adding.description.trim(), interval: adding.interval, nextDue: due as string | null, photo: adding.photo });
-              setBusy(false);
-              if (err) { toast(err); return; }
-              toast(names.length > 1 ? `${names.length} items added, numbered ${names[0].split(' #').pop()} to ${names[names.length - 1].split(' #').pop()}` : 'Item added'); setAdding(null); refresh();
-            }} />
-            <Button small kind="ghost" title="Cancel" onPress={() => setAdding(null)} />
-          </View>
-        </Card>
-      ) : <View style={{ marginTop: 10 }}><Button title="+ Add Plant" onPress={() => setAdding({ name: '', count: '1', category: 'plant', serial: '', description: '', interval: null, nextDue: '', photo: null, here: false })} /></View>)}
+      {mgr && (adding ? addForm : <View style={{ marginTop: 10 }}><Button title="+ Add Plant" onPress={newPlant} /></View>)}
     </View>
+  );
+}
+
+/** The Add Plant boxes: item, how many, serial, kind, inspection, description and the photo. */
+function AddPlantFields({ adding, setAdding, siteId }: { adding: Adding; setAdding: (a: Adding) => void; siteId?: string }) {
+  return (
+    <>
+      <SectionTitle>Add Plant</SectionTitle>
+      <TextInput value={adding.name} onChangeText={(v) => setAdding({ ...adding, name: v })} placeholder="Item, e.g. Propane 47kg or Harras fence panel" style={box} />
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <View style={{ flex: 1 }}><Muted style={{ fontWeight: '600' }}>How many?</Muted><TextInput value={adding.count} onChangeText={(v) => setAdding({ ...adding, count: v.replace(/[^0-9]/g, '') })} keyboardType="number-pad" style={box} /></View>
+        <View style={{ flex: 2 }}><Muted style={{ fontWeight: '600' }}>Serial / ID {Number(adding.count) > 1 ? '(numbered #01, #02 …)' : ''}</Muted><TextInput editable={!(Number(adding.count) > 1)} value={Number(adding.count) > 1 ? '' : adding.serial} onChangeText={(v) => setAdding({ ...adding, serial: v })} placeholder={Number(adding.count) > 1 ? 'Each one is numbered' : 'Optional'} style={box} /></View>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+        {[['plant', 'Plant / Equipment'], ['pat', 'PAT Tested Appliance']].map(([v, l]) => (
+          <Pressable key={v} onPress={() => setAdding({ ...adding, category: v })} style={{ flex: 1, alignItems: 'center', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: adding.category === v ? live.brand1 : base.line, backgroundColor: adding.category === v ? live.brand1 : base.card }}>
+            <Text style={{ color: adding.category === v ? live.brand1Text : base.ink }}>{l}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <Muted style={{ fontWeight: '600' }}>Inspection</Muted>
+      <View style={{ flexDirection: 'row', gap: 8, marginVertical: 6 }}>
+        {([[null, 'None'], [6, 'Every 6 Months'], [12, 'Every 12 Months']] as const).map(([m, l]) => (
+          <Pressable key={String(m)} onPress={() => setAdding({ ...adding, interval: m })} style={{ flex: 1, alignItems: 'center', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: adding.interval === m ? live.brand1 : base.line, backgroundColor: adding.interval === m ? live.brand1 : base.card }}>
+            <Text style={{ fontSize: 12.5, color: adding.interval === m ? live.brand1Text : base.ink }}>{l}</Text>
+          </Pressable>
+        ))}
+      </View>
+      {adding.interval != null && <DateBox value={adding.nextDue} onChange={(v) => setAdding({ ...adding, nextDue: v })} placeholder="Next inspection due" title="Next inspection due" style={{ marginBottom: 8 }} />}
+      <TextInput value={adding.description} onChangeText={(v) => setAdding({ ...adding, description: v })} placeholder="Description (optional)" style={box} />
+      {siteId && <Pressable onPress={() => setAdding({ ...adding, here: !adding.here })} style={{ paddingVertical: 6 }}><Text style={{ color: base.ink }}>{adding.here ? '☑' : '☐'} Put it on this job (otherwise it goes in the yard)</Text></Pressable>}
+      {adding.photo && <Image source={{ uri: adding.photo.uri }} style={{ width: 90, height: 90, borderRadius: 8, marginBottom: 6 }} />}
+      <Button small kind="ghost" title={adding.photo ? 'Change Photo' : '📷 Photo (Required)'} onPress={async () => { const p = await photo(); if (p) setAdding({ ...adding, photo: p }); }} />
+    </>
   );
 }

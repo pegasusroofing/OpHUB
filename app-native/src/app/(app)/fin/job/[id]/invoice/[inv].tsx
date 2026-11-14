@@ -26,7 +26,7 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { fdate, INV_STATUS, invOutstanding, invOverdue, money, num, today } from '@/lib/rules/finance';
 import { INV_VAT, invTotals, issueProblem, lineVat } from '@/lib/rules/finInvoice';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, isDesk, page, radius, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card };
@@ -136,7 +136,9 @@ function TapField({ label, value, onChange, multiline, half, email }: { label: s
   return (
     <View style={{ flexBasis: half ? '47%' : '100%', flexGrow: 1, marginBottom: 8 }}>
       <Muted style={{ fontWeight: '500' }}>{label}</Muted>
-      {on ? <TextInput autoFocus value={v} onChangeText={onChange} onBlur={() => setOn(false)} multiline={multiline} autoCapitalize={email ? 'none' : 'sentences'} keyboardType={email ? 'email-address' : 'default'} style={[box, multiline ? { minHeight: 60 } : null]} />
+      {/* An empty box is ready to type in, so Tab from the box before lands in it and you can type (Andy, 14 Nov 2026);
+          one with something in stays tap-to-change. */}
+      {on || !v ? <TextInput autoFocus={on} value={v} onChangeText={onChange} onFocus={() => setOn(true)} onBlur={() => setOn(false)} multiline={multiline} placeholder={`Type the ${label.toLowerCase()}`} accessibilityLabel={label} autoCapitalize={email ? 'none' : 'sentences'} keyboardType={email ? 'email-address' : 'default'} style={[box, multiline ? { minHeight: 60 } : null]} />
         : (
           <Pressable accessibilityRole="button" accessibilityLabel={`Change ${label.toLowerCase()}`} onPress={() => setOn(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40, paddingHorizontal: 11, paddingVertical: 8, borderRadius: radius.input, backgroundColor: '#F6F7F9' }}>
             <Text numberOfLines={multiline ? 4 : 1} style={{ flex: 1, color: v ? base.ink : base.slate, fontSize: 15 }}>{v || 'Tap to add'}</Text>
@@ -201,8 +203,9 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
       </Card>
       {field('notes', 'Notes on the invoice', { multiline: true, short: true })}
     </ScrollView>
-    {/* Always in view at the bottom, however long the lines get (Andy, 3 Nov 2026). */}
-    <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 8, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10, backgroundColor: base.card, borderTopWidth: 1, borderColor: base.cardLine }}>
+    {/* Always in view at the bottom, however long the lines get (Andy, 3 Nov 2026), inside the page's edges like the boxes
+        above, not across the grey border (Andy, 14 Nov 2026). */}
+    <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 8, paddingHorizontal: isDesk() ? 40 : space.l, paddingTop: 8, paddingBottom: 12, backgroundColor: base.paper }}>
         <View style={{ flex: 1 }}><Button grow kind="ghost" busy={busy === 'save'} title="Save Draft" onPress={async () => { setBusy('save'); const e = await saveDraft(inv.id, d); setBusy(''); toast(e || 'Draft saved'); if (!e) setEditing(false); refresh(); }} /></View>
         <View style={{ flex: 1 }}><Button grow busy={busy === 'issue'} title="Issue Invoice" onPress={async () => {
           const row = draftRow(d), p = issueProblem(row);
@@ -281,7 +284,7 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
         {(inv.lines || []).map((l: Row, i: number) => <FinRow key={i} title={l.description || ''} sub={t.mixed ? INV_VAT[lineVat(l, inv.vat_treatment, inv.vat_rate)].l : undefined} right={money(l.amount)} tone={minusTone(l.amount)} />)}
         <FinRow title="Net" right={money(t.net)} /><FinRow title="VAT" right={money(t.vat)} /><FinRow title="Total" right={money(t.total)} />
         {/* The current app's yellow reverse-charge box (901). */}
-        {t.vatDue ? <View style={{ marginTop: 8, backgroundColor: '#FFFAF0', borderWidth: 1, borderColor: '#F8E7C2', borderRadius: 10, padding: 10, gap: 4 }}><View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Muted>Reverse Charge VAT · client pays HMRC</Muted><Text style={{ fontWeight: '600', color: base.ink }}>{money(t.vatDue)}</Text></View><Muted style={{ fontSize: 12 }}>Domestic reverse charge on {money(t.net)} — not added to the total; printed on the invoice and sent to Xero.</Muted></View> : null}
+        {t.vatDue ? <View style={{ marginTop: 8, backgroundColor: '#FFFAF0', borderWidth: 1, borderColor: '#F8E7C2', borderRadius: 10, padding: 10, gap: 4 }}><View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Muted>Reverse Charge VAT · client pays HMRC</Muted><Text style={{ fontWeight: '600', color: base.ink }}>{money(t.vatDue)}</Text></View><Muted style={{ fontSize: 10, fontStyle: 'italic' }}>Domestic reverse charge on {money(t.net)} — not added to the total; printed on the invoice and sent to Xero.</Muted></View> : null}
       </Card>
       {mailing && (
         <FinEmailPopup kind="invoice" title={`Email Invoice ${inv.number || ''}`} to={inv.bill_email || site?.client_email || ''}

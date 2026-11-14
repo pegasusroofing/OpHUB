@@ -17,6 +17,27 @@ export function recordPath(p: string) {
   last = p;
 }
 
+// Finance: the pages and tabs you've been through, so back goes to the tab you were on (Andy, 14 Nov 2026: "i want the
+// back button in finance to take me back to the tab i was in"). The tabs swap the page in place, so the app keeps its
+// own trail of addresses (with their ?tab=…). Leaving Finance starts it again.
+const finTrail: string[] = [];
+let finBacking = false;
+/** Called on every page change, with the address and its query. */
+export function recordFin(url: string) {
+  if (!/^\/fin(\/|$|\?)/.test(url)) { finTrail.length = 0; finBacking = false; return; }
+  if (finBacking) { finBacking = false; if (finTrail[finTrail.length - 1] === url) return; }
+  if (finTrail[finTrail.length - 1] === url) return;
+  finTrail.push(url);
+  if (finTrail.length > 60) finTrail.shift();
+}
+/** The Finance page or tab you were on before this one, if any (and steps back along the trail). */
+export function takeFinBack(): string | null {
+  if (finTrail.length < 2) return null;
+  finTrail.pop();
+  finBacking = true;
+  return finTrail[finTrail.length - 1];
+}
+
 /** The page this one was jumped to from, if any. Used once. */
 export function takeJump(p: string): string | null {
   const j = jumps.get(p);

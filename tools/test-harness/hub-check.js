@@ -40,10 +40,10 @@ const ago = (mins) => new Date(Date.now() - mins * 60000).toISOString();
   const body = async () => page.locator('body').innerText();
 
   await hub();
-  const fin = await tabLabel('Finance'), chat = await tabLabel('Company Chat'), all = await tabLabel('Everything');
+  const fin = await tabLabel('Finance'), chat = await tabLabel('Company Chat'), all = await tabLabel('All');
   check(/Finance, 6$/.test(fin), 'Finance tab counts 6: 3 sent to me, and Finance’s 3 to-dos as I’m a Finance user (' + fin + ')');
   check(/Company Chat, 2$/.test(chat), 'Company Chat counts the 2 messages from other people (' + chat + ')');
-  check(/Everything, \d+$/.test(all), 'Everything has a count (' + all + ')');
+  check(/All, \d+$/.test(all), 'All (was Everything, now the last tab) has a count (' + all + ')');
   const red = await page.evaluate(() => { const t = [...document.querySelectorAll('[role="tab"]')].find((x) => /^Finance/.test(x.getAttribute('aria-label') || '')); const n = t && [...t.querySelectorAll('div')].find((d) => d.textContent === '6'); return n ? getComputedStyle(n).backgroundColor : ''; });
   check(red === 'rgb(227, 38, 43)', 'the counts are red (' + red + ')');
   let t = await body();

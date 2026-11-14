@@ -1,10 +1,10 @@
 // Search, then a Filter drop-down (tick as many as you like) and a Sort drop-down, for the Finance lists: the same
 // style as the Quotes list. Also the thin export bar that sits at the bottom of a page.
 import { useState, type ReactNode } from 'react';
-import { Pressable, Text, TextInput, View, Platform } from 'react-native';
+import { Pressable, Text, TextInput, View, Platform, useWindowDimensions } from 'react-native';
 
 import { Button } from '@/components/ui';
-import { base, radius } from '@/theme/theme';
+import { base, radius, useDesk } from '@/theme/theme';
 
 export type FilterItem = { v: string; l: string; n?: number };
 export type FilterPart = { key: string; label: string; items: FilterItem[]; single?: boolean };
@@ -93,8 +93,11 @@ export const stickyFoot = (Platform.OS === 'web' ? { position: 'sticky', bottom:
  *  finance needs to sit at the bottom of the screen as a footer"), and settles under the list at the end. */
 export function ThinExportBar({ onExcel, onPdf, busy, excelLabel = 'Export To Excel', pdfLabel = 'Export To PDF', excelA11y, pdfA11y }: { onExcel?: () => void; onPdf?: () => void; busy?: string; excelLabel?: string; pdfLabel?: string; excelA11y?: string; pdfA11y?: string }) {
   const link = (t: string, press: () => void, a11y?: string) => <Pressable accessibilityRole="button" accessibilityLabel={a11y || t} onPress={press}><Text style={{ fontSize: 13, fontWeight: '500', color: base.blue }}>{t}</Text></Pressable>;
+  // Full width under a page on a laptop: the words line up with the page's edges, not out in the grey border (Andy, 14 Nov 2026).
+  const desk = useDesk(); const { width: ww } = useWindowDimensions(); const [w, setW] = useState(0);
+  const full = desk && w > 0 && w >= ww - 264;
   return (
-    <View accessibilityLabel="Export footer" style={[{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 9 }, stickyFoot]}>
+    <View accessibilityLabel="Export footer" onLayout={(e) => setW(e.nativeEvent.layout.width)} style={[{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: full ? 40 : 16, paddingVertical: 9 }, stickyFoot]}>
       {onExcel ? link(busy === 'x' ? 'Making…' : excelLabel, onExcel, excelA11y) : <View />}
       {onPdf ? link(busy === 'p' ? 'Making…' : pdfLabel, onPdf, pdfA11y) : <View />}
     </View>

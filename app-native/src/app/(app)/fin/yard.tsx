@@ -159,6 +159,7 @@ export default function FinYard() {
     </>
   );
 
+  const desk = useDesk();
   // The Purchases tabs stay on every yard page, an item's too (Andy, 9 Nov 2026: "I also lose the tabs").
   const onSub = (k: string) => (k === 'yard' ? (id ? router.replace('/fin/yard' as never) : undefined) : k === 'statements' ? router.replace('/fin/statements' as never) : router.replace(`/fin/purchases?tab=${k}` as never));
   if (id) {
@@ -173,15 +174,16 @@ export default function FinYard() {
   }
   return (
     <FinPage title="Purchases" section="purchases" badges={badges} sub="yard" top={<PurchasesStats />} onSub={onSub}>
-      <YardSubTabs on={sub === 'plant' ? 'plant' : 'stock'} />
+      {/* Stock Take on the right of the Stock / Plant row on a laptop (Andy, 14 Nov 2026). */}
+      <YardSubTabs on={sub === 'plant' ? 'plant' : 'stock'} right={desk && sub !== 'plant' ? <Button small kind="ghost" title="Stock Take" onPress={() => router.push('/yardcount' as never)} /> : undefined} />
       {sub === 'plant' ? <PlantRegister /> : <><YardLeftovers />
-      <YardList items={items} rateBy={rateBy} loading={isLoading} onNew={() => setEdit('new')} onIn={() => void bookIn()} onOut={() => void bookOut()}/></>}
+      <YardList items={items} rateBy={rateBy} loading={isLoading} onNew={() => setEdit('new')} onIn={(sid) => void bookIn(sid)} onOut={(sid) => void bookOut(sid)}/></>}
       {forms}
     </FinPage>
   );
 }
 
-function YardList({ items, rateBy, loading, onNew, onIn, onOut }: { items: Item[]; rateBy: Record<string, number>; loading: boolean; onNew: () => void; onIn: () => void; onOut: () => void }) {
+function YardList({ items, rateBy, loading, onNew, onIn, onOut }: { items: Item[]; rateBy: Record<string, number>; loading: boolean; onNew: () => void; onIn: (id?: string) => void; onOut: (id?: string) => void }) {
   const [sel, setSel] = useState<FilterSel>({ show: ['all'], cat: [] });
   const [sort, setSort] = useState('as');
   const desk = useDesk(); // laptop: a full table in the laptop's style, with the phone's columns (Andy, 14 Nov 2026)
@@ -213,29 +215,34 @@ function YardList({ items, rateBy, loading, onNew, onIn, onOut }: { items: Item[
         <FinStat v={money(total)} label="Stock Value (Items With A Price)" />
         <FinStat v={String(items.filter(F.low).length)} label="Low Stock" hot={items.some(F.low)} onPress={() => (desk ? setSel({ ...sel, show: ['low'] }) : find.setPick({ ...find.pick, q: 'low' }))} />
       </View>
-      {/* One row of buttons (Andy, 14 Nov 2026): Return is under Book In, Lost under Book Out; Adjust count went. */}
-      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 10 }}>
-        <Button {...btn} title="+ New Item" onPress={onNew} /><Button {...btn} kind="ghost" title="⬇ Book In" onPress={onIn} />
-        <Button {...btn} kind="ghost" title="⬆ Book Out" onPress={onOut} /><Button {...btn} kind="ghost" title="Stock Take" onPress={() => router.push('/yardcount' as never)} />
-      </View>
-      {desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search item or location' }} sel={sel} onChange={(n) => setSel({ ...n, show: n.show.length ? n.show : ['all'] })} onClear={() => setSel({ show: ['all'], cat: [] })}
-        sorts={[['as', 'Category order'], ['az', 'Item A to Z'], ['qty', 'Most in the yard'], ['val', 'Highest value']]} sort={sort} onSort={setSort}
-        parts={[
-          { key: 'show', label: 'Show', single: true, items: ([['all', 'In use'], ['low', 'Low stock'], ['off', 'Not stocked']] as const).map(([v, l]) => ({ v, l, n: items.filter(F[v]).length })) },
-          { key: 'cat', label: 'Category', items: cats.map((c) => ({ v: c, l: c })) },
-        ]} />}
-      {loading ? <Muted>Loading…</Muted> : desk && list.length ? (
-        <FinTable rows={list} keyOf={(s) => s.id} onRow={(s) => openItem(s.id)}
+      {/* One row of buttons (Andy, 14 Nov 2026): Return is under Book In, Lost under Book Out; Adjust count went. On a
+          laptop: + New Item across the page, Book In / Book Out on each row, Stock Take beside the Stock / Plant tabs,
+          and no search bar or filters above (the boxes under the headings do that). */}
+      {desk ? <View style={{ marginBottom: 10 }}><Button title="+ New Item" onPress={onNew} /></View> : (
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 10 }}>
+          <Button {...btn} title="+ New Item" onPress={onNew} /><Button {...btn} kind="ghost" title="⬇ Book In" onPress={() => onIn()} />
+          <Button {...btn} kind="ghost" title="⬆ Book Out" onPress={() => onOut()} /><Button {...btn} kind="ghost" title="Stock Take" onPress={() => router.push('/yardcount' as never)} />
+        </View>
+      )}
+      {loading ? <Muted>Loading…</Muted> : desk && items.length ? (
+        <FinTable key={'yt' + f} rows={items} keyOf={(s) => s.id} onRow={(s) => openItem(s.id)} startFilter={{ q: [f === 'low' ? 'low' : 'use'] }}
           cols={[
             // The phone's columns (Andy, 14 Nov 2026): the item, what's in stock, the price per unit and the value; the
             // location, minimum and the rest are on the item's own page, and Book Out is in the row of buttons above.
             { k: 'i', l: 'Item', flex: 2, min: 180, render: (s: Item) => <Cell bold>{s.item}</Cell> },
-            { k: 'q', l: 'In Stock', sort: (s: Item) => Number(s.qty || 0), render: (s: Item) => <Cell bold tone={yardLow(s) ? '#C0392B' : undefined}>{yardQty(s.qty)} {s.unit || ''}</Cell> },
+            { k: 'q', l: 'In Stock', sort: (s: Item) => Number(s.qty || 0), pick: [{ v: '', l: 'All' }, { v: 'use', l: 'In Use', test: F.all }, { v: 'low', l: 'Low Stock', test: F.low }, { v: 'off', l: 'Not Stocked', test: F.off }], render: (s: Item) => <Cell bold tone={yardLow(s) ? '#C0392B' : undefined}>{yardQty(s.qty)} {s.unit || ''}</Cell> },
             { k: 'r', l: 'Unit Price', sort: (s: Item) => rateBy[s.id] ?? -1, render: (s: Item) => <Cell>{rateBy[s.id] != null ? money(rateBy[s.id]) : '—'}</Cell> },
             { k: 'v', l: 'Value', sort: (s: Item) => val(s), total: (rows: Item[]) => money(rows.reduce((x, s) => x + val(s), 0)), render: (s: Item) => <Cell bold>{val(s) ? money(val(s)) : '—'}</Cell> },
+            // Book In / Book Out for this item, on its row (Andy, 14 Nov 2026).
+            { k: 'act', l: '', noSort: true, min: 200, flex: 1.1, render: (s: Item) => s.active === false ? null : (
+              <View style={{ flexDirection: 'row', gap: 6, justifyContent: 'center' }}>
+                <Button small kind="ghost" oneLine title="⬇ Book In" onPress={() => onIn(s.id)} />
+                <Button small kind="ghost" oneLine title="⬆ Book Out" onPress={() => onOut(s.id)} />
+              </View>
+            ) },
           ]}
           footLabel={(rows) => `${rows.length} shown`} />
-      ) : desk && !list.length ? <Empty>{f === 'low' ? 'Nothing is below its minimum level.' : 'No yard stock yet — add the first item.'}</Empty>
+      ) : desk && !items.length ? <Empty>{f === 'low' ? 'Nothing is below its minimum level.' : 'No yard stock yet — add the first item.'}</Empty>
         : items.length ? <PhoneTable label="Yard stock" cols={pcols} rows={items} keyOf={(s) => s.id} onRow={(s) => openItem(s.id)} find={find}
           foot={find.shown.length ? <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, paddingHorizontal: 10, borderTopWidth: 1, borderTopColor: '#EEF0F2', backgroundColor: '#F6F7F9' }}><Text style={{ fontSize: 11.5, color: base.slate }}>{find.shown.length} Item{find.shown.length === 1 ? '' : 's'}</Text><Text style={{ fontSize: 11.5, fontWeight: '500', color: base.slate }}>Value {money(find.shown.reduce((x, s) => x + val(s), 0))}</Text></View> : undefined} />
         : <Empty>No yard stock yet — add the first item.</Empty>}

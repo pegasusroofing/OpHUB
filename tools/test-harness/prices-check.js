@@ -20,11 +20,12 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
     await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
     await page.goto(B + '/fin/purchases?tab=prices'); await page.waitForTimeout(4000);
     check(await page.getByText('Price Book', {exact: true}).count() === 0, `${width}: no Price Book tab`);
-    const t = await page.locator('[aria-label="Price lists"] >> visible=true').first().innerText().catch(() => '');
+    // A laptop has the Finance table (no label); a phone the phone table.
+    const t = width < 800 ? await page.locator('[aria-label="Price lists"] >> visible=true').first().innerText().catch(() => '') : await page.locator('body').innerText();
     check(/Bauder/.test(t) && /\b2\b/.test(t), `${width}: a table of suppliers (Bauder, 2 items)`);
     await page.screenshot({path: path.join(__dirname, 'shots', 'job', `prices-${width}-book.png`)});
-    await page.locator('[aria-label="Price lists"] >> visible=true').first().getByText('Bauder', {exact: true}).click(); await page.waitForTimeout(2500);
-    const p = await page.locator('[aria-label="Prices"] >> visible=true').first().innerText().catch(() => '');
+    await page.getByText('Bauder', {exact: true}).filter({visible: true}).first().click(); await page.waitForTimeout(2500);
+    const p = width < 800 ? await page.locator('[aria-label="Prices"] >> visible=true').first().innerText().catch(() => '') : await page.locator('body').innerText();
     check(/sup=Bauder/.test(page.url()) && /Thermofol/.test(p) && /Bauder Primer/.test(p), `${width}: Bauder opens their prices, the list's and the learned one`);
     await page.screenshot({path: path.join(__dirname, 'shots', 'job', `prices-${width}-lists.png`)});
     check(!errs.length, `${width}: no errors ${errs.join(' | ')}`);
