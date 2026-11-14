@@ -105,7 +105,7 @@ export default function QuoteSettingsPage() {
               await put({ chase_enabled: on });
             }} />
           </View>
-          <Muted style={{ marginBottom: 10 }}>Only quoted jobs with No News are chased. Negotiating, won and lost ones stop.</Muted>
+          <Muted style={{ marginBottom: 10 }}>Only quoted jobs that are Submitted (no word back yet) are chased. Negotiating, won and lost ones stop.</Muted>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <View style={{ flex: 1 }}><QBox label="First (Days)" value={v.first} onChangeText={set('first')} keyboardType="number-pad" /></View>
             <View style={{ flex: 1 }}><QBox label="Every (Days)" value={v.every} onChangeText={set('every')} keyboardType="number-pad" /></View>

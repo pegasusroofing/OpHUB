@@ -15,8 +15,8 @@ export const DISCIPLINES = ['Flat Roofing', 'Pitched Roofing', 'Mixed', 'Repairs
 export const WORK_STATUS = [['pricing', 'Pricing'], ['awaiting', 'Awaiting Information'], ['checking', 'Ready For Checking']] as const;
 export const isQuoted = (q: { status: string; returned_at?: string | null }) => !!q.returned_at || !['pricing', 'awaiting', 'checking'].includes(q.status);
 export type Outcome = 'no_news' | 'negotiating' | 'won' | 'lost';
-export const OUTCOMES: [Outcome, string][] = [['no_news', 'No News'], ['negotiating', 'Negotiating'], ['won', 'Won'], ['lost', 'Lost']];
-/** A quoted job's outcome: no word back yet (returned, or no reply) is No News; declined counts as Lost. */
+export const OUTCOMES: [Outcome, string][] = [['no_news', 'Submitted'], ['negotiating', 'Negotiating'], ['won', 'Won'], ['lost', 'Lost']];
+/** A quoted job's outcome: no word back yet (returned, or no reply) is Submitted (it was "No News" until 14 Nov 2026); declined counts as Lost. */
 export const outcomeOf = (s: string): Outcome => (s === 'won' ? 'won' : s === 'negotiating' ? 'negotiating' : s === 'lost' || s === 'declined' ? 'lost' : 'no_news');
 export const outcomeLabel = (s: string) => OUTCOMES.find(([k]) => k === outcomeOf(s))?.[1] ?? '';
 /** The Status column: a live quote's work status, a quoted one's outcome. */

@@ -3,13 +3,46 @@
 // browser), drawn with MapLibre and OpenFreeMap's "liberty" (colour) style — free, no
 // account or key.
 import { siteStatusKey } from '@/lib/rules/checkin';
+import { GREATER_LONDON, LONDON_BOROUGH_LABELS, LONDON_BOROUGHS, LONDON_NAMES } from '@/lib/londonBoroughs';
 import type { Site } from '@/lib/types';
 
 export const MAP_COLOURS: Record<string, string> = { live: '#1E9E5A', upcoming: '#E08A00', closed: '#8A8D93' };
 const MAPLIBRE_JS = ['https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js', 'https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js'];
 const MAPLIBRE_CSS = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css';
-// In colour (Andy, 5 Nov 2026): OpenFreeMap's "liberty" style; it was the grey "positron".
-export const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+// In colour (Andy, 5 Nov 2026): OpenFreeMap's "liberty" style; it was the grey "positron". Back to "positron" with the
+// roads a shade darker so they show (Andy, 14 Nov 2026: "i like 4, but can the roads etc be a slightly darker grey?").
+export const MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
+/** Positron's roads, paths and railways a little darker than its white-on-pale-grey (layer id → line colour). */
+export const MAP_ROADS: Record<string, string> = {
+  highway_path: '#D9DCE1', highway_minor: '#D0D4DA', road_pier: '#E4E6EA',
+  highway_major_casing: '#AEB5BF', highway_major_inner: '#C4CAD2', highway_major_subtle: '#C4CAD2',
+  highway_motorway_casing: '#9EA6B1', highway_motorway_inner: '#B6BDC6', highway_motorway_subtle: '#B6BDC6',
+  highway_motorway_bridge_casing: '#9EA6B1', highway_motorway_bridge_inner: '#B6BDC6',
+  tunnel_motorway_casing: '#B4BAC3', tunnel_motorway_inner: '#CDD2D8',
+  railway: '#C3C8CF', railway_service: '#C3C8CF', railway_transit: '#C3C8CF',
+};
+type StyleMap = { getLayer: (id: string) => unknown; setPaintProperty: (id: string, k: string, v: unknown) => void; getFilter: (id: string) => unknown; setFilter: (id: string, f: unknown) => void; addSource: (id: string, s: object) => void; getSource: (id: string) => unknown; addLayer: (l: object, before?: string) => void };
+const PLACE_LABELS = ['label_other', 'label_village', 'label_town', 'label_city', 'label_city_capital'];
+/** London's boroughs outlined and named, one name each (Andy, 14 Nov 2026). Inside Greater London the base map's town
+ *  names stay (Ilford, Tottenham, Woolwich…) except any that would repeat a borough's name. Outside London, as it was. */
+export function addBoroughs(map: StyleMap) {
+  try {
+    if (map.getSource('boroughs')) return;
+    const notInLondon = ['any', ['!', ['within', GREATER_LONDON]], ['!', ['any', ['in', ['get', 'name'], ['literal', LONDON_NAMES]], ['in', ['coalesce', ['get', 'name:en'], ['get', 'name_en'], ''], ['literal', LONDON_NAMES]]]]];
+    for (const id of PLACE_LABELS) { if (!map.getLayer(id)) continue; const f = map.getFilter(id); map.setFilter(id, f ? ['all', f, notInLondon] : notInLondon); }
+    map.addSource('boroughs', { type: 'geojson', data: LONDON_BOROUGHS });
+    map.addSource('borough-names', { type: 'geojson', data: LONDON_BOROUGH_LABELS });
+    // The outlines under the road and water names; the borough names on top, every one shown.
+    map.addLayer({ id: 'borough-line', type: 'line', source: 'boroughs', paint: { 'line-color': '#6F7883', 'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.8, 12, 1.6] } }, map.getLayer('waterway_line_label') ? 'waterway_line_label' : undefined);
+    map.addLayer({ id: 'borough-name', type: 'symbol', source: 'borough-names', minzoom: 8.5,
+      layout: { 'text-field': ['get', 'name'], 'text-size': ['interpolate', ['linear'], ['zoom'], 9, 9.5, 12, 12], 'text-font': ['Noto Sans Regular'], 'text-transform': 'uppercase', 'text-letter-spacing': 0.05, 'text-max-width': 7, 'text-allow-overlap': true, 'text-ignore-placement': false },
+      paint: { 'text-color': '#4E5763', 'text-halo-color': 'rgba(242,243,240,.92)', 'text-halo-width': 1.5 } });
+  } catch { /* the map still works without them */ }
+}
+/** Darken the roads once the map's style has loaded. */
+export function darkenRoads(map: { getLayer: (id: string) => unknown; setPaintProperty: (id: string, k: string, v: unknown) => void }) {
+  for (const [id, c] of Object.entries(MAP_ROADS)) { try { if (map.getLayer(id)) map.setPaintProperty(id, 'line-color', c); } catch { /* a layer the style no longer has */ } }
+}
 
 const UK_POSTCODE_RE = /\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/i;
 export function sitePostcode(s: Pick<Site, 'postcode' | 'address'>): string | null {

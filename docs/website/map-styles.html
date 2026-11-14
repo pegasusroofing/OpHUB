@@ -4,6 +4,7 @@
      each style, to choose from. Free styles from OpenFreeMap (no key, fine for business use), satellite from Esri. -->
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="data/london-boroughs.js"></script>
 <style>
   body{margin:0;padding:24px;background:#EEF1F4;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#111318;}
   h1{font-size:22px;margin:0 0 4px;} p.sub{margin:0 0 18px;color:#566072;font-size:14px;}
@@ -22,16 +23,28 @@ const STYLES = [
   ['2', 'Liberty in colour', 'The same map with its colours back: green parks, blue water, yellow main roads', 'https://tiles.openfreemap.org/styles/liberty'],
   ['3', 'Bright', 'More detail and stronger roads, like a road atlas', 'https://tiles.openfreemap.org/styles/bright'],
   ['4', 'Positron', 'Light and clean, roads in white on pale grey; the pins stand out most', 'https://tiles.openfreemap.org/styles/positron'],
+  ['4b', 'Positron, darker roads', 'Your pick with the roads, paths and railways a shade darker', 'https://tiles.openfreemap.org/styles/positron', false, true],
+  ['4c', 'Positron, darker roads, borough outlines', 'Each London borough outlined and named (Camden, Kensington and Chelsea, Haringey for Tottenham…) over the darker roads', 'https://tiles.openfreemap.org/styles/positron', false, true, true],
   ['5', 'Dark', 'Dark background with light roads, like the website hero', 'https://tiles.openfreemap.org/styles/dark'],
   ['6', 'Satellite', 'Aerial photos (Esri); see the actual roofs. Needs a free account to use in the app', {version: 8, sources: {s: {type: 'raster', tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], tileSize: 256, attribution: 'Esri'}}, layers: [{id: 's', type: 'raster', source: 's'}]}],
 ];
 const g = document.getElementById('g');
 STYLES.forEach(([n, name, sub]) => { const c = document.createElement('div'); c.className = 'card'; c.innerHTML = `<h2>${n}. ${name}</h2><p style="margin:-4px 4px 8px;font-size:12.5px;color:#566072">${sub}</p><div class="map" id="m${n}"></div>`; g.appendChild(c); });
 // Draw the maps once the cards have their full width.
-requestAnimationFrame(() => STYLES.forEach(([n, name, sub, style, grey]) => {
+const ROADS = {highway_path: '#D9DCE1', highway_minor: '#D0D4DA', road_pier: '#E4E6EA', highway_major_casing: '#AEB5BF', highway_major_inner: '#C4CAD2', highway_major_subtle: '#C4CAD2', highway_motorway_casing: '#9EA6B1', highway_motorway_inner: '#B6BDC6', highway_motorway_subtle: '#B6BDC6', highway_motorway_bridge_casing: '#9EA6B1', highway_motorway_bridge_inner: '#B6BDC6', tunnel_motorway_casing: '#B4BAC3', tunnel_motorway_inner: '#CDD2D8', railway: '#C3C8CF', railway_service: '#C3C8CF', railway_transit: '#C3C8CF'};
+requestAnimationFrame(() => STYLES.forEach(([n, name, sub, style, grey, dark, boro]) => {
   const map = new maplibregl.Map({container: 'm' + n, style, bounds: [[-0.20, 51.44], [0.12, 51.59]], fitBoundsOptions: {padding: 30}, attributionControl: false, interactive: false, preserveDrawingBuffer: true});
   if (grey) map.on('load', () => { const cv = document.querySelector('#m' + n + ' canvas'); if (cv) cv.style.filter = 'grayscale(1)'; });
-  map.on('load', () => map.resize());
+  map.on('load', () => { map.resize(); if (dark) Object.entries(ROADS).forEach(([id, c]) => { if (map.getLayer(id)) map.setPaintProperty(id, 'line-color', c); });
+    if (boro) {
+      const notIn = ['any', ['!', ['within', window.GREATER_LONDON]], ['!', ['any', ['in', ['get', 'name'], ['literal', window.LONDON_NAMES]], ['in', ['coalesce', ['get', 'name:en'], ['get', 'name_en'], ''], ['literal', window.LONDON_NAMES]]]]];
+      ['label_other', 'label_village', 'label_town', 'label_city', 'label_city_capital'].forEach((id) => { if (!map.getLayer(id)) return; const f = map.getFilter(id); map.setFilter(id, f ? ['all', f, notIn] : notIn); });
+      map.addSource('boro', {type: 'geojson', data: window.LONDON_BOROUGHS});
+      map.addSource('boro-names', {type: 'geojson', data: window.LONDON_BOROUGH_LABELS});
+      map.addLayer({id: 'boro-line', type: 'line', source: 'boro', paint: {'line-color': '#6F7883', 'line-width': 1.4}}, 'waterway_line_label');
+      map.addLayer({id: 'boro-name', type: 'symbol', source: 'boro-names', layout: {'text-field': ['get', 'name'], 'text-size': 10, 'text-font': ['Noto Sans Regular'], 'text-transform': 'uppercase', 'text-letter-spacing': 0.05, 'text-max-width': 7, 'text-allow-overlap': true, 'text-ignore-placement': false}, paint: {'text-color': '#4E5763', 'text-halo-color': 'rgba(242,243,240,.92)', 'text-halo-width': 1.5}});
+    }
+  });
   SITES.forEach((p) => { const el = document.createElement('div'); el.className = 'pin'; el.style.setProperty('--c', '#1F9D62'); new maplibregl.Marker({element: el, anchor: 'bottom'}).setLngLat(p).addTo(map); });
 }));
 </script></body></html>

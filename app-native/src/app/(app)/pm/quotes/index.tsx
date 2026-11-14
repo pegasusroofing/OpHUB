@@ -1,5 +1,5 @@
 // Quote tracker (Andy, 11 Nov 2026). Tiles at the top (tap one to open what it counts); tabs Live · Quoted · All, where a
-// quote leaves Live once it's returned (the figures put in and sent); in Quoted, the outcome (No News, Negotiating, Won,
+// quote leaves Live once it's returned (the figures put in and sent); in Quoted, the outcome (Submitted, Negotiating, Won,
 // Lost) narrows it down. Then + New Enquiry, the search, and Filter / Sort as drop-downs; the quotes as table rows
 // (a laptop gets the Finance table); and the thin export footer: Export ▾ bottom left (what to export, then Excel or PDF),
 // Settings bottom right. Who priced a quote isn't shown in the table. PMs and admins only.
@@ -16,7 +16,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { askDate } from '@/components/DateField';
-import { FinFilterBar, ThinExportBar, type FilterSel } from '@/components/FinFilterBar';
+import { ThinExportBar, type FilterSel } from '@/components/FinFilterBar';
 import { FinTabs } from '@/components/FinNav';
 import { Cell, FinTable } from '@/components/FinTable';
 import { pickExport } from '@/components/FootBar';
@@ -125,7 +125,7 @@ export default function Quotes() {
   // Past its Due Back date and not returned yet: a red border round the date.
   const late = (x: Quote) => !isQuoted(x) && !!x.return_date && x.return_date.slice(0, 10) < today;
   const who = (x: Quote) => x.client_name + (x.others?.length ? ` +${x.others.length}` : '');
-  // A chase date only means something while the outcome's open (No News, Negotiating).
+  // A chase date only means something while the outcome's open (Submitted, Negotiating).
   const canChase = (x: Quote) => x.status === 'returned' || x.status === 'negotiating';
   const setChase = async (x: Quote) => {
     const d = await askDate(`Chase ${x.title}`);
@@ -229,23 +229,23 @@ export default function Quotes() {
   );
   // A laptop: the Finance table, columns to suit the tab.
   const deskCols = [
-    { k: 'p', l: 'Project', flex: 2, min: 200, render: (x: Quote) => <View style={{ alignItems: 'center' }}><Cell bold>{x.title}</Cell>{x.address ? <Text numberOfLines={1} style={{ fontSize: 11, color: base.slate }}>{x.address}</Text> : null}</View>, sort: (x: Quote) => x.title },
-    { k: 'c', l: 'Customer', flex: 1.5, min: 140, render: (x: Quote) => <View style={{ alignItems: 'center' }}><Cell>{x.client_name}</Cell>{x.others?.length ? <Text numberOfLines={1} style={{ fontSize: 11, color: base.slate }}>also {x.others.map((o) => o.client_name).join(', ')}</Text> : null}</View>, sort: (x: Quote) => x.client_name },
+    { k: 'p', l: 'Project', flex: 2, min: 200, text: (x: Quote) => `${x.title} ${x.address || ''} ${x.client_name || ''}`, render: (x: Quote) => <View style={{ alignItems: 'center' }}><Cell bold>{x.title}</Cell>{x.address ? <Text numberOfLines={1} style={{ fontSize: 11, color: base.slate }}>{x.address}</Text> : null}</View>, sort: (x: Quote) => x.title },
+    { k: 'c', l: 'Customer', flex: 1.5, min: 140, text: (x: Quote) => clientNames(x).join(' '), render: (x: Quote) => <View style={{ alignItems: 'center' }}><Cell>{x.client_name}</Cell>{x.others?.length ? <Text numberOfLines={1} style={{ fontSize: 11, color: base.slate }}>also {x.others.map((o) => o.client_name).join(', ')}</Text> : null}</View>, sort: (x: Quote) => x.client_name },
     ...(tab === 'live' ? [
       { k: 'di', l: 'Discipline', choices: distinct((x) => x.discipline), render: (x: Quote) => <Cell>{x.discipline || '—'}</Cell>, sort: (x: Quote) => x.discipline || '' },
       { k: 'rc', l: 'Received', render: (x: Quote) => <Cell>{ukd(receivedOn(x))}</Cell>, sort: (x: Quote) => receivedOn(x) || '' },
       { k: 'd', l: 'Due Back', render: (x: Quote) => <View style={late(x) ? { borderWidth: 1.5, borderColor: RED, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 } : null}><Cell>{ukd(x.return_date)}</Cell></View>, sort: (x: Quote) => x.return_date || '' },
     ] : tab === 'quoted' ? [
-      { k: 'v', l: 'Tender Value', render: (x: Quote) => <Cell bold>{money(x.value)}</Cell>, sort: (x: Quote) => x.value || 0 },
+      { k: 'v', l: 'Tender Value', total: (l: Quote[]) => money(l.reduce((t, x) => t + (x.value || 0), 0)), render: (x: Quote) => <Cell bold>{money(x.value)}</Cell>, sort: (x: Quote) => x.value || 0 },
       { k: 'm', l: 'Mark-Up', render: (x: Quote) => <Cell>{pct(x.profit_pct)}</Cell>, sort: (x: Quote) => x.profit_pct ?? -1 },
       { k: 'd', l: 'Returned', render: (x: Quote) => <Cell>{ukd(returnedOn(x))}</Cell>, sort: (x: Quote) => returnedOn(x) || '' },
       { k: 'cd', l: 'Chase Date', render: (x: Quote) => <Cell>{x.chase_on && x.next_chase_date ? ukd(x.next_chase_date) : '—'}</Cell>, sort: (x: Quote) => (x.chase_on && x.next_chase_date) || '' },
       { k: 'cs', l: 'Chase Status', noSort: true, render: (x: Quote) => <Cell>{chaseStatus(x, today)}</Cell> },
     ] : [
-      { k: 'v', l: 'Value', render: (x: Quote) => <Cell bold>{money(x.value)}</Cell>, sort: (x: Quote) => x.value || 0 },
+      { k: 'v', l: 'Value', total: (l: Quote[]) => money(l.reduce((t, x) => t + (x.value || 0), 0)), render: (x: Quote) => <Cell bold>{money(x.value)}</Cell>, sort: (x: Quote) => x.value || 0 },
       { k: 'd', l: 'Date', render: (x: Quote) => <View style={{ alignItems: 'center' }}><Cell>{ukd(isQuoted(x) ? returnedOn(x) : x.return_date)}</Cell><Text style={{ fontSize: 10.5, color: base.slate }}>{isQuoted(x) ? 'Returned' : 'Due Back'}</Text></View>, sort: (x: Quote) => (isQuoted(x) ? returnedOn(x) : x.return_date) || '' },
     ]),
-    { k: 's', l: 'Status', noSort: true, render: (x: Quote) => <Cell bold={x.status === 'won'}>{statusWord(x)}</Cell> },
+    { k: 's', l: 'Status', noSort: true, text: (x: Quote) => statusWord(x), render: (x: Quote) => <Cell bold={x.status === 'won'}>{statusWord(x)}</Cell> },
   ];
 
   const counts = (o: Outcome) => quoted.filter((x) => outcomeOf(x.status) === o).length;
@@ -260,6 +260,8 @@ export default function Quotes() {
         {tile(yrG?.rate == null ? '–' : `${yrG.rate}%`, `Win Rate ${thisYear}`, () => { openTab('quoted'); setSel({ client: [], disc: [], by: [], year: [thisYear], st: [] }); })}
       </View>
       <FinTabs even items={[['live', 'Live', live.length], ['quoted', 'Quoted', quoted.length], ['all', 'All', all.length]]} value={tab} onChange={(k) => openTab(k as Tab)} />
+      <View style={{ marginBottom: 10 }}><Button title="+ New Enquiry" onPress={() => router.push('/pm/quotes/new' as never)} /></View>
+      {/* The outcome tabs under + New Enquiry (Andy, 14 Nov 2026). */}
       {tab === 'quoted' && (
         <View style={{ flexDirection: 'row', backgroundColor: '#EEF0F2', borderRadius: 10, padding: 3, gap: 2, marginBottom: 10 }}>
           {([['any', 'All', quoted.length], ...OUTCOMES.map(([k, l]) => [k, l, counts(k)])] as [string, string, number][]).map(([k, l, n]) => (
@@ -271,18 +273,9 @@ export default function Quotes() {
           ))}
         </View>
       )}
-      <View style={{ marginBottom: 10 }}><Button title="+ New Enquiry" onPress={() => router.push('/pm/quotes/new' as never)} /></View>
-      {desk ? <FinFilterBar search={{ value: q, onChange: (t) => { setQ(t); setShown(100); }, placeholder: 'Search Customer, Project, Address…' }} sel={sel} onChange={setSel} onClear={() => setSel({ client: [], disc: [], by: [], year: [], st: [] })}
-        sorts={[['date', 'Newest First'], ['old', 'Oldest First'], ...(tab === 'live' ? [['due', 'Due Back Soonest'] as [string, string]] : []), ['value', 'Highest Value'], ['client', 'Customer A To Z']]} sort={sort} onSort={setSort}
-        parts={[
-          ...(tab === 'live' ? [{ key: 'st', label: 'Status', items: WORK_STATUS.map(([v, l]) => ({ v, l, n: live.filter((x) => x.status === v).length })) }] : []),
-          { key: 'client', label: 'Customer', items: [...new Set(pool.flatMap(clientNames))].sort().map((v) => ({ v, l: v })) },
-          { key: 'disc', label: 'Discipline', items: distinct((x) => x.discipline).map((v) => ({ v, l: v })) },
-          { key: 'by', label: 'Priced By', items: distinct((x) => x.priced_by_name).map((v) => ({ v, l: v })) },
-          { key: 'year', label: 'Year', items: distinct(yearOf).reverse().map((v) => ({ v, l: v })) },
-        ]} /> : (
+      {(
         <>
-          {/* No search bar above the table on a phone (Andy, 14 Nov 2026): the Project box finds the customer and address too. */}
+          {/* No search bar above the table, phone or laptop (Andy, 14 Nov 2026): the boxes under the headings search. */}
           {/* A filter set elsewhere (the Win Rate tile picks this year): shown, with ✕ to show everything again. */}
           {selWords.length > 0 && (
             <Pressable accessibilityRole="button" accessibilityLabel="Show all quotes" onPress={() => setSel({ client: [], disc: [], by: [], year: [], st: [] })} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -293,7 +286,8 @@ export default function Quotes() {
         </>
       )}
       {isLoading ? <Muted>Loading…</Muted> : list.length ? (desk ? (
-        <FinTable rows={list} keyOf={(x) => x.id} onRow={go} defaultSort={{ k: 'd', dir: tab === 'live' ? 'asc' : 'desc' }} cols={deskCols} />
+        <FinTable rows={list} keyOf={(x) => x.id} onRow={go} defaultSort={{ k: 'd', dir: tab === 'live' ? 'asc' : 'desc' }} cols={deskCols}
+          footLabel={(l) => `${l.length} Quote${l.length === 1 ? '' : 's'}`} />
       ) : (
         <>
           {phoneTable}

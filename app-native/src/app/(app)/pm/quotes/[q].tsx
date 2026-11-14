@@ -136,7 +136,7 @@ export default function QuotePage() {
     refresh();
   };
   const setOutcome = async (k: 'returned' | 'negotiating' | 'lost') => {
-    const word = k === 'returned' ? 'No News' : k === 'negotiating' ? 'Negotiating' : 'Lost';
+    const word = k === 'returned' ? 'Submitted' : k === 'negotiating' ? 'Negotiating' : 'Lost';
     if (k === 'lost' && !(await confirmAsk(`Mark "${q.title}" as lost?`, 'Yes, Lost', 'No'))) return;
     setBusy('status');
     const ok = await setQuoteStatus(me, q, k, firstDays);
@@ -243,7 +243,7 @@ export default function QuotePage() {
             {!q.site_id && <Button small kind="ghost" busy={busy === 'won'} title="Won – Link To Job" onPress={() => void linkJob()} />}
             {!q.site_id && <Button small kind="ghost" busy={busy === 'status'} title={`${outcome === 'negotiating' ? '✓ ' : ''}Negotiating`} onPress={() => void setOutcome('negotiating')} />}
             {!q.site_id && <Button small kind="ghost" busy={busy === 'status'} title={`${outcome === 'lost' ? '✓ ' : ''}Lost`} onPress={() => void setOutcome('lost')} />}
-            {!q.site_id && outcome !== 'no_news' && <Button small kind="ghost" title="No News" onPress={() => void setOutcome('returned')} />}
+            {!q.site_id && outcome !== 'no_news' && <Button small kind="ghost" title="Submitted" onPress={() => void setOutcome('returned')} />}
           </View>
         </Card>
       )}

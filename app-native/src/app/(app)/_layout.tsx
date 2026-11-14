@@ -72,10 +72,17 @@ export default function AppLayout() {
     recordFin(path + q);
   }, [path, gpKey]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setOneDriveSaver(me && isManager(me) ? me.org_id ?? null : null); }, [me]);
-  // Ctrl / ⌘ K opens Search on the office laptop (136).
+  // Ctrl / ⌘ K opens Search on the office laptop (136); Ctrl F goes to Finance and Ctrl P to Projects (Andy, 14 Nov 2026),
+  // in place of the browser's own Find and Print.
   useEffect(() => {
-    if (Platform.OS !== 'web' || !me || homeKind(me, org) === 'finance') return;
-    const onKey = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') { e.preventDefault(); router.push('/search' as never); } };
+    if (Platform.OS !== 'web' || !me) return;
+    const fin = isFinanceUser(me, org), projects = homeKind(me, org) !== 'finance';
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+      const k = e.key.toLowerCase();
+      const to = k === 'k' && projects ? '/search' : k === 'f' && fin ? '/fin' : k === 'p' && projects ? '/sites' : null;
+      if (to) { e.preventDefault(); router.push(to as never); }
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [me, org]);

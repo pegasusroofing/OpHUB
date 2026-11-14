@@ -288,6 +288,10 @@
 .qcard .tag{align-self:flex-start;} .qcard h3{font-size:22px;} .qcard p{color:#566072;flex:1;} .qcard.both p{color:rgba(255,255,255,.7);}
 .qcard.f .btn-primary{background:#1F9D62;} .qcard.f .btn-primary:hover{background:#17804A;}
 @media (max-width:900px){ .qgrid{grid-template-columns:1fr;} }
+/* the real app in the frames */
+.appshot{display:block;width:100%;height:auto;}
+.phone .screen{line-height:0;}
+.lscreen{padding:0;background:#fff;}
 /* laptop mock */
 .laptop{width:100%;max-width:520px;margin:0 auto;}
 .lscreen{background:#F4F5F7;border:10px solid #0B0E14;border-bottom-width:14px;border-radius:14px 14px 4px 4px;overflow:hidden;font-size:11px;color:#0B0E14;}
@@ -332,21 +336,14 @@
 <body>
 <div class="nav"><div class="navrow">
   <a href="/" class="navlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
-  <div class="navlinks"><a href="/projects.html">Projects</a><a href="/finance.html" class="cur">Finance</a><a href="/#ai">AI</a><a href="/#pricing">Pricing</a></div>
+  <div class="navlinks"><a href="/projects">Projects</a><a href="/finance" class="cur">Finance</a><a href="/#ai">AI</a><a href="/#pricing">Pricing</a></div>
   <div class="navcta"><a href="/app.html" class="btn btn-glass btn-sm">Sign In</a><a href="/#demo" class="btn btn-primary btn-sm">Book a Demo</a></div>
 </div></div>
 <section class="hero phero f"><div class="wrap herogrid">
   <div><span class="kicker">OpHUB Finance · for complete cost management</span><h1>Every pound on every job, <em>as it happens</em></h1><p class="lead">Valuations, invoices, purchases, subcontractors and CIS in one place, with the numbers from site already in, and AI that reads the paperwork.</p>
     <div class="chips"><span>Forecasts &amp; margin</span><span>Applications &amp; retention</span><span>AI invoice reader</span><span>Posts to Xero</span></div>
-    <div class="herobtns"><a href="/#demo" class="btn btn-primary">Book a Demo</a><a href="/projects.html" class="btn btn-glass">See OpHUB Projects <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div></div>
-  <div class="phonewrap" aria-hidden="true"><div class="laptop"><div class="lscreen"><div class="lbar"><b><span style="color:#2F6FB3">Op</span>HUB</b> <i>×</i> RTB Roofing Ltd</div>
-<div class="ltabs"><span>Overview</span><span>Projects</span><span>Sales</span><span class="on">Purchases</span><span>Subcontractors</span><span>Reports</span></div>
-<div class="lstats"><div><b style="color:#2457C5">2</b><small>Received, no job yet</small></div><div><b style="color:#17804A">£18,420</b><small>To pay suppliers</small></div><div><b style="color:#C0392B">1</b><small>Needs checking</small></div><div><b style="color:#B35A00">£82,000</b><small>Ordered, not invoiced</small></div></div>
-<table class="ltable"><tr><th>Supplier</th><th>Invoice</th><th>Project</th><th>Status</th><th>Gross</th></tr>
-<tr><td><b>SIG Roofing</b></td><td>SIG-88231</td><td>J101 · Studley Rd</td><td><span class="ok">Matched to PO</span></td><td><b>£2,160.00</b></td></tr>
-<tr><td><b>Travis Perkins</b></td><td>TP-4410</td><td>J102 · Cleveland</td><td><span class="ai">Read by AI</span></td><td><b>£240.00</b></td></tr>
-<tr><td><b>Jewson</b></td><td>JW-12</td><td>J101 · Studley Rd</td><td><span class="wait">With a PM</span></td><td><b>£600.00</b></td></tr>
-<tr><td><b>Bauder</b></td><td>BD-2291</td><td>J103 · Senlis</td><td><span class="ok">Approved</span></td><td><b>£4,812.50</b></td></tr></table></div><div class="lbase"></div></div></div></div></section>
+    <div class="herobtns"><a href="/#demo" class="btn btn-primary">Book a Demo</a><a href="/projects" class="btn btn-glass">See OpHUB Projects <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div></div>
+  <div class="phonewrap" aria-hidden="true"><div class="laptop"><div class="lscreen"><img class="appshot" src="assets/site/app-finance-laptop.jpg" alt="OpHUB Finance on a laptop: Purchase Invoices" width="1440" height="900"></div><div class="lbase"></div></div></div></div></section>
 <section class="s-paper"><div class="wrap"><div class="sectionhead"><span class="kicker"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20H7c2-2 2-4 2-7V8a3 3 0 0 1 6-1"/><path d="M6 13h8"/></svg> What's inside</span><h2>From the first order <em>to the final retention</em></h2><p>Complete cost management for contractors, built by a contractor.</p></div>
 <div class="fgroup"><div class="fghead"><h3>Know where every job stands</h3><p>The live picture of every project, not last month's.</p></div>
   <div class="featgrid2"><div class="fcard f"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></div><h4>Forecasts &amp; OHP</h4><p>Forecast final account, cost to complete and margin on every job, with overheads and profit worked in.</p></div><div class="fcard f"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div><h4>Cost Reports</h4><p>Costs by job, by type and by plot, committed and spent, with budgets and cost codes.</p></div><div class="fcard f"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></div><h4>Reports &amp; Budgets</h4><p>Retention ledger, VAT listing, aged debt and more, exported to Excel or PDF.</p></div></div></div>
@@ -373,7 +370,7 @@
 <section class="s-paper alt"><div class="wrap"><div class="finalcta"><h2>See the money side of OpHUB</h2><p>Book a demo, or ask for a quote for your team.</p><div class="herobtns"><a href="/#demo" class="btn btn-primary">Book a Demo</a><a href="/?quote=finance#demo" class="btn btn-glass">Get A Quote</a></div></div></div></section>
 <footer><div class="wrap"><div class="footrow">
   <a href="/" class="footlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
-  <div class="footlinks"><a href="/projects.html">OpHUB Projects</a><a href="/finance.html">OpHUB Finance</a><a href="/#ai">AI</a><a href="/#demo">Book a Demo</a><a href="/app.html">Sign In</a><a href="/privacy.html">Privacy</a><a href="mailto:sales@operativehub.co.uk">Contact</a></div>
+  <div class="footlinks"><a href="/projects">OpHUB Projects</a><a href="/finance">OpHUB Finance</a><a href="/#ai">AI</a><a href="/#demo">Book a Demo</a><a href="/app.html">Sign In</a><a href="/privacy">Privacy</a><a href="mailto:sales@operativehub.co.uk">Contact</a></div>
 </div><p class="footmeta">© 2026 OpHUB · operativehub.co.uk · sales@operativehub.co.uk</p></div></footer>
 </body>
 </html>

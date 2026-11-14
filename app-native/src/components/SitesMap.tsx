@@ -6,13 +6,13 @@ import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 
 import { heading } from '@/lib/fonts';
-import { busiestGroup, loadMapLibre, MAP_COLOURS, MAP_STYLE, mapPoints, type MapPoint } from '@/lib/sitesMap';
+import { addBoroughs, busiestGroup, darkenRoads, loadMapLibre, MAP_COLOURS, MAP_STYLE, mapPoints, type MapPoint } from '@/lib/sitesMap';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import type { Site } from '@/lib/types';
 import { base, useDesk, useTheme } from '@/theme/theme';
 
 const STATUS = { live: 'Live', upcoming: 'Upcoming', closed: 'Closed' } as Record<string, string>;
-type AnyMap = { remove: () => void; resize: () => void; fitBounds: (b: unknown, o: object) => void; jumpTo: (o: object) => void; flyTo: (o: object) => void; addControl: (c: unknown, p: string) => void; once: (e: string, f: () => void) => void };
+type AnyMap = { on: (e: string, f: () => void) => void; getLayer: (id: string) => unknown; setPaintProperty: (id: string, k: string, v: unknown) => void; getFilter: (id: string) => unknown; setFilter: (id: string, f: unknown) => void; addSource: (id: string, s: object) => void; getSource: (id: string) => unknown; addLayer: (l: object, before?: string) => void; remove: () => void; resize: () => void; fitBounds: (b: unknown, o: object) => void; jumpTo: (o: object) => void; flyTo: (o: object) => void; addControl: (c: unknown, p: string) => void; once: (e: string, f: () => void) => void };
 type AnyMarker = { setLngLat: (x: [number, number]) => AnyMarker; setPopup: (p: unknown) => AnyMarker; addTo: (m: unknown) => AnyMarker; getLngLat: () => unknown; getPopup: () => { isOpen: () => boolean } | null; togglePopup: () => void };
 
 export type MapHandle = { focus: (siteId: string) => void };
@@ -39,9 +39,8 @@ export function SitesMapView({ sites, mini, show, people, onPoints, handle, heig
       try {
         map = new ml.Map({ container: el, style: MAP_STYLE, center: [-1.5, 52.6], zoom: 5.3, attributionControl: { compact: true }, interactive: !mini, dragRotate: false, pitchWithRotate: false }) as AnyMap;
       } catch { setFailed(true); return; }
-      // A grey map (Andy, 14 Nov 2026): only the map itself goes grey; the pins and their pop-ups keep their colours.
-      const cv = el.querySelector('canvas') as HTMLCanvasElement | null;
-      if (cv) cv.style.filter = 'grayscale(1)';
+      // Positron with darker roads (Andy, 14 Nov 2026); the pins and their pop-ups keep their colours.
+      map.on('load', () => { if (map) { darkenRoads(map); addBoroughs(map); } });
       if (!mini) map.addControl(new ml.NavigationControl({ showCompass: false }), 'top-right');
       const markers: Record<string, AnyMarker> = {};
       shown.forEach((p) => {

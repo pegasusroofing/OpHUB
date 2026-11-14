@@ -70,8 +70,8 @@ export default function Sites() {
   );
   const tabLabel = { all: 'All', live: 'Live', upcoming: 'Upcoming', closed: 'Closed' };
   const chip = (on: boolean, label: string, onPress: () => void, key?: string) => (
-    <Pressable key={key ?? label} onPress={onPress} style={{ height: 32, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : '#fff', justifyContent: 'center' }}>
-      <Text style={{ fontSize: 11.5, fontWeight: '600', color: on ? '#fff' : base.ink }}>{label}</Text>
+    <Pressable key={key ?? label} onPress={onPress} style={{ height: desk ? 38 : 32, paddingHorizontal: desk ? 16 : 10, borderRadius: 999, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : '#fff', justifyContent: 'center' }}>
+      <Text style={{ fontSize: desk ? 13.5 : 11.5, fontWeight: '600', color: on ? '#fff' : base.ink }}>{label}</Text>
     </Pressable>
   );
 
@@ -169,8 +169,8 @@ export default function Sites() {
         }, 'show')}
         <View style={{ flex: 1 }} />
         {/* Filled, before the PM filter, as 180 renderSites. */}
-        {desk && <Pressable onPress={() => router.push('/sites/new' as never)} accessibilityLabel="Add a new project" style={{ height: 32, paddingHorizontal: 14, borderRadius: 20, backgroundColor: t.brand1, justifyContent: 'center', marginRight: 4 }}>
-          <Text style={[heading(700), { fontSize: 12.5, color: t.brand1Text }]}>+ New Project</Text>
+        {desk && <Pressable onPress={() => router.push('/sites/new' as never)} accessibilityLabel="Add a new project" style={{ height: 38, paddingHorizontal: 16, borderRadius: 999, backgroundColor: t.brand1, justifyContent: 'center', marginRight: 4 }}>
+          <Text style={[heading(700), { fontSize: 13.5, color: t.brand1Text }]}>+ New Project</Text>
         </Pressable>}
         {pms.length > 0 && chip(!!pmIds.length, pmIds.length ? (pmIds.length === 1 ? pmName(pmIds[0]) : `${pmIds.length} selected`) : 'PM ▼', async () => {
           const k = await chooseAction('Show projects for', [...pms.map((p) => ({ key: p.id, label: `${pmIds.includes(p.id) ? '☑' : '☐'} ${p.name}` })), ...(pmIds.length ? [{ key: '__clear', label: 'Clear' }] : [])]);

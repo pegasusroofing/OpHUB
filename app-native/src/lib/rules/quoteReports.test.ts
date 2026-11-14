@@ -13,10 +13,10 @@ test('a returned quote is Quoted and leaves Live (Andy, 11 Nov 2026)', () => {
   // Put back to a work status after sending: still quoted, it went out.
   assert.equal(isQuoted(q({ status: 'awaiting', returned_at: '2026-11-01' })), true);
 });
-test('outcomes: no word back is No News, declined is Lost', () => {
+test('outcomes: no word back is Submitted, declined is Lost', () => {
   assert.deepEqual(['returned', 'no_reply', 'negotiating', 'won', 'lost', 'declined'].map(outcomeOf), ['no_news', 'no_news', 'negotiating', 'won', 'lost', 'lost']);
   assert.equal(statusWord(q({ status: 'checking' })), 'Ready For Checking');
-  assert.equal(statusWord(q({ status: 'returned', returned_at: '2026-11-01' })), 'No News');
+  assert.equal(statusWord(q({ status: 'returned', returned_at: '2026-11-01' })), 'Submitted');
 });
 test('chase status', () => {
   assert.equal(chaseStatus({ status: 'returned', chase_on: false, next_chase_date: null, chase_count: 0 }, '2026-11-11'), 'Off');

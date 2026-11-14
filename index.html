@@ -288,6 +288,10 @@
 .qcard .tag{align-self:flex-start;} .qcard h3{font-size:22px;} .qcard p{color:#566072;flex:1;} .qcard.both p{color:rgba(255,255,255,.7);}
 .qcard.f .btn-primary{background:#1F9D62;} .qcard.f .btn-primary:hover{background:#17804A;}
 @media (max-width:900px){ .qgrid{grid-template-columns:1fr;} }
+/* the real app in the frames */
+.appshot{display:block;width:100%;height:auto;}
+.phone .screen{line-height:0;}
+.lscreen{padding:0;background:#fff;}
 /* laptop mock */
 .laptop{width:100%;max-width:520px;margin:0 auto;}
 .lscreen{background:#F4F5F7;border:10px solid #0B0E14;border-bottom-width:14px;border-radius:14px 14px 4px 4px;overflow:hidden;font-size:11px;color:#0B0E14;}
@@ -332,7 +336,7 @@
 <body>
 <div class="nav"><div class="navrow">
   <a href="/" class="navlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
-  <div class="navlinks"><a href="/projects.html">Projects</a><a href="/finance.html">Finance</a><a href="/#ai">AI</a><a href="/#pricing">Pricing</a></div>
+  <div class="navlinks"><a href="/projects">Projects</a><a href="/finance">Finance</a><a href="/#ai">AI</a><a href="/#pricing">Pricing</a></div>
   <div class="navcta"><a href="/app.html" class="btn btn-glass btn-sm">Sign In</a><a href="/#demo" class="btn btn-primary btn-sm">Book a Demo</a></div>
 </div></div>
 <section class="hero">
@@ -342,7 +346,7 @@
       <h1>The site hub that keeps <em>every job on track</em></h1>
       <p class="lead">Everything a job needs, in one branded app your operatives will actually use.</p>
       <div class="chips">
-        <span>Schedule of Works</span><span>RAMS &amp; COSHH</span><span>Snagging / Variations</span><span>Drawings</span><span>Materials</span><span>Deliveries</span><span>Repairs</span><span>O&amp;M Handover</span><span>HR</span>
+        <span>Schedule of Works</span><span>RAMS &amp; COSHH</span><span>Snagging / Variations</span><span>Drawings</span><span>Materials</span><span>Deliveries</span><span>Repairs</span><span>O&amp;M Handover</span>
       </div>
       <div class="herobtns">
         <a href="#demo" class="btn btn-primary">Book a Demo</a>
@@ -351,16 +355,7 @@
       <p class="heroreassure">iPhone, Android &amp; web · No per-user fees · Pricing tailored to your team</p>
     </div>
     <div class="phonewrap" aria-hidden="true">
-      <div class="phone"><div class="screen">
-        <div class="mstatus"></div>
-        <div class="mhead"><b>OpHUB</b><small>RTB Roofing Ltd</small></div>
-        <div class="mbody">
-          <div class="mgreet"><small>Tuesday 13 October</small><b>Good morning, Andy</b></div>
-          <div class="mstats"><div><b>12</b><span>Live jobs</span></div><div><b>4</b><span>Upcoming</span></div><div><b>7</b><span>To do</span></div><div><b class="hot">3</b><span>Alerts</span></div></div>
-          <div class="mhero"><span class="mhero-top"><span class="mhero-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span><b>Live projects</b><small>12 live · 4 upcoming</small></div>
-          <div class="mtiles"><div class="mtile"><span class="mtic t-teal"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><span class="mtt">Dashboard</span><span class="mts">Company overview</span></div><div class="mtile"><span class="mtic t-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span><span class="mtt">Calendar</span><span class="mts">All projects</span></div><div class="mtile"><span class="mtic t-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></span><span class="mtt">HUB</span><span class="mts">3 notifications</span></div><div class="mtile"><span class="mtic t-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h11v10H3z"/><path d="M14 9h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></span><span class="mtt">Deliveries</span><span class="mts">Next drop 10am</span></div><div class="mtile"><span class="mtic t-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></span><span class="mtt">Reports</span><span class="mts">2 in progress</span></div><div class="mtile"><span class="mtic t-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></span><span class="mtt">Operatives</span><span class="mts">Certs &amp; training</span></div><div class="mtile"><span class="mtic t-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c1-3.5 4-5.5 7-5.5s6 2 7 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .8 3.4 2.6 4 5.5"/></svg></span><span class="mtt">HR</span><span class="mts">Holidays &amp; policies</span></div><div class="mtile"><span class="mtic t-grey"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></span><span class="mtt">Admin</span><span class="mts">Team &amp; settings</span></div></div>
-        </div>
-      </div></div>
+      <div class="phone"><div class="screen"><img class="appshot" src="assets/site/app-home-phone.jpg" alt="OpHUB Projects on a phone: the Home page" width="390" height="844"></div></div>
     </div>
   </div>
 </section>
@@ -371,27 +366,11 @@
     <div class="cpanel p"><div class="ctext"><span class="tag"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/></svg> OpHUB Projects</span><h3>For site teams</h3>
       <p>Schedule of Works, RAMS and COSHH, GPS check-in, snagging, materials, deliveries and handover, in one branded app your operatives will actually use.</p>
       <ul class="mini"><li>Operatives, drivers and PMs</li><li>iPhone, Android and web</li><li>Works with no signal</li></ul>
-      <a href="/projects.html" class="btn btn-primary">Explore OpHUB Projects <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div><div class="cart"><div class="phone"><div class="screen">
-        <div class="mstatus"></div>
-        <div class="mhead"><b>OpHUB</b><small>RTB Roofing Ltd</small></div>
-        <div class="mbody">
-          <div class="mgreet"><small>Tuesday 13 October</small><b>Good morning, Andy</b></div>
-          <div class="mstats"><div><b>12</b><span>Live jobs</span></div><div><b>4</b><span>Upcoming</span></div><div><b>7</b><span>To do</span></div><div><b class="hot">3</b><span>Alerts</span></div></div>
-          <div class="mhero"><span class="mhero-top"><span class="mhero-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span><b>Live projects</b><small>12 live · 4 upcoming</small></div>
-          <div class="mtiles"><div class="mtile"><span class="mtic t-teal"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><span class="mtt">Dashboard</span><span class="mts">Company overview</span></div><div class="mtile"><span class="mtic t-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span><span class="mtt">Calendar</span><span class="mts">All projects</span></div><div class="mtile"><span class="mtic t-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></span><span class="mtt">HUB</span><span class="mts">3 notifications</span></div><div class="mtile"><span class="mtic t-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h11v10H3z"/><path d="M14 9h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></span><span class="mtt">Deliveries</span><span class="mts">Next drop 10am</span></div><div class="mtile"><span class="mtic t-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></span><span class="mtt">Reports</span><span class="mts">2 in progress</span></div><div class="mtile"><span class="mtic t-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></span><span class="mtt">Operatives</span><span class="mts">Certs &amp; training</span></div><div class="mtile"><span class="mtic t-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c1-3.5 4-5.5 7-5.5s6 2 7 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .8 3.4 2.6 4 5.5"/></svg></span><span class="mtt">HR</span><span class="mts">Holidays &amp; policies</span></div><div class="mtile"><span class="mtic t-grey"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></span><span class="mtt">Admin</span><span class="mts">Team &amp; settings</span></div></div>
-        </div>
-      </div></div></div></div>
+      <a href="/projects" class="btn btn-primary">Explore OpHUB Projects <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div><div class="cart"><div class="phone"><div class="screen"><img class="appshot" src="assets/site/app-home-phone.jpg" alt="OpHUB Projects on a phone: the Home page" width="390" height="844"></div></div></div></div>
     <div class="cpanel f"><div class="ctext"><span class="tag"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20H7c2-2 2-4 2-7V8a3 3 0 0 1 6-1"/><path d="M6 13h8"/></svg> OpHUB Finance</span><h3>For complete cost management</h3>
       <p>Forecasts, valuations and applications, sales and purchase invoices, subcontractors and CIS, with Xero, and AI that reads the paperwork.</p>
       <ul class="mini"><li>Directors, QSs and accounts</li><li>Every pound on every job</li><li>Posts to Xero</li></ul>
-      <a href="/finance.html" class="btn btn-primary">Explore OpHUB Finance <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div><div class="cart"><div class="laptop"><div class="lscreen"><div class="lbar"><b><span style="color:#2F6FB3">Op</span>HUB</b> <i>×</i> RTB Roofing Ltd</div>
-<div class="ltabs"><span>Overview</span><span>Projects</span><span>Sales</span><span class="on">Purchases</span><span>Subcontractors</span><span>Reports</span></div>
-<div class="lstats"><div><b style="color:#2457C5">2</b><small>Received, no job yet</small></div><div><b style="color:#17804A">£18,420</b><small>To pay suppliers</small></div><div><b style="color:#C0392B">1</b><small>Needs checking</small></div><div><b style="color:#B35A00">£82,000</b><small>Ordered, not invoiced</small></div></div>
-<table class="ltable"><tr><th>Supplier</th><th>Invoice</th><th>Project</th><th>Status</th><th>Gross</th></tr>
-<tr><td><b>SIG Roofing</b></td><td>SIG-88231</td><td>J101 · Studley Rd</td><td><span class="ok">Matched to PO</span></td><td><b>£2,160.00</b></td></tr>
-<tr><td><b>Travis Perkins</b></td><td>TP-4410</td><td>J102 · Cleveland</td><td><span class="ai">Read by AI</span></td><td><b>£240.00</b></td></tr>
-<tr><td><b>Jewson</b></td><td>JW-12</td><td>J101 · Studley Rd</td><td><span class="wait">With a PM</span></td><td><b>£600.00</b></td></tr>
-<tr><td><b>Bauder</b></td><td>BD-2291</td><td>J103 · Senlis</td><td><span class="ok">Approved</span></td><td><b>£4,812.50</b></td></tr></table></div><div class="lbase"></div></div></div></div>
+      <a href="/finance" class="btn btn-primary">Explore OpHUB Finance <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div><div class="cart"><div class="laptop"><div class="lscreen"><img class="appshot" src="assets/site/app-finance-laptop.jpg" alt="OpHUB Finance on a laptop: Purchase Invoices" width="1440" height="900"></div><div class="lbase"></div></div></div></div>
   </div></div></section>
 <section id="flow" class="s-paper alt"><div class="wrap">
   <div class="sectionhead"><span class="kicker">How Finance talks to Projects</span><h2>From the site to the numbers, <em>without retyping a thing</em></h2><p>Every step on site is a step in the accounts. Three examples of how it flows.</p></div>
@@ -451,7 +430,7 @@
 <section class="s-paper alt"><div class="wrap"><div class="finalcta"><h2>Ready to run every site, and every pound, from one place?</h2><p>Book a demo and we'll show you OpHUB with your own jobs in mind.</p><div class="herobtns"><a href="/#demo" class="btn btn-primary">Book a Demo</a><a href="/app.html" class="btn btn-glass">Sign In</a></div></div></div></section>
 <footer><div class="wrap"><div class="footrow">
   <a href="/" class="footlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
-  <div class="footlinks"><a href="/projects.html">OpHUB Projects</a><a href="/finance.html">OpHUB Finance</a><a href="/#ai">AI</a><a href="/#demo">Book a Demo</a><a href="/app.html">Sign In</a><a href="/privacy.html">Privacy</a><a href="mailto:sales@operativehub.co.uk">Contact</a></div>
+  <div class="footlinks"><a href="/projects">OpHUB Projects</a><a href="/finance">OpHUB Finance</a><a href="/#ai">AI</a><a href="/#demo">Book a Demo</a><a href="/app.html">Sign In</a><a href="/privacy">Privacy</a><a href="mailto:sales@operativehub.co.uk">Contact</a></div>
 </div><p class="footmeta">© 2026 OpHUB · operativehub.co.uk · sales@operativehub.co.uk</p></div></footer>
 <script>
   const SUPABASE_URL = 'https://dtrfupmcazoioubhwdml.supabase.co';

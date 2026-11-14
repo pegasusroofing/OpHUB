@@ -70,7 +70,7 @@ const VP = {viewport: {width: 1300, height: 900}};
   check(sz.today >= 16, `Today heading bigger (${sz.today}px)`);
   const row = await page.evaluate(() => { const e = [...document.querySelectorAll('div')].find((d) => d.childElementCount === 0 && /^\d+ on site$|^Nobody on site yet$/.test(d.innerText)); return e ? parseFloat(getComputedStyle(e).fontSize) : 0; });
   check(row >= 15, `Today rows bigger (${row}px)`);
-  check(sz.canvas === 'grayscale(1)' || sz.canvas === 'none', `the map is grey (${sz.canvas}; no map drawn in the test is ok)`);
+  check(sz.canvas === '' || sz.canvas === 'none', `the map is Positron with darker roads, no grey filter (${sz.canvas || 'none'})`);
   check(sz.mapGap >= 0 && sz.mapGap <= 2, `"sites on the map" sits level with "Sites map" (${sz.mapGap}px apart)`);
   // The words down the left start at the tiles' left edge; the logo and Calendar end at their right edge.
   const al = await page.evaluate(() => {

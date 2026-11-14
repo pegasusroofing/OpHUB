@@ -8,8 +8,9 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
 const old = fs.readFileSync(path.join(__dirname, 'old-index.html'), 'utf8');
 const baseCss = old.slice(old.indexOf('<style>') + 7, old.indexOf('</style>'));
+// The hero's chips without HR, which isn't part of OpHUB Projects (Andy, 14 Nov 2026).
 let hero = old.slice(old.indexOf('<section class="hero">'), old.indexOf('</section>', old.indexOf('<section class="hero">')) + 10);
-hero = hero.replace('href="#features" class="btn btn-glass">See what\'s inside', 'href="#systems" class="btn btn-glass">See what\'s inside');
+hero = hero.replace('href="#features" class="btn btn-glass">See what\'s inside', 'href="#systems" class="btn btn-glass">See what\'s inside').replace('<span>HR</span>', '');
 // The enquiry form (Andy, 14 Nov 2026: "keep it as enquire / quote"): what they'd like (a demo, a quote, or both) and which
 // system, added to the start of their message, so the book-demo function needs no change. Prices are never shown.
 const demoForm = old.slice(old.indexOf('<div class="democard">'), old.indexOf('</section>', old.indexOf('<div class="democard">')))
@@ -28,12 +29,17 @@ const demoScript = old.slice(old.indexOf('<script>'), old.indexOf('</script>', o
   function quoteFor(sys){ const w = document.getElementById('dWant'), f = document.getElementById('dSys'); if(w) w.value = 'A quote'; if(f && sys) f.value = sys; }
   (function(){ const q = new URLSearchParams(location.search).get('quote'); if(q) quoteFor(q === 'projects' ? 'OpHUB Projects' : q === 'finance' ? 'OpHUB Finance' : 'Projects + Finance'); })();
 </script>`;
-const phone = (() => {
+// The hero's drawn phone, so it can be swapped for the real app.
+const oldPhone = (() => {
   const a = hero.indexOf('<div class="phone">'); let depth = 0, i = a;
   const re = /<\/?div\b[^>]*>/g; re.lastIndex = a;
   for (let m; (m = re.exec(hero));) { depth += m[0].startsWith('</') ? -1 : 1; if (depth === 0) { i = re.lastIndex; break; } }
   return hero.slice(a, i);
 })();
+// The new app as it really looks (Andy, 14 Nov 2026: "update the website with the new version of the app"): pictures made
+// by tools/test-harness/website-shots.js in assets/site/.
+const phone = '<div class="phone"><div class="screen"><img class="appshot" src="assets/site/app-home-phone.jpg" alt="OpHUB Projects on a phone: the Home page" width="390" height="844"></div></div>';
+hero = hero.replace(oldPhone, phone);
 
 // The two systems' names, in one place (Andy may rename them).
 const P = 'OpHUB Projects', F = 'OpHUB Finance';
@@ -83,22 +89,15 @@ const head = (title, desc) => `<!DOCTYPE html>
 <body>`;
 const nav = (on) => `<div class="nav"><div class="navrow">
   <a href="/" class="navlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
-  <div class="navlinks"><a href="/projects.html"${on === 'p' ? ' class="cur"' : ''}>Projects</a><a href="/finance.html"${on === 'f' ? ' class="cur"' : ''}>Finance</a><a href="/#ai">AI</a><a href="/#pricing">Pricing</a></div>
+  <div class="navlinks"><a href="/projects"${on === 'p' ? ' class="cur"' : ''}>Projects</a><a href="/finance"${on === 'f' ? ' class="cur"' : ''}>Finance</a><a href="/#ai">AI</a><a href="/#pricing">Pricing</a></div>
   <div class="navcta"><a href="/app.html" class="btn btn-glass btn-sm">Sign In</a><a href="/#demo" class="btn btn-primary btn-sm">Book a Demo</a></div>
 </div></div>`;
 const footer = `<footer><div class="wrap"><div class="footrow">
   <a href="/" class="footlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
-  <div class="footlinks"><a href="/projects.html">${P}</a><a href="/finance.html">${F}</a><a href="/#ai">AI</a><a href="/#demo">Book a Demo</a><a href="/app.html">Sign In</a><a href="/privacy.html">Privacy</a><a href="mailto:sales@operativehub.co.uk">Contact</a></div>
+  <div class="footlinks"><a href="/projects">${P}</a><a href="/finance">${F}</a><a href="/#ai">AI</a><a href="/#demo">Book a Demo</a><a href="/app.html">Sign In</a><a href="/privacy">Privacy</a><a href="mailto:sales@operativehub.co.uk">Contact</a></div>
 </div><p class="footmeta">© 2026 OpHUB · operativehub.co.uk · sales@operativehub.co.uk</p></div></footer>`;
 
-const laptop = `<div class="laptop"><div class="lscreen"><div class="lbar"><b><span style="color:#2F6FB3">Op</span>HUB</b> <i>×</i> RTB Roofing Ltd</div>
-<div class="ltabs"><span>Overview</span><span>Projects</span><span>Sales</span><span class="on">Purchases</span><span>Subcontractors</span><span>Reports</span></div>
-<div class="lstats"><div><b style="color:#2457C5">2</b><small>Received, no job yet</small></div><div><b style="color:#17804A">£18,420</b><small>To pay suppliers</small></div><div><b style="color:#C0392B">1</b><small>Needs checking</small></div><div><b style="color:#B35A00">£82,000</b><small>Ordered, not invoiced</small></div></div>
-<table class="ltable"><tr><th>Supplier</th><th>Invoice</th><th>Project</th><th>Status</th><th>Gross</th></tr>
-<tr><td><b>SIG Roofing</b></td><td>SIG-88231</td><td>J101 · Studley Rd</td><td><span class="ok">Matched to PO</span></td><td><b>£2,160.00</b></td></tr>
-<tr><td><b>Travis Perkins</b></td><td>TP-4410</td><td>J102 · Cleveland</td><td><span class="ai">Read by AI</span></td><td><b>£240.00</b></td></tr>
-<tr><td><b>Jewson</b></td><td>JW-12</td><td>J101 · Studley Rd</td><td><span class="wait">With a PM</span></td><td><b>£600.00</b></td></tr>
-<tr><td><b>Bauder</b></td><td>BD-2291</td><td>J103 · Senlis</td><td><span class="ok">Approved</span></td><td><b>£4,812.50</b></td></tr></table></div><div class="lbase"></div></div>`;
+const laptop = `<div class="laptop"><div class="lscreen"><img class="appshot" src="assets/site/app-finance-laptop.jpg" alt="OpHUB Finance on a laptop: Purchase Invoices" width="1440" height="900"></div><div class="lbase"></div></div>`;
 
 const flows = [
   ['Material request on site', 'PO priced from your price lists', 'Delivery booked and signed for', 'Supplier invoice read and matched', 'Cost on the job, live'],
@@ -157,11 +156,11 @@ const chooser = `<section id="systems" class="s-paper"><div class="wrap">
     <div class="cpanel p"><div class="ctext"><span class="tag">${svg('site', 15)} ${P}</span><h3>For site teams</h3>
       <p>Schedule of Works, RAMS and COSHH, GPS check-in, snagging, materials, deliveries and handover, in one branded app your operatives will actually use.</p>
       <ul class="mini"><li>Operatives, drivers and PMs</li><li>iPhone, Android and web</li><li>Works with no signal</li></ul>
-      <a href="/projects.html" class="btn btn-primary">Explore ${P} ${svg('arrow', 16)}</a></div><div class="cart">${phone}</div></div>
+      <a href="/projects" class="btn btn-primary">Explore ${P} ${svg('arrow', 16)}</a></div><div class="cart">${phone}</div></div>
     <div class="cpanel f"><div class="ctext"><span class="tag">${svg('pound', 15)} ${F}</span><h3>For complete cost management</h3>
       <p>Forecasts, valuations and applications, sales and purchase invoices, subcontractors and CIS, with Xero, and AI that reads the paperwork.</p>
       <ul class="mini"><li>Directors, QSs and accounts</li><li>Every pound on every job</li><li>Posts to Xero</li></ul>
-      <a href="/finance.html" class="btn btn-primary">Explore ${F} ${svg('arrow', 16)}</a></div><div class="cart">${laptop}</div></div>
+      <a href="/finance" class="btn btn-primary">Explore ${F} ${svg('arrow', 16)}</a></div><div class="cart">${laptop}</div></div>
   </div></div></section>`;
 const home = () => `${head('OpHUB: Projects for site teams, Finance for cost management', 'Two systems that talk to each other: OpHUB Projects runs your sites (Schedule of Works, RAMS & COSHH, check-in, snagging, materials, deliveries), OpHUB Finance runs the money (valuations, invoices, purchases, CIS, Xero), with AI that reads the invoices and writes the RAMS.')}
 ${nav('')}
@@ -209,12 +208,10 @@ const projectsGroups = [
     ['box', 'Materials & Suppliers', 'Operatives request materials; you approve and the order goes to the right supplier branch, priced.'],
     ['truck', 'Delivery Scheduler', 'Plan the day\'s drops and collections slot by slot and assign them to drivers.'],
     ['van', 'Driver App', 'Drivers see today\'s runs in order, take completion photos and do their weekly vehicle checks.'],
-    ['wrench', 'Yard & Plant', 'Every item of plant numbered and signed for, with who has it, where, and when it\'s due an inspection.'],
   ]],
   ['Running the company', 'The office side of every project and every person.', [
     ['wrench', 'Repairs & Maintenance', 'Repair jobs with surveys, photos, approval and close-out, ready to invoice.'],
     ['book', 'O&M Handover', 'Build the O&M manual from the job: data sheets, COSHH, guarantees and maintenance, to PDF or Word.'],
-    ['users', 'HR & Holidays', 'Holiday requests and approvals with bank holidays booked automatically, plus policies and the handbook.'],
     ['card', 'Operatives & Training', 'Every operative\'s cards, certificates and expiry dates in a training matrix.'],
     ['building', 'Main Contractor Mode', 'Run subcontractors, their operatives, RAMS, COSHH and inspections when you\'re the main contractor.'],
     ['cal', 'Calendars & Dashboards', 'Key dates per job, a company calendar and a dashboard across every project.'],
@@ -253,10 +250,10 @@ const financeGroups = [
   ]],
 ];
 
-const projectsPage = () => `${head(`${P}: the site app for trade & specialist contractors`, `${P}: Schedule of Works, RAMS & COSHH builders, GPS check-in, snagging, drawings, materials, deliveries, repairs, O&M handover and HR, in one branded app your operatives will actually use.`)}
+const projectsPage = () => `${head(`${P}: the site app for trade & specialist contractors`, `${P}: Schedule of Works, RAMS & COSHH builders, GPS check-in, snagging, drawings, materials, deliveries, repairs and O&M handover, in one branded app your operatives will actually use.`)}
 ${nav('p')}
 ${productHero('p', `${P} · for site teams`, 'Everything a job needs, <em>on every phone</em>', 'One branded app for operatives, drivers, supervisors and PMs. Simple enough that it actually gets used, every day, on every site.',
-  ['iPhone, Android & web', 'Works with no signal', 'Your logo and colours', 'No per-user fees'], phone, [`See ${F}`, '/finance.html'])}
+  ['iPhone, Android & web', 'Works with no signal', 'Your logo and colours', 'No per-user fees'], phone, [`See ${F}`, '/finance'])}
 <section class="s-paper"><div class="wrap"><div class="sectionhead">${kick(`${svg('site', 14)} What's inside`)}<h2>From the first RAMS <em>to the final handover</em></h2><p>Set it up once, brand it as your own, and give every person on the job exactly what they need.</p></div>
 ${projectsGroups.map(([t, s, c]) => group(t, s, c, 'p')).join('\n')}</div></section>
 ${together('p', `Add ${F} and the site <em>runs the numbers</em>`, 'Everything your team does on site carries straight through to the accounts, with nobody retyping it.',
@@ -271,7 +268,7 @@ ${footer}
 const financePage = () => `${head(`${F}: complete cost management for contractors`, `${F}: forecasts and OHP, BoQ and applications, sales invoices and retention, purchase orders and invoices with an AI invoice reader, subcontractors and CIS, yard stock and plant, reports and Xero.`)}
 ${nav('f')}
 ${productHero('f', `${F} · for complete cost management`, 'Every pound on every job, <em>as it happens</em>', 'Valuations, invoices, purchases, subcontractors and CIS in one place, with the numbers from site already in, and AI that reads the paperwork.',
-  ['Forecasts & margin', 'Applications & retention', 'AI invoice reader', 'Posts to Xero'], laptop, [`See ${P}`, '/projects.html'])}
+  ['Forecasts & margin', 'Applications & retention', 'AI invoice reader', 'Posts to Xero'], laptop, [`See ${P}`, '/projects'])}
 <section class="s-paper"><div class="wrap"><div class="sectionhead">${kick(`${svg('pound', 14)} What's inside`)}<h2>From the first order <em>to the final retention</em></h2><p>Complete cost management for contractors, built by a contractor.</p></div>
 ${financeGroups.map(([t, s, c]) => group(t, s, c, 'f')).join('\n')}</div></section>
 ${together('f', `Add ${P} and the numbers <em>fill themselves in</em>`, 'Your site teams do the job in ${P}; ${F} picks up every order, delivery, variation and hour as it happens.'.replace(/\$\{P\}/g, P).replace(/\$\{F\}/g, F),
@@ -336,6 +333,10 @@ var CSS = `
 .qcard .tag{align-self:flex-start;} .qcard h3{font-size:22px;} .qcard p{color:#566072;flex:1;} .qcard.both p{color:rgba(255,255,255,.7);}
 .qcard.f .btn-primary{background:#1F9D62;} .qcard.f .btn-primary:hover{background:#17804A;}
 @media (max-width:900px){ .qgrid{grid-template-columns:1fr;} }
+/* the real app in the frames */
+.appshot{display:block;width:100%;height:auto;}
+.phone .screen{line-height:0;}
+.lscreen{padding:0;background:#fff;}
 /* laptop mock */
 .laptop{width:100%;max-width:520px;margin:0 auto;}
 .lscreen{background:#F4F5F7;border:10px solid #0B0E14;border-bottom-width:14px;border-radius:14px 14px 4px 4px;overflow:hidden;font-size:11px;color:#0B0E14;}
