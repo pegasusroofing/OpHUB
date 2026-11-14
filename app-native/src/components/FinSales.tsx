@@ -234,7 +234,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
             // The practical completion date; for a closed job with none set, its final invoice date.
             { k: 'pc', l: 'Date Of PC', sort: (x) => x.pc.date, date: (x) => x.pc.date, render: (x) => <Cell>{x.pc.date ? `${fdate(x.pc.date)}${x.pc.final ? ' (Final Invoice)' : ''}` : '—'}</Cell> },
             { k: 'nx', l: 'Next Release', render: (x) => <Cell>{nextRelease(x)}</Cell> },
-            { k: 't', l: 'Total Retention', sort: (x) => x.tot, total: (l) => money(round2(l.reduce((t, x) => t + x.tot, 0))), render: (x) => <Cell>{money(x.tot)}</Cell> },
+            { k: 't', l: 'Retention', sort: (x) => x.tot, total: (l) => money(round2(l.reduce((t, x) => t + x.tot, 0))), render: (x) => <Cell>{money(x.tot)}</Cell> },
             { k: 'r', l: 'Released', sort: (x) => x.rel, total: (l) => money(round2(l.reduce((t, x) => t + x.rel, 0))), render: (x) => <Cell>{x.rel ? money(x.rel) : '—'}</Cell> },
             { k: 'h', l: 'Still Held', sort: (x) => x.held, total: (l) => money(round2(l.reduce((t, x) => t + x.held, 0))), render: (x) => <Cell bold>{money(x.held)}</Cell> },
           ]}

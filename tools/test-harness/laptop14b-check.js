@@ -81,7 +81,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   // ---- Retention ----
   await page.goto(B + '/fin/sales?tab=retention'); await page.waitForTimeout(5000);
   t = await body();
-  check(/Date Of PC/i.test(t) && /Total Retention/i.test(t) && /Released/i.test(t), 'retention: Date Of PC, Total Retention and Released columns');
+  check(/Date Of PC/i.test(t) && /Retention/i.test(t) && /Released/i.test(t), 'retention: Date Of PC, Retention and Released columns');
   check(/£2,000\.00/.test(t) && /£1,000\.00/.test(t) && /20 Oct 2026 \(Final Invoice\)/.test(t), 'retention: total £2,000, released £1,000, PC date from the final invoice on a closed job');
   await page.screenshot({path: path.join(SHOTS, 'laptop-retention.png')});
 
