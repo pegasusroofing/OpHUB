@@ -25,9 +25,16 @@ const VP = {viewport: {width: 1300, height: 900}};
     const hb = await h.boundingBox();
     check(!!hb && hb.y < 40, 'sign-in: across the top');
     const card = await page.locator('input[placeholder="you@yourcompany.co.uk"]').boundingBox();
-    check(!!card && card.width > 900, `sign-in: the card stays full width, not skinny (${card && Math.round(card.width)})`);
+    const logo = await page.locator('[aria-label="OpHUB"] >> visible=true').first().boundingBox();
+    check(!!card && card.width > 500 && card.width < 640, `sign-in: the box a comfortable width (${card && Math.round(card.width)})`);
+    check(!!logo && !!card && logo.y + logo.height < card.y && Math.abs(logo.x + logo.width / 2 - (card.x + card.width / 2)) < 4, 'sign-in: the OpHUB logo sits above the box, centred');
     await page.screenshot({path: path.join(SHOTS, 'laptop-login.png')});
     await ctx.close();
+    const {ctx: pc} = await makeContext(browser, 'admin', [], {shot: true});
+    const pp = await pc.newPage();
+    await pp.goto(B + '/login'); await pp.waitForTimeout(5000);
+    await pp.screenshot({path: path.join(SHOTS, 'phone-login.png')});
+    await pc.close();
   }
   const {ctx, db} = await makeContext(browser, 'admin', [], VP);
   require('./seeds/world')(db); const me = db.profiles.find((p) => p.id === 'me'); me.role = 'admin'; me.finance_enabled = true; me.howto_dismissed = ['*'];
@@ -65,6 +72,20 @@ const VP = {viewport: {width: 1300, height: 900}};
   check(row >= 15, `Today rows bigger (${row}px)`);
   check(sz.canvas === 'grayscale(1)' || sz.canvas === 'none', `the map is grey (${sz.canvas}; no map drawn in the test is ok)`);
   check(sz.mapGap >= 0 && sz.mapGap <= 2, `"sites on the map" sits level with "Sites map" (${sz.mapGap}px apart)`);
+  // The words down the left start at the tiles' left edge; the logo and Calendar end at their right edge.
+  const al = await page.evaluate(() => {
+    const leaf = (re) => [...document.querySelectorAll('div')].find((d) => d.childElementCount === 0 && re.test(d.innerText) && d.getBoundingClientRect().width > 0);
+    const L = (e) => e ? Math.round(e.getBoundingClientRect().left) : -1;
+    const tile = [...document.querySelectorAll('[role="button"], a, div')].find((d) => /^\d+\s*Live projects$/i.test((d.innerText || '').trim()) && d.getBoundingClientRect().width < 400);
+    const tr = tile ? tile.getBoundingClientRect() : null;
+    const day = leaf(/^(Mon|Tue|Wed|Thu|Fri) \d+$/); const dayBox = day && day.closest('[role="button"]');
+    const cal = document.querySelector('[aria-label="Open the calendar"]'); const lg = [...document.querySelectorAll('[aria-label$=" logo"]')].find((e) => e.getBoundingClientRect().width > 0);
+    const notif = [...document.querySelectorAll('[role="button"], div')].find((d) => /^\d+\s*Notifications$/i.test((d.innerText || '').trim()) && d.getBoundingClientRect().width < 400);
+    return { tileL: tr ? Math.round(tr.left) : -1, date: L(leaf(/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday) \d+ /)), hi: L(leaf(/^Good (morning|afternoon|evening)/)), next: L(leaf(/^Next 5 Days$/)), dayL: dayBox ? Math.round(dayBox.getBoundingClientRect().left) : -1,
+      tileR: notif ? Math.round(notif.getBoundingClientRect().right) : -1, calR: cal ? Math.round(cal.getBoundingClientRect().right) : -1, logoR: lg ? Math.round(lg.getBoundingClientRect().right) : -1 };
+  });
+  check([al.date, al.hi, al.next, al.dayL].every((x) => Math.abs(x - al.tileL) <= 1), `left side lines up with the tiles (${JSON.stringify(al)})`);
+  check([al.calR, al.logoR].every((x) => Math.abs(x - al.tileR) <= 1), 'right side lines up with the tiles');
   await page.screenshot({path: path.join(SHOTS, 'laptop-home.png')});
   await page.screenshot({path: path.join(SHOTS, 'laptop-home-full.png'), fullPage: true});
 
@@ -96,6 +117,12 @@ const VP = {viewport: {width: 1300, height: 900}};
   const bw = (await page.getByText('⬆ Book Out', {exact: true}).filter({visible: true}).first().boundingBox())?.width || 0;
   check(bw > 0 && bw < 220, `yard: the phone's buttons, not stretched (${Math.round(bw)}px)`);
   await page.screenshot({path: path.join(SHOTS, 'laptop-yard.png')});
+
+  // ---- Price Lists on a laptop ----
+  await page.goto(B + '/fin/purchases?tab=prices'); await page.waitForTimeout(4500);
+  const pl = await page.locator('body').innerText();
+  check(!/Price Book/.test(pl) && (await page.locator('[aria-label="Price lists"] >> visible=true').count() === 1 || /No prices yet/.test(pl)) && /Add A Supplier/.test(pl), 'price lists: one table of suppliers, no Price Book');
+  await page.screenshot({path: path.join(SHOTS, 'laptop-pricelists.png')});
 
   // ---- Purchases from the Finance tabs ----
   await page.goto(B + '/fin/purchases?tab=orders'); await page.waitForTimeout(4500);

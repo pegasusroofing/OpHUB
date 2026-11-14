@@ -54,35 +54,42 @@ export default function Login() {
       </Text>
     </View>
     <Screen center>
-      <Card>
-        {notice && <Notice kind={notice.kind} text={notice.text} />}
-        <Field label="Email" value={email} onChangeText={setEmail} placeholder="you@yourcompany.co.uk"
-          autoCapitalize="none" autoComplete="email" keyboardType="email-address" textContentType="username" />
-        {!forgot && (
-          <Field label="Password" value={password} onChangeText={setPassword} placeholder="••••••••" secureTextEntry
-            autoComplete="current-password" textContentType="password" onSubmitEditing={go} returnKeyType="go" />
-        )}
-        {forgot ? (
-          <>
-            <Muted style={{ marginBottom: 8 }}>Enter the email you log in with and we'll send you a link to choose a new password.</Muted>
-            <Button title="Send reset link" onPress={sendReset} />
-            <Link title="Back to log in" onPress={() => setForgot(false)} />
-          </>
-        ) : (
-          <>
-            <Check label="Remember my email and password on this device" value={remember} onChange={setRemember} />
-            <Button title={busy || 'Sign In'} busy={!!busy} onPress={go} />
-            <Link title="Forgot password?" onPress={() => { setNotice(null); setForgot(true); }} />
-          </>
-        )}
-        <Muted style={{ marginTop: 10 }}>
+      {/* The OpHUB logo above the sign-in box, the box a comfortable width on a laptop, the small print under it
+          (Andy, 14 Nov 2026: "move this to sit above the login rows ... make it all a little more appealing on the eye"). */}
+      <View style={{ width: '100%', maxWidth: desk ? 600 : 520, alignSelf: 'center' }}>
+        <View style={{ alignSelf: 'center', width: desk ? 138 : 116, height: desk ? 138 : 116, borderRadius: desk ? 30 : 26, backgroundColor: '#fff', overflow: 'hidden', marginBottom: desk ? 22 : 18, shadowColor: '#0B1220', shadowOpacity: 0.1, shadowRadius: 16, shadowOffset: { width: 0, height: 6 } }}>
+          <Image accessibilityLabel="OpHUB" source={require('../../assets/images/favicon-white.png')} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+        </View>
+        <Card style={{ padding: desk ? 26 : 18, borderRadius: 16, shadowColor: '#0B1220', shadowOpacity: 0.06, shadowRadius: 18, shadowOffset: { width: 0, height: 6 } }}>
+          <Text style={{ fontSize: desk ? 20 : 18, fontWeight: '600', color: base.ink, marginBottom: 4 }}>{forgot ? 'Reset Your Password' : 'Sign In To Your Account'}</Text>
+          <Muted style={{ marginBottom: 14 }}>{forgot ? "Enter the email you sign in with and we'll send you a link to choose a new password." : 'Use the email and password for your OpHUB account.'}</Muted>
+          {notice && <Notice kind={notice.kind} text={notice.text} />}
+          <Field label="Email" value={email} onChangeText={setEmail} placeholder="you@yourcompany.co.uk"
+            autoCapitalize="none" autoComplete="email" keyboardType="email-address" textContentType="username" />
+          {!forgot && (
+            <Field label="Password" value={password} onChangeText={setPassword} placeholder="••••••••" secureTextEntry
+              autoComplete="current-password" textContentType="password" onSubmitEditing={go} returnKeyType="go" />
+          )}
+          {forgot ? (
+            <>
+              <Button title="Send Reset Link" onPress={sendReset} />
+              <Link title="Back To Sign In" onPress={() => setForgot(false)} />
+            </>
+          ) : (
+            <>
+              <Check label="Remember my email and password on this device" value={remember} onChange={setRemember} />
+              <Button title={busy || 'Sign In'} busy={!!busy} onPress={go} />
+              <Link title="Forgot Password?" onPress={() => { setNotice(null); setForgot(true); }} />
+            </>
+          )}
+        </Card>
+        <Muted style={{ marginTop: 16, textAlign: 'center', fontSize: 12, lineHeight: 17 }}>
           Ticking "Remember" keeps your email and password on this {Platform.OS === 'web' ? 'computer (the password is stored encrypted)' : 'phone, locked in its secure storage'} so they're filled in next time. Untick it on a shared device. You stay signed in until you tap Sign out.
         </Muted>
-        <Muted style={{ marginTop: 10 }}>
+        <Muted style={{ marginTop: 8, textAlign: 'center', fontSize: 12, lineHeight: 17 }}>
           New team member? You'll need an invite link from your Project Manager to create an account — sign-up isn't open to the public.
         </Muted>
-      </Card>
-      <Image source={require('../../assets/images/logo-light.png')} style={{ width: 120, height: 120, borderRadius: 24, alignSelf: 'center', marginTop: 16 }} />
+      </View>
     </Screen>
     </View>
   );
