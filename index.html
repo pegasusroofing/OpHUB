@@ -280,6 +280,14 @@
 .demolist li:before{border-radius:4px;}
 .finalcta{background:#0B0E14;border-radius:8px;box-shadow:10px 10px 0 #2F6FB3;}
 .finalcta .btn-primary{background:#4E8FD1;color:#fff;} .finalcta .btn-primary:hover{background:#2F6FB3;}
+/* pricing, no figures */
+.qgrid{display:grid;grid-template-columns:1fr 1.1fr 1fr;gap:22px;align-items:stretch;}
+.qcard{background:#fff;border:1.5px solid #D4DCE7;border-radius:6px;padding:30px;display:flex;flex-direction:column;gap:12px;}
+.qcard.p{box-shadow:8px 8px 0 #2F6FB3;border-color:#2F6FB3;} .qcard.f{box-shadow:8px 8px 0 #1F9D62;border-color:#1F9D62;}
+.qcard.both{background:#0B0E14;color:#fff;border-color:#0B0E14;box-shadow:8px 8px 0 #4E8FD1;} .qcard.both .tag{background:#4E8FD1;color:#fff;}
+.qcard .tag{align-self:flex-start;} .qcard h3{font-size:22px;} .qcard p{color:#566072;flex:1;} .qcard.both p{color:rgba(255,255,255,.7);}
+.qcard.f .btn-primary{background:#1F9D62;} .qcard.f .btn-primary:hover{background:#17804A;}
+@media (max-width:900px){ .qgrid{grid-template-columns:1fr;} }
 /* laptop mock */
 .laptop{width:100%;max-width:520px;margin:0 auto;}
 .lscreen{background:#F4F5F7;border:10px solid #0B0E14;border-bottom-width:14px;border-radius:14px 14px 4px 4px;overflow:hidden;font-size:11px;color:#0B0E14;}
@@ -324,7 +332,7 @@
 <body>
 <div class="nav"><div class="navrow">
   <a href="/" class="navlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
-  <div class="navlinks"><a href="/projects.html">Projects</a><a href="/finance.html">Finance</a><a href="/#ai">AI</a><a href="/#demo">Book a Demo</a></div>
+  <div class="navlinks"><a href="/projects.html">Projects</a><a href="/finance.html">Finance</a><a href="/#ai">AI</a><a href="/#pricing">Pricing</a></div>
   <div class="navcta"><a href="/app.html" class="btn btn-glass btn-sm">Sign In</a><a href="/#demo" class="btn btn-primary btn-sm">Book a Demo</a></div>
 </div></div>
 <section class="hero">
@@ -396,8 +404,16 @@
 </div></section>
 <section class="s-paper alt"><div class="wrap"><div class="sectionhead"><span class="kicker">Simple by design</span><h2>Less admin. <em>More proof.</em></h2><p>Built with one focus: one clear place for everything a job needs, on site and in the office.</p></div>
   <div class="simplegrid"><div class="simple"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div><h3>Enter it once</h3><p>An order on site is the PO, the delivery, the invoice match and the job cost. Nobody types it twice.</p></div><div class="simple"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></div><h3>Everything finds its job</h3><p>Photos, check-ins, invoices and variations land on the right project by themselves.</p></div><div class="simple"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h11v10H3z"/><path d="M14 9h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></div><h3>Built for the phone</h3><p>Operatives and drivers get one simple app. The office gets the full picture on the laptop.</p></div></div></div></section>
+<section id="pricing" class="s-paper alt"><div class="wrap">
+  <div class="sectionhead"><span class="kicker">Pricing</span><h2>One price per company, <em>tailored to your team</em></h2>
+  <p>No per-user fees. Choose OpHUB Projects, OpHUB Finance, or both together for less. Tell us about your team and we'll send you a quote.</p></div>
+  <div class="qgrid">
+    <div class="qcard p"><span class="tag"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/></svg> OpHUB Projects</span><h3>For site teams</h3><p>Every site feature, on every phone, for your whole team.</p><a href="#demo" class="btn btn-primary" onclick="quoteFor('OpHUB Projects')">Get A Quote</a></div>
+    <div class="qcard both"><span class="tag">Best value</span><h3>Projects + Finance</h3><p>The two systems talking to each other, for less than the two apart.</p><a href="#demo" class="btn btn-primary" onclick="quoteFor('Projects + Finance')">Get A Quote</a></div>
+    <div class="qcard f"><span class="tag"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20H7c2-2 2-4 2-7V8a3 3 0 0 1 6-1"/><path d="M6 13h8"/></svg> OpHUB Finance</span><h3>For cost management</h3><p>Forecasts, valuations, purchases, CIS, Xero and the AI.</p><a href="#demo" class="btn btn-primary" onclick="quoteFor('OpHUB Finance')">Get A Quote</a></div>
+  </div></div></section>
 <section id="demo" class="s-paper"><div class="wrap demogrid">
-  <div class="demotext"><span class="kicker">Book a demo</span><h2>See OpHUB with your own jobs in mind</h2>
+  <div class="demotext"><span class="kicker">Book a demo or get a quote</span><h2>See OpHUB with your own jobs in mind</h2>
     <p class="lead">Tell us a little about your company and we'll get in touch to arrange a walkthrough of OpHUB Projects, OpHUB Finance, or both.</p>
     <ul class="demolist"><li>A guided look from the operative, driver, PM and office side</li><li>How Finance and Projects talk to each other on your kind of job</li><li>Your questions answered by the people who built it</li><li>No obligation: see if it fits before you sign up</li></ul>
     <p class="alt">Prefer email? <a href="mailto:sales@operativehub.co.uk">sales@operativehub.co.uk</a></p></div>
@@ -411,13 +427,17 @@
           <div class="formfield"><label for="dEmail">Email</label><input id="dEmail" type="email" autocomplete="email" maxlength="254" required></div>
           <div class="formfield"><label for="dPhone">Phone <i>(optional)</i></label><input id="dPhone" type="tel" autocomplete="tel" maxlength="40"></div>
         </div>
+        <div class="formrow">
+          <div class="formfield"><label for="dWant">I'd like</label><select id="dWant"><option>A demo</option><option>A quote</option><option>A demo and a quote</option></select></div>
+          <div class="formfield"><label for="dSys">For</label><select id="dSys"><option>Projects + Finance</option><option>OpHUB Projects</option><option>OpHUB Finance</option><option>Not sure yet</option></select></div>
+        </div>
         <div class="formfield"><label for="dTeam">Team size <i>(optional)</i></label>
           <select id="dTeam"><option value="">Choose…</option><option>1–10</option><option>11–25</option><option>26–50</option><option>51–150</option><option>150+</option></select>
         </div>
         <div class="formfield"><label for="dMsg">Anything we should know? <i>(optional)</i></label><textarea id="dMsg" maxlength="2000" placeholder="Your trade, how many sites you run, what you'd like to see…"></textarea></div>
         <div class="hp" aria-hidden="true"><label for="dWebsite">Website</label><input id="dWebsite" type="text" tabindex="-1" autocomplete="off"></div>
         <div id="demoMsg"></div>
-        <button id="demoBtn" type="submit" class="btn btn-primary btn-block">Request a Demo</button>
+        <button id="demoBtn" type="submit" class="btn btn-primary btn-block">Send Enquiry</button>
         <p class="formnote">We'll only use your details to reply to this enquiry.</p>
       </form>
       <div id="demoDone" class="demodone" style="display:none;">
@@ -452,7 +472,7 @@
       const res = await fetch(SUPABASE_URL + '/functions/v1/book-demo', {
         method:'POST',
         headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
-        body: JSON.stringify({name, email, company:v('dCompany'), phone:v('dPhone'), team_size:v('dTeam'), message:v('dMsg'), website:v('dWebsite')})
+        body: JSON.stringify({name, email, company:v('dCompany'), phone:v('dPhone'), team_size:v('dTeam'), message:(v('dWant') + ' for ' + v('dSys') + '. ' + v('dMsg')).trim(), website:v('dWebsite')})
       });
       const d = await res.json().catch(()=>({}));
       if(!res.ok || d.error){ showErr(d.error || 'Something went wrong — please try again.'); }
@@ -460,9 +480,14 @@
     }catch(e){
       showErr('Could not reach the server — check your connection and try again, or email sales@operativehub.co.uk.');
     }
-    demoBusy = false; btn.disabled = false; btn.textContent = 'Request a Demo';
+    demoBusy = false; btn.disabled = false; btn.textContent = 'Send Enquiry';
     return false;
   }
+</script>
+<script>
+  // A Get A Quote button (here or on the Projects / Finance pages, ?quote=projects) fills in the form's choices.
+  function quoteFor(sys){ const w = document.getElementById('dWant'), f = document.getElementById('dSys'); if(w) w.value = 'A quote'; if(f && sys) f.value = sys; }
+  (function(){ const q = new URLSearchParams(location.search).get('quote'); if(q) quoteFor(q === 'projects' ? 'OpHUB Projects' : q === 'finance' ? 'OpHUB Finance' : 'Projects + Finance'); })();
 </script>
 </body>
 </html>

@@ -10,8 +10,24 @@ const old = fs.readFileSync(path.join(__dirname, 'old-index.html'), 'utf8');
 const baseCss = old.slice(old.indexOf('<style>') + 7, old.indexOf('</style>'));
 let hero = old.slice(old.indexOf('<section class="hero">'), old.indexOf('</section>', old.indexOf('<section class="hero">')) + 10);
 hero = hero.replace('href="#features" class="btn btn-glass">See what\'s inside', 'href="#systems" class="btn btn-glass">See what\'s inside');
-const demoForm = old.slice(old.indexOf('<div class="democard">'), old.indexOf('</section>', old.indexOf('<div class="democard">')));
-const demoScript = old.slice(old.indexOf('<script>'), old.indexOf('</script>', old.indexOf('<script>')) + 9);
+// The enquiry form (Andy, 14 Nov 2026: "keep it as enquire / quote"): what they'd like (a demo, a quote, or both) and which
+// system, added to the start of their message, so the book-demo function needs no change. Prices are never shown.
+const demoForm = old.slice(old.indexOf('<div class="democard">'), old.indexOf('</section>', old.indexOf('<div class="democard">')))
+  .replace('<div class="formfield"><label for="dTeam">', `<div class="formrow">
+          <div class="formfield"><label for="dWant">I'd like</label><select id="dWant"><option>A demo</option><option>A quote</option><option>A demo and a quote</option></select></div>
+          <div class="formfield"><label for="dSys">For</label><select id="dSys"><option>Projects + Finance</option><option>OpHUB Projects</option><option>OpHUB Finance</option><option>Not sure yet</option></select></div>
+        </div>
+        <div class="formfield"><label for="dTeam">`)
+  .replace('>Request a Demo</button>', '>Send Enquiry</button>');
+const demoScript = old.slice(old.indexOf('<script>'), old.indexOf('</script>', old.indexOf('<script>')) + 9)
+  .replace("message:v('dMsg')", "message:(v('dWant') + ' for ' + v('dSys') + '. ' + v('dMsg')).trim()")
+  .replace("btn.textContent = 'Request a Demo';", "btn.textContent = 'Send Enquiry';")
+  + `
+<script>
+  // A Get A Quote button (here or on the Projects / Finance pages, ?quote=projects) fills in the form's choices.
+  function quoteFor(sys){ const w = document.getElementById('dWant'), f = document.getElementById('dSys'); if(w) w.value = 'A quote'; if(f && sys) f.value = sys; }
+  (function(){ const q = new URLSearchParams(location.search).get('quote'); if(q) quoteFor(q === 'projects' ? 'OpHUB Projects' : q === 'finance' ? 'OpHUB Finance' : 'Projects + Finance'); })();
+</script>`;
 const phone = (() => {
   const a = hero.indexOf('<div class="phone">'); let depth = 0, i = a;
   const re = /<\/?div\b[^>]*>/g; re.lastIndex = a;
@@ -67,7 +83,7 @@ const head = (title, desc) => `<!DOCTYPE html>
 <body>`;
 const nav = (on) => `<div class="nav"><div class="navrow">
   <a href="/" class="navlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
-  <div class="navlinks"><a href="/projects.html"${on === 'p' ? ' class="cur"' : ''}>Projects</a><a href="/finance.html"${on === 'f' ? ' class="cur"' : ''}>Finance</a><a href="/#ai">AI</a><a href="/#demo">Book a Demo</a></div>
+  <div class="navlinks"><a href="/projects.html"${on === 'p' ? ' class="cur"' : ''}>Projects</a><a href="/finance.html"${on === 'f' ? ' class="cur"' : ''}>Finance</a><a href="/#ai">AI</a><a href="/#pricing">Pricing</a></div>
   <div class="navcta"><a href="/app.html" class="btn btn-glass btn-sm">Sign In</a><a href="/#demo" class="btn btn-primary btn-sm">Book a Demo</a></div>
 </div></div>`;
 const footer = `<footer><div class="wrap"><div class="footrow">
@@ -117,12 +133,21 @@ const simpleSection = `<section class="s-paper alt"><div class="wrap"><div class
   <div class="simplegrid">${simple.map(([ic, h, p]) => `<div class="simple"><div class="ic">${svg(ic, 20)}</div><h3>${h}</h3><p>${p}</p></div>`).join('')}</div></div></section>`;
 
 const demo = `<section id="demo" class="s-paper"><div class="wrap demogrid">
-  <div class="demotext">${kick('Book a demo')}<h2>See OpHUB with your own jobs in mind</h2>
+  <div class="demotext">${kick('Book a demo or get a quote')}<h2>See OpHUB with your own jobs in mind</h2>
     <p class="lead">Tell us a little about your company and we'll get in touch to arrange a walkthrough of ${P}, ${F}, or both.</p>
     <ul class="demolist"><li>A guided look from the operative, driver, PM and office side</li><li>How Finance and Projects talk to each other on your kind of job</li><li>Your questions answered by the people who built it</li><li>No obligation: see if it fits before you sign up</li></ul>
     <p class="alt">Prefer email? <a href="mailto:sales@operativehub.co.uk">sales@operativehub.co.uk</a></p></div>
   ${demoForm}</div></section>`;
-const finalCta = (h, p) => `<section class="s-paper alt"><div class="wrap"><div class="finalcta"><h2>${h}</h2><p>${p}</p><div class="herobtns"><a href="/#demo" class="btn btn-primary">Book a Demo</a><a href="/app.html" class="btn btn-glass">Sign In</a></div></div></div></section>`;
+const finalCta = (h, p, q) => `<section class="s-paper alt"><div class="wrap"><div class="finalcta"><h2>${h}</h2><p>${p}</p><div class="herobtns"><a href="/#demo" class="btn btn-primary">Book a Demo</a>${q ? `<a href="/?quote=${q}#demo" class="btn btn-glass">Get A Quote</a>` : '<a href="/app.html" class="btn btn-glass">Sign In</a>'}</div></div></div></section>`;
+
+const quoteSection = `<section id="pricing" class="s-paper alt"><div class="wrap">
+  <div class="sectionhead">${kick('Pricing')}<h2>One price per company, <em>tailored to your team</em></h2>
+  <p>No per-user fees. Choose ${P}, ${F}, or both together for less. Tell us about your team and we'll send you a quote.</p></div>
+  <div class="qgrid">
+    <div class="qcard p"><span class="tag">${svg('site', 15)} ${P}</span><h3>For site teams</h3><p>Every site feature, on every phone, for your whole team.</p><a href="#demo" class="btn btn-primary" onclick="quoteFor('OpHUB Projects')">Get A Quote</a></div>
+    <div class="qcard both"><span class="tag">Best value</span><h3>Projects + Finance</h3><p>The two systems talking to each other, for less than the two apart.</p><a href="#demo" class="btn btn-primary" onclick="quoteFor('Projects + Finance')">Get A Quote</a></div>
+    <div class="qcard f"><span class="tag">${svg('pound', 15)} ${F}</span><h3>For cost management</h3><p>Forecasts, valuations, purchases, CIS, Xero and the AI.</p><a href="#demo" class="btn btn-primary" onclick="quoteFor('OpHUB Finance')">Get A Quote</a></div>
+  </div></div></section>`;
 
 // ---------- Home ----------
 const chooser = `<section id="systems" class="s-paper"><div class="wrap">
@@ -145,6 +170,7 @@ ${chooser}
 ${flowSection()}
 ${aiSection}
 ${simpleSection}
+${quoteSection}
 ${demo}
 ${finalCta('Ready to run every site, and every pound, from one place?', 'Book a demo and we\'ll show you OpHUB with your own jobs in mind.')}
 ${footer}
@@ -236,7 +262,7 @@ ${projectsGroups.map(([t, s, c]) => group(t, s, c, 'p')).join('\n')}</div></sect
 ${together('p', `Add ${F} and the site <em>runs the numbers</em>`, 'Everything your team does on site carries straight through to the accounts, with nobody retyping it.',
   ['Material requests become priced POs', 'Deliveries signed for on site are matched to the supplier\'s invoice', 'Variations raised on site go onto the next application', 'Check-ins and hours become labour cost on the job', 'Subcontractors\' work flows into their applications and CIS'])}
 ${flowSection()}
-${finalCta('See the site side of OpHUB', 'Book a demo and we\'ll walk through it from the operative, driver and PM side.')}
+${finalCta('See the site side of OpHUB', 'Book a demo, or ask for a quote for your team.', 'projects')}
 ${footer}
 </body>
 </html>
@@ -252,7 +278,7 @@ ${together('f', `Add ${P} and the numbers <em>fill themselves in</em>`, 'Your si
   ['POs raised from material requests on site', 'Delivery notes ready to match the invoice', 'Variations and day works from site, ready to price', 'Labour cost from check-ins and timesheets', 'One set of jobs, one directory, no double entry'])}
 ${flowSection()}
 ${aiSection}
-${finalCta('See the money side of OpHUB', 'Book a demo and we\'ll walk through a job from the first order to the final retention.')}
+${finalCta('See the money side of OpHUB', 'Book a demo, or ask for a quote for your team.', 'finance')}
 ${footer}
 </body>
 </html>
@@ -302,6 +328,14 @@ var CSS = `
 .demolist li:before{border-radius:4px;}
 .finalcta{background:#0B0E14;border-radius:8px;box-shadow:10px 10px 0 #2F6FB3;}
 .finalcta .btn-primary{background:#4E8FD1;color:#fff;} .finalcta .btn-primary:hover{background:#2F6FB3;}
+/* pricing, no figures */
+.qgrid{display:grid;grid-template-columns:1fr 1.1fr 1fr;gap:22px;align-items:stretch;}
+.qcard{background:#fff;border:1.5px solid #D4DCE7;border-radius:6px;padding:30px;display:flex;flex-direction:column;gap:12px;}
+.qcard.p{box-shadow:8px 8px 0 #2F6FB3;border-color:#2F6FB3;} .qcard.f{box-shadow:8px 8px 0 #1F9D62;border-color:#1F9D62;}
+.qcard.both{background:#0B0E14;color:#fff;border-color:#0B0E14;box-shadow:8px 8px 0 #4E8FD1;} .qcard.both .tag{background:#4E8FD1;color:#fff;}
+.qcard .tag{align-self:flex-start;} .qcard h3{font-size:22px;} .qcard p{color:#566072;flex:1;} .qcard.both p{color:rgba(255,255,255,.7);}
+.qcard.f .btn-primary{background:#1F9D62;} .qcard.f .btn-primary:hover{background:#17804A;}
+@media (max-width:900px){ .qgrid{grid-template-columns:1fr;} }
 /* laptop mock */
 .laptop{width:100%;max-width:520px;margin:0 auto;}
 .lscreen{background:#F4F5F7;border:10px solid #0B0E14;border-bottom-width:14px;border-radius:14px 14px 4px 4px;overflow:hidden;font-size:11px;color:#0B0E14;}

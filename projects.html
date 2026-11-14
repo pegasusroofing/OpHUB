@@ -280,6 +280,14 @@
 .demolist li:before{border-radius:4px;}
 .finalcta{background:#0B0E14;border-radius:8px;box-shadow:10px 10px 0 #2F6FB3;}
 .finalcta .btn-primary{background:#4E8FD1;color:#fff;} .finalcta .btn-primary:hover{background:#2F6FB3;}
+/* pricing, no figures */
+.qgrid{display:grid;grid-template-columns:1fr 1.1fr 1fr;gap:22px;align-items:stretch;}
+.qcard{background:#fff;border:1.5px solid #D4DCE7;border-radius:6px;padding:30px;display:flex;flex-direction:column;gap:12px;}
+.qcard.p{box-shadow:8px 8px 0 #2F6FB3;border-color:#2F6FB3;} .qcard.f{box-shadow:8px 8px 0 #1F9D62;border-color:#1F9D62;}
+.qcard.both{background:#0B0E14;color:#fff;border-color:#0B0E14;box-shadow:8px 8px 0 #4E8FD1;} .qcard.both .tag{background:#4E8FD1;color:#fff;}
+.qcard .tag{align-self:flex-start;} .qcard h3{font-size:22px;} .qcard p{color:#566072;flex:1;} .qcard.both p{color:rgba(255,255,255,.7);}
+.qcard.f .btn-primary{background:#1F9D62;} .qcard.f .btn-primary:hover{background:#17804A;}
+@media (max-width:900px){ .qgrid{grid-template-columns:1fr;} }
 /* laptop mock */
 .laptop{width:100%;max-width:520px;margin:0 auto;}
 .lscreen{background:#F4F5F7;border:10px solid #0B0E14;border-bottom-width:14px;border-radius:14px 14px 4px 4px;overflow:hidden;font-size:11px;color:#0B0E14;}
@@ -324,7 +332,7 @@
 <body>
 <div class="nav"><div class="navrow">
   <a href="/" class="navlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
-  <div class="navlinks"><a href="/projects.html" class="cur">Projects</a><a href="/finance.html">Finance</a><a href="/#ai">AI</a><a href="/#demo">Book a Demo</a></div>
+  <div class="navlinks"><a href="/projects.html" class="cur">Projects</a><a href="/finance.html">Finance</a><a href="/#ai">AI</a><a href="/#pricing">Pricing</a></div>
   <div class="navcta"><a href="/app.html" class="btn btn-glass btn-sm">Sign In</a><a href="/#demo" class="btn btn-primary btn-sm">Book a Demo</a></div>
 </div></div>
 <section class="hero phero p"><div class="wrap herogrid">
@@ -358,7 +366,7 @@
   <div class="flowlabel"><span><i class="kp"></i>Happens in OpHUB Projects</span><span><i class="kf"></i>Happens in OpHUB Finance</span></div>
   <div class="flows"><div class="flow"><div class="step p">Material request on site</div><div class="step p">PO priced from your price lists</div><div class="step f">Delivery booked and signed for</div><div class="step f">Supplier invoice read and matched</div><div class="step f">Cost on the job, live</div></div><div class="flow"><div class="step p">Variation raised on site</div><div class="step p">Priced and approved</div><div class="step f">Onto the next application</div><div class="step f">Certified and invoiced</div><div class="step f">Retention tracked to release</div></div><div class="flow"><div class="step p">Operatives check in by GPS</div><div class="step p">Hours and rates on the job</div><div class="step f">Subcontractor applications</div><div class="step f">CIS worked out</div><div class="step f">Labour cost on the job, live</div></div></div>
 </div></section>
-<section class="s-paper alt"><div class="wrap"><div class="finalcta"><h2>See the site side of OpHUB</h2><p>Book a demo and we'll walk through it from the operative, driver and PM side.</p><div class="herobtns"><a href="/#demo" class="btn btn-primary">Book a Demo</a><a href="/app.html" class="btn btn-glass">Sign In</a></div></div></div></section>
+<section class="s-paper alt"><div class="wrap"><div class="finalcta"><h2>See the site side of OpHUB</h2><p>Book a demo, or ask for a quote for your team.</p><div class="herobtns"><a href="/#demo" class="btn btn-primary">Book a Demo</a><a href="/?quote=projects#demo" class="btn btn-glass">Get A Quote</a></div></div></div></section>
 <footer><div class="wrap"><div class="footrow">
   <a href="/" class="footlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
   <div class="footlinks"><a href="/projects.html">OpHUB Projects</a><a href="/finance.html">OpHUB Finance</a><a href="/#ai">AI</a><a href="/#demo">Book a Demo</a><a href="/app.html">Sign In</a><a href="/privacy.html">Privacy</a><a href="mailto:sales@operativehub.co.uk">Contact</a></div>
