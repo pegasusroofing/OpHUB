@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><title>Home map styles</title>
+<!-- Andy, 14 Nov 2026: "the map on home screen is very plain ... what other maps can you offer me?" The same two sites in
+     each style, to choose from. Free styles from OpenFreeMap (no key, fine for business use), satellite from Esri. -->
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+  body{margin:0;padding:24px;background:#EEF1F4;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#111318;}
+  h1{font-size:22px;margin:0 0 4px;} p.sub{margin:0 0 18px;color:#566072;font-size:14px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .card{background:#fff;border:1px solid #E3E7EE;border-radius:12px;padding:12px;}
+  .card h2{font-size:16px;margin:2px 4px 8px;} .map{width:100%;}
+  .map{height:330px;border-radius:10px;overflow:hidden;}
+  .pin{width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--c);border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);}
+</style></head><body>
+<h1>Home map: pick a style</h1><p class="sub">The same two live sites (Studley Rd, SW4 and Cleveland Rd, Ilford) in each style. The pins stay green.</p>
+<div class="grid" id="g"></div>
+<script>
+const SITES = [[-0.1279, 51.4706], [0.0715, 51.5583]];
+const STYLES = [
+  ['1', 'Grey (now)', 'Liberty in grey: what Home shows today', 'https://tiles.openfreemap.org/styles/liberty', true],
+  ['2', 'Liberty in colour', 'The same map with its colours back: green parks, blue water, yellow main roads', 'https://tiles.openfreemap.org/styles/liberty'],
+  ['3', 'Bright', 'More detail and stronger roads, like a road atlas', 'https://tiles.openfreemap.org/styles/bright'],
+  ['4', 'Positron', 'Light and clean, roads in white on pale grey; the pins stand out most', 'https://tiles.openfreemap.org/styles/positron'],
+  ['5', 'Dark', 'Dark background with light roads, like the website hero', 'https://tiles.openfreemap.org/styles/dark'],
+  ['6', 'Satellite', 'Aerial photos (Esri); see the actual roofs. Needs a free account to use in the app', {version: 8, sources: {s: {type: 'raster', tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], tileSize: 256, attribution: 'Esri'}}, layers: [{id: 's', type: 'raster', source: 's'}]}],
+];
+const g = document.getElementById('g');
+STYLES.forEach(([n, name, sub]) => { const c = document.createElement('div'); c.className = 'card'; c.innerHTML = `<h2>${n}. ${name}</h2><p style="margin:-4px 4px 8px;font-size:12.5px;color:#566072">${sub}</p><div class="map" id="m${n}"></div>`; g.appendChild(c); });
+// Draw the maps once the cards have their full width.
+requestAnimationFrame(() => STYLES.forEach(([n, name, sub, style, grey]) => {
+  const map = new maplibregl.Map({container: 'm' + n, style, bounds: [[-0.20, 51.44], [0.12, 51.59]], fitBoundsOptions: {padding: 30}, attributionControl: false, interactive: false, preserveDrawingBuffer: true});
+  if (grey) map.on('load', () => { const cv = document.querySelector('#m' + n + ' canvas'); if (cv) cv.style.filter = 'grayscale(1)'; });
+  map.on('load', () => map.resize());
+  SITES.forEach((p) => { const el = document.createElement('div'); el.className = 'pin'; el.style.setProperty('--c', '#1F9D62'); new maplibregl.Marker({element: el, anchor: 'bottom'}).setLngLat(p).addTo(map); });
+}));
+</script></body></html>
