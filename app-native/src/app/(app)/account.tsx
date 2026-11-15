@@ -47,6 +47,8 @@ export default function Account() {
           if (err) { toast(err); return; } toast('Phone number saved'); void refresh();
         }} />
         <Button kind="ghost" title={me.signature_path ? '✍ My Signature' : '✍ Adopt My Signature'} onPress={() => router.push('/signature')} />
+        {/* Everyone's own HR folder (Andy, 14 Nov 2026). */}
+        {me.role !== 'client' && !me.role.startsWith('subcontractor') && <Button kind="ghost" title="📁 My Employee Record" onPress={() => router.push('/myrecord' as never)} />}
         {finHasAccess(me, org) && (
           <Pressable onPress={async () => {
             const r = await supabase.from('profiles').update({ finance_hidden: finShown } as never).eq('id', me.id);

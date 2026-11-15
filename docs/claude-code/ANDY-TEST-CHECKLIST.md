@@ -239,6 +239,11 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
     - Dashboards › Operatives: the two Training Matrix exports as a footer, half each; no Operative Tools list;
     - an operative's page: + Add Certificate, OneDrive under Certificates, more room above Tools and Subcontractor Form, no matrix export.
 
+76. HR › Employee Records (built 15 Nov). To try:
+    - as admin: HR › Employee Records lists everyone with what needs sorting; set Appraisals Come Round; open someone: Details (Edit Employment: job title, type, start, probation, line manager, right to work), Documents (each folder lists what should be on file, Not On File / On File / Expiring Soon / Expired / New One Due; tap one to upload it; Can They See It? Yes / No), Performance (Start An Appraisal, goals with ideas, feedback), Bonus, History;
+    - as anyone: Settings › 📁 My Employee Record: update your details and emergency contact, add your own ID / licences / health papers, download payslips, read policies, fill in your side of an appraisal;
+    - a line manager (set on someone's Employment) sees that person's Performance side only.
+
 ## To discuss with Andy
 - ~~OneDrive and the full job set-up~~: talked through and built 8 Nov 2026 (item 55).
 - Sort out plots: how multi-site (multi-plot) jobs should work (Andy, 2 Nov 2026; asked again 5 Nov 2026: "we need to discuss and sort plots out"). Bring this up before Finance is signed off. Plots show today on BoQ lines and as a column on PO lines (only when the project has plots).

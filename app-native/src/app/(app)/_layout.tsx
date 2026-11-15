@@ -124,6 +124,7 @@ export default function AppLayout() {
       <Tabs.Screen name="inbox" options={{ ...(extra && !desk ? { tabBarIcon: icon('chat'), tabBarLabel: 'Inbox', tabBarBadge: inboxN || undefined } : hidden), title: 'Messages & tasks' }} />
       <Tabs.Screen name="getting-started" options={{ ...hidden, title: 'Getting Started' }} />
       <Tabs.Screen name="signature" options={{ ...hidden, title: 'My Signature' }} />
+      <Tabs.Screen name="myrecord" options={{ ...hidden, title: 'My Employee Record' }} />
       <Tabs.Screen name="search" options={{ ...hidden, title: 'Search' }} />
       <Tabs.Screen name="subform" options={{ ...hidden, title: 'Subcontractor form' }} />
       <Tabs.Screen name="yardcount" options={{ ...hidden, title: 'Yard Stock Take' }} />
