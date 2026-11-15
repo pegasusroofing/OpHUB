@@ -3,8 +3,12 @@
 // one company Microsoft sign-in, which can see the HR folder. So the OneDrive server functions lock it: the HR folder
 // HR › HR Access links to (hr_secure_settings.onedrive), and everything inside it, is left out of folder lists and
 // can't be listed, opened or saved into by anyone HR Access doesn't let in (hr_is_team(), asked as the caller).
-// onedrive-list-folders, onedrive-download-file and onedrive-upload carry an exact copy of the block
-// below (Deno can't import from the app); hrLock.test.ts checks every copy matches this one.
+// onedrive-list-folders, onedrive-download-file, onedrive-upload, quote-tracker, sync-material-orders and
+// sync-certifications carry an exact copy of the block below (Deno can't import from the app); hrLock.test.ts checks
+// every copy matches this one.
+// Review 15 Nov 2026 (section 3 #5): when Microsoft can't say where the HR folder is, hrLockFor throws HrLockUnknown and
+// the function refuses with HR_TRY_AGAIN, rather than letting a request inside the HR folder through. A 404 for the HR
+// folder means it's gone: no lock. hrHolds stops a move or copy carrying the HR folder along inside another folder.
 // ---- HR folder lock ----
 export type HrLock = { id: string; driveId: string | null; path: string | null };
 type HrRef = { driveId?: string; path?: string } | undefined;
@@ -38,6 +42,18 @@ export function hrInside(lock: HrLock | null, it: HrItem): boolean {
   const pp = hrNorm(src.parentReference?.path);
   return pp !== null && hrPathInside(lock, src.parentReference?.driveId, `${pp}/${String(src.name ?? it.name ?? '').toLowerCase()}`);
 }
+/** Would moving or copying this item carry the HR folder along (it is the HR folder, inside it, or holds it)? */
+export function hrHolds(lock: HrLock | null, it: HrItem): boolean {
+  if (!lock || !it) return false;
+  if (hrInside(lock, it)) return true;
+  if (lock.path === null) return false;
+  const src = it.remoteItem?.parentReference ? it.remoteItem : it;
+  const pp = hrNorm(src.parentReference?.path);
+  if (pp === null) return false;
+  const d = src.parentReference?.driveId;
+  if (lock.driveId && d && d !== lock.driveId) return false;
+  return lock.path.startsWith(`${pp}/${String(src.name ?? it.name ?? '').toLowerCase()}/`);
+}
 /** One folder's contents from Graph: is that folder the HR folder or inside it? */
 export function hrListingInside(lock: HrLock | null, parentId: string | null | undefined, children: HrItem[]): boolean {
   if (!lock) return false;
@@ -55,18 +71,33 @@ export async function hrLockFor(db: HrDb, orgId: string, msToken: string, supaba
     if (r.ok && (await r.json().catch(() => false)) === true) return null;
   } catch { /* not let in */ }
   const lock: HrLock = { id: od.id, driveId: od.driveId || null, path: null };
-  try {
-    const g = 'https://graph.microsoft.com/v1.0';
-    const u = od.driveId ? `${g}/drives/${encodeURIComponent(od.driveId)}/items/${encodeURIComponent(od.id)}` : `${g}/me/drive/items/${encodeURIComponent(od.id)}`;
-    const r = await fetch(`${u}?$select=id,name,parentReference,root`, { headers: { Authorization: `Bearer ${msToken}` } });
-    if (r.ok) {
-      const it = (await r.json()) as { name?: string; root?: unknown; parentReference?: { driveId?: string; path?: string } };
-      lock.driveId = it.parentReference?.driveId || lock.driveId;
-      const pp = hrNorm(it.parentReference?.path);
-      lock.path = it.root ? '' : pp === null ? null : `${pp}/${String(it.name ?? '').toLowerCase()}`;
-    }
-  } catch { /* the id check still applies */ }
+  const g = 'https://graph.microsoft.com/v1.0';
+  const u = od.driveId ? `${g}/drives/${encodeURIComponent(od.driveId)}/items/${encodeURIComponent(od.id)}` : `${g}/me/drive/items/${encodeURIComponent(od.id)}`;
+  let r: Response;
+  try { r = await fetch(`${u}?$select=id,name,parentReference,root`, { headers: { Authorization: `Bearer ${msToken}` } }); } catch { throw new HrLockUnknown(); }
+  if (r.status === 404) return null; // the HR folder is gone: nothing to lock
+  if (!r.ok) throw new HrLockUnknown();
+  const it = (await r.json().catch(() => null)) as { name?: string; root?: unknown; parentReference?: { driveId?: string; path?: string } } | null;
+  if (!it) throw new HrLockUnknown();
+  lock.driveId = it.parentReference?.driveId || lock.driveId;
+  const pp = hrNorm(it.parentReference?.path);
+  lock.path = it.root ? '' : pp === null ? null : `${pp}/${String(it.name ?? '').toLowerCase()}`;
   return lock;
 }
+/** A OneDrive item by id, for the checks above: null if it doesn't exist; HrLockUnknown if Microsoft doesn't answer. */
+export async function hrItem(msToken: string, driveId: string | null | undefined, itemId: string): Promise<HrItem> {
+  const g = 'https://graph.microsoft.com/v1.0';
+  const u = driveId ? `${g}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}` : `${g}/me/drive/items/${encodeURIComponent(itemId)}`;
+  let r: Response;
+  try { r = await fetch(`${u}?$select=id,name,parentReference,remoteItem,root`, { headers: { Authorization: `Bearer ${msToken}` } }); } catch { throw new HrLockUnknown(); }
+  if (r.status === 404) return null;
+  if (!r.ok) throw new HrLockUnknown();
+  const it = (await r.json().catch(() => null)) as HrItem;
+  if (!it) throw new HrLockUnknown();
+  return it;
+}
 export const HR_LOCKED = 'This is in the HR folder. Only the people HR › HR Access lets in can open it.';
+export const HR_TRY_AGAIN = 'OneDrive didn’t answer about the HR folder, so this has been held back. Please try again in a minute.';
+/** Microsoft couldn't say where the HR folder (or an item) is: refuse with HR_TRY_AGAIN. */
+export class HrLockUnknown extends Error { constructor() { super(HR_TRY_AGAIN); this.name = 'HrLockUnknown'; } }
 // ---- end HR folder lock ----

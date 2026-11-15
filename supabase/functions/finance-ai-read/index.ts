@@ -11,6 +11,9 @@ const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 const API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || '';
 const MODEL = Deno.env.get('ANTHROPIC_MODEL') || 'claude-opus-5-5';
+// Daily spending cap (review 15 Nov 2026, section 3 #6), like rams-ai-draft: 150 reads a day per company, each one
+// logged in ai_usage_log (a failed read still counts: it was still paid for).
+const DAILY = 150;
 
 const SCHEMA = {
   type: 'object',
@@ -55,6 +58,9 @@ Deno.serve(async (req) => {
     if (!u?.user) return json({ error: 'Please sign in again' }, 401);
     const { data: me } = await admin.from('profiles').select('org_id, finance_enabled').eq('id', u.user.id).maybeSingle();
     if (!me || !me.finance_enabled) return json({ error: 'Finance access only' }, 403);
+    const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const { count: usedToday } = await admin.from('ai_usage_log').select('id', { count: 'exact', head: true }).eq('org_id', me.org_id).eq('fn', 'finance-ai-read').gte('created_at', since);
+    if ((usedToday || 0) >= DAILY) return json({ error: `The AI reader has been used ${DAILY} times today — try again tomorrow.` }, 429);
     const body = await req.json().catch(() => ({}));
     const kind = body.kind === 'quote' ? 'quote' : 'invoice';
     const content: any[] = [];
@@ -81,8 +87,9 @@ Deno.serve(async (req) => {
       body: JSON.stringify({ model: MODEL, max_tokens: 8000, tools: [{ name: 'record_document', description: 'Record the document header and lines', input_schema: SCHEMA }], tool_choice: { type: 'auto' }, messages: [{ role: 'user', content }] }),
     });
     const j = await res.json().catch(() => ({}));
+    const tool = res.ok ? (j.content || []).find((c: any) => c.type === 'tool_use') : null;
+    await admin.from('ai_usage_log').insert({ org_id: me.org_id, user_id: u.user.id, fn: 'finance-ai-read', ok: !!tool, note: `${kind} · ${body.path ? 'file' : 'spreadsheet'}` }).then(undefined, () => undefined);
     if (!res.ok) return json({ error: 'Reader error: ' + (j?.error?.message || res.status) }, 502);
-    const tool = (j.content || []).find((c: any) => c.type === 'tool_use');
     if (!tool) return json({ error: 'Could not read the document' }, 422);
     return json({ ok: true, model: MODEL, data: tool.input });
   } catch (e) {

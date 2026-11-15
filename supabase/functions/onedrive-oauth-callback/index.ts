@@ -27,24 +27,15 @@ function htmlResponse(html: string, status = 200): Response {
   });
 }
 
-// #(onedrive-oauth-state-signing): mirrors onedrive-oauth-start's hmacSign.
-// The state param round-trips through Microsoft and back here, so it must
-// not be trusted unless its signature (over the exact payload string, keyed
-// by the server-only AZURE_CLIENT_SECRET) verifies -- otherwise anyone could
-// forge a state with someone else's org_id and get their own OneDrive
-// tokens upserted into that org's connection row.
-async function hmacSign(secret: string, message: string): Promise<string> {
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const sigBuf = await crypto.subtle.sign('HMAC', key, enc.encode(message));
-  return btoa(String.fromCharCode(...new Uint8Array(sigBuf)));
-}
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let result = 0;
-  for (let i = 0; i < a.length; i++) result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return result === 0;
-}
+// The state param round-trips through Microsoft and back here. Since the
+// review of 15 Nov 2026 (section 3 #2) it is a random value that
+// onedrive-oauth-start saved in onedrive_oauth_states with the company and
+// the admin who clicked Connect. It is used once (deleted here before
+// anything else happens), must be under 15 minutes old, and the admin must
+// still be an admin of that company. The old signed states (no expiry) are
+// no longer accepted.
+const STATE_OK = /^[0-9a-f]{64}$/;
+const STATE_MAX_AGE_MS = 15 * 60 * 1000;
 
 // The page now uses the hosted OpHUB mark (same image every OpHUB email
 // uses) instead of an inline base64 copy.
@@ -117,25 +108,27 @@ Deno.serve(async (req) => {
       return htmlResponse(fallbackHtmlPage({ kind: 'error', title: 'Admin consent failed', body: 'Microsoft reported: ' + String(adminConsentError).slice(0, 200) + '. Make sure you approved the consent screen while signed in as a Global Admin of the organisation.' }));
     }
 
-    let orgId, native = false, origin = null, ret: string | null = null;
-    if (stateRaw) {
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
+
+    let orgId: string | undefined, native = false, origin: string | null = null, ret: string | null = null;
+    if (stateRaw && STATE_OK.test(stateRaw)) {
       try {
-        const outer = JSON.parse(atob(stateRaw));
-        const AZURE_CLIENT_SECRET = Deno.env.get('AZURE_CLIENT_SECRET');
-        if (outer && typeof outer.p === 'string' && typeof outer.s === 'string' && AZURE_CLIENT_SECRET) {
-          const expectedSig = await hmacSign(AZURE_CLIENT_SECRET, outer.p);
-          if (timingSafeEqual(expectedSig, outer.s)) {
-            const parsed = JSON.parse(outer.p);
-            orgId = parsed.org_id;
-            native = !!parsed.native;
-            origin = typeof parsed.origin === 'string' && allowedReturnOrigin(parsed.origin) ? parsed.origin : null;
-            ret = okRet(parsed.ret) ? parsed.ret : null;
-          }
-          // signature mismatch: orgId stays undefined -> falls through to the
-          // 'invalid_state' error below, same as an unparseable state today.
+        const { data: st } = await admin.from('onedrive_oauth_states').select('*').eq('state', stateRaw).maybeSingle();
+        if (st) {
+          // Single use: gone before anything else, whatever happens next.
+          await admin.from('onedrive_oauth_states').delete().eq('state', stateRaw);
+          native = !!st.native;
+          origin = typeof st.origin === 'string' && allowedReturnOrigin(st.origin) ? st.origin : null;
+          ret = okRet(st.ret) ? st.ret : null;
+          const fresh = Date.now() - new Date(st.created_at).getTime() <= STATE_MAX_AGE_MS;
+          const { data: who } = await admin.from('profiles').select('role, org_id').eq('id', st.user_id).maybeSingle();
+          if (fresh && who && who.role === 'admin' && who.org_id === st.org_id) orgId = st.org_id;
         }
-      } catch (e) { /* handled below */ }
+      } catch (e) { console.error('onedrive-oauth-callback: state check failed', e); }
     }
+    // An unknown, used, expired or no-longer-admin state leaves orgId unset -> 'invalid_state' below.
     const deepLink = (kind: string, msg: string) => native ? `ophub://onedrive-callback?status=${kind}&msg=${encodeURIComponent(msg)}` : null;
     // #(onedrive-callback-app-html-path): 2026-09-13 -- the client only ever
     // sent the bare origin (e.g. https://www.operativehub.co.uk), but the
@@ -160,8 +153,6 @@ Deno.serve(async (req) => {
     if (error) return sendBack('error', error);
     if (!code || !stateRaw || !orgId) return sendBack('error', 'invalid_state');
 
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const AZURE_CLIENT_ID = Deno.env.get('AZURE_CLIENT_ID')!;
     const AZURE_CLIENT_SECRET = Deno.env.get('AZURE_CLIENT_SECRET')!;
     const redirectUri = `${SUPABASE_URL}/functions/v1/onedrive-oauth-callback`;
@@ -186,7 +177,6 @@ Deno.serve(async (req) => {
       if (meRes.ok) { const me = await meRes.json(); accountEmail = me.mail || me.userPrincipalName || null; }
     } catch (_e) { /* non-fatal */ }
 
-    const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
     const expiresAt = new Date(Date.now() + (tokenData.expires_in || 3600) * 1000).toISOString();
     await admin.from('onedrive_connections').upsert({
       org_id: orgId,

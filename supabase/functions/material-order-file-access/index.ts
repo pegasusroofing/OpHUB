@@ -46,6 +46,15 @@ function withCors(handler: (req: Request) => Response | Promise<Response>) {
 }
 // ---- end CORS allow-list ----
 
+// The file must sit in the folder of the site / to-do / company / person that
+// was checked above, not just have a row naming it: a row can be written by
+// the app, so a row pointing at another company's path is refused here
+// (review 15 Nov 2026, section 3 #4). No climbing out of the folder.
+function pathInFolder(p: unknown, folder: string): boolean {
+  const s = String(p || '');
+  return !!folder && s.startsWith(folder + '/') && !s.includes('\\') && !s.split('/').some((seg) => seg === '' || seg === '.' || seg === '..');
+}
+
 Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
@@ -75,6 +84,7 @@ Deno.serve(withCors(async (req) => {
 
     const { data: fileRow } = await admin.from('material_order_files').select('id, storage_path').eq('site_id', site_id).eq('storage_path', storage_path).maybeSingle();
     if (!fileRow) return new Response(JSON.stringify({ error: 'File not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (!pathInFolder(fileRow.storage_path, String(site.id))) return new Response(JSON.stringify({ error: 'File not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     const { data: signed, error: signErr } = await admin.storage.from('material-orders').createSignedUrl(storage_path, 300);
     if (signErr) { console.error('material-order-file-access: sign failed', signErr.message); return new Response(JSON.stringify({ error: 'Could not open that file right now — please try again.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }); }

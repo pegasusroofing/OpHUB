@@ -56,6 +56,13 @@ const SCOPES = Deno.env.get('XERO_SCOPES') || 'openid profile email offline_acce
 const PAYROLL = 'https://api.xero.com/payroll.xro/2.0';
 const API = 'https://api.xero.com/api.xro/2.0';
 
+// Finance is on TRIAL (src/js/9219e-finance-trial.js, app-native lib/rules/finance.ts, finance-inbox): while it is,
+// nothing goes out from Finance except for the sandbox company. Enforced here as well as in the apps (review 15 Nov
+// 2026, section 3 #7), so calling this function directly doesn't get round it. Switch off with the app's FIN_TRIAL.
+const FIN_TRIAL = true;
+const FIN_SANDBOX_ORGS = ['2eb072b7-2704-48c0-8110-62e45e621ded'];
+const FIN_TRIAL_MSG = 'Finance trial — switched off while testing';
+
 const admin = createClient(SB_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { autoRefreshToken: false, persistSession: false } });
 
 const r2 = (n: unknown) => Math.round((Number(n) || 0) * 100) / 100;
@@ -178,7 +185,11 @@ Deno.serve(withCors(async (req) => {
   const url = new URL(req.url);
   try {
     if (req.method === 'GET') return await callback(url);
-  } catch (e) { return text('Could not connect to Xero: ' + String((e as Error).message || e), 500); }
+  } catch (e) {
+    // The server's own wording stays in the log (review 15 Nov 2026, section 3 #9).
+    console.error('xero callback failed', e);
+    return text('Could not connect to Xero. Start again from OpHUB › Finance › Settings.', 500);
+  }
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
 
   try {
@@ -192,6 +203,7 @@ Deno.serve(withCors(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body.action || '');
     const configured = !!(CLIENT_ID && CLIENT_SECRET);
+    if (FIN_TRIAL && !FIN_SANDBOX_ORGS.includes(orgId) && ['push_invoice', 'push_bill', 'push_sub_payment'].includes(action)) return json({ error: FIN_TRIAL_MSG }, 403);
 
     if (action === 'status') {
       const { data: c } = await admin.from('xero_connections').select('tenant_name, connected_at').eq('org_id', orgId).maybeSingle();

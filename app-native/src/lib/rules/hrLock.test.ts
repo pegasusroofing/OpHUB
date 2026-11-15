@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { hrInside, hrListingInside, hrNorm, hrPathInside, hrRel, type HrLock } from './hrLock.ts';
+import { HR_TRY_AGAIN, hrHolds, hrInside, hrItem, hrListingInside, hrLockFor, HrLockUnknown, hrNorm, hrPathInside, hrRel, type HrLock } from './hrLock.ts';
 
 const lock: HrLock = { id: 'HR1', driveId: 'D1', path: '/company/hr private' };
 const item = (id: string, name: string, path: string, driveId = 'D1') => ({ id, name, parentReference: { driveId, path } });
@@ -56,8 +56,63 @@ test('every server function carries the same lock as the app', () => {
     return s.slice(a, b).replace(/\r\n/g, '\n');
   };
   const mine = block(readFileSync(new URL('./hrLock.ts', import.meta.url), 'utf8'));
-  for (const fn of ['onedrive-list-folders', 'onedrive-download-file', 'onedrive-upload']) {
+  for (const fn of ['onedrive-list-folders', 'onedrive-download-file', 'onedrive-upload', 'quote-tracker', 'sync-material-orders', 'sync-certifications']) {
     const file = new URL(`../../../../supabase/functions/${fn}/index.ts`, import.meta.url);
     assert.equal(block(readFileSync(file, 'utf8')), mine, fn);
   }
+});
+
+test('a move or copy that would carry the HR folder along is caught', () => {
+  assert.equal(hrHolds(lock, item('C', 'Company', '/drives/D1/root:')), true, 'the folder the HR folder sits in');
+  assert.equal(hrHolds(lock, item('HR1', 'HR Private', '/drives/D1/root:/Company')), true, 'the HR folder itself');
+  assert.equal(hrHolds(lock, item('X', 'Andy', '/drives/D1/root:/Company/HR Private')), true, 'inside it');
+  assert.equal(hrHolds(lock, item('X', 'Comp', '/drives/D1/root:')), false, 'a folder whose name only starts the same');
+  assert.equal(hrHolds(lock, item('X', 'Jobs', '/drives/D1/root:/Company')), false, 'a neighbour');
+  assert.equal(hrHolds(lock, item('C', 'Company', '/drives/D2/root:', 'D2')), false, 'same path in another drive');
+  assert.equal(hrHolds({ ...lock, path: null }, item('C', 'Company', '/drives/D1/root:')), false, 'path unknown: only the id check');
+  assert.equal(hrHolds(null, item('C', 'Company', '/drives/D1/root:')), false);
+});
+
+// hrLockFor and hrItem ask Microsoft; fetch is stood in for here.
+const db = (onedrive: unknown) => ({ from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { onedrive } }) }) }) }) });
+async function withFetch<T>(graph: (url: string) => Response | Promise<Response>, run: () => Promise<T>): Promise<T> {
+  const real = globalThis.fetch;
+  globalThis.fetch = (async (u: string | URL | Request) => {
+    const url = String(u);
+    if (url.includes('/rpc/hr_is_team')) return new Response('false', { status: 200 });
+    return graph(url);
+  }) as typeof fetch;
+  try { return await run(); } finally { globalThis.fetch = real; }
+}
+const lockFor = () => hrLockFor(db({ id: 'HR1', driveId: 'D1' }), 'O1', 'ms', 'https://x.supabase.co', 'anon', 'user');
+
+test('the HR folder found: locked by id and path', async () => {
+  const l = await withFetch(() => Response.json({ id: 'HR1', name: 'HR Private', parentReference: { driveId: 'D1', path: '/drives/D1/root:/Company' } }), lockFor);
+  assert.deepEqual(l, { id: 'HR1', driveId: 'D1', path: '/company/hr private' });
+});
+
+test('the HR folder gone (404): no lock', async () => {
+  assert.equal(await withFetch(() => new Response('{}', { status: 404 }), lockFor), null);
+});
+
+test('Microsoft not answering: refused with "try again", never let through', async () => {
+  for (const graph of [() => new Response('{}', { status: 503 }), () => new Response('{}', { status: 401 }), () => { throw new Error('network'); }, () => new Response('not json', { status: 200 })]) {
+    await assert.rejects(withFetch(graph, lockFor), (e: unknown) => e instanceof HrLockUnknown && (e as Error).message === HR_TRY_AGAIN);
+  }
+});
+
+test('no HR folder set, or the caller is let in: no lock and Microsoft is not asked', async () => {
+  let asked = 0;
+  assert.equal(await withFetch(() => { asked++; return new Response('{}'); }, () => hrLockFor(db(null), 'O1', 'ms', 'https://x', 'a', 'u')), null);
+  const real = globalThis.fetch;
+  globalThis.fetch = (async (u: string | URL | Request) => { if (String(u).includes('/rpc/hr_is_team')) return new Response('true'); asked++; return new Response('{}'); }) as typeof fetch;
+  try { assert.equal(await lockFor(), null); } finally { globalThis.fetch = real; }
+  assert.equal(asked, 0);
+});
+
+test('an item looked up for a check', async () => {
+  const it = await withFetch(() => Response.json({ id: 'X', name: 'a.pdf', parentReference: { driveId: 'D1', path: '/drives/D1/root:/Company/HR Private' } }), () => hrItem('ms', 'D1', 'X'));
+  assert.equal(hrInside(lock, it), true);
+  assert.equal(await withFetch(() => new Response('{}', { status: 404 }), () => hrItem('ms', 'D1', 'X')), null);
+  await assert.rejects(withFetch(() => new Response('{}', { status: 500 }), () => hrItem('ms', null, 'X')), HrLockUnknown);
 });

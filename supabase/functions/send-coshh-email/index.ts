@@ -200,14 +200,14 @@ function ophubRows(rows: [string, unknown][]): string {
 
 // "Email All Signed COSHH" — sends every currently-signed COSHH document at a
 // site as its own separate PDF attachment, all in a single email to the PM/
-// admin who is currently logged in (CC'd to a fixed company address).
+// admin who is currently logged in (CC'd to the company's report_cc_email, if set).
 // Mirrors send-havs-email's site validation but takes a bulk attachments
 // array like send-report-email's bulk shape (COSHH PDFs aren't tied to a
 // report_submissions row).
 //
 // Optional client_cc_email: the "CC client contact" tick box passes the
 // site's client_email here when checked; merged alongside the fixed
-// REPORT_CC_EMAIL cc, deduped against the To and against each other.
+// company's report_cc_email copy, deduped against the To and against each other.
 Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
@@ -252,7 +252,7 @@ Deno.serve(withCors(async (req) => {
     const sentToday = await emailSendsSince(admin, 'send-coshh-email', 'sender_id', userData.user.id, 24 * 60);
     if (sentToday != null && sentToday >= 60) return new Response(JSON.stringify({ error: 'You’ve reached today’s limit of 60 emails — try again tomorrow.' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-    const { data: org } = await admin.from('organizations').select('name, color_primary, logo_path').eq('id', caller.org_id).maybeSingle();
+    const { data: org } = await admin.from('organizations').select('name, color_primary, logo_path, report_cc_email').eq('id', caller.org_id).maybeSingle();
     const companyName = org?.name || 'OpHUB';
 
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
@@ -260,7 +260,9 @@ Deno.serve(withCors(async (req) => {
     if (!RESEND_API_KEY) {
       return new Response(JSON.stringify({ error: 'Email sending is not configured yet (missing RESEND_API_KEY secret).' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    const ccEmail = Deno.env.get('REPORT_CC_EMAIL') || 'andy.cramp@rtbroofinglimited.com';
+    // Office copy: the caller's own company's address (organizations.report_cc_email), if it has one.
+    // Never one fixed address for every company (review 15 Nov 2026, section 3 #1).
+    const ccEmail = EMAIL_OK.test(lc(org?.report_cc_email)) ? lc(org?.report_cc_email) : '';
     const toEmail = caller.email;
 
     const docCount = attachments.length;

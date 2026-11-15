@@ -30,6 +30,9 @@ function withCors(handler: (req: Request) => Promise<Response>) {
     return new Response(res.body, { status: res.status, headers });
   };
 }
+// Review 15 Nov 2026 (section 3 #5): a whole drive can't be the HR folder. HR files would land at its top, and the HR
+// lock would shut everyone else out of all of it. And { doc_ids } skips documents already copied.
+const ROOT_REFUSED = 'The HR folder chosen is the whole of a OneDrive, not a folder in it. Choose a folder for HR in HR › HR Access.';
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
 const FOLDERS: Record<string, string> = {
@@ -119,7 +122,7 @@ Deno.serve(withCors(async (req) => {
       const G = 'https://graph.microsoft.com/v1.0';
       const item = od.driveId ? `${G}/drives/${encodeURIComponent(od.driveId)}/items/${encodeURIComponent(od.id)}` : `${G}/me/drive/items/${encodeURIComponent(od.id)}`;
       const [m, p] = await Promise.all([
-        fetch(`${item}?$select=id,name,webUrl,parentReference`, { headers: { Authorization: `Bearer ${t}` } }),
+        fetch(`${item}?$select=id,name,webUrl,parentReference,root`, { headers: { Authorization: `Bearer ${t}` } }),
         fetch(`${item}/permissions`, { headers: { Authorization: `Bearer ${t}` } }),
       ]);
       if (!m.ok) {
@@ -127,6 +130,7 @@ Deno.serve(withCors(async (req) => {
           error: m.status === 404 ? 'OpHUB can’t find this folder any more. It may have been deleted or moved to another drive. Choose it again.' : 'OpHUB can’t reach this folder with the company Microsoft sign-in.' });
       }
       const it = await m.json();
+      if (it.root) return json({ ok: true, folder: { name: it.name || od.name || 'HR folder', webUrl: it.webUrl || null }, account: c.account_email || null, error: ROOT_REFUSED });
       const perms = p.ok ? ((await p.json()).value || []) as Perm[] : null;
       return json({ ok: true, folder: { name: it.name, webUrl: it.webUrl || null }, account: c.account_email || null,
         shared: perms ? perms.map(permRow) : null, sharedError: perms ? null : 'OneDrive wouldn’t say who it’s shared with.' });
@@ -139,8 +143,8 @@ Deno.serve(withCors(async (req) => {
       const { data } = await admin.from('hr_docs').select('id').eq('org_id', orgId).is('onedrive_copied_at', null).limit(500);
       ids = (data ?? []).map((d: { id: string }) => d.id);
     } else if (Array.isArray(body.doc_ids)) {
-      // Only documents the caller can read themselves.
-      const { data } = await asUser.from('hr_docs').select('id').in('id', body.doc_ids.slice(0, 50).map(String));
+      // Only documents the caller can read themselves, and not copied already.
+      const { data } = await asUser.from('hr_docs').select('id').in('id', body.doc_ids.slice(0, 50).map(String)).is('onedrive_copied_at', null);
       ids = (data ?? []).map((d: { id: string }) => d.id);
     }
     if (!ids.length) return json({ ok: true, copied: 0 });
@@ -148,6 +152,14 @@ Deno.serve(withCors(async (req) => {
     const { data: conn } = await admin.from('onedrive_connections').select('*').eq('org_id', orgId).maybeSingle();
     if (!conn?.access_token) return json({ ok: true, copied: 0, skipped: 'not_connected' });
     const msToken = await refreshIfNeeded(admin, conn);
+    {
+      const G = 'https://graph.microsoft.com/v1.0';
+      const item = od.driveId ? `${G}/drives/${encodeURIComponent(od.driveId)}/items/${encodeURIComponent(od.id)}` : `${G}/me/drive/items/${encodeURIComponent(od.id)}`;
+      const r = await fetch(`${item}?$select=id,root`, { headers: { Authorization: `Bearer ${msToken}` } });
+      if (r.status === 404) return json({ ok: true, copied: 0, skipped: 'folder_gone' });
+      if (!r.ok) return json({ error: 'OneDrive didn’t answer. Please try again in a minute.' }, 503);
+      if ((await r.json().catch(() => ({})))?.root) return json({ error: ROOT_REFUSED }, 400);
+    }
     const { data: docs } = await admin.from('hr_docs').select('id,org_id,user_id,folder,title,file_name,storage_path').in('id', ids).eq('org_id', orgId);
     // Only files in that person's own folder of the store.
     const own = (d: { org_id: string; user_id: string; storage_path: string }) => d.storage_path.startsWith(`${d.org_id}/${d.user_id}/`);

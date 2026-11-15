@@ -4,6 +4,100 @@ import { encodeBase64 } from 'jsr:@std/encoding@1/base64';
 import { autoDue, quoteReport, reportLabel, type AutoExport } from './quoteReports.ts';
 import { makeXlsx, reportSheet, type XCell } from './xlsx.ts';
 
+// HR folder lock: an exact copy of app-native/src/lib/rules/hrLock.ts (review 15 Nov 2026, section 3 #5).
+// ---- HR folder lock ----
+export type HrLock = { id: string; driveId: string | null; path: string | null };
+type HrRef = { driveId?: string; path?: string } | undefined;
+type HrItem = { id?: string; name?: string; parentReference?: HrRef; remoteItem?: { id?: string; name?: string; parentReference?: HrRef } } | null | undefined;
+type HrDb = { from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => { maybeSingle: () => PromiseLike<{ data: unknown }> } } } };
+/** A Graph parentReference.path ("/drives/x/root:/A/B") as "/a/b" ("" for the top of the drive); null if it isn't one. */
+export function hrNorm(p: unknown): string | null {
+  const s = String(p ?? '');
+  const i = s.indexOf('root:');
+  if (i < 0) return null;
+  let r = s.slice(i + 5);
+  try { r = decodeURIComponent(r); } catch { /* keep it as it is */ }
+  return r.replace(/\/+$/, '').toLowerCase();
+}
+/** A folder path relative to the top of a drive ("A/B/") the way hrNorm gives them ("/a/b"). */
+export function hrRel(p: string): string {
+  const parts = String(p ?? '').split('/').filter(Boolean);
+  return parts.length ? ('/' + parts.join('/')).toLowerCase() : '';
+}
+/** Is this folder (its drive and path, as hrNorm gives it) the HR folder or inside it? */
+export function hrPathInside(lock: HrLock | null, driveId: string | null | undefined, path: string | null): boolean {
+  if (!lock || lock.path === null || path === null) return false;
+  if (lock.driveId && driveId && driveId !== lock.driveId) return false;
+  return lock.path === '' || path === lock.path || path.startsWith(lock.path + '/');
+}
+/** Is this Graph item the HR folder or inside it? */
+export function hrInside(lock: HrLock | null, it: HrItem): boolean {
+  if (!lock || !it) return false;
+  if (it.id === lock.id || it.remoteItem?.id === lock.id) return true;
+  const src = it.remoteItem?.parentReference ? it.remoteItem : it;
+  const pp = hrNorm(src.parentReference?.path);
+  return pp !== null && hrPathInside(lock, src.parentReference?.driveId, `${pp}/${String(src.name ?? it.name ?? '').toLowerCase()}`);
+}
+/** Would moving or copying this item carry the HR folder along (it is the HR folder, inside it, or holds it)? */
+export function hrHolds(lock: HrLock | null, it: HrItem): boolean {
+  if (!lock || !it) return false;
+  if (hrInside(lock, it)) return true;
+  if (lock.path === null) return false;
+  const src = it.remoteItem?.parentReference ? it.remoteItem : it;
+  const pp = hrNorm(src.parentReference?.path);
+  if (pp === null) return false;
+  const d = src.parentReference?.driveId;
+  if (lock.driveId && d && d !== lock.driveId) return false;
+  return lock.path.startsWith(`${pp}/${String(src.name ?? it.name ?? '').toLowerCase()}/`);
+}
+/** One folder's contents from Graph: is that folder the HR folder or inside it? */
+export function hrListingInside(lock: HrLock | null, parentId: string | null | undefined, children: HrItem[]): boolean {
+  if (!lock) return false;
+  if (parentId && parentId === lock.id) return true;
+  return children.some((c) => hrPathInside(lock, c?.parentReference?.driveId, hrNorm(c?.parentReference?.path)));
+}
+/** The company's HR folder lock for this caller: null when there's no HR folder or HR Access lets them in. */
+export async function hrLockFor(db: HrDb, orgId: string, msToken: string, supabaseUrl: string, anonKey: string, userToken: string): Promise<HrLock | null> {
+  const { data } = await db.from('hr_secure_settings').select('onedrive').eq('org_id', orgId).maybeSingle();
+  const od = (data as { onedrive?: { id?: string; driveId?: string | null } | null } | null)?.onedrive;
+  if (!od?.id) return null;
+  // Asked as the caller, so it's the database's own rule.
+  try {
+    const r = await fetch(`${supabaseUrl}/rest/v1/rpc/hr_is_team`, { method: 'POST', headers: { Authorization: `Bearer ${userToken}`, apikey: anonKey, 'Content-Type': 'application/json' }, body: '{}' });
+    if (r.ok && (await r.json().catch(() => false)) === true) return null;
+  } catch { /* not let in */ }
+  const lock: HrLock = { id: od.id, driveId: od.driveId || null, path: null };
+  const g = 'https://graph.microsoft.com/v1.0';
+  const u = od.driveId ? `${g}/drives/${encodeURIComponent(od.driveId)}/items/${encodeURIComponent(od.id)}` : `${g}/me/drive/items/${encodeURIComponent(od.id)}`;
+  let r: Response;
+  try { r = await fetch(`${u}?$select=id,name,parentReference,root`, { headers: { Authorization: `Bearer ${msToken}` } }); } catch { throw new HrLockUnknown(); }
+  if (r.status === 404) return null; // the HR folder is gone: nothing to lock
+  if (!r.ok) throw new HrLockUnknown();
+  const it = (await r.json().catch(() => null)) as { name?: string; root?: unknown; parentReference?: { driveId?: string; path?: string } } | null;
+  if (!it) throw new HrLockUnknown();
+  lock.driveId = it.parentReference?.driveId || lock.driveId;
+  const pp = hrNorm(it.parentReference?.path);
+  lock.path = it.root ? '' : pp === null ? null : `${pp}/${String(it.name ?? '').toLowerCase()}`;
+  return lock;
+}
+/** A OneDrive item by id, for the checks above: null if it doesn't exist; HrLockUnknown if Microsoft doesn't answer. */
+export async function hrItem(msToken: string, driveId: string | null | undefined, itemId: string): Promise<HrItem> {
+  const g = 'https://graph.microsoft.com/v1.0';
+  const u = driveId ? `${g}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}` : `${g}/me/drive/items/${encodeURIComponent(itemId)}`;
+  let r: Response;
+  try { r = await fetch(`${u}?$select=id,name,parentReference,remoteItem,root`, { headers: { Authorization: `Bearer ${msToken}` } }); } catch { throw new HrLockUnknown(); }
+  if (r.status === 404) return null;
+  if (!r.ok) throw new HrLockUnknown();
+  const it = (await r.json().catch(() => null)) as HrItem;
+  if (!it) throw new HrLockUnknown();
+  return it;
+}
+export const HR_LOCKED = 'This is in the HR folder. Only the people HR › HR Access lets in can open it.';
+export const HR_TRY_AGAIN = 'OneDrive didn’t answer about the HR folder, so this has been held back. Please try again in a minute.';
+/** Microsoft couldn't say where the HR folder (or an item) is: refuse with HR_TRY_AGAIN. */
+export class HrLockUnknown extends Error { constructor() { super(HR_TRY_AGAIN); this.name = 'HrLockUnknown'; } }
+// ---- end HR folder lock ----
+
 // Quote tracker (1 Nov 2026). Called by a PM / admin from the app, or by the daily cron with x-cron-secret.
 //   { action: 'folder', quote_id }  makes the enquiry's OneDrive folder by copying the company's New Enquiry template.
 //   { action: 'file', quote_id }    a finished quote: moves its folder to the Estimating folder for the year it finished.
@@ -211,6 +305,20 @@ Deno.serve(async (req) => {
     const who = await (await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id,org_id,role,name,email&id=eq.${uid}`, { headers: { Authorization: `Bearer ${token}`, apikey: ANON } })).json().catch(() => []);
     const me = Array.isArray(who) ? who[0] : null;
     if (!me?.org_id || !['pm', 'admin'].includes(String(me.role))) return reply(req, { error: 'Project managers and admins only.' }, 403);
+    // HR folder lock (review 15 Nov 2026, section 3 #5): a OneDrive item the caller names (or a quote's folder about to be
+    // moved) is checked against the HR folder for anyone HR › HR Access doesn't let in. carry: a move or copy, so a
+    // folder holding the HR folder is refused too.
+    const hrRefuse = async (g: string, items: { drive: string | null; id: string }[], carry: boolean): Promise<Response | null> => {
+      try {
+        const lock = await hrLockFor(admin, me.org_id, g, SUPABASE_URL, ANON, token);
+        if (!lock) return null;
+        for (const i of items) {
+          const it = await hrItem(g, i.drive, i.id);
+          if (carry ? hrHolds(lock, it) : hrInside(lock, it)) return reply(req, { error: HR_LOCKED }, 403);
+        }
+        return null;
+      } catch (e) { if (e instanceof HrLockUnknown) return reply(req, { error: HR_TRY_AGAIN }, 503); throw e; }
+    };
 
     const body = await req.json().catch(() => ({}));
     // A job's estimating folder, chosen from OneDrive (Andy, 4 Nov 2026), e.g. for a job made in Finance. No quote needed.
@@ -225,6 +333,8 @@ Deno.serve(async (req) => {
       if (body.action === 'subfolder') {
         const name = seg(body.name), pid = String(body.parent_id || ''), pdrive = String(body.drive_id || '');
         if (!name || !pid || !pdrive) return reply(req, { error: 'Name the folder.' }, 400);
+        const hrNo = await hrRefuse(g, [{ drive: pdrive, id: pid }], false);
+        if (hrNo) return hrNo;
         const r = await fetch(`${at({ drive: pdrive, id: pid })}/children`, { method: 'POST', headers: { Authorization: `Bearer ${g}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name, folder: {}, '@microsoft.graph.conflictBehavior': 'rename' }) });
         if (!r.ok) { console.error('quote-tracker: new folder failed', r.status); return reply(req, { error: 'Could not make the folder.' }); }
         return reply(req, { ok: true, id: (await r.json().catch(() => ({})))?.id ?? null });
@@ -242,6 +352,8 @@ Deno.serve(async (req) => {
       let fdrive = String(body.drive_id || '') || null;
       if (!fdrive) fdrive = (await (await fetch(`${GRAPH}/me/drive/items/${encodeURIComponent(fid)}?select=parentReference`, { headers: { Authorization: `Bearer ${g}` } })).json().catch(() => ({})))?.parentReference?.driveId || null;
       if (!fdrive) return reply(req, { error: 'Could not find that folder in OneDrive.' });
+      const hrNo = await hrRefuse(g, [{ drive: fdrive, id: fid }], true);
+      if (hrNo) return hrNo;
       const to = await walk(g, { drive: site.job_pack.drive_id, id: site.job_pack.root_id }, cleanPath(st?.won_folder || '1. Contract & Commercial/2. Estimating'), true);
       if (!to) return reply(req, { error: 'Could not find the job’s estimating folder.' }, 502);
       const how = await moveFolder(g, { drive: fdrive, id: fid }, to);
@@ -287,6 +399,8 @@ Deno.serve(async (req) => {
       if (!EMAIL_OK.test(to)) return reply(req, { error: 'That email address doesn’t look right.' });
       const list = Array.isArray(body.files) ? body.files.slice(0, 20) : [];
       if (!list.length) return reply(req, { error: 'Tick the files to send.' });
+      const hrNo = await hrRefuse(graph, list.map((f: any) => ({ drive: String(f?.driveId || q.folder_drive_id || '') || null, id: String(f?.id || '') })), false);
+      if (hrNo) return hrNo;
       const KEY = Deno.env.get('RESEND_API_KEY');
       if (!KEY) return reply(req, { error: 'Email sending is not set up.' });
       const since = new Date(Date.now() - 864e5).toISOString();
@@ -318,6 +432,10 @@ Deno.serve(async (req) => {
       return reply(req, { ok: true });
     }
     if (!folder) return reply(req, { ok: true, skipped: 'no folder' });
+    if (['status', 'file', 'won'].includes(String(body.action))) {
+      const hrNo = await hrRefuse(graph, [folder], true);
+      if (hrNo) return hrNo;
+    }
 
     if (body.action === 'status') {
       if (q.filed_at || q.site_id) return reply(req, { ok: true, skipped: 'already filed' });

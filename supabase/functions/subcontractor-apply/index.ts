@@ -66,12 +66,21 @@ Deno.serve(async (req) => {
 
     if (body.action === 'org') return json({ name: org.name, logo: logoUrl, colour: org.color_primary || null });
 
-    // Simple per-IP rate limit (stops the public form being used to spam
-    // uploads or emails).
-    const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || req.headers.get('cf-connecting-ip') || 'unknown';
+    // Limits that stop the public form being used to spam uploads or emails
+    // (review 15 Nov 2026, section 3 #3): per connection, per company and per
+    // email address. The connection's address comes from the header our host
+    // sets (cf-connecting-ip), never the first X-Forwarded-For entry, which
+    // the caller can write themselves.
+    const xff = (req.headers.get('x-forwarded-for') || '').split(',').map((v) => v.trim()).filter(Boolean);
+    const ip = clip(req.headers.get('cf-connecting-ip') || xff[xff.length - 1] || 'unknown', 64);
     const hitsSince = async (action: string, mins: number) => {
       const { count } = await admin.from('subcontractor_apply_hits').select('id', { count: 'exact', head: true })
         .eq('ip', ip).eq('action', action).gte('created_at', new Date(Date.now() - mins * 60000).toISOString());
+      return count || 0;
+    };
+    const orgHitsSince = async (action: string, mins: number) => {
+      const { count } = await admin.from('subcontractor_apply_hits').select('id', { count: 'exact', head: true })
+        .eq('org_id', orgId).eq('action', action).gte('created_at', new Date(Date.now() - mins * 60000).toISOString());
       return count || 0;
     };
     const KEY_RE = /^[a-z0-9-]{8,40}$/i;
@@ -80,6 +89,7 @@ Deno.serve(async (req) => {
       const key = String(body.key || '');
       if (!KEY_RE.test(key)) return json({ error: 'Bad request' }, 400);
       if (await hitsSince('upload', 60) >= 20) return json({ error: 'Too many uploads from this connection — please try again in an hour.' }, 429);
+      if (await orgHitsSince('upload', 60) >= 100) return json({ error: 'Too many uploads to this company just now — please try again in an hour.' }, 429);
       const files = Array.isArray(body.files) ? body.files.slice(0, 20) : [];
       const out = [];
       for (const f of files) {
@@ -102,6 +112,14 @@ Deno.serve(async (req) => {
       const d = body.data || {};
       const company = clip(d.company_name, 160), contact = clip(d.contact_name, 120), email = clip(d.email, 160).toLowerCase();
       if (!company || !contact || !EMAIL.test(email)) return json({ error: 'Please fill in the company name, your name and a valid email.' }, 400);
+      // At most 30 forms a day to one company, and 3 a day from one email address (any company).
+      const daySince = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+      const [{ count: orgDay }, { count: emailDay }] = await Promise.all([
+        admin.from('subcontractor_applications').select('id', { count: 'exact', head: true }).eq('org_id', orgId).gte('created_at', daySince),
+        admin.from('subcontractor_applications').select('id', { count: 'exact', head: true }).eq('email', email).gte('created_at', daySince),
+      ]);
+      if ((orgDay || 0) >= 30) return json({ error: 'This company has had a lot of forms today — please try again tomorrow.' }, 429);
+      if ((emailDay || 0) >= 3) return json({ error: 'We already have forms from this email address today — please try again tomorrow.' }, 429);
       if (!clip(body.signed_name, 120) || !body.agree) return json({ error: 'Please tick the declaration and type your name to sign.' }, 400);
       // Only files this function itself issued upload slots for are accepted.
       const key = String(body.key || '');
@@ -140,11 +158,16 @@ Deno.serve(async (req) => {
           await fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ from: ophubFrom(FROM_EMAIL, org.name), to, subject: `New subcontractor application — ${company}`, html, text: `${company} has filled in your subcontractor sign-up form. Contact: ${contact} (${email}). Open OpHUB › Admin › Subcontractor applications.` }) }).catch(() => {});
         }
-        // And a copy to the applicant.
-        await fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ from: ophubFrom(FROM_EMAIL, org.name), to: [email], subject: `Thanks — your application to ${org.name}`,
-            html: ophubEmail({ company: org.name, brand: org.color_primary, logoUrl, kicker: 'Subcontractor sign-up', title: 'Application received', greeting: `Hi ${contact},`, intro: `Thanks for filling in the subcontractor form for ${org.name}. They'll be in touch.` }),
-            text: `Thanks for filling in the subcontractor form for ${org.name}. They'll be in touch.` }) }).catch(() => {});
+        // And a copy to the applicant. Fixed wording: nothing the form's sender
+        // typed goes into it, so the form can't be used to send someone else
+        // a message in the company's name. Logged like every other email.
+        const thanks = `Thanks for filling in the subcontractor form for ${org.name}. They'll be in touch.`;
+        const thanksSubject = `Thanks — your application to ${org.name}`;
+        const sent = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from: ophubFrom(FROM_EMAIL, org.name), to: [email], subject: thanksSubject,
+            html: ophubEmail({ company: org.name, brand: org.color_primary, logoUrl, kicker: 'Subcontractor sign-up', title: 'Application received', greeting: 'Hi,', intro: thanks }),
+            text: `Hi,\n\n${thanks}` }) }).then((r) => r.ok).catch(() => false);
+        if (sent) await admin.from('edge_email_log').insert({ fn: 'subcontractor-apply', sender_id: null, org_id: orgId, to_email: email, cc: [], subject: thanksSubject.slice(0, 300) }).then(undefined, () => undefined);
       }
       return json({ ok: true, id: row.id });
     }

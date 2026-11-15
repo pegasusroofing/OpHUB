@@ -53,6 +53,12 @@ async function logEmailSend(admin: any, row: { fn: string; sender_id?: string | 
     if (error) console.warn('edge_email_log: not logged -', error.message || error.code || error);
   } catch (e) { console.warn('edge_email_log: not logged -', e); }
 }
+// Finance is on TRIAL (src/js/9219e-finance-trial.js, app-native lib/rules/finance.ts, finance-inbox): while it is,
+// nothing goes out from Finance except for the sandbox company. Enforced here as well as in the apps (review 15 Nov
+// 2026, section 3 #7), so calling this function directly doesn't get round it. Switch off with the app's FIN_TRIAL.
+const FIN_TRIAL = true;
+const FIN_SANDBOX_ORGS = ['2eb072b7-2704-48c0-8110-62e45e621ded'];
+const FIN_TRIAL_MSG = 'Finance trial — switched off while testing';
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
 function ophubEsc(s: unknown): string { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -104,6 +110,7 @@ Deno.serve(withCors(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
     const { data: caller } = await admin.from('profiles').select('org_id, name, email, finance_enabled').eq('id', userData.user.id).maybeSingle();
     if (!caller || !caller.finance_enabled || !caller.org_id) return json({ error: 'OpHUB Finance is not switched on for your account.' }, 403);
+    if (FIN_TRIAL && !FIN_SANDBOX_ORGS.includes(caller.org_id)) return json({ error: FIN_TRIAL_MSG }, 403);
 
     const body = await req.json().catch(() => ({}));
     const kind = String(body.kind || 'invoice');

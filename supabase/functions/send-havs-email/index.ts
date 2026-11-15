@@ -192,7 +192,7 @@ function ophubRows(rows: [string, unknown][]): string {
 //
 // Optional client_cc_email: the "CC client contact" tick box passes the
 // site's client_email here when checked; merged alongside the fixed
-// REPORT_CC_EMAIL cc, deduped against the To and against each other.
+// company's report_cc_email copy, deduped against the To and against each other.
 Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
@@ -233,7 +233,7 @@ Deno.serve(withCors(async (req) => {
     const sentToday = await emailSendsSince(admin, 'send-havs-email', 'sender_id', userData.user.id, 24 * 60);
     if (sentToday != null && sentToday >= 60) return new Response(JSON.stringify({ error: 'You’ve reached today’s limit of 60 emails — try again tomorrow.' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-    const { data: org } = await admin.from('organizations').select('name, color_primary, logo_path').eq('id', caller.org_id).maybeSingle();
+    const { data: org } = await admin.from('organizations').select('name, color_primary, logo_path, report_cc_email').eq('id', caller.org_id).maybeSingle();
     const companyName = org?.name || 'OpHUB';
     const pmName = caller.name || 'Project Manager';
 
@@ -242,7 +242,9 @@ Deno.serve(withCors(async (req) => {
     if (!RESEND_API_KEY) {
       return new Response(JSON.stringify({ error: 'Email sending is not configured yet (missing RESEND_API_KEY secret).' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    const ccEmail = Deno.env.get('REPORT_CC_EMAIL') || 'andy.cramp@rtbroofinglimited.com';
+    // Office copy: the caller's own company's address (organizations.report_cc_email), if it has one.
+    // Never one fixed address for every company (review 15 Nov 2026, section 3 #1).
+    const ccEmail = EMAIL_OK.test(lc(org?.report_cc_email)) ? lc(org?.report_cc_email) : '';
     const toEmail = caller.email;
 
     const weekLabelText = week_label || '';

@@ -200,7 +200,7 @@ function fmtDate(d){
 //
 // Optional client_cc_email (either shape): the "CC client contact" tick box
 // passes the site's client_email here when checked; merged alongside the
-// fixed REPORT_CC_EMAIL cc, deduped against the To and against each other.
+// company's report_cc_email copy, deduped against the To and against each other.
 Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
@@ -272,7 +272,7 @@ Deno.serve(withCors(async (req) => {
     const siteIds = Array.from(new Set((subs || []).map((s) => s.site_id)));
     const { data: sitesRows } = siteIds.length ? await admin.from('sites').select('id, name').in('id', siteIds) : { data: [] as any[] };
     const siteById = Object.fromEntries((sitesRows || []).map((s) => [s.id, s]));
-    const { data: org } = await admin.from('organizations').select('name, logo_path, color_primary').eq('id', caller.org_id).maybeSingle();
+    const { data: org } = await admin.from('organizations').select('name, logo_path, color_primary, report_cc_email').eq('id', caller.org_id).maybeSingle();
     const companyName = org?.name || 'the company';
     const pmName = caller.name || 'Project Manager';
     const logoUrl = org?.logo_path ? `${SUPABASE_URL}/storage/v1/object/public/org-logos/${org.logo_path}` : null;
@@ -282,10 +282,9 @@ Deno.serve(withCors(async (req) => {
     if (!RESEND_API_KEY) {
       return new Response(JSON.stringify({ error: 'Email sending is not configured yet (missing RESEND_API_KEY secret).' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    // Fixed CC address so office/management always get a copy of every
-    // submitted report — configurable via secret, defaults to Andy's address
-    // per RTB Roofing's request.
-    const ccEmail = Deno.env.get('REPORT_CC_EMAIL') || 'andy.cramp@rtbroofinglimited.com';
+    // Office copy: the caller's own company's address (organizations.report_cc_email), if it has one.
+    // Never one fixed address for every company (review 15 Nov 2026, section 3 #1).
+    const ccEmail = EMAIL_OK.test(lc(org?.report_cc_email)) ? lc(org?.report_cc_email) : '';
     const toEmail = caller.email;
 
     const signoffText = `Sent by ${pmName}, ${companyName}`;

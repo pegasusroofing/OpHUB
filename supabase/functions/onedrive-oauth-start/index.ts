@@ -1,3 +1,5 @@
+import { createClient } from 'npm:@supabase/supabase-js@2';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-token, cache-control, pragma',
@@ -42,18 +44,17 @@ async function getCallerProfile(SUPABASE_URL: string, ANON_KEY: string, token: s
   return Array.isArray(rows) && rows[0] ? rows[0] : null;
 }
 
-// #(onedrive-oauth-state-signing): the `state` param round-trips through
-// Microsoft's servers and back to onedrive-oauth-callback, which used to
-// trust org_id straight out of it with no integrity check -- anyone could
-// forge a state with someone else's org_id and get their own OneDrive
-// tokens upserted into that org's connection row. Sign the payload with
-// AZURE_CLIENT_SECRET (already a protected, server-only secret specific to
-// this OAuth app) so the callback can verify it hasn't been tampered with.
-async function hmacSign(secret: string, message: string): Promise<string> {
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const sigBuf = await crypto.subtle.sign('HMAC', key, enc.encode(message));
-  return btoa(String.fromCharCode(...new Uint8Array(sigBuf)));
+// The `state` param round-trips through Microsoft's servers and back to
+// onedrive-oauth-callback. It used to be a signed copy of the company id with
+// no expiry, so an old link could be used again later to connect someone
+// else's OneDrive to the company. Now (review 15 Nov 2026, section 3 #2) it is
+// a random value saved in onedrive_oauth_states with the company and the
+// admin; the callback accepts it once, within 15 minutes, and deletes it --
+// the same way the xero function does.
+function randomState(): string {
+  const b = new Uint8Array(32);
+  crypto.getRandomValues(b);
+  return Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 }
 
 Deno.serve(async (req) => {
@@ -84,9 +85,15 @@ Deno.serve(async (req) => {
     const ret = typeof body.ret === 'string' && /^\/[A-Za-z0-9/_.-]{0,120}$/.test(body.ret) ? body.ret : null;
 
     const redirectUri = `${SUPABASE_URL}/functions/v1/onedrive-oauth-callback`;
-    const statePayload = JSON.stringify({ org_id: callerProfile.org_id, native, origin, ...(ret ? { ret } : {}) });
-    const stateSig = await hmacSign(AZURE_CLIENT_SECRET, statePayload);
-    const state = btoa(JSON.stringify({ p: statePayload, s: stateSig }));
+    const admin = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { autoRefreshToken: false, persistSession: false } });
+    // Tidy this company's sign-ins older than a day (never used), then save the new one.
+    await admin.from('onedrive_oauth_states').delete().eq('org_id', callerProfile.org_id).lt('created_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString()).then(undefined, () => undefined);
+    const state = randomState();
+    const { error: stErr } = await admin.from('onedrive_oauth_states').insert({ state, org_id: callerProfile.org_id, user_id: callerProfile.id, native, origin, ret });
+    if (stErr) {
+      console.error('onedrive-oauth-start: state not saved', stErr);
+      return new Response(JSON.stringify({ error: 'Could not start the OneDrive sign-in - please try again.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
     const authUrl = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
     authUrl.searchParams.set('client_id', AZURE_CLIENT_ID);
     authUrl.searchParams.set('response_type', 'code');
@@ -105,6 +112,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ url: authUrl.toString() }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    console.error('onedrive-oauth-start failed', e);
+    return new Response(JSON.stringify({ error: 'Something went wrong - please try again.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
