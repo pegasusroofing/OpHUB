@@ -11,6 +11,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Empty, Muted, SectionTitle } from '@/components/ui';
+import { linkHrFolder, useHrAccess } from '@/data/hrRecords';
 import { linkFolder, listFolders, setQuickLinks, useQuickLinks, type OdFolder, type OdTarget } from '@/data/onedrive';
 import { estimatingRoot, linkEstimatingFolder } from '@/data/quotes';
 import { syncRepairPhotos } from '@/data/repairOneDrive';
@@ -38,9 +39,12 @@ export default function OneDrivePick() {
   const cur = stack[stack.length - 1] ?? null;
   const { data, isLoading } = useQuery({ queryKey: ['odFolders', cur?.id ?? 'root', cur?.driveId ?? ''], enabled: !est || !estLoading, queryFn: () => listFolders(cur) });
   const { data: quick = [] } = useQuickLinks(me?.org_id);
+  // The HR folder (only the people HR Access lets in see it here) is never pinned or linked to anything else.
+  const hrId = useHrAccess(me?.org_id).data?.onedrive?.id ?? null;
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
-  const canUse = !!cur && !cur.virtual && !cur.isSite;
+  const isHr = !!cur && !!hrId && cur.id === hrId && target !== 'hr';
+  const canUse = !!cur && !cur.virtual && !cur.isSite && !isHr;
   const use = async (f: OdFolder) => {
     setBusy(true);
     try {
@@ -51,6 +55,12 @@ export default function OneDrivePick() {
         ['quotes', 'quote', 'odFolders', 'sites', 'site', 'estLinked'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
         toast(r.note ? `${r.note.charAt(0).toUpperCase()}${r.note.slice(1)}` : DONE.estimating); router.back();
         return;
+      }
+      if (target === 'hr') {
+        const err = await linkHrFolder(f);
+        if (err) { showAlert(err); return; }
+        void qc.invalidateQueries({ queryKey: ['hrAccess'] });
+        router.back(); return;
       }
       if (target === 'quicklink') {
         if (!quick.some((q) => q.id === f.id) && !(await setQuickLinks(me.org_id as string, [...quick, { id: f.id, name: f.name, driveId: f.driveId || null }]))) { toast('Quick Link not added — it could not be saved.'); return; }
@@ -69,12 +79,14 @@ export default function OneDrivePick() {
   );
   return (
     <ScrollView contentContainerStyle={page(720)}>
-      <Stack.Screen options={{ title: est ? 'Choose The Estimating Folder' : 'Choose OneDrive folder' }} />
+      <Stack.Screen options={{ title: est ? 'Choose The Estimating Folder' : target === 'hr' ? 'Choose The HR Folder' : 'Choose OneDrive folder' }} />
+      {target === 'hr' && <Muted style={{ marginBottom: 8 }}>Open the folder HR documents should go in and press Use. Best a new, empty folder you&apos;ve shared in OneDrive only with the people who can open HR.</Muted>}
       {est && <Muted style={{ marginBottom: 8 }}>{estRoot ? 'Open the enquiry’s folder and press Use. It moves into this job’s Contract & Commercial › Estimating folder.' : estLoading ? 'Finding the Estimating folder…' : 'No Estimating folder is set in Quote settings, so this starts at the top of OneDrive.'}</Muted>}
       <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 8 }}>{['OneDrive', ...stack.map((s) => s.name)].join(' › ')}</Text>
+      {isHr && <Muted style={{ marginBottom: 8 }}>This is the HR folder. It can&apos;t be linked to anything else or pinned as a Quick Link.</Muted>}
       {stack.length > 0 && <View style={{ marginBottom: 8 }}><Button kind="ghost" title="‹ Up one level" onPress={() => setStack(stack.slice(0, -1))} /></View>}
       {canUse && <View style={{ marginBottom: 10 }}><Button busy={busy} title={target === 'quicklink' ? `⭐ Pin "${cur.name}" as a Quick Link` : est ? `Use "${cur.name}" For This Job` : `Use "${cur.name}"`} onPress={() => void use(cur)} /></View>}
-      {canUse && target !== 'quicklink' && (
+      {canUse && target !== 'quicklink' && target !== 'hr' && (
         <View style={{ marginBottom: 10 }}><Button kind="ghost" title={quick.some((q) => q.id === cur.id) ? '⭐ Unpin this Quick Link' : '☆ Pin as a Quick Link'} onPress={async () => {
           const on = quick.some((q) => q.id === cur.id);
           const ok = await setQuickLinks(me.org_id as string, on ? quick.filter((q) => q.id !== cur.id) : [...quick, { id: cur.id, name: cur.name, driveId: cur.driveId || null }]);
@@ -82,14 +94,14 @@ export default function OneDrivePick() {
           void qc.invalidateQueries({ queryKey: ['odQuick'] });
         }} /></View>
       )}
-      {!stack.length && quick.length > 0 && target !== 'quicklink' && (
+      {!stack.length && quick.length > 0 && target !== 'quicklink' && target !== 'hr' && (
         <>
           <SectionTitle>⭐ Quick Links</SectionTitle>
           {quick.map((q) => row({ id: q.id, name: q.name, driveId: q.driveId }, () => setStack([{ id: q.id, name: q.name, driveId: q.driveId }])))}
           <SectionTitle>All folders</SectionTitle>
         </>
       )}
-      {isLoading ? <Muted>Loading…</Muted> : data?.error ? <Muted>{data.error} Check OneDrive is connected in Admin Centre → OneDrive.</Muted>
+      {isLoading ? <Muted>Loading…</Muted> : data?.error ? <Muted>{/HR folder/.test(data.error) ? data.error : `${data.error} Check OneDrive is connected in Admin Centre → OneDrive.`}</Muted>
         : data?.folders.length ? data.folders.map((f) => row(f, () => setStack([...stack, f]))) : <Empty>No folders in here.</Empty>}
     </ScrollView>
   );

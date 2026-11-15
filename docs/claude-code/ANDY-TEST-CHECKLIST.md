@@ -243,7 +243,7 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
     - as admin: HR › Employee Records lists everyone with what needs sorting; set Appraisals Come Round; open someone: Details (Edit Employment: job title, type, start, probation, line manager, right to work), Documents (each folder lists what should be on file, Not On File / On File / Expiring Soon / Expired / New One Due; tap one to upload it; Can They See It? Yes / No), Performance (Start An Appraisal, goals with ideas, feedback), Bonus, History;
     - as anyone: Settings › 📁 My Employee Record: update your details and emergency contact, add your own ID / licences / health papers, download payslips, read policies, fill in your side of an appraisal;
     - a line manager (set on someone's Employment) sees that person's Performance side only.
-    - HR Access (15 Nov; Employee Records › HR Access): Start The HR Team With Me, then add whoever else should see everyone's folders (other admins then can't, and can't add themselves); What Line Managers See (Yes / No each); Appraisals; OneDrive: Choose The HR Folder (pick a private one only the HR team can open in Microsoft 365), then Copy Everything Now.
+    - HR Access: see item 78 (who can open HR, and the HR folder in OneDrive); What Line Managers See (Yes / No each); Appraisals.
 
 77. Fixes from the deep review of 12–15 Nov (15 Nov). Worth a try on a real phone:
     - Schedule of Works: scroll up and down over a progress bar; the % mustn't change (drag sideways to change it);
@@ -252,10 +252,19 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
     - a project's Materials › Yard: Return From Job (was Book In) won't return more than went out to that job;
     - RAMS signature boxes: carried-over signers can be placed on a later page; Save warns if one wasn't placed;
     - Send To Client To Sign: a failed send keeps the pop-up and what was typed;
-    - HR Access: OneDrive copy shows as switched off (needs HR's own Microsoft sign-in first).
+    - (HR Access OneDrive: replaced by item 78.)
+
+78. HR folder in OneDrive and who can open HR (15 Nov, late). To try, as a company admin on the laptop:
+    - in OneDrive first: make a new, empty folder for HR (e.g. "HR Private") and share it only with the people who should open HR (Share › Manage Access);
+    - HR › Employee Records › HR Access › Who Can Open HR: All Company Admins Yes / No, All Project Managers Yes / No, + Add Someone for anyone else; the list underneath shows the names it comes to; press Save Who Can Open HR (leaving yourself out asks first);
+    - HR Folder In OneDrive › Choose The HR Folder: pick the new folder (one already used for a project, operative, repair job, quote or Quick Link is refused, with why); then Copy All Now;
+    - check Who Can Open This Folder: through OpHUB (the people above), in OneDrive itself (who it's shared with; ⚠ on a link anyone can use or a whole group), and the company Microsoft sign-in OpHUB uses; Manage Access In OneDrive ↗ opens it;
+    - as a project manager not chosen: the HR folder isn't in any OneDrive folder list (project Documents, folder pickers), and HR Access shows who can open HR, read-only;
+    - as an operative: Settings › My Employee Record says who can open your folder;
+    - Changes To HR Access lists every change (who, when, what).
 
 ## To discuss with Andy
-- HR documents in OneDrive (15 Nov 2026): switched off, as OpHUB reaches OneDrive through one company Microsoft sign-in every PM and admin can browse. Option: HR gets its own Microsoft sign-in to a folder the company one can't open. Andy, 15 Nov 2026: not now (HR documents stay in OpHUB's private store).
+- ~~HR documents in OneDrive~~: Andy, 15 Nov 2026: "I want to have hr linked to a specific folder in the OneDrive where access is managed". Built the same day (item 78): OpHUB locks the HR folder to the people HR Access lets in. Left open: anyone who signs in to OneDrive itself as the company Microsoft account OpHUB uses can open the folder there, so keep that password to the HR people.
 - The server copy of the quote rules (quote-tracker) still says "No News" in its monthly export; change it with that function's next update.
 - ~~OneDrive and the full job set-up~~: talked through and built 8 Nov 2026 (item 55).
 - Sort out plots: how multi-site (multi-plot) jobs should work (Andy, 2 Nov 2026; asked again 5 Nov 2026: "we need to discuss and sort plots out"). Bring this up before Finance is signed off. Plots show today on BoQ lines and as a column on PO lines (only when the project has plots).

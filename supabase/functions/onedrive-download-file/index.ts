@@ -64,6 +64,74 @@ async function refreshIfNeeded(admin, conn) {
   return data.access_token;
 }
 
+// HR folder lock (Andy, 15 Nov 2026): exact copy of app-native/src/lib/rules/hrLock.ts (hrLock.test.ts checks it).
+// A file in the HR folder can't be fetched by anyone HR › HR Access doesn't let in.
+// ---- HR folder lock ----
+export type HrLock = { id: string; driveId: string | null; path: string | null };
+type HrRef = { driveId?: string; path?: string } | undefined;
+type HrItem = { id?: string; name?: string; parentReference?: HrRef; remoteItem?: { id?: string; name?: string; parentReference?: HrRef } } | null | undefined;
+type HrDb = { from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => { maybeSingle: () => PromiseLike<{ data: unknown }> } } } };
+/** A Graph parentReference.path ("/drives/x/root:/A/B") as "/a/b" ("" for the top of the drive); null if it isn't one. */
+export function hrNorm(p: unknown): string | null {
+  const s = String(p ?? '');
+  const i = s.indexOf('root:');
+  if (i < 0) return null;
+  let r = s.slice(i + 5);
+  try { r = decodeURIComponent(r); } catch { /* keep it as it is */ }
+  return r.replace(/\/+$/, '').toLowerCase();
+}
+/** A folder path relative to the top of a drive ("A/B/") the way hrNorm gives them ("/a/b"). */
+export function hrRel(p: string): string {
+  const parts = String(p ?? '').split('/').filter(Boolean);
+  return parts.length ? ('/' + parts.join('/')).toLowerCase() : '';
+}
+/** Is this folder (its drive and path, as hrNorm gives it) the HR folder or inside it? */
+export function hrPathInside(lock: HrLock | null, driveId: string | null | undefined, path: string | null): boolean {
+  if (!lock || lock.path === null || path === null) return false;
+  if (lock.driveId && driveId && driveId !== lock.driveId) return false;
+  return lock.path === '' || path === lock.path || path.startsWith(lock.path + '/');
+}
+/** Is this Graph item the HR folder or inside it? */
+export function hrInside(lock: HrLock | null, it: HrItem): boolean {
+  if (!lock || !it) return false;
+  if (it.id === lock.id || it.remoteItem?.id === lock.id) return true;
+  const src = it.remoteItem?.parentReference ? it.remoteItem : it;
+  const pp = hrNorm(src.parentReference?.path);
+  return pp !== null && hrPathInside(lock, src.parentReference?.driveId, `${pp}/${String(src.name ?? it.name ?? '').toLowerCase()}`);
+}
+/** One folder's contents from Graph: is that folder the HR folder or inside it? */
+export function hrListingInside(lock: HrLock | null, parentId: string | null | undefined, children: HrItem[]): boolean {
+  if (!lock) return false;
+  if (parentId && parentId === lock.id) return true;
+  return children.some((c) => hrPathInside(lock, c?.parentReference?.driveId, hrNorm(c?.parentReference?.path)));
+}
+/** The company's HR folder lock for this caller: null when there's no HR folder or HR Access lets them in. */
+export async function hrLockFor(db: HrDb, orgId: string, msToken: string, supabaseUrl: string, anonKey: string, userToken: string): Promise<HrLock | null> {
+  const { data } = await db.from('hr_secure_settings').select('onedrive').eq('org_id', orgId).maybeSingle();
+  const od = (data as { onedrive?: { id?: string; driveId?: string | null } | null } | null)?.onedrive;
+  if (!od?.id) return null;
+  // Asked as the caller, so it's the database's own rule.
+  try {
+    const r = await fetch(`${supabaseUrl}/rest/v1/rpc/hr_is_team`, { method: 'POST', headers: { Authorization: `Bearer ${userToken}`, apikey: anonKey, 'Content-Type': 'application/json' }, body: '{}' });
+    if (r.ok && (await r.json().catch(() => false)) === true) return null;
+  } catch { /* not let in */ }
+  const lock: HrLock = { id: od.id, driveId: od.driveId || null, path: null };
+  try {
+    const g = 'https://graph.microsoft.com/v1.0';
+    const u = od.driveId ? `${g}/drives/${encodeURIComponent(od.driveId)}/items/${encodeURIComponent(od.id)}` : `${g}/me/drive/items/${encodeURIComponent(od.id)}`;
+    const r = await fetch(`${u}?$select=id,name,parentReference,root`, { headers: { Authorization: `Bearer ${msToken}` } });
+    if (r.ok) {
+      const it = (await r.json()) as { name?: string; root?: unknown; parentReference?: { driveId?: string; path?: string } };
+      lock.driveId = it.parentReference?.driveId || lock.driveId;
+      const pp = hrNorm(it.parentReference?.path);
+      lock.path = it.root ? '' : pp === null ? null : `${pp}/${String(it.name ?? '').toLowerCase()}`;
+    }
+  } catch { /* the id check still applies */ }
+  return lock;
+}
+export const HR_LOCKED = 'This is in the HR folder. Only the people HR › HR Access lets in can open it.';
+// ---- end HR folder lock ----
+
 // ---- CORS allow-list (security review L8, 25 Oct 2026) ----
 // Only the OpHUB web app (live domain, Vercel production + preview URLs) and
 // the phone apps get a CORS grant; every other website's browser is refused.
@@ -124,6 +192,15 @@ Deno.serve(withCors(async (req) => {
     if (!item_id) return new Response(JSON.stringify({ error: 'item_id is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     const accessToken = await refreshIfNeeded(admin, conn);
+    const hrLock = await hrLockFor(admin, callerProfile.org_id, accessToken, String(SUPABASE_URL), String(ANON_KEY), token);
+    if (hrLock) {
+      const metaUrl = (drive_id
+        ? `https://graph.microsoft.com/v1.0/drives/${encodeURIComponent(drive_id)}/items/${encodeURIComponent(item_id)}`
+        : `https://graph.microsoft.com/v1.0/me/drive/items/${encodeURIComponent(item_id)}`) + '?$select=id,name,parentReference,remoteItem';
+      const meta = await fetchT(metaUrl, { headers: { Authorization: `Bearer ${accessToken}` } }, 10000);
+      if (!meta.ok) return new Response(JSON.stringify({ error: 'OneDrive download failed (' + meta.status + ') — please try again.' }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (hrInside(hrLock, await meta.json())) return new Response(JSON.stringify({ error: HR_LOCKED }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
     const graphUrl = drive_id
       ? `https://graph.microsoft.com/v1.0/drives/${encodeURIComponent(drive_id)}/items/${encodeURIComponent(item_id)}/content`
       : `https://graph.microsoft.com/v1.0/me/drive/items/${encodeURIComponent(item_id)}/content`;

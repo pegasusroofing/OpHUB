@@ -22,6 +22,8 @@ const setRpc = (db) => { global.__rpc = (name, b) => {
   const st = (db.hr_settings || []).find((x) => x.org_id === db.organizations[0].id) || {};
   if (name === 'hr_my_access') return {team: TEAM, team_set: (db.hr_team || []).length > 0, lm_sections: st.hr_lm_sections || ['performance', 'emergency'], appraisal_months: st.appraisal_months || 12, onedrive: TEAM ? st.hr_onedrive || null : null};
   if (name === 'hr_save_settings') { db.hr_settings = db.hr_settings || []; let row = db.hr_settings.find((x) => x.org_id === db.organizations[0].id); if (!row) { row = {org_id: db.organizations[0].id}; db.hr_settings.push(row); } if (b.p_months != null) row.appraisal_months = b.p_months; if (b.p_lm_sections) row.hr_lm_sections = b.p_lm_sections; if (b.p_onedrive) row.hr_onedrive = b.p_onedrive; if (b.p_clear_onedrive) row.hr_onedrive = null; return true; }
+  if (name === 'hr_who_has_access') { const team = db.hr_team || []; const set = team.length > 0; return {set_up: set, team_admins: !set, team_pms: false, named: team.map((x) => x.user_id), people: db.profiles.filter((p) => team.some((x) => x.user_id === p.id) || (!set && p.role === 'admin')).map((p) => ({id: p.id, name: p.name, role: p.role, why: team.some((x) => x.user_id === p.id) ? ['named'] : ['admin']})), set_up_at: null, set_up_by: null, log: []}; }
+  if (name === 'hr_save_team') { db.hr_team = (b.p_people || []).map((u) => ({org_id: db.organizations[0].id, user_id: u})); return {set_up: true, team_admins: !!b.p_admins, team_pms: !!b.p_pms, named: b.p_people || [], people: [], log: []}; }
   if (name === 'hr_basic') { const r = (db.hr_records || []).find((x) => x.user_id === b.p_user); return r ? {user_id: r.user_id, job_title: r.job_title, line_manager_id: r.line_manager_id, emergency_name: r.emergency_name} : null; }
   if (name === 'hr_my_reports') return (db.hr_records || []).filter((x) => x.line_manager_id === 'me').map((x) => ({user_id: x.user_id, job_title: x.job_title}));
   return undefined;
@@ -46,21 +48,23 @@ const fillBox = async (page, label, text) => { const l = page.getByText(label, {
   let t = await body();
   check(/Jake Morris/.test(t) && /Tom Hughes/.test(t) && /Dave Driver/.test(t), 'the admin sees everyone\'s folder');
   check(/To Sort/.test(t), 'with what each needs sorting');
-  check(/No HR team chosen yet: every company admin can see everyone’s folders/.test(t), 'HR Access warns there is no HR team yet');
+  check(/Not set up yet: every company admin can open everyone’s folders/.test(t), 'HR Access warns it isn’t set up yet');
   await page.screenshot({path: path.join(SHOTS, 'hr-records-list.png')});
   // HR Access.
   await page.getByLabel('HR Access', {exact: true}).click(); await page.waitForTimeout(3000);
-  await page.getByText('Start The HR Team With Me', {exact: true}).click(); await page.waitForTimeout(2000);
-  check(db.hr_team.some((x) => x.user_id === 'me' && x.org_id === O), 'Start The HR Team With Me puts me on it');
+  await page.getByLabel('All Company Admins: No', {exact: true}).click(); await page.waitForTimeout(400);
+  await pick(page, 'Add Someone', me.name);
+  await page.getByText('Save Who Can Open HR', {exact: true}).click(); await page.waitForTimeout(2000);
+  check(db.hr_team.some((x) => x.user_id === 'me' && x.org_id === O), 'Save Who Can Open HR, with me named, puts me on it');
   check(/(You)/.test(await body()) && /Take Off/.test(await body()), 'and lists me, with Take Off');
-  await page.getByLabel('Job History', {exact: true}).getByText('Yes', {exact: true}).click().catch(async () => { await page.getByText('Yes', {exact: true}).nth(5).click(); });
+  await page.getByLabel('Job History: Yes', {exact: true}).click();
   await page.waitForTimeout(1500);
   const lm = (db.hr_settings.find((x) => x.org_id === O) || {}).hr_lm_sections || [];
   check(lm.includes('history') && lm.includes('performance'), `line managers may now see job history too (${lm.join(', ')})`);
   await pick(page, 'Appraisals Come Round', 'Every 6 Months');
   check((db.hr_settings.find((x) => x.org_id === O) || {}).appraisal_months === 6, 'appraisals every 6 months saved');
   t = await body();
-  check(/never shown to them/.test(t) && /Copying HR documents to OneDrive is switched off for now/.test(t) && !/Choose The HR Folder/.test(t), 'it explains what line managers never see, and that the OneDrive copy is switched off (review, 15 Nov 2026)');
+  check(/never shown to them/.test(t) && /Choose The HR Folder/.test(t), 'it explains what line managers never see, and offers the HR folder in OneDrive');
   await page.screenshot({path: path.join(SHOTS, 'hr-access.png'), fullPage: true});
   await page.goto(B + '/pm/hr/records'); await page.waitForTimeout(3500);
 

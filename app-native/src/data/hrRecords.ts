@@ -47,6 +47,45 @@ export async function copyHrToOneDrive(body: { doc_ids?: string[]; all?: boolean
   return invokeAsUser<{ ok?: boolean; copied?: number; skipped?: string }>('hr-onedrive-copy', body);
 }
 
+/** Who can open HR (Andy, 15 Nov 2026: "clear in the app who could have access to it pm / admin / otherwise which is
+ * all set at the start by the admin and then there onwards"). hr_who_has_access: everyone in the company may see the
+ * names; the change log only the HR team and company admins. */
+export type HrWhoPerson = { id: string; name: string; role: string; why: ('named' | 'admin' | 'pm')[] };
+export type HrWho = { set_up: boolean; team_admins: boolean; team_pms: boolean; named: string[]; people: HrWhoPerson[]; set_up_at: string | null; set_up_by: string | null; log: { at: string; by: string | null; what: string }[] };
+const whoOf = (d: unknown): HrWho | null => {
+  if (!d || Array.isArray(d) || typeof d !== 'object') return null;
+  const w = d as Partial<HrWho>;
+  return { set_up: !!w.set_up, team_admins: !!w.team_admins, team_pms: !!w.team_pms, named: w.named ?? [], people: w.people ?? [], set_up_at: w.set_up_at ?? null, set_up_by: w.set_up_by ?? null, log: w.log ?? [] };
+};
+export function useHrWho(orgId: string | null | undefined) {
+  return useQuery({ queryKey: ['hrWho', orgId], enabled: !!orgId, queryFn: async () => whoOf((await rpc('hr_who_has_access')).data) });
+}
+/** Sets who can open HR: all company admins, all project managers, and named people. Null if it couldn't be saved. */
+export async function saveHrTeam(t: { admins: boolean; pms: boolean; people: string[] }): Promise<HrWho | null> {
+  const r = await rpc('hr_save_team', { p_admins: t.admins, p_pms: t.pms, p_people: t.people });
+  return r.error ? null : whoOf(r.data);
+}
+/** Links the HR folder in OneDrive. An error to show, or null when it's saved. */
+export async function linkHrFolder(f: { id: string; name: string; driveId?: string | null }): Promise<string | null> {
+  const r = await rpc('hr_save_settings', { p_onedrive: { id: f.id, name: f.name, driveId: f.driveId || null, on: true } });
+  if (!r.error) return null;
+  return /linked_elsewhere/.test(String((r.error as { message?: string }).message ?? r.error))
+    ? 'That folder is already used in OpHUB (for a project, operative, repair job, quote or Quick Link), so people outside HR already have a way in. Choose another, ideally a new, empty folder.'
+    : 'Could not link that folder — please try again.';
+}
+/** The HR folder as OneDrive sees it: its link, the company Microsoft sign-in, and who OneDrive shares it with. */
+export type HrShare = { who: string; email?: string | null; how: string; kind: 'person' | 'group' | 'link'; warn: boolean; inherited: boolean };
+export type HrFolderAccess = { folder: { name: string; webUrl?: string | null } | null; account?: string | null; shared?: HrShare[] | null; sharedError?: string | null; error?: string };
+export function useHrFolderAccess(folderId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['hrFolderAccess', folderId], enabled: !!folderId, staleTime: 60000,
+    queryFn: async (): Promise<HrFolderAccess> => {
+      const r = await invokeAsUser<HrFolderAccess>('hr-onedrive-copy', { action: 'access' });
+      return r.data ?? { folder: null, error: r.error && r.error !== 'could not reach the server' ? r.error : 'Could not reach OneDrive.' };
+    },
+  });
+}
+
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 const rows = <T,>(r: { data: unknown }) => ((r.data as T[] | null) ?? []);
 const rid = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}${Math.random().toString(16).slice(2)}`);
@@ -116,7 +155,8 @@ export async function uploadHrDoc(me: Profile, userId: string, f: { folder: stri
     const r = await db.from('hr_docs').insert({ org_id: me.org_id, user_id: userId, folder: f.folder, item_key: f.item_key, title: f.title, file_name: file.name, storage_path: up.data.path, doc_date: f.doc_date, expiry_date: f.expiry_date, hidden_from_employee: f.hidden, uploaded_by: me.id } as never).select('id').single();
     const id = (r.data as { id: string } | null)?.id;
     if (r.error || !id) { void supabase.storage.from('hr-docs').remove([up.data.path]); return null; }
-    // No OneDrive copy for now: it's switched off until HR has its own Microsoft sign-in (review, 15 Nov 2026).
+    // A copy goes to the HR folder in OneDrive, if HR has chosen one (the server checks; nothing happens otherwise).
+    void copyHrToOneDrive({ doc_ids: [id] }).catch(() => undefined);
     return id;
   } catch { return null; }
 }

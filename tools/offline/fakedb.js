@@ -86,7 +86,16 @@
       return json({ Key: 'x', path: p.split('/').slice(5).join('/') });
     }
     if (p.indexOf('/functions/v1/') === 0) return json({ ok: true, offline: true });
-    if (p.indexOf('/rest/v1/rpc/') === 0) { var fn = p.slice(13); return json(/check_device_lock|check_and_lock_device/.test(fn) ? { ok: true } : []); }
+    if (p.indexOf('/rest/v1/rpc/') === 0) {
+      var fn = p.slice(13);
+      // HR (15 Nov 2026): the demo company hasn't set up who can open HR, so its company admins can (as a real one).
+      if (fn === 'hr_my_access') return json({ team: true, team_set: false, lm_sections: ['performance', 'emergency'], appraisal_months: 12, onedrive: null });
+      if (fn === 'hr_who_has_access') {
+        var admins = (db.profiles || []).filter(function (x) { return x.role === 'admin'; }).map(function (x) { return { id: x.id, name: x.name, role: x.role, why: ['admin'] }; });
+        return json({ set_up: false, team_admins: true, team_pms: false, named: [], people: admins, set_up_at: null, set_up_by: null, log: [] });
+      }
+      return json(/check_device_lock|check_and_lock_device/.test(fn) ? { ok: true } : []);
+    }
     if (p.indexOf('/rest/v1/') === 0) {
       var table = p.slice(9);
       var one = /vnd\.pgrst\.object/.test(headers.get('accept') || '');

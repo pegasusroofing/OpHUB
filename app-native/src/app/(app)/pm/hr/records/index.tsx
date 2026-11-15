@@ -42,13 +42,13 @@ export default function EmployeeRecords() {
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Employee Records' }} />
-      {team && (
+      {(team || me.role === 'admin') && (
         <Pressable accessibilityRole="button" accessibilityLabel="HR Access" onPress={() => router.push('/pm/hr/access' as never)}>
           <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <Text style={{ fontSize: 20 }}>🔒</Text>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 15, fontWeight: '600', color: base.ink }}>HR Access</Text>
-              <Muted>{acc?.team_set ? 'Only the HR team sees everyone’s folders.' : 'No HR team chosen yet: every company admin can see everyone’s folders.'} What line managers see, appraisals, OneDrive.</Muted>
+              <Muted>{acc?.team_set ? 'Only the people chosen can open everyone’s folders.' : 'Not set up yet: every company admin can open everyone’s folders.'} Who can open HR, the HR folder in OneDrive, what line managers see, appraisals.</Muted>
             </View>
             <Text style={{ color: base.slate, fontSize: 18 }}>›</Text>
           </Card>

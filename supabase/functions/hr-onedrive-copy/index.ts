@@ -5,13 +5,14 @@
 // rules decide) or { all: true } (everything not copied yet; HR team only). Nothing is sent if no folder is chosen or
 // copying is switched off. verify_jwt false like onedrive-upload: the user's token comes in X-User-Token and is checked
 // by making the reads with it.
-// SWITCHED OFF (15 Nov 2026 review): every OneDrive folder OpHUB uses goes through the one company Microsoft sign-in, and
-// PMs and admins can browse that through OpHUB (folder pickers, project Documents, operative sync), so an HR folder there
-// wouldn't be private. It stays off until HR has its own Microsoft sign-in that the company one can't open (Andy to
-// decide). The folder is read from hr_secure_settings (HR team only) when it's switched back on.
+// Back on 15 Nov 2026 (Andy: "I want to have hr linked to a specific folder in the OneDrive where access is managed").
+// OpHUB reaches OneDrive through the one company Microsoft sign-in, which can see the HR folder, so the OneDrive
+// functions lock it (onedrive-list-folders, onedrive-download-file, onedrive-upload; app-native/src/lib/rules/hrLock.ts):
+// only the people HR › HR Access lets in can list, open or save into it through OpHUB. Who can open it in OneDrive
+// itself is managed there (Share › Manage Access).
+// { action: 'access' } (HR team only): the HR folder's name and link, the company Microsoft sign-in OpHUB uses, and who
+// OneDrive itself shares the folder with (people, groups, links), for HR › HR Access.
 import { createClient } from 'npm:@supabase/supabase-js@2';
-
-const SWITCHED_OFF = true;
 
 const corsHeaders = { 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-token, cache-control, pragma' };
 const OPHUB_ORIGINS = new Set(['https://operativehub.co.uk', 'https://www.operativehub.co.uk', 'https://ophub-ten.vercel.app', 'https://ophub-beta.vercel.app', 'capacitor://localhost', 'https://localhost', 'http://localhost']);
@@ -50,6 +51,26 @@ async function refreshIfNeeded(admin: any, conn: any) {
   return data.access_token;
 }
 
+// One of OneDrive's sharing permissions on the folder, as a line for HR Access.
+type Perm = { roles?: string[]; link?: { scope?: string; type?: string }; inheritedFrom?: unknown; grantedToV2?: any; grantedTo?: any; grantedToIdentitiesV2?: any[]; grantedToIdentities?: any[] };
+function permRow(p: Perm) {
+  const roles = (p.roles || []).map((r) => String(r).toLowerCase());
+  const how = roles.some((r) => r === 'owner' || r.includes('full control')) ? 'Owner'
+    : roles.some((r) => r === 'write' || r.includes('edit') || r.includes('contribute')) ? 'Can Edit' : 'Can View';
+  const inherited = !!p.inheritedFrom;
+  const nameOf = (g: any) => g?.user?.displayName || g?.user?.email || g?.siteUser?.displayName || g?.group?.displayName || g?.siteGroup?.displayName || null;
+  if (p.link) {
+    const scope = String(p.link.scope || '');
+    if (scope === 'anonymous') return { who: 'Anyone With The Link', how, kind: 'link', warn: true, inherited };
+    if (scope === 'organization') return { who: 'Anyone In Your Company With The Link', how, kind: 'link', warn: true, inherited };
+    const names = (p.grantedToIdentitiesV2 || p.grantedToIdentities || []).map(nameOf).filter(Boolean);
+    return { who: names.length ? 'Link Sent To ' + names.join(', ') : 'A Link For Named People', how, kind: 'link', warn: false, inherited };
+  }
+  const g = p.grantedToV2 || p.grantedTo || {};
+  const group = !!(g.group || g.siteGroup);
+  return { who: nameOf(g) || 'Someone', email: g.user?.email || g.siteUser?.email || null, how, kind: group ? 'group' : 'person', warn: group, inherited };
+}
+
 const CHUNK = 327680 * 10;
 async function put(base: string, token: string, bytes: Uint8Array): Promise<boolean> {
   if (bytes.length <= 3.5 * 1024 * 1024) {
@@ -69,7 +90,6 @@ async function put(base: string, token: string, bytes: Uint8Array): Promise<bool
 
 Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  if (SWITCHED_OFF) return json({ ok: true, copied: 0, skipped: 'switched_off' });
   try {
     const token = req.headers.get('X-User-Token') || (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
     if (!token) return json({ error: 'Not authenticated' }, 401);
@@ -88,7 +108,29 @@ Deno.serve(withCors(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const { data: st } = await admin.from('hr_secure_settings').select('onedrive').eq('org_id', orgId).maybeSingle();
-    const od = st?.onedrive as { id?: string; driveId?: string | null; on?: boolean } | null;
+    const od = st?.onedrive as { id?: string; name?: string; driveId?: string | null; on?: boolean } | null;
+
+    if (body.action === 'access') {
+      if (!access.team) return json({ error: 'HR team only' }, 403);
+      if (!od?.id) return json({ ok: true, folder: null });
+      const { data: c } = await admin.from('onedrive_connections').select('*').eq('org_id', orgId).maybeSingle();
+      if (!c?.access_token) return json({ ok: true, folder: { name: od.name || 'HR folder' }, account: null, error: 'OneDrive isn’t connected for the company.' });
+      const t = await refreshIfNeeded(admin, c);
+      const G = 'https://graph.microsoft.com/v1.0';
+      const item = od.driveId ? `${G}/drives/${encodeURIComponent(od.driveId)}/items/${encodeURIComponent(od.id)}` : `${G}/me/drive/items/${encodeURIComponent(od.id)}`;
+      const [m, p] = await Promise.all([
+        fetch(`${item}?$select=id,name,webUrl,parentReference`, { headers: { Authorization: `Bearer ${t}` } }),
+        fetch(`${item}/permissions`, { headers: { Authorization: `Bearer ${t}` } }),
+      ]);
+      if (!m.ok) {
+        return json({ ok: true, folder: { name: od.name || 'HR folder' }, account: c.account_email || null,
+          error: m.status === 404 ? 'OpHUB can’t find this folder any more. It may have been deleted or moved to another drive. Choose it again.' : 'OpHUB can’t reach this folder with the company Microsoft sign-in.' });
+      }
+      const it = await m.json();
+      const perms = p.ok ? ((await p.json()).value || []) as Perm[] : null;
+      return json({ ok: true, folder: { name: it.name, webUrl: it.webUrl || null }, account: c.account_email || null,
+        shared: perms ? perms.map(permRow) : null, sharedError: perms ? null : 'OneDrive wouldn’t say who it’s shared with.' });
+    }
     if (!od?.id || od.on === false) return json({ ok: true, copied: 0, skipped: 'no_folder' });
 
     let ids: string[] = [];
