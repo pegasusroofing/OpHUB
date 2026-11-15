@@ -1,12 +1,51 @@
 // HR › Employee Records: each person's folder (hr_records, hr_docs, hr_history, hr_goals, hr_feedback, hr_appraisals,
-// hr_bonuses; files in the private hr-docs store as <org>/<person>/<file>). The database decides who sees what: the
-// company admin everything; the person their own (not private notes); a line manager their people's performance side.
+// hr_bonuses; files in the private hr-docs store as <org>/<person>/<file>). The database decides who sees what
+// (15 Nov 2026, Andy: "I can't have everyone seeing everyone's contracts"): the HR team everything (until a company
+// chooses one, its company admins); the person their own (not private notes or hidden documents); a line manager only
+// the parts the HR team allows (performance and emergency contact unless changed; never contracts, pay, right to work,
+// bonus or disciplinary). HR files can be copied to an OneDrive folder the HR team chooses (hr-onedrive-copy).
 import { useQuery } from '@tanstack/react-query';
 
 import { usePeople } from '@/data/hs';
 import type { Appraisal, HrDoc, HrRecord } from '@/lib/rules/hrRecords';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
+import { invokeAsUser } from '@/lib/userFunctions';
+
+const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a?: object) => Promise<{ data: unknown; error: unknown }>;
+
+/** What the signed-in person may do in HR. */
+export type HrOneDrive = { id: string; name: string; driveId: string | null; on: boolean };
+export type HrAccess = { team: boolean; team_set: boolean; lm_sections: string[]; appraisal_months: number; onedrive: HrOneDrive | null };
+export function useHrAccess(orgId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['hrAccess', orgId], enabled: !!orgId,
+    queryFn: async (): Promise<HrAccess> => {
+      const r = await rpc('hr_my_access');
+      const d = (r.data && !Array.isArray(r.data) ? r.data : {}) as Partial<HrAccess>;
+      return { team: !!d.team, team_set: !!d.team_set, lm_sections: d.lm_sections ?? ['performance', 'emergency'], appraisal_months: Number(d.appraisal_months) || 12, onedrive: d.onedrive ?? null };
+    },
+  });
+}
+/** The HR team (only they open everyone's folders). */
+export function useHrTeam(orgId: string | null | undefined) {
+  return useQuery({ queryKey: ['hrTeam', orgId], enabled: !!orgId, queryFn: async () => rows<{ user_id: string; added_at: string }>(await db.from('hr_team').select('user_id,added_at').eq('org_id', orgId as string)) });
+}
+export const addToHrTeam = async (me: Profile, userId: string) => !(await db.from('hr_team').insert({ org_id: me.org_id, user_id: userId, added_by: me.id } as never)).error;
+export const removeFromHrTeam = async (me: Profile, userId: string) => !!((await db.from('hr_team').delete().eq('org_id', me.org_id as string).eq('user_id', userId).select('user_id')).data as unknown[] | null)?.length;
+/** The HR team's settings; anything left out stays as it is. */
+export async function saveHrSettings(s: { months?: number; lmSections?: string[]; onedrive?: HrOneDrive; clearOneDrive?: boolean }): Promise<boolean> {
+  const r = await rpc('hr_save_settings', { p_months: s.months ?? null, p_lm_sections: s.lmSections ?? null, p_onedrive: s.onedrive ?? null, p_clear_onedrive: !!s.clearOneDrive });
+  return !r.error;
+}
+/** The people the signed-in person line-manages. */
+export function useMyReports(on: boolean) {
+  return useQuery({ queryKey: ['hrMyReports'], enabled: on, queryFn: async () => { const r = await rpc('hr_my_reports'); return (Array.isArray(r.data) ? r.data : []) as { user_id: string; job_title: string | null }[]; } });
+}
+/** Copies HR documents to the HR team's OneDrive folder (if they've chosen one). all: everything not copied yet. */
+export async function copyHrToOneDrive(body: { doc_ids?: string[]; all?: boolean }) {
+  return invokeAsUser<{ ok?: boolean; copied?: number; skipped?: string }>('hr-onedrive-copy', body);
+}
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 const rows = <T,>(r: { data: unknown }) => ((r.data as T[] | null) ?? []);
@@ -39,7 +78,10 @@ export function useHrFolder(userId: string | null | undefined) {
         db.from('hr_appraisals').select('*').eq('user_id', u).order('due_date', { ascending: false }),
         db.from('hr_bonuses').select('*').eq('user_id', u).order('created_at', { ascending: false }),
       ]);
-      return { rec: (rec.data as HrRecord | null) ?? null, docs: rows<HrDoc>(docs), history: rows<HrHistory>(history), goals: rows<HrGoal>(goals), feedback: rows<HrFeedback>(feedback), appraisals: rows<Appraisal>(appraisals), bonuses: rows<HrBonus>(bonuses) };
+      // Not the HR team or the person: the basics only, from hr_basic (line managers can't read the record itself).
+      let r0 = (rec.data as HrRecord | null) ?? null;
+      if (!r0) { const b = await rpc('hr_basic', { p_user: u }); r0 = b.data && !Array.isArray(b.data) ? (b.data as HrRecord) : null; }
+      return { rec: r0, docs: rows<HrDoc>(docs), history: rows<HrHistory>(history), goals: rows<HrGoal>(goals), feedback: rows<HrFeedback>(feedback), appraisals: rows<Appraisal>(appraisals), bonuses: rows<HrBonus>(bonuses) };
     },
   });
 }
@@ -59,13 +101,6 @@ export function useHrOverview(orgId: string | null | undefined, on: boolean) {
   });
 }
 
-/** How often appraisals come round (months), from HR settings; 12 if not set. */
-export function useAppraisalMonths(orgId: string | null | undefined) {
-  return useQuery({
-    queryKey: ['hrAppraisalMonths', orgId], enabled: !!orgId,
-    queryFn: async () => Number(((await db.from('hr_settings').select('appraisal_months').eq('org_id', orgId as string).maybeSingle()).data as { appraisal_months: number | null } | null)?.appraisal_months) || 12,
-  });
-}
 
 export async function saveRecord(me: Profile, userId: string, fields: Partial<HrRecord>): Promise<boolean> {
   const r = await db.from('hr_records').upsert({ ...fields, user_id: userId, org_id: me.org_id } as never, { onConflict: 'user_id' }).select('user_id');
@@ -73,15 +108,18 @@ export async function saveRecord(me: Profile, userId: string, fields: Partial<Hr
 }
 
 export type UpFile = { uri: string; name: string; mimeType?: string | null };
-export async function uploadHrDoc(me: Profile, userId: string, f: { folder: string; item_key: string | null; title: string; doc_date: string | null; expiry_date: string | null; hidden: boolean }, file: UpFile): Promise<boolean> {
+export async function uploadHrDoc(me: Profile, userId: string, f: { folder: string; item_key: string | null; title: string; doc_date: string | null; expiry_date: string | null; hidden: boolean }, file: UpFile): Promise<string | null> {
   try {
     const path = `${me.org_id}/${userId}/${rid()}-${file.name.replace(/[^a-z0-9.\-]+/gi, '_')}`;
     const up = await supabase.storage.from('hr-docs').upload(path, await (await fetch(file.uri)).arrayBuffer(), { contentType: file.mimeType || 'application/octet-stream' });
-    if (up.error) return false;
-    const r = await db.from('hr_docs').insert({ org_id: me.org_id, user_id: userId, folder: f.folder, item_key: f.item_key, title: f.title, file_name: file.name, storage_path: up.data.path, doc_date: f.doc_date, expiry_date: f.expiry_date, hidden_from_employee: f.hidden, uploaded_by: me.id } as never);
-    if (r.error) { void supabase.storage.from('hr-docs').remove([up.data.path]); return false; }
-    return true;
-  } catch { return false; }
+    if (up.error) return null;
+    const r = await db.from('hr_docs').insert({ org_id: me.org_id, user_id: userId, folder: f.folder, item_key: f.item_key, title: f.title, file_name: file.name, storage_path: up.data.path, doc_date: f.doc_date, expiry_date: f.expiry_date, hidden_from_employee: f.hidden, uploaded_by: me.id } as never).select('id').single();
+    const id = (r.data as { id: string } | null)?.id;
+    if (r.error || !id) { void supabase.storage.from('hr-docs').remove([up.data.path]); return null; }
+    // A copy in the HR team's OneDrive folder, if they've chosen one (in the background; the file is safe here either way).
+    void copyHrToOneDrive({ doc_ids: [id] });
+    return id;
+  } catch { return null; }
 }
 export async function hrDocUrl(d: HrDoc): Promise<string | null> {
   return (await supabase.storage.from('hr-docs').createSignedUrl(d.storage_path, 600)).data?.signedUrl ?? null;
@@ -114,5 +152,3 @@ export const saveAppraisalReview = async (me: Profile, id: string, review: Appra
 export const addBonus = async (me: Profile, userId: string, b: { period: string; basis: string; target: string | null; amount: number | null; status: string; notes: string | null }) =>
   ok(await db.from('hr_bonuses').insert({ ...b, org_id: me.org_id, user_id: userId, created_by: me.id } as never).select('id'));
 export const updateBonus = async (id: string, b: Partial<HrBonus>) => ok(await db.from('hr_bonuses').update(b as never).eq('id', id).select('id'));
-export const saveAppraisalMonths = async (me: Profile, months: number) =>
-  ok(await db.from('hr_settings').upsert({ org_id: me.org_id, appraisal_months: months } as never, { onConflict: 'org_id' }).select('org_id'));

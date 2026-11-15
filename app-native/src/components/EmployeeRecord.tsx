@@ -1,6 +1,7 @@
 // One person's HR folder (Andy, 14 Nov 2026): Details (personal details they keep up to date themselves, employment,
 // right to work, policies), Documents (each folder with what should be in it, flagged when missing, expiring or due),
-// Performance (appraisals, goals, feedback), Bonus and History. Company admins see and change everything; the person
+// Performance (appraisals, goals, feedback), Bonus and History. The HR team (company admins until a company chooses one,
+// 15 Nov 2026) sees and changes everything; a line manager only the parts the HR team allows; the person
 // sees their own (not private notes) and changes their personal details and adds their own ID, licences and health
 // papers; a line manager sees their people's performance side. The database enforces the same (hr_* RLS).
 import * as DocumentPicker from 'expo-document-picker';
@@ -21,7 +22,7 @@ import { Button, Card, Muted } from '@/components/ui';
 import { usePolicies } from '@/data/hr';
 import {
   addBonus, addFeedback, addGoal, addHistory, deleteFeedback, deleteGoal, deleteHistory, deleteHrDoc, hrDocUrl, saveAppraisalReview, saveAppraisalSelf, saveRecord,
-  startAppraisal, updateBonus, updateGoal, uploadHrDoc, useAppraisalMonths, useHrFolder, useStaff, type HrBonus, type HrGoal, type UpFile,
+  startAppraisal, updateBonus, updateGoal, uploadHrDoc, useHrAccess, useHrFolder, useStaff, type HrBonus, type HrGoal, type UpFile,
 } from '@/data/hrRecords';
 import { useAuth } from '@/lib/auth';
 import { publicUrl } from '@/lib/privateFiles';
@@ -45,7 +46,8 @@ export function EmployeeRecord({ userId }: { userId: string }) {
   const qc = useQueryClient();
   const { data, isLoading } = useHrFolder(userId);
   const { data: staff = [] } = useStaff();
-  const { data: months = 12 } = useAppraisalMonths(me?.org_id);
+  const { data: acc } = useHrAccess(me?.org_id);
+  const months = acc?.appraisal_months ?? 12;
   const { data: pol } = usePolicies(me?.org_id);
   const [tab, setTab] = useState<Tab>('details');
   const [pop, setPop] = useState<ReactNode>(null);
@@ -53,10 +55,15 @@ export function EmployeeRecord({ userId }: { userId: string }) {
   const person = staff.find((p) => p.id === userId);
   const name = person?.name || 'This person';
   const first = name.split(' ')[0];
-  const admin = me.role === 'admin', self = me.id === userId;
+  // "admin" here is the HR team (who sees everyone's folders), not every company admin.
+  const admin = !!acc?.team, self = me.id === userId;
   const rec = data?.rec ?? null;
-  const lineMgr = !!rec && rec.line_manager_id === me.id;
-  if (!admin && !self && !lineMgr && !isLoading) return <Muted style={{ padding: 20 }}>This record is private to {first} and the company admin.</Muted>;
+  const lineMgr = !!rec && rec.line_manager_id === me.id && !admin && !self;
+  // What their line manager may see (the HR team chooses; never contracts, pay, right to work, bonus or disciplinary).
+  const lmSees = (s: string) => lineMgr && (acc?.lm_sections ?? []).includes(s) && !['contracts', 'pay', 'rtw', 'conduct', 'bonus', 'other'].includes(s);
+  const lmPerf = lmSees('performance');
+  const lmFolders = HR_FOLDERS.filter((f) => lmSees(f.k));
+  if (!acc || (!admin && !self && !lineMgr && !isLoading)) return <Muted style={{ padding: 20 }}>{acc ? `This record is private to ${first} and the HR team.` : 'Loading…'}</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['hrFolder', userId] }); void qc.invalidateQueries({ queryKey: ['hrOverview'] }); };
   const close = () => setPop(null);
   const nameOf = (id: string | null | undefined) => staff.find((p) => p.id === id)?.name || '—';
@@ -66,7 +73,9 @@ export function EmployeeRecord({ userId }: { userId: string }) {
   const states = items.map((i) => ({ i, ...itemState(i, docs, todayIso(), rec) }));
   const attention = states.filter((s) => s.state !== 'ok').length;
   const appr = nextAppraisal(rec, data?.appraisals ?? [], months);
-  const tabs: [Tab, string][] = [['details', 'Details'], ['docs', 'Documents'], ['perf', 'Performance'], ...(admin || self ? [['bonus', 'Bonus'] as [Tab, string]] : []), ['history', 'History']];
+  const full = admin || self;
+  const tabs = ([['details', 'Details'], ['docs', 'Documents'], ['perf', 'Performance'], ['bonus', 'Bonus'], ['history', 'History']] as [Tab, string][])
+    .filter(([k]) => full || k === 'details' || (k === 'docs' && lmFolders.length > 0) || (k === 'perf' && lmPerf) || (k === 'history' && lmSees('history')));
 
   // ---------- small parts ----------
   const row = (l: string, v: string | null | undefined) => (
@@ -184,7 +193,7 @@ export function EmployeeRecord({ userId }: { userId: string }) {
     setPop(<Pop title="Add A Document" onClose={close} footer={footer(async () => {
       if (!v.file) { toast('Choose the file first.'); return false; }
       if (!v.title.trim()) { toast('Give it a title.'); return false; }
-      return uploadHrDoc(me, userId, { folder: v.folder, item_key: v.item || null, title: v.title.trim(), doc_date: v.date || null, expiry_date: v.expiry || null, hidden: admin && !self ? v.hidden : false }, v.file);
+      return !!await uploadHrDoc(me, userId, { folder: v.folder, item_key: v.item || null, title: v.title.trim(), doc_date: v.date || null, expiry_date: v.expiry || null, hidden: admin && !self ? v.hidden : false }, v.file);
     }, 'Upload')}><Body /></Pop>);
   };
   const removeDoc = async (d: HrDoc) => {
@@ -221,7 +230,7 @@ export function EmployeeRecord({ userId }: { userId: string }) {
     })}><Body /></Pop>);
   };
   const feedbackPop = () => {
-    const kinds = admin || lineMgr ? FEEDBACK_KINDS : FEEDBACK_KINDS.filter(([k]) => k === 'praise');
+    const kinds = admin || lmPerf ? FEEDBACK_KINDS : FEEDBACK_KINDS.filter(([k]) => k === 'praise');
     const v = { kind: 'praise', body: '', private: false };
     const Body = () => {
       const [f, setF] = useState(v);
@@ -230,7 +239,7 @@ export function EmployeeRecord({ userId }: { userId: string }) {
         <View>
           {kinds.length > 1 && <SelectBox label="Type" value={f.kind as never} options={kinds} onChange={(x) => setF({ ...f, kind: x, private: x === 'note' })} />}
           <QBox label={f.kind === 'praise' ? `What Did ${first} Do Well?` : f.kind === 'improve' ? 'What To Work On' : 'Note'} value={f.body} onChangeText={(x) => setF({ ...f, body: x })} multiline />
-          {(admin || lineMgr) && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}><Text style={{ flex: 1, fontSize: 14, color: base.ink }}>Can {first} See It?</Text><YesNo label={`Can ${first} see it?`} value={!f.private} onChange={(x) => setF({ ...f, private: !x })} /></View>}
+          {(admin || lmPerf) && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}><Text style={{ flex: 1, fontSize: 14, color: base.ink }}>Can {first} See It?</Text><YesNo label={`Can ${first} see it?`} value={!f.private} onChange={(x) => setF({ ...f, private: !x })} /></View>}
         </View>
       );
     };
@@ -335,7 +344,7 @@ export function EmployeeRecord({ userId }: { userId: string }) {
   const signed = new Set((pol?.sigs ?? []).filter((s) => s.user_id === userId).map((s) => s.policy_id));
   const details = (
     <>
-      <Card>
+      {full ? <Card>
         {head(self ? 'Your Personal Details' : 'Personal Details', admin || self ? editPersonal : undefined)}
         {row('Date Of Birth', showDate(rec?.date_of_birth))}
         {row('Home Address', [rec?.home_address, rec?.postcode].filter(Boolean).join(', '))}
@@ -343,7 +352,12 @@ export function EmployeeRecord({ userId }: { userId: string }) {
         {row('Personal Email', rec?.personal_email)}
         {row('Emergency Contact', [rec?.emergency_name, rec?.emergency_relationship ? `(${rec.emergency_relationship})` : '', rec?.emergency_phone].filter(Boolean).join(' '))}
         {self && <Muted style={{ marginTop: 6 }}>Keep these up to date: tap Edit if you move or change your number.</Muted>}
-      </Card>
+      </Card> : lmSees('emergency') ? <Card>
+        {head('Emergency Contact')}
+        {row('Name', rec?.emergency_name)}
+        {row('Relationship', rec?.emergency_relationship)}
+        {row('Phone', rec?.emergency_phone)}
+      </Card> : null}
       <Card>
         {head('Employment', admin ? editEmployment : undefined)}
         {row('Job Title', rec?.job_title)}
@@ -351,12 +365,12 @@ export function EmployeeRecord({ userId }: { userId: string }) {
         {row('Employment Type', employmentLabel(rec?.employment_type))}
         {row('Start Date', showDate(rec?.start_date))}
         {row('Probation Ends', showDate(rec?.probation_end))}
-        {row('Contracted Hours', rec?.contracted_hours)}
+        {full && row('Contracted Hours', rec?.contracted_hours)}
         {row('Line Manager', rec?.line_manager_id ? nameOf(rec.line_manager_id) : null)}
         {!!rec?.end_date && row('Leaving Date', showDate(rec.end_date))}
-        {row('Right To Work', rec?.rtw_checked_on ? `Checked ${showDate(rec.rtw_checked_on)}${rec.rtw_document ? ` (${rec.rtw_document})` : ''}${rec.rtw_expiry ? `, expires ${showDate(rec.rtw_expiry)}` : ''}` : null)}
+        {full && row('Right To Work', rec?.rtw_checked_on ? `Checked ${showDate(rec.rtw_checked_on)}${rec.rtw_document ? ` (${rec.rtw_document})` : ''}${rec.rtw_expiry ? `, expires ${showDate(rec.rtw_expiry)}` : ''}` : null)}
       </Card>
-      <Card>
+      {full && <Card>
         {head('Company Policies', isManager(me) && self ? () => router.push('/pm/hr/policies' as never) : undefined, 'Read And Sign ›')}
         {(pol?.pols ?? []).length ? (pol?.pols ?? []).map((p) => (
           <Pressable key={p.id} accessibilityRole="button" onPress={() => viewDoc(publicUrl('mc-documents', p.storage_path), p.title)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
@@ -364,13 +378,14 @@ export function EmployeeRecord({ userId }: { userId: string }) {
             {chip(signed.has(p.id) ? 'Signed' : 'Not Signed', signed.has(p.id) ? STATE_TONE.ok : STATE_TONE.expiring)}
           </Pressable>
         )) : <Muted>No policies uploaded yet.</Muted>}
-      </Card>
+      </Card>}
+      {!full && <Muted>As {first}&apos;s line manager you see {[lmPerf ? 'their performance' : '', lmSees('emergency') ? 'emergency contact' : '', ...lmFolders.map((f) => f.l.toLowerCase()), lmSees('history') ? 'job history' : ''].filter(Boolean).join(', ').replace(/, ([^,]*)$/, ' and $1') || 'their employment details only'}. Contracts, pay and the rest are for the HR team.</Muted>}
     </>
   );
   const docsTab = (
     <>
       {(admin || self) && <View style={{ marginBottom: 10 }}><Button title="+ Add A Document" onPress={() => addDoc()} /></View>}
-      {HR_FOLDERS.map((fo) => {
+      {(full ? HR_FOLDERS : lmFolders).map((fo) => {
         const its = states.filter((s) => s.i.folder === fo.k);
         const extra = docs.filter((d) => d.folder === fo.k && !its.some((s) => s.doc?.id === d.id));
         if (!its.length && !extra.length) return null;
@@ -416,9 +431,9 @@ export function EmployeeRecord({ userId }: { userId: string }) {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
             <Text style={{ flex: 1, fontSize: 13.5, fontWeight: '600', color: base.ink }}>{APPRAISAL_STATUS[appr.open.status]}</Text>
             {self && <Button small title={appr.open.self_answers ? 'Update Your Side' : 'Fill In Your Side'} onPress={() => selfPop(appr.open as Appraisal)} />}
-            {(admin || lineMgr) && !self && <Button small title="Review And Sign Off" onPress={() => reviewPop(appr.open as Appraisal)} />}
+            {(admin || lmPerf) && !self && <Button small title="Review And Sign Off" onPress={() => reviewPop(appr.open as Appraisal)} />}
           </View>
-        ) : (admin || lineMgr) && !self ? <Button title="Start An Appraisal" onPress={async () => { if (await startAppraisal(me, userId, appr && appr.due > todayIso() ? appr.due : todayIso(), rec?.line_manager_id ?? null)) refresh(); else toast('Could not start it — try again.'); }} /> : null}
+        ) : (admin || lmPerf) && !self ? <Button title="Start An Appraisal" onPress={async () => { if (await startAppraisal(me, userId, appr && appr.due > todayIso() ? appr.due : todayIso(), rec?.line_manager_id ?? null)) refresh(); else toast('Could not start it — try again.'); }} /> : null}
         {apps.filter((a) => a.status === 'done').map((a) => (
           <Pressable key={a.id} accessibilityRole="button" onPress={() => viewAppraisal(a)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
             <Text style={{ flex: 1, fontSize: 13.5, color: base.ink }}>Signed Off {showDate(a.completed_at)}</Text>
@@ -427,13 +442,13 @@ export function EmployeeRecord({ userId }: { userId: string }) {
         ))}
       </Card>
       <Card>
-        {head('Goals', admin || lineMgr || self ? () => goalPop() : undefined, '+ Add')}
+        {head('Goals', admin || lmPerf || self ? () => goalPop() : undefined, '+ Add')}
         {(data?.goals ?? []).length ? (data?.goals ?? []).map((g) => (
           <Pressable key={g.id} accessibilityRole="button" accessibilityLabel={g.title} onPress={() => goalPop(g)} style={{ paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Text style={{ flex: 1, fontSize: 13.5, fontWeight: '600', color: base.ink }}>{g.title}</Text>
               {chip(goalStatusLabel(g.status), g.status === 'done' ? STATE_TONE.ok : g.status === 'at_risk' ? STATE_TONE.expired : STATE_TONE.missing)}
-              {(admin || lineMgr) && <Pressable accessibilityLabel={`Delete goal ${g.title}`} hitSlop={8} onPress={async () => { if (await confirmAsk(`Delete the goal "${g.title}"?`, 'Delete')) { if (await deleteGoal(g.id)) refresh(); } }}><Text>🗑</Text></Pressable>}
+              {(admin || lmPerf) && <Pressable accessibilityLabel={`Delete goal ${g.title}`} hitSlop={8} onPress={async () => { if (await confirmAsk(`Delete the goal "${g.title}"?`, 'Delete')) { if (await deleteGoal(g.id)) refresh(); } }}><Text>🗑</Text></Pressable>}
             </View>
             <View style={{ height: 6, borderRadius: 3, backgroundColor: '#EEF0F2', marginTop: 6, overflow: 'hidden' }}><View style={{ width: `${Math.max(0, Math.min(100, Number(g.progress) || 0))}%`, height: 6, backgroundColor: t.brand1 }} /></View>
             <Text style={{ fontSize: 12, color: base.slate, marginTop: 3 }}>{[`${Number(g.progress) || 0}%`, g.due_date ? `by ${showDate(g.due_date)}` : '', `set by ${nameOf(g.set_by)}`].filter(Boolean).join(' · ')}</Text>
@@ -506,7 +521,7 @@ export function EmployeeRecord({ userId }: { userId: string }) {
             </View>
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-            {chip(attention ? `${attention} Document${attention === 1 ? '' : 's'} To Sort` : 'Documents Up To Date', attention ? STATE_TONE.expiring : STATE_TONE.ok)}
+            {full && chip(attention ? `${attention} Document${attention === 1 ? '' : 's'} To Sort` : 'Documents Up To Date', attention ? STATE_TONE.expiring : STATE_TONE.ok)}
             {!!appr && chip(`Appraisal ${appr.overdue ? 'Overdue' : `Due ${showDate(appr.due)}`}`, appr.overdue ? STATE_TONE.expired : STATE_TONE.missing)}
           </View>
         </Card>

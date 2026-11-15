@@ -1,7 +1,9 @@
 // HR › Employee Records (Andy, 14 Nov 2026): the company admin sees everyone's folder and fills it in (employment, line
 // manager, documents with what's missing, appraisals, goals, feedback, bonus, job history, how often appraisals come
 // round); an operative opens their own from My Account, keeps their details up to date, adds their own ID, fills in
-// their side of an appraisal, and can't add bonuses or give themselves feedback. Fake database. node hr14-check.js
+// their side of an appraisal, and can't add bonuses or give themselves feedback. HR Access (15 Nov 2026): start the HR
+// team, what line managers see, appraisals; a line manager (not on the HR team) sees only what's allowed. The fake
+// database has no security rules; those are proven in SQL (docs/claude-code/sql/hr-access-15nov.sql). node hr14-check.js
 const {chromium, makeContext} = require('./harness');
 const path = require('path');
 const B = 'http://localhost:8081';
@@ -14,6 +16,16 @@ const login = async (page) => {
   await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(6000);
 };
 const pick = async (page, boxLabel, choice) => { await page.getByLabel(boxLabel, {exact: true}).last().click(); await page.waitForTimeout(600); await page.getByText(choice, {exact: true}).last().click(); await page.waitForTimeout(500); };
+// The HR functions, played by the fake back end (who's on the HR team, the settings, the basics for a line manager).
+let TEAM = true;
+const setRpc = (db) => { global.__rpc = (name, b) => {
+  const st = (db.hr_settings || []).find((x) => x.org_id === db.organizations[0].id) || {};
+  if (name === 'hr_my_access') return {team: TEAM, team_set: (db.hr_team || []).length > 0, lm_sections: st.hr_lm_sections || ['performance', 'emergency'], appraisal_months: st.appraisal_months || 12, onedrive: TEAM ? st.hr_onedrive || null : null};
+  if (name === 'hr_save_settings') { db.hr_settings = db.hr_settings || []; let row = db.hr_settings.find((x) => x.org_id === db.organizations[0].id); if (!row) { row = {org_id: db.organizations[0].id}; db.hr_settings.push(row); } if (b.p_months != null) row.appraisal_months = b.p_months; if (b.p_lm_sections) row.hr_lm_sections = b.p_lm_sections; if (b.p_onedrive) row.hr_onedrive = b.p_onedrive; if (b.p_clear_onedrive) row.hr_onedrive = null; return true; }
+  if (name === 'hr_basic') { const r = (db.hr_records || []).find((x) => x.user_id === b.p_user); return r ? {user_id: r.user_id, job_title: r.job_title, line_manager_id: r.line_manager_id, emergency_name: r.emergency_name} : null; }
+  if (name === 'hr_my_reports') return (db.hr_records || []).filter((x) => x.line_manager_id === 'me').map((x) => ({user_id: x.user_id, job_title: x.job_title}));
+  return undefined;
+}; };
 const fillBox = async (page, label, text) => { const l = page.getByText(label, {exact: true}).last(); const box = l.locator('xpath=following::*[self::input or self::textarea][1]'); await box.fill(text); };
 (async () => {
   const browser = await chromium.launch(); const errs = [];
@@ -23,7 +35,8 @@ const fillBox = async (page, label, text) => { const l = page.getByText(label, {
   const me = db.profiles.find((p) => p.id === 'me'); Object.assign(me, {role: 'admin', howto_dismissed: ['*']});
   const O = db.organizations[0].id;
   db.hr_records = []; db.hr_docs = []; db.hr_history = []; db.hr_goals = []; db.hr_feedback = []; db.hr_appraisals = []; db.hr_bonuses = [];
-  db.hr_settings = db.hr_settings || [];
+  db.hr_settings = db.hr_settings || []; db.hr_team = [];
+  setRpc(db);
   const page = await ctx.newPage(); page.on('pageerror', (e) => errs.push(e.message));
   await login(page);
   const body = () => page.locator('body').innerText();
@@ -33,9 +46,23 @@ const fillBox = async (page, label, text) => { const l = page.getByText(label, {
   let t = await body();
   check(/Jake Morris/.test(t) && /Tom Hughes/.test(t) && /Dave Driver/.test(t), 'the admin sees everyone\'s folder');
   check(/To Sort/.test(t), 'with what each needs sorting');
-  await pick(page, 'Appraisals Come Round', 'Every 6 Months');
-  check((db.hr_settings.find((s) => s.org_id === O) || {}).appraisal_months === 6, 'appraisals every 6 months saved');
+  check(/No HR team chosen yet: every company admin can see everyone’s folders/.test(t), 'HR Access warns there is no HR team yet');
   await page.screenshot({path: path.join(SHOTS, 'hr-records-list.png')});
+  // HR Access.
+  await page.getByLabel('HR Access', {exact: true}).click(); await page.waitForTimeout(3000);
+  await page.getByText('Start The HR Team With Me', {exact: true}).click(); await page.waitForTimeout(2000);
+  check(db.hr_team.some((x) => x.user_id === 'me' && x.org_id === O), 'Start The HR Team With Me puts me on it');
+  check(/(You)/.test(await body()) && /Take Off/.test(await body()), 'and lists me, with Take Off');
+  await page.getByLabel('Job History', {exact: true}).getByText('Yes', {exact: true}).click().catch(async () => { await page.getByText('Yes', {exact: true}).nth(5).click(); });
+  await page.waitForTimeout(1500);
+  const lm = (db.hr_settings.find((x) => x.org_id === O) || {}).hr_lm_sections || [];
+  check(lm.includes('history') && lm.includes('performance'), `line managers may now see job history too (${lm.join(', ')})`);
+  await pick(page, 'Appraisals Come Round', 'Every 6 Months');
+  check((db.hr_settings.find((x) => x.org_id === O) || {}).appraisal_months === 6, 'appraisals every 6 months saved');
+  t = await body();
+  check(/never shown to them/.test(t) && /OneDrive/.test(t) && /only the HR team can open/.test(t), 'it explains what line managers never see, and the private OneDrive folder');
+  await page.screenshot({path: path.join(SHOTS, 'hr-access.png'), fullPage: true});
+  await page.goto(B + '/pm/hr/records'); await page.waitForTimeout(3500);
 
   // Jake's folder: employment.
   await page.getByLabel('Jake Morris', {exact: true}).click(); await page.waitForTimeout(4000);
@@ -99,6 +126,29 @@ const fillBox = async (page, label, text) => { const l = page.getByText(label, {
   check(!errs.length, `admin: no page errors ${errs.slice(0, 2).join(' | ')}`);
   await ctx.close();
 
+  // ---------- a line manager, not on the HR team ----------
+  const m = await makeContext(browser, 'pm', [], {viewport: {width: 1300, height: 900}});
+  require('./seeds/world')(m.db);
+  Object.assign(m.db.profiles.find((p) => p.id === 'me'), {role: 'pm', howto_dismissed: ['*']});
+  m.db.hr_records = [{user_id: 'o1', org_id: m.db.organizations[0].id, job_title: 'Roofer', line_manager_id: 'me', emergency_name: 'Sue Morris', postcode: 'SW4 6RZ'}];
+  m.db.hr_docs = [{id: 'hd1', org_id: m.db.organizations[0].id, user_id: 'o1', folder: 'contracts', item_key: 'contract', title: 'Contract', storage_path: 'x/o1/c.pdf', hidden_from_employee: false, created_at: new Date().toISOString()}];
+  m.db.hr_history = []; m.db.hr_goals = []; m.db.hr_feedback = []; m.db.hr_appraisals = []; m.db.hr_bonuses = []; m.db.hr_team = [{org_id: m.db.organizations[0].id, user_id: 'someone'}];
+  TEAM = false; setRpc(m.db);
+  const mp = await m.ctx.newPage(); const merrs = []; mp.on('pageerror', (e) => merrs.push(e.message));
+  await login(mp);
+  await mp.goto(B + '/pm/hr/records'); await mp.waitForTimeout(4000);
+  let mt = await mp.locator('body').innerText();
+  check(/Jake Morris/.test(mt) && /You Line-Manage/.test(mt) && !/Tom Hughes/.test(mt) && !/HR Access/.test(mt), 'a line manager sees only themselves and the people they line-manage, and no HR Access');
+  await mp.getByLabel('Jake Morris', {exact: true}).click(); await mp.waitForTimeout(4000);
+  mt = await mp.locator('body').innerText();
+  const tabNames = await mp.getByRole('tab').allInnerTexts();
+  check(!tabNames.includes('Documents') && !tabNames.includes('Bonus') && tabNames.includes('Performance'), `their tabs: ${tabNames.join(', ')} (no Documents, no Bonus)`);
+  check(!/Personal Details/.test(mt) && !/SW4 6RZ/.test(mt) && /Emergency Contact/.test(mt) && /Sue Morris/.test(mt), 'no personal details, but the emergency contact');
+  check(!/Contract/.test(mt.replace(/Contracts, pay and the rest are for the HR team/, '')), 'no contract anywhere');
+  await mp.screenshot({path: path.join(SHOTS, 'hr-linemanager.png')});
+  check(!merrs.length, `line manager: no page errors ${merrs.slice(0, 2).join(' | ')}`);
+  await m.ctx.close();
+
   // ---------- an operative, their own ----------
   const o = await makeContext(browser, 'operative', [], {shot: true});
   require('./seeds/world')(o.db);
@@ -106,6 +156,7 @@ const fillBox = async (page, label, text) => { const l = page.getByText(label, {
   o.db.hr_records = [{user_id: 'me', org_id: o.db.organizations[0].id, job_title: 'Roofer', employment_type: 'employee', line_manager_id: 'pmx'}];
   o.db.hr_docs = []; o.db.hr_history = []; o.db.hr_goals = []; o.db.hr_feedback = []; o.db.hr_bonuses = [];
   o.db.hr_appraisals = [{id: 'ap1', org_id: o.db.organizations[0].id, user_id: 'me', manager_id: 'pmx', due_date: '2026-12-01', status: 'due', self_answers: null, review: null, created_at: new Date().toISOString()}];
+  setRpc(o.db);
   const op = await o.ctx.newPage(); const oerrs = []; op.on('pageerror', (e) => oerrs.push(e.message));
   await login(op);
   const ob = () => op.locator('body').innerText();

@@ -21,7 +21,7 @@ import { base, page, radius, space } from '@/theme/theme';
 const DONE: Record<OdTarget, string> = {
   quote: 'Folder linked to this quote', estimating: 'Estimating folder linked to the job',
   progress: 'Folder linked — photos for this site will sync there from now on', materials: "Folder linked — Material PO's will sync from there daily",
-  siteinductions: 'Folder linked — signed inductions will be pushed there from now on', repairjob: 'Folder linked — sending what’s already on the job', operative: 'Folder linked', quicklink: 'Added Quick Link',
+  siteinductions: 'Folder linked — signed inductions will be pushed there from now on', repairjob: 'Folder linked — sending what’s already on the job', operative: 'Folder linked', quicklink: 'Added Quick Link', hr: 'HR folder chosen',
 };
 
 export default function OneDrivePick() {

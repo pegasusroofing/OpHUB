@@ -7,6 +7,7 @@ import { ListGroup, ListRow } from '@/components/ListRows';
 import { Muted } from '@/components/ui';
 import { HowTo } from '@/components/HowTo';
 import { hrAllowance, useHr, usePolicies } from '@/data/hr';
+import { useHrAccess } from '@/data/hrRecords';
 import { useAuth } from '@/lib/auth';
 import { usedDays } from '@/lib/rules/hr';
 import { isManager } from '@/lib/roles';
@@ -16,6 +17,7 @@ export default function HrHub() {
   const { me } = useAuth();
   const { data: hr } = useHr(me?.org_id);
   const { data: pol } = usePolicies(me?.org_id);
+  const { data: acc } = useHrAccess(me?.org_id);
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const y = new Date().getFullYear();
@@ -29,7 +31,7 @@ export default function HrHub() {
       <HowTo k="hr" />
       <ListGroup first>
         <ListRow icon="calendar" tint="green" label="Holiday calendar" sub={left == null ? '…' : `${left} day${left === 1 ? '' : 's'} left this year${me.role === 'admin' && pending ? ` · ${pending} to approve` : ''}`} badge={me.role === 'admin' ? pending || undefined : undefined} onPress={() => router.push('/pm/hr/holidays' as never)} />
-        <ListRow icon="users" tint="grey" label={me.role === 'admin' ? 'Employee Records' : 'My Employee Record'} sub={me.role === 'admin' ? 'Everyone’s folder: details, documents, appraisals, bonus' : 'Your details, documents, goals and appraisals'} onPress={() => router.push((me.role === 'admin' ? '/pm/hr/records' : '/pm/hr/records') as never)} />
+        <ListRow icon="users" tint="grey" label="Employee Records" sub={acc?.team ? 'Everyone’s folder: details, documents, appraisals, bonus' : 'Your folder, and the people you line-manage'} onPress={() => router.push('/pm/hr/records' as never)} />
         <ListRow icon="book" tint="blue" label="Company policies & handbook" sub={pol ? (toSign ? `${toSign} to read and sign` : (pol.pols ?? []).length ? 'All signed' : 'None uploaded yet') : '…'} badge={toSign || undefined} onPress={() => router.push('/pm/hr/policies' as never)} last />
       </ListGroup>
     </ScrollView>

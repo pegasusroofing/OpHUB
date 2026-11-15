@@ -243,6 +243,7 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
     - as admin: HR › Employee Records lists everyone with what needs sorting; set Appraisals Come Round; open someone: Details (Edit Employment: job title, type, start, probation, line manager, right to work), Documents (each folder lists what should be on file, Not On File / On File / Expiring Soon / Expired / New One Due; tap one to upload it; Can They See It? Yes / No), Performance (Start An Appraisal, goals with ideas, feedback), Bonus, History;
     - as anyone: Settings › 📁 My Employee Record: update your details and emergency contact, add your own ID / licences / health papers, download payslips, read policies, fill in your side of an appraisal;
     - a line manager (set on someone's Employment) sees that person's Performance side only.
+    - HR Access (15 Nov; Employee Records › HR Access): Start The HR Team With Me, then add whoever else should see everyone's folders (other admins then can't, and can't add themselves); What Line Managers See (Yes / No each); Appraisals; OneDrive: Choose The HR Folder (pick a private one only the HR team can open in Microsoft 365), then Copy Everything Now.
 
 ## To discuss with Andy
 - ~~OneDrive and the full job set-up~~: talked through and built 8 Nov 2026 (item 55).
