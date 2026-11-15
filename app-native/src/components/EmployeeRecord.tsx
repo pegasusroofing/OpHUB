@@ -22,7 +22,7 @@ import { Button, Card, Muted } from '@/components/ui';
 import { usePolicies } from '@/data/hr';
 import {
   addBonus, addFeedback, addGoal, addHistory, deleteFeedback, deleteGoal, deleteHistory, deleteHrDoc, hrDocUrl, saveAppraisalReview, saveAppraisalSelf, saveRecord,
-  startAppraisal, updateBonus, updateGoal, uploadHrDoc, useHrAccess, useHrFolder, useHrWho, useStaff, type HrBonus, type HrGoal, type UpFile,
+  startAppraisal, updateBonus, updateGoal, uploadHrDoc, useHrAccess, useHrFolder, useHrWho, useMyReports, useStaff, type HrBonus, type HrGoal, type UpFile,
 } from '@/data/hrRecords';
 import { useAuth } from '@/lib/auth';
 import { publicUrl } from '@/lib/privateFiles';
@@ -48,6 +48,7 @@ export function EmployeeRecord({ userId }: { userId: string }) {
   const { data: staff = [] } = useStaff();
   const { data: acc } = useHrAccess(me?.org_id);
   const { data: who } = useHrWho(me?.org_id);
+  const { data: reports = [] } = useMyReports(!!acc && !acc.team);
   const months = acc?.appraisal_months ?? 12;
   const { data: pol } = usePolicies(me?.org_id);
   const [tab, setTab] = useState<Tab>('details');
@@ -59,7 +60,8 @@ export function EmployeeRecord({ userId }: { userId: string }) {
   // "admin" here is the HR team (who sees everyone's folders), not every company admin.
   const admin = !!acc?.team, self = me.id === userId;
   const rec = data?.rec ?? null;
-  const lineMgr = !!rec && rec.line_manager_id === me.id && !admin && !self;
+  // Their line manager, or someone HR has allowed to see this folder (Andy, 15 Nov 2026): the parts HR allows.
+  const lineMgr = !admin && !self && ((!!rec && rec.line_manager_id === me.id) || reports.some((r) => r.user_id === userId));
   // What their line manager may see (the HR team chooses; never contracts, pay, right to work, bonus or disciplinary).
   const lmSees = (s: string) => lineMgr && (acc?.lm_sections ?? []).includes(s) && !['contracts', 'pay', 'rtw', 'conduct', 'bonus', 'other'].includes(s);
   const lmPerf = lmSees('performance');
@@ -529,8 +531,8 @@ export function EmployeeRecord({ userId }: { userId: string }) {
           </View>
           {self && !!who && (() => {
             const hr = who.people.filter((p) => p.id !== me.id).map((p) => p.name);
-            const lm = rec?.line_manager_id ? staff.find((p) => p.id === rec.line_manager_id)?.name : null;
-            return <Muted style={{ marginTop: 10 }}>🔒 Who Can Open Your Folder: you{hr.length ? `, and HR: ${hr.join(', ')}` : ''}{lm && !hr.includes(lm) ? `. ${lm}, your line manager, sees only the parts HR allows` : ''}.</Muted>;
+            const also = who.sees_mine.filter((p) => p.id !== me.id && !hr.includes(p.name)).map((p) => p.name);
+            return <Muted style={{ marginTop: 10 }}>🔒 Who Can See Your Folder: you{hr.length ? `, and HR: ${hr.join(', ')}` : ''}.{also.length ? ` ${also.join(', ')} ${also.length === 1 ? 'sees' : 'see'} only the parts HR allows.` : ''}</Muted>;
           })()}
         </Card>
         {/* The tabs: across the page on a laptop; on a phone they slide sideways rather than squash (each its own width). */}

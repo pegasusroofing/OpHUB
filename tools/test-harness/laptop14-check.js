@@ -76,15 +76,17 @@ const VP = {viewport: {width: 1300, height: 900}};
   const al = await page.evaluate(() => {
     const leaf = (re) => [...document.querySelectorAll('div')].find((d) => d.childElementCount === 0 && re.test(d.innerText) && d.getBoundingClientRect().width > 0);
     const L = (e) => e ? Math.round(e.getBoundingClientRect().left) : -1;
+    // Where the writing starts (15 Nov 2026: the date, greeting and headings line up with the writing in the tiles).
+    const T = (e) => { if (!e) return -1; const r = document.createRange(); r.selectNodeContents(e); return Math.round(r.getBoundingClientRect().left); };
     const tile = [...document.querySelectorAll('[role="button"], a, div')].find((d) => /^\d+\s*Live projects$/i.test((d.innerText || '').trim()) && d.getBoundingClientRect().width < 400);
     const tr = tile ? tile.getBoundingClientRect() : null;
     const day = leaf(/^(Mon|Tue|Wed|Thu|Fri) \d+$/); const dayBox = day && day.closest('[role="button"]');
     const cal = document.querySelector('[aria-label="Open the calendar"]'); const lg = [...document.querySelectorAll('[aria-label$=" logo"]')].find((e) => e.getBoundingClientRect().width > 0);
     const notif = [...document.querySelectorAll('[role="button"], div')].find((d) => /^\d+\s*Notifications$/i.test((d.innerText || '').trim()) && d.getBoundingClientRect().width < 400);
-    return { tileL: tr ? Math.round(tr.left) : -1, date: L(leaf(/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday) \d+ /)), hi: L(leaf(/^Good (morning|afternoon|evening)/)), next: L(leaf(/^Next 5 Days$/)), dayL: dayBox ? Math.round(dayBox.getBoundingClientRect().left) : -1,
+    return { tileL: tr ? Math.round(tr.left) : -1, date: T(leaf(/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday) \d+ /)), hi: T(leaf(/^Good (morning|afternoon|evening)/)), next: T(leaf(/^Next 5 Days$/)), tileText: T(leaf(/^Live projects$/)), dayL: dayBox ? Math.round(dayBox.getBoundingClientRect().left) : -1,
       tileR: notif ? Math.round(notif.getBoundingClientRect().right) : -1, calR: cal ? Math.round(cal.getBoundingClientRect().right) : -1, logoR: lg ? Math.round(lg.getBoundingClientRect().right) : -1 };
   });
-  check([al.date, al.hi, al.next, al.dayL].every((x) => Math.abs(x - al.tileL) <= 1), `left side lines up with the tiles (${JSON.stringify(al)})`);
+  check(al.dayL === al.tileL && al.tileText > al.tileL && [al.date, al.hi, al.next].every((x) => Math.abs(x - al.tileText) <= 1), `left side: the tiles line up, and the date, greeting and Next 5 Days start where the writing in the tiles starts (${JSON.stringify(al)})`);
   check([al.calR, al.logoR].every((x) => Math.abs(x - al.tileR) <= 1), 'right side lines up with the tiles');
   await page.screenshot({path: path.join(SHOTS, 'laptop-home.png')});
   await page.screenshot({path: path.join(SHOTS, 'laptop-home-full.png'), fullPage: true});
@@ -107,7 +109,7 @@ const VP = {viewport: {width: 1300, height: 900}};
   await page.screenshot({path: path.join(SHOTS, 'laptop-hometiles.png')});
   await page.getByText('Save', {exact: true}).filter({visible: true}).first().click(); await page.waitForTimeout(2500);
   const ht = db.organizations[0].home_tiles || {};
-  check(ht.finance_pm === false && ht.finance_site_manager === true, `saved on the company (${JSON.stringify(ht)})`);
+  check(ht.finance_pm === false, `saved on the company (${JSON.stringify(ht)}; the Home Page asks about project managers only since the 15 Nov review)`);
 
   // ---- Yard ----
   await page.goto(B + '/fin/yard'); await page.waitForTimeout(4500);

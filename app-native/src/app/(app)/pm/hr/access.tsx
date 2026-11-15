@@ -1,15 +1,20 @@
 // HR › Employee Records › HR Access.
-// - Who Can Open HR (Andy, 15 Nov 2026: "I need it to be clear in the app who could have access to it pm / admin /
-//   otherwise which is all set at the start by the admin and then there onwards"): All Company Admins Yes / No, All
-//   Project Managers Yes / No, and named people of any role. Until it's saved every company admin can; once saved,
-//   only the people chosen open everyone's folders (in OpHUB and in the HR folder in OneDrive), and only they change it.
-//   The list of who that is, by name, is shown as it's chosen; every change is logged (who, when, what).
+// Andy, 15 Nov 2026: "each pm etc has hr to book holiday, has the folders we created, but only they can see their
+// folder, and then the admin sets who else can see it ... I can also allow pm 1 to see estimator 1 and pm 3 (as that's
+// their team, but I don't want to group by team just individual)".
+// - Who Sees Everyone's Folders: every company admin to start (Yes / No), plus anyone named. They see every folder in
+//   full and set who else sees what. Only they change it; leaving yourself out asks first.
+// - Who Can See Whose Folder: everyone sees their own; person by person, HR chooses whose folders someone else may see
+//   too (hr_viewers). They see the parts set under What Others See, like a line manager.
+// - Every change is logged (who, when, what).
 // - HR Folder In OneDrive (Andy: "I want to have hr linked to a specific folder in the OneDrive where access is
 //   managed"): HR documents are copied there, a folder per person. OpHUB hides it from everyone not chosen above
 //   (the OneDrive functions lock it); who OneDrive itself shares it with is shown here and managed in OneDrive.
-// - What line managers see of their people (never contracts, pay, right to work, bonus or disciplinary).
+// - What Others See: the parts someone allowed (or a line manager) sees (never contracts, pay, right to work, bonus or
+//   disciplinary).
 // - How often appraisals come round.
-// The database enforces all of this (hr_is_team, hr_save_team, hr_lm_sees, hr_save_settings); this page only sets it.
+// The database enforces all of this (hr_is_team, hr_save_team, hr_set_viewer_access, hr_lm_sees, hr_save_settings);
+// this page only sets it.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
@@ -17,14 +22,16 @@ import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { showDate } from '@/components/DateField';
 import { YesNo } from '@/components/OneDriveSettings';
+import { Pop } from '@/components/Pop';
 import { SelectBox } from '@/components/SelectBox';
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
-import { copyHrToOneDrive, saveHrSettings, saveHrTeam, useHrAccess, useHrFolderAccess, useHrWho, useStaff, type HrWho } from '@/data/hrRecords';
+import { copyHrToOneDrive, saveHrSettings, saveHrTeam, saveViewerAccess, useHrAccess, useHrFolderAccess, useHrOverview, useHrWho, useStaff, type HrWho } from '@/data/hrRecords';
+import type { Person } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { base, page, space } from '@/theme/theme';
 
-/** The parts a line manager can be allowed to see. */
+/** The parts someone allowed to see another's folder (or their line manager) can be shown. */
 export const LM_SECTIONS: [string, string, string][] = [
   ['performance', 'Performance', 'Appraisals, goals and feedback'],
   ['emergency', 'Emergency Contact', 'Who to ring if they’re hurt on site'],
@@ -51,8 +58,30 @@ function WhoList({ who, meId }: { who: HrWho; meId: string }) {
         <View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '500', color: base.ink }}>{p.name}{p.id === meId ? ' (You)' : ''}</Text><Muted>{roleName(p.role)}</Muted></View>
         <Muted>{p.why.map((w) => WHY[w]).join(' · ')}</Muted>
       </>, p.id))}
-      {line(<><View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '500', color: base.ink }}>Everyone Else</Text><Muted>Their own folder only (and, as a line manager, the parts HR allows)</Muted></View><Text style={{ fontWeight: '700', color: base.ink }}>No</Text></>, 'else')}
+      {line(<><View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '500', color: base.ink }}>Everyone Else</Text><Muted>Their own folder, and any others HR lets them see (only the parts HR allows)</Muted></View><Text style={{ fontWeight: '700', color: base.ink }}>No</Text></>, 'else')}
     </>
+  );
+}
+
+/** Whose folders one person may see besides their own: Yes / No for each of the others. */
+function ViewerPop({ viewer, staff, start, onClose, onSaved }: { viewer: Person; staff: Person[]; start: string[]; onClose: () => void; onSaved: () => void }) {
+  const toast = useToast();
+  const [ids, setIds] = useState(start);
+  const [busy, setBusy] = useState(false);
+  const others = staff.filter((p) => p.id !== viewer.id);
+  const save = async () => {
+    setBusy(true); const ok = await saveViewerAccess(viewer.id, ids); setBusy(false);
+    if (ok) onSaved(); else toast('Could not save — try again.');
+  };
+  return (
+    <Pop title={`Whose Folders Can ${viewer.name} See?`} onClose={onClose}
+      footer={buttons(<><Button busy={busy} title="Save" onPress={save} /><Button kind="ghost" title="Cancel" onPress={onClose} /></>)}>
+      <Muted style={{ marginBottom: 6 }}>Besides their own. They see only the parts set under What Others See.</Muted>
+      {others.map((p) => line(<>
+        <View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '500', color: base.ink }}>{p.name}</Text><Muted>{roleName(p.role)}</Muted></View>
+        <YesNo label={p.name} value={ids.includes(p.id)} onChange={(v) => setIds(v ? [...ids, p.id] : ids.filter((x) => x !== p.id))} />
+      </>, p.id))}
+    </Pop>
   );
 }
 
@@ -64,6 +93,8 @@ export default function HrAccess() {
   const { data: who } = useHrWho(me?.org_id);
   const { data: staff = [] } = useStaff();
   const fa = useHrFolderAccess(acc?.team ? acc.onedrive?.id : null);
+  const { data: ov } = useHrOverview(me?.org_id, !!acc?.team);
+  const [viewing, setViewing] = useState<Person | null>(null);
   const [busy, setBusy] = useState('');
   const [lmLocal, setLmLocal] = useState<string[] | null>(null);
   const [draft, setDraft] = useState<{ admins: boolean; pms: boolean; people: string[] } | null>(null);
@@ -77,8 +108,8 @@ export default function HrAccess() {
       <ScrollView contentContainerStyle={page(720)}>
         <Stack.Screen options={{ title: 'HR Access' }} />
         <Card>
-          {title('Who Can Open HR')}
-          <Muted style={{ marginBottom: 6 }}>These people open everyone&apos;s HR folders (contracts, payslips, right to work, bonus, disciplinary), in OpHUB and in the HR folder in OneDrive. Only they can change who.</Muted>
+          {title('Who Sees Everyone’s Folders')}
+          <Muted style={{ marginBottom: 6 }}>These people see every HR folder in full (contracts, payslips, right to work, bonus, disciplinary), in OpHUB and in the HR folder in OneDrive, and choose who else sees what.</Muted>
           <WhoList who={who} meId={me.id} />
         </Card>
       </ScrollView>
@@ -91,9 +122,9 @@ export default function HrAccess() {
   const chosen = staff.map((p) => ({ p, why: [d.people.includes(p.id) && 'Named', d.admins && p.role === 'admin' && 'All Company Admins', d.pms && p.role === 'pm' && 'All Project Managers'].filter(Boolean) as string[] })).filter((x) => x.why.length);
   const others = staff.filter((p) => !d.people.includes(p.id));
   const saveTeam = async () => {
-    if (!chosen.length) { showAlert('Choose at least one person who can open HR.'); return; }
+    if (!chosen.length) { showAlert('Choose at least one person who sees everyone’s folders.'); return; }
     const meIn = chosen.some((x) => x.p.id === me.id);
-    if (!meIn && !(await confirmAsk('You’re not in this list. After saving you won’t be able to open everyone’s HR folders or change who can. Save anyway?', 'Yes, Save'))) return;
+    if (!meIn && !(await confirmAsk('You’re not in this list. After saving you won’t see everyone’s HR folders or be able to change who can. Save anyway?', 'Yes, Save'))) return;
     setBusy('team');
     const w = await saveHrTeam(d);
     setBusy('');
@@ -114,16 +145,17 @@ export default function HrAccess() {
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'HR Access' }} />
       <Card>
-        {title('Who Can Open HR')}
-        <Muted style={{ marginBottom: 8 }}>The people chosen here open everyone&apos;s HR folders (contracts, payslips, right to work, bonus, disciplinary), in OpHUB and in the HR folder in OneDrive. Everyone else sees only their own folder. Only the people chosen can change this.</Muted>
-        {!who.set_up && <View style={AMBER}><Text style={{ color: '#B45309', fontWeight: '600' }}>Not set up yet: every company admin can open HR. Choose who below and press Save.</Text></View>}
+        {title('Who Sees Everyone’s Folders')}
+        <Muted style={{ marginBottom: 8 }}>They see every HR folder in full (contracts, payslips, right to work, bonus, disciplinary), in OpHUB and in the HR folder in OneDrive, and choose who else sees what. Only they can change this.</Muted>
         {line(<><View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '500', color: base.ink }}>All Company Admins</Text><Muted>Everyone with the Company Admin role, now and later</Muted></View>
           <YesNo label="All Company Admins" value={d.admins} onChange={(v) => setDraft({ ...d, admins: v })} /></>, 'adm')}
-        {line(<><View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '500', color: base.ink }}>All Project Managers</Text><Muted>Everyone with the Project Manager role, now and later</Muted></View>
+        {/* All Project Managers (15 Nov) shows only where it was switched on: Andy wants PMs to see their own folder and
+            the folders he chooses for them, person by person (below). */}
+        {saved.pms && line(<><View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '500', color: base.ink }}>All Project Managers</Text><Muted>Everyone with the Project Manager role, now and later</Muted></View>
           <YesNo label="All Project Managers" value={d.pms} onChange={(v) => setDraft({ ...d, pms: v })} /></>, 'pms')}
         <View style={{ paddingVertical: 9, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
           <Text style={{ fontSize: 14, fontWeight: '500', color: base.ink }}>Named People</Text>
-          <Muted style={{ marginBottom: 6 }}>Anyone else, whatever their role: an office manager, a director</Muted>
+          <Muted style={{ marginBottom: 6 }}>Anyone else who should see every folder: an office manager, a director</Muted>
           {d.people.map((id) => (
             <View key={id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 5 }}>
               <Text style={{ flex: 1, fontSize: 14, color: base.ink }}>{staff.find((p) => p.id === id)?.name || 'Someone'}{id === me.id ? ' (You)' : ''}</Text>
@@ -134,19 +166,37 @@ export default function HrAccess() {
           ))}
           {others.length > 0 && <SelectBox title="Add Someone" placeholder="+ Add Someone" value={null} options={others.map((p) => [p.id, p.name] as [string, string])} onChange={(id) => setDraft({ ...d, people: [...d.people, id] })} />}
         </View>
-        {sub(`So ${chosen.length === 1 ? 'This Person Can' : `These ${chosen.length} People Can`} Open HR`)}
+        {sub(`So ${chosen.length === 1 ? 'This Person Sees' : `These ${chosen.length} People See`} Everyone’s Folders`)}
         {chosen.map((x) => line(<>
           <View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '500', color: base.ink }}>{x.p.name}{x.p.id === me.id ? ' (You)' : ''}</Text><Muted>{roleName(x.p.role)}</Muted></View>
           <Muted>{x.why.join(' · ')}</Muted>
         </>, x.p.id))}
         {!chosen.length && <Muted>No one yet. Choose at least one person.</Muted>}
-        {line(<><View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '500', color: base.ink }}>Everyone Else</Text><Muted>Site managers, operatives, drivers and anyone not listed: their own folder only</Muted></View><Text style={{ fontWeight: '700', color: base.ink }}>No</Text></>, 'else')}
-        {(changed || !who.set_up) && buttons(<>
-          <Button busy={busy === 'team'} title={who.set_up ? 'Save Changes' : 'Save Who Can Open HR'} onPress={saveTeam} />
+        {line(<><View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '500', color: base.ink }}>Everyone Else</Text><Muted>Their own folder, and any others you let them see below</Muted></View><Text style={{ fontWeight: '700', color: base.ink }}>No</Text></>, 'else')}
+        {changed && buttons(<>
+          <Button busy={busy === 'team'} title="Save Changes" onPress={saveTeam} />
           {changed && <Button kind="ghost" title="Cancel" onPress={() => setDraft(null)} />}
         </>)}
         {who.set_up && who.set_up_at && <Muted style={{ marginTop: 10 }}>Set up {who.set_up_by ? `by ${who.set_up_by} ` : ''}on {showDate(who.set_up_at.slice(0, 10))}.</Muted>}
       </Card>
+
+      <Card>
+        {title('Who Can See Whose Folder')}
+        <Muted style={{ marginBottom: 8 }}>Everyone sees their own folder, the holiday calendar and company policies. Choose, person by person, whose folders someone can see as well (their team, say). They see only the parts set under What Others See.</Muted>
+        {staff.map((p) => {
+          const all = chosen.some((x) => x.p.id === p.id);
+          const sees = who.grants.filter((g) => g.viewer_id === p.id).map((g) => staff.find((x) => x.id === g.user_id)?.name).filter(Boolean) as string[];
+          const lm = (ov?.recs ?? []).filter((r) => r.line_manager_id === p.id && !who.grants.some((g) => g.viewer_id === p.id && g.user_id === r.user_id)).map((r) => staff.find((x) => x.id === r.user_id)?.name).filter(Boolean) as string[];
+          return line(<>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '500', color: base.ink }}>{p.name}{p.id === me.id ? ' (You)' : ''} <Text style={{ fontWeight: '400', color: base.slate }}>· {roleName(p.role)}</Text></Text>
+              <Muted>{all ? 'Everyone’s folders' : sees.length ? `Sees: ${sees.join(', ')}` : 'Their own folder only'}{!all && lm.length ? ` · Line manager of: ${lm.join(', ')}` : ''}</Muted>
+            </View>
+            {!all && <Button small kind="ghost" title="Change" onPress={() => setViewing(p)} />}
+          </>, `v-${p.id}`);
+        })}
+      </Card>
+      {viewing && <ViewerPop viewer={viewing} staff={staff} start={who.grants.filter((g) => g.viewer_id === viewing.id).map((g) => g.user_id)} onClose={() => setViewing(null)} onSaved={() => { setViewing(null); refresh(); }} />}
 
       <Card>
         {title('HR Folder In OneDrive')}
@@ -171,7 +221,7 @@ export default function HrAccess() {
 
             {sub('Who Can Open This Folder')}
             {line(<><View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '500', color: base.ink }}>Through OpHUB</Text>
-              <Muted>Only the {chosen.length === 1 ? 'person' : `${chosen.length} people`} above. OpHUB leaves it out of everyone else&apos;s folder lists and won&apos;t open or save into it for them.</Muted></View></>, 'ophub')}
+              <Muted>Only the {chosen.length === 1 ? 'person' : `${chosen.length} people`} who see everyone&apos;s folders. OpHUB leaves it out of everyone else&apos;s folder lists and won&apos;t open or save into it for them.</Muted></View></>, 'ophub')}
             <View style={{ paddingVertical: 9, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
               <Text style={{ fontSize: 14, fontWeight: '500', color: base.ink }}>In OneDrive Itself</Text>
               <Muted style={{ marginBottom: 4 }}>Who it&apos;s shared with in Microsoft 365. Change this in OneDrive.</Muted>
@@ -210,8 +260,8 @@ export default function HrAccess() {
       </Card>
 
       <Card>
-        {title('What Line Managers See')}
-        <Muted style={{ marginBottom: 6 }}>For the people they line-manage (set on each person&apos;s Employment). Contracts, pay, right to work, bonus and disciplinary are never shown to them.</Muted>
+        {title('What Others See')}
+        <Muted style={{ marginBottom: 6 }}>When someone can see another person&apos;s folder (chosen above, or as the line manager set on their Employment), they see these parts. Contracts, pay, right to work, bonus and disciplinary are never shown to them.</Muted>
         {LM_SECTIONS.map(([k, l, s]) => line(<>
           <View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '500', color: base.ink }}>{l}</Text><Muted>{s}</Muted></View>
           <YesNo label={l} value={lm.includes(k)} onChange={(v) => void setLm(k, v)} />

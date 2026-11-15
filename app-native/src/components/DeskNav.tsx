@@ -34,7 +34,7 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
   const kind = homeKind(me, org);
   // Managers: the HUB feed count, as the current app (130 computeMyOutstandingCount).
   const hubN = hub.items.length + hub.chatUnread;
-  const items: Item[] = kind === 'finance' ? [{ k: 'fin', ic: 'pound', lbl: 'OpHUB Finance', go: '/fin' }, { k: 'account', ic: 'gear', lbl: 'Settings', go: '/account' }]
+  const items: Item[] = kind === 'finance' ? [{ k: 'fin', ic: 'pound', lbl: 'OpHUB Finance', go: '/fin' }, ...(isManager(me) ? [{ k: 'pm/hr', ic: 'users', lbl: 'HR', go: '/pm/hr' }] : []), { k: 'account', ic: 'gear', lbl: 'Settings', go: '/account' }]
     : kind === 'superadmin' ? [{ k: 'home', ic: 'building', lbl: 'Platform Admin', go: '/home' }]
     : me.role === 'driver' ? [{ k: 'home', ic: 'home', lbl: 'Home', go: '/home' }, { k: 'driver/schedule', ic: 'truck', lbl: 'My schedule', go: '/driver/schedule' }, { k: 'account', ic: 'gear', lbl: 'Settings', go: '/account' }]
     : mgr ? [

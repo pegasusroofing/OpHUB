@@ -48,7 +48,7 @@ export default function EmployeeRecords() {
             <Text style={{ fontSize: 20 }}>🔒</Text>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 15, fontWeight: '600', color: base.ink }}>HR Access</Text>
-              <Muted>{acc?.team_set ? 'Only the people chosen can open everyone’s folders.' : 'Not set up yet: every company admin can open everyone’s folders.'} Who can open HR, the HR folder in OneDrive, what line managers see, appraisals.</Muted>
+              <Muted>{acc?.team_set ? 'Only the people chosen see everyone’s folders.' : 'Every company admin sees everyone’s folders.'} Who sees whose folder, the HR folder in OneDrive, appraisals.</Muted>
             </View>
             <Text style={{ color: base.slate, fontSize: 18 }}>›</Text>
           </Card>
@@ -67,7 +67,7 @@ export default function EmployeeRecords() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontWeight: '600', color: base.ink }}>{p.name}{p.id === me.id ? ' (You)' : ''}</Text>
-              <Muted>{[jt || ROLE[p.role] || p.role, rec?.employment_type ? employmentLabel(rec.employment_type) : '', !team && p.id !== me.id ? 'You Line-Manage' : ''].filter(Boolean).join(' · ')}</Muted>
+              <Muted>{[jt || ROLE[p.role] || p.role, rec?.employment_type ? employmentLabel(rec.employment_type) : '', !team && p.id !== me.id ? 'You Can See' : ''].filter(Boolean).join(' · ')}</Muted>
             </View>
             {s.expired > 0 && chip(`${s.expired} Expired`, '#FDECEA', '#C0392B')}
             {s.toSort - s.expired > 0 && chip(`${s.toSort - s.expired} To Sort`, '#FFF4DE', '#B45309')}

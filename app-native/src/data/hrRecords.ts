@@ -51,11 +51,15 @@ export async function copyHrToOneDrive(body: { doc_ids?: string[]; all?: boolean
  * all set at the start by the admin and then there onwards"). hr_who_has_access: everyone in the company may see the
  * names; the change log only the HR team and company admins. */
 export type HrWhoPerson = { id: string; name: string; role: string; why: ('named' | 'admin' | 'pm')[] };
-export type HrWho = { set_up: boolean; team_admins: boolean; team_pms: boolean; named: string[]; people: HrWhoPerson[]; set_up_at: string | null; set_up_by: string | null; log: { at: string; by: string | null; what: string }[] };
+export type HrWho = { set_up: boolean; team_admins: boolean; team_pms: boolean; named: string[]; people: HrWhoPerson[]; set_up_at: string | null; set_up_by: string | null; log: { at: string; by: string | null; what: string }[];
+  /** Besides HR: who may see the signed-in person's folder (allowed by HR, or their line manager). */
+  sees_mine: { id: string; name: string }[];
+  /** For HR: every "viewer may see user's folder" HR has allowed (Andy, 15 Nov 2026: person by person, not by team). */
+  grants: { viewer_id: string; user_id: string }[] };
 const whoOf = (d: unknown): HrWho | null => {
   if (!d || Array.isArray(d) || typeof d !== 'object') return null;
   const w = d as Partial<HrWho>;
-  return { set_up: !!w.set_up, team_admins: !!w.team_admins, team_pms: !!w.team_pms, named: w.named ?? [], people: w.people ?? [], set_up_at: w.set_up_at ?? null, set_up_by: w.set_up_by ?? null, log: w.log ?? [] };
+  return { set_up: !!w.set_up, team_admins: !!w.team_admins, team_pms: !!w.team_pms, named: w.named ?? [], people: w.people ?? [], set_up_at: w.set_up_at ?? null, set_up_by: w.set_up_by ?? null, log: w.log ?? [], sees_mine: w.sees_mine ?? [], grants: w.grants ?? [] };
 };
 export function useHrWho(orgId: string | null | undefined) {
   return useQuery({ queryKey: ['hrWho', orgId], enabled: !!orgId, queryFn: async () => whoOf((await rpc('hr_who_has_access')).data) });
@@ -64,6 +68,10 @@ export function useHrWho(orgId: string | null | undefined) {
 export async function saveHrTeam(t: { admins: boolean; pms: boolean; people: string[] }): Promise<HrWho | null> {
   const r = await rpc('hr_save_team', { p_admins: t.admins, p_pms: t.pms, p_people: t.people });
   return r.error ? null : whoOf(r.data);
+}
+/** Sets whose folders one person may see besides their own (replaces their list; HR only). */
+export async function saveViewerAccess(viewerId: string, people: string[]): Promise<boolean> {
+  return !(await rpc('hr_set_viewer_access', { p_viewer: viewerId, p_people: people })).error;
 }
 /** Links the HR folder in OneDrive. An error to show, or null when it's saved. */
 export async function linkHrFolder(f: { id: string; name: string; driveId?: string | null }): Promise<string | null> {

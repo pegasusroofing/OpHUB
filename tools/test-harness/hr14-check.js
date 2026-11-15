@@ -48,14 +48,14 @@ const fillBox = async (page, label, text) => { const l = page.getByText(label, {
   let t = await body();
   check(/Jake Morris/.test(t) && /Tom Hughes/.test(t) && /Dave Driver/.test(t), 'the admin sees everyone\'s folder');
   check(/To Sort/.test(t), 'with what each needs sorting');
-  check(/Not set up yet: every company admin can open everyone’s folders/.test(t), 'HR Access warns it isn’t set up yet');
+  check(/Every company admin sees everyone’s folders/.test(t), 'HR Access says every company admin sees everyone’s folders to start');
   await page.screenshot({path: path.join(SHOTS, 'hr-records-list.png')});
   // HR Access.
   await page.getByLabel('HR Access', {exact: true}).click(); await page.waitForTimeout(3000);
   await page.getByLabel('All Company Admins: No', {exact: true}).click(); await page.waitForTimeout(400);
   await pick(page, 'Add Someone', me.name);
-  await page.getByText('Save Who Can Open HR', {exact: true}).click(); await page.waitForTimeout(2000);
-  check(db.hr_team.some((x) => x.user_id === 'me' && x.org_id === O), 'Save Who Can Open HR, with me named, puts me on it');
+  await page.getByText('Save Changes', {exact: true}).click(); await page.waitForTimeout(2000);
+  check(db.hr_team.some((x) => x.user_id === 'me' && x.org_id === O), 'Save Changes, with me named, puts me on it');
   check(/(You)/.test(await body()) && /Take Off/.test(await body()), 'and lists me, with Take Off');
   await page.getByLabel('Job History: Yes', {exact: true}).click();
   await page.waitForTimeout(1500);
@@ -142,7 +142,7 @@ const fillBox = async (page, label, text) => { const l = page.getByText(label, {
   await login(mp);
   await mp.goto(B + '/pm/hr/records'); await mp.waitForTimeout(4000);
   let mt = await mp.locator('body').innerText();
-  check(/Jake Morris/.test(mt) && /You Line-Manage/.test(mt) && !/Tom Hughes/.test(mt) && !/HR Access/.test(mt), 'a line manager sees only themselves and the people they line-manage, and no HR Access');
+  check(/Jake Morris/.test(mt) && /You Can See/.test(mt) && !/Tom Hughes/.test(mt) && !/HR Access/.test(mt), 'a line manager sees only themselves and the people they line-manage, and no HR Access');
   await mp.getByLabel('Jake Morris', {exact: true}).click(); await mp.waitForTimeout(4000);
   mt = await mp.locator('body').innerText();
   const tabNames = await mp.getByRole('tab').allInnerTexts();

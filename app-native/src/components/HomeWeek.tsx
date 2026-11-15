@@ -48,7 +48,7 @@ export function HomeWeek({ sites }: { sites: Site[] | undefined }) {
     <View style={{ marginBottom: 14 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
         {/* Bigger heading and dates (Andy, 14 Nov 2026). */}
-        <Text style={{ flex: 1, fontWeight: '700', color: base.ink, fontSize: desk ? 18 : 17 }}>Next 5 Days</Text>
+        <Text style={{ flex: 1, fontWeight: '700', color: base.ink, fontSize: desk ? 18 : 17, paddingLeft: desk ? 19 : 9 }}>Next 5 Days</Text>
         {/* Calendar as a tile like the day boxes under it, with the calendar icon and an arrow (Andy, 14 Nov 2026: the
             round "Calendar ›" pill looked cheap; same place). */}
         <Pressable accessibilityRole="button" accessibilityLabel="Open the calendar" onPress={() => router.push('/pm/calendar' as never)} hitSlop={6}
