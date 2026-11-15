@@ -3,7 +3,7 @@
 // Asbestos Register, F10), and Permits To Work — issue → sign-off → close down
 // (hot works needs two fire-extinguisher photos to close).
 import { packDoc } from '@/data/jobPack';
-import { permitAttachment } from '@/lib/permitPdf';
+import { permitAttachment } from '@/lib/pdfLazy';
 import { useQuery } from '@tanstack/react-query';
 
 import { cachedQuery, orThrow } from '@/lib/offlineCache';

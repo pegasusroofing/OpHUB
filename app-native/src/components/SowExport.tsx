@@ -9,9 +9,10 @@ import { promptEmail } from '@/components/EmailPrompt';
 import { useTeam } from '@/data/admin';
 import { askDate } from '@/components/DateField';
 import { useAuth } from '@/lib/auth';
-import { deliverPdf } from '@/lib/pdf';
+import { deliverPdf } from '@/lib/fileOut';
 import { localISODate } from '@/lib/rules/driver';
-import { buildSowPdf, emailSowPdf, sowPeriod, type SowPeriod, type SowTab } from '@/lib/sowPdf';
+import { buildSowPdf, emailSowPdf } from '@/lib/pdfLazy';
+import { sowPeriod, type SowPeriod, type SowTab } from '@/lib/sowPeriod';
 import type { Site } from '@/lib/types';
 
 export function SowExport({ site, left }: { site: Site; tab: SowTab; left?: string }) {

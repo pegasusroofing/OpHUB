@@ -7,7 +7,8 @@ import { ScrollView, View } from 'react-native';
 
 import { DateBox } from '@/components/DateField';
 import { useSites } from '@/data/sites';
-import { exportTableExcel, exportTablePdf } from '@/lib/tableExport';
+import { exportTableExcel } from '@/lib/tableExcel';
+import { exportTablePdf } from '@/lib/pdfLazy';
 
 import { FinForm } from '@/components/FinForm';
 import { AllocRow } from '@/components/FinSplit';

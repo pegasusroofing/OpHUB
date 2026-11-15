@@ -4,7 +4,7 @@
 // Photos are sent one at a time and marked once OneDrive has them; anything not sent is retried when
 // the job is opened again or the app comes back to the front. All best-effort: never blocks a save.
 import { publicUrl } from '@/lib/privateFiles';
-import { buildRepairReport } from '@/lib/repairReportPdf';
+import { buildRepairReport } from '@/lib/pdfLazy';
 import type { RepairJob } from '@/lib/rules/repairs';
 import { supabase } from '@/lib/supabase';
 import type { Organization } from '@/lib/types';

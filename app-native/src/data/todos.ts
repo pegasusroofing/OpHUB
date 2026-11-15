@@ -1,6 +1,6 @@
 // A job's To Do List (350), managers only: to-dos with a required-by date, a PM
 // assigned, comments and attachments; Live / Closed; email the list to PMs.
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type QueryClient } from '@tanstack/react-query';
 
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
 import { supabase } from '@/lib/supabase';
@@ -72,6 +72,26 @@ export async function addTodo(me: Profile, siteId: string, siteName: string, f: 
 }
 
 export const setTodoDone = async (id: string, done: boolean) => !!(await db.from('todos').update({ done } as never).eq('id', id).select('id')).data?.length;
+/** Ticks a to-do done (or reopens it) on screen straight away, then saves (speed review, 15 Nov 2026: a tick waited for
+ *  the database, then read the whole HUB again). The lists showing it change in place: the job's list, your HUB to-dos
+ *  and the HUB. If the save fails they go back as they were and it answers false. Afterwards only the two small to-do
+ *  lists are read again; the HUB too when a to-do is reopened, as it has to come back on there. */
+export async function tickTodo(qc: QueryClient, id: string, done: boolean): Promise<boolean> {
+  const before: [readonly unknown[], unknown][] = [];
+  const change = <T,>(key: string, fn: (v: T) => T) => {
+    void qc.cancelQueries({ queryKey: [key] });
+    qc.getQueriesData<T>({ queryKey: [key] }).forEach(([k, v]) => { if (v === undefined) return; before.push([k, v]); qc.setQueryData(k, fn(v)); });
+  };
+  change<{ todos: Todo[] }>('todos', (v) => ({ ...v, todos: v.todos.map((t) => (t.id === id ? { ...t, done } : t)) }));
+  if (done) {
+    change<{ id: string }[]>('hubTodos', (v) => v.filter((t) => t.id !== id));
+    change<{ id: string }[]>('pmTodos', (v) => v.filter((t) => t.id !== id));
+    change<{ items: { key: string }[] }>('hub', (v) => ({ ...v, items: v.items.filter((it) => it.key !== `task-${id}`) }));
+  }
+  if (!(await setTodoDone(id, done))) { before.forEach(([k, v]) => qc.setQueryData(k, v)); return false; }
+  ['hubTodos', 'pmTodos', ...(done ? [] : ['hub'])].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
+  return true;
+}
 export const editTodo = async (id: string, text: string, date: string | null) => !!(await db.from('todos').update({ text, date_required_by: date } as never).eq('id', id).select('id')).data?.length;
 export async function assignTodo(me: Profile, siteId: string, siteName: string, t: Todo, pm: Pm | null) {
   const ok = !!(await db.from('todos').update({ assigned_to: pm?.id ?? null } as never).eq('id', t.id).select('id')).data?.length;

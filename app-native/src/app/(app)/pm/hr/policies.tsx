@@ -13,7 +13,7 @@ import { viewDoc } from '@/components/DocViewer';
 import { archivePolicy, buildPolicyPdf, signPolicies, uploadPolicies, usePolicies, useHr, type Policy } from '@/data/hr';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
-import { deliverPdf, emailPdf } from '@/lib/pdf';
+import { deliverPdf, emailPdf } from '@/lib/fileOut';
 import { isManager } from '@/lib/roles';
 import { base, page, space } from '@/theme/theme';
 

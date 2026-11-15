@@ -17,8 +17,9 @@ import { emailHsPdf, outstanding, outstandingByDoc, RAMS_DOC_TYPES, sendSignRemi
 import { boxesOf, layoutSummary, useSignTemplates } from '@/data/signTemplates';
 import { useAuth } from '@/lib/auth';
 import { isFullManager } from '@/lib/roles';
-import { deliverPdf } from '@/lib/pdf';
-import { exportTableExcel, exportTablePdf } from '@/lib/tableExport';
+import { deliverPdf } from '@/lib/fileOut';
+import { exportTableExcel } from '@/lib/tableExcel';
+import { exportTablePdf } from '@/lib/pdfLazy';
 import type { Site } from '@/lib/types';
 import { base, radius, live } from '@/theme/theme';
 

@@ -14,11 +14,11 @@ import { viewDoc } from '@/components/DocViewer';
 import { nameOf, usePeople } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import {
-  addComment, addTodo, assignTodo, deleteTodo, deleteTodoFile, editTodo, emailTodos, setTodoDone, todoFileUrl, uploadTodoFiles,
+  addComment, addTodo, assignTodo, deleteTodo, deleteTodoFile, editTodo, emailTodos, tickTodo, todoFileUrl, uploadTodoFiles,
   usePmList, useTodos, type Pm, type Todo,
 } from '@/data/todos';
 import { useAuth } from '@/lib/auth';
-import { exportTablePdf } from '@/lib/tableExport';
+import { exportTablePdf } from '@/lib/pdfLazy';
 import { isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
@@ -155,7 +155,7 @@ export default function TodoList() {
           )}
 
             <View style={{ flexDirection: 'row', marginTop: 10 }}>
-              <Pressable onPress={async () => { if (await setTodoDone(t.id, !t.done)) { toast(t.done ? 'Reopened' : 'Closed'); refresh(); } }}
+              <Pressable onPress={async () => { toast((await tickTodo(qc, t.id, !t.done)) ? (t.done ? 'Reopened' : 'Closed') : 'Could not save — try again.'); }}
                 style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 9, borderWidth: 1, borderColor: base.ok, backgroundColor: base.okBg }}>
                 <Text style={{ fontWeight: '600', fontSize: 12, color: base.ok }}>{t.done ? '✓ Completed: reopen' : 'Mark Complete'}</Text>
               </Pressable>

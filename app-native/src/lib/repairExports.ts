@@ -1,7 +1,7 @@
 // Repair contract Excel exports (340): the full Repair Tracker, the route-ordered
 // list for a stage (worked out by the repair-jobs-route-export function from the
 // yard, CM3 8DQ, and saved as the "last route"), and Approved & Ready oldest first.
-import { deliverXlsx, exportFilename } from '@/lib/pdf';
+import { deliverXlsx, exportFilename } from '@/lib/fileOut';
 import { REPAIR_ACCESS, REPAIR_CATEGORIES, sortRepairs, type RepairJob } from '@/lib/rules/repairs';
 import { makeXlsx, type XCell } from '@/lib/rules/xlsx';
 import { supabase } from '@/lib/supabase';

@@ -16,7 +16,7 @@ import { alsoIn, loadProducts, useAllFolders, productFromSds, wipeLibrary, delet
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { COSHH_PICTO_IMG } from '@/lib/coshhPictoImages';
-import { deliverPdf, emailPdf } from '@/lib/pdf';
+import { deliverPdf, emailPdf } from '@/lib/fileOut';
 import { brandOf, titleKey, type CoshhItem } from '@/lib/rules/coshh';
 import { isFullManager } from '@/lib/roles';
 import { base, page, radius, space, live } from '@/theme/theme';

@@ -19,13 +19,14 @@ import { deleteSheet, issueSheet, loadRateCard, loadSheet, renameSheet, saveDraf
 import { weeklyBookedIn, weeklyWages } from '@/lib/rules/priceWeeks';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { emailPdf } from '@/lib/pdf';
+import { emailPdf } from '@/lib/fileOut';
 import { money } from '@/lib/rules/price';
 import { canIssue, entryKey, lineTotal, pbRound2, PRICE_UNIT_LABEL, resolvedRate, workingFromRows, type PbWorking, type SheetItem } from '@/lib/rules/priceSheet';
 import { rateCategories, RATE_UNITS, type RateItem, type RateOption } from '@/lib/rules/rateCard';
 import { isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
+import { exportTableExcel, type Table } from '@/lib/tableExcel';
+import { exportTablePdf } from '@/lib/pdfLazy';
 import type { Organization, Profile, Site } from '@/lib/types';
 import { base, page, radius, space, live } from '@/theme/theme';
 

@@ -2,8 +2,9 @@
 // library of sample forms with their boxes, and saving boxes onto a job's RAMS.
 import { useQuery } from '@tanstack/react-query';
 
-import { layoutBoxes, layoutSlots, layoutClients, stampSignLayout, type SignLayout } from '@/lib/signedPdf';
-import { deliverPdf, exportFilename, fetchBytes, PDFDocument } from '@/lib/pdf';
+import { layoutBoxes, layoutSlots, layoutClients, type SignLayout } from '@/lib/signLayout';
+import { stampSignLayout, PDFDocument } from '@/lib/pdfLazy';
+import { deliverPdf, exportFilename, fetchBytes } from '@/lib/fileOut';
 import { publicUrl } from '@/lib/privateFiles';
 import type { SBox } from '@/lib/rules/signBoxes';
 import { supabase } from '@/lib/supabase';

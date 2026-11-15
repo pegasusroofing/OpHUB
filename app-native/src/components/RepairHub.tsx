@@ -33,7 +33,7 @@ import { saveRepairQuote, useContractQuoteSettings } from '@/data/repairQuote';
 import { addRepairNote, deleteRepairJob, geocodeRepairJob, hideRepairPhoto, patchRepairJob, recordNoAccess, syncRepairEvent, uploadWorkOrder, useRepairJob, useRepairNotes } from '@/data/repairs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { exportRepairReport } from '@/lib/repairReportPdf';
+import { exportRepairReport } from '@/lib/pdfLazy';
 import { forecast } from '@/lib/rules/finBook';
 import { quoteTotals, type QuoteLine } from '@/lib/rules/repairQuote';
 import { dueFromPriority, dueLabel, dueOf, isOverdue } from '@/lib/rules/repairDue';

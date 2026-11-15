@@ -7,7 +7,7 @@
 // answer, and "+ Add another item" on a section. Photos upload in the
 // background and answers save as you go.
 import { hasJobPack, packPut } from '@/data/jobPack';
-import { buildReportPdf } from '@/lib/reportPdf';
+import { buildReportPdf } from '@/lib/pdfLazy';
 import { useSite } from '@/data/sites';
 import { nameOf, usePeople } from '@/data/hs';
 import { useQueryClient } from '@tanstack/react-query';

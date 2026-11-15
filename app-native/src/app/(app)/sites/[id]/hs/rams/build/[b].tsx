@@ -15,7 +15,7 @@ import { askAiCharge, RamsAiPopup } from '@/components/RamsAiBox';
 import { aiDraft, aiToLibrary, deleteBuild, issueBuild, loadBuild, previewPdf, saveAsTemplate, saveBuild, saveItemToLibrary, useLibrary } from '@/data/ramsBuilder';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { showPdf } from '@/lib/pdf';
+import { showPdf } from '@/lib/fileOut';
 import { hazardFromLib, mergeAiDraft, missingInfo, moveItem, P_LABELS, RAMS_GROUPS, RAMS_PPE, RAMS_REQUIRED, ramsUid, riskBand, rr, S_LABELS, sectionFromLib, type Hazard, type RamsBuild, type RamsDetails, type RSection } from '@/lib/rules/rams';
 import { isCompanyAdmin, isFullManager } from '@/lib/roles';
 import { base, page, radius, space, live } from '@/theme/theme';

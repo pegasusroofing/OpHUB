@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Image, Linking, Modal, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 
 import { loadPdfJs } from '@/lib/pdfjs';
-import { deliverFile } from '@/lib/pdf';
+import { deliverFile } from '@/lib/fileOut';
 
 export type DocReq = { url: string; name: string; onMarkup?: (src: string) => void };
 const listeners = new Set<(r: DocReq | null) => void>();

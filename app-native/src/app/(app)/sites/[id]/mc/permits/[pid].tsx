@@ -15,8 +15,8 @@ import { closePermit, PERMIT_ICON, PERMIT_LABEL, signPermit, usePermit } from '@
 import { useAuth } from '@/lib/auth';
 import { pickPhotos, type Picked } from '@/lib/photos';
 import { useIsSubAdmin } from '@/data/subcontractors';
-import { buildPermitPdf } from '@/lib/permitPdf';
-import { deliverPdf } from '@/lib/pdf';
+import { buildPermitPdf } from '@/lib/pdfLazy';
+import { deliverPdf } from '@/lib/fileOut';
 import { isManager } from '@/lib/roles';
 import { useSite } from '@/data/sites';
 import { base, page, radius, space } from '@/theme/theme';

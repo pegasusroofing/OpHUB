@@ -5,7 +5,7 @@ import { packDoc } from '@/data/jobPack';
 import { useQuery } from '@tanstack/react-query';
 
 import { log, tellOperatives } from '@/data/hsManager';
-import { buildRamsPdf } from '@/lib/ramsPdf';
+import { buildRamsPdf } from '@/lib/pdfLazy';
 import { combineStart, defaultDetails, mergeAiDraft, normaliseBuild, tidyAiDraft, type AiDraft, ramsSettings, siteClientContact, type Hazard, type LibItem, type RamsBuild, type RamsSettings, type RSection, ramsUid } from '@/lib/rules/rams';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import { supabase } from '@/lib/supabase';

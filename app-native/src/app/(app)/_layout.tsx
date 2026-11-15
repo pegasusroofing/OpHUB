@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 
 import { useChatUnread } from '@/data/companyChat';
-import { useHubAll } from '@/data/hub';
+import { useHubBadge } from '@/data/hub';
 import { useManagerMessages, useSiteMessages } from '@/data/siteMessages';
 import { outstandingCount, useOutstanding } from '@/data/inbox';
 import { useSites } from '@/data/sites';
@@ -22,6 +22,7 @@ import { useAuth } from '@/lib/auth';
 import { usePushTaps } from '@/lib/push';
 import { isFinanceController, isFullManager, isManager, homeKind, isFinanceOnlyOrg, isFinanceUser } from '@/lib/roles';
 import { recordFin, recordPath } from '@/lib/navBack';
+import { preloadPdfKit } from '@/lib/pdfLazy';
 import { setOneDriveSaver } from '@/lib/oneDriveSave';
 import { base, useTheme } from '@/theme/theme';
 
@@ -48,7 +49,7 @@ export default function AppLayout() {
   const opBar = !!me && ['operative', 'subcontractor', 'client'].includes(homeKind(me, org));
   const projBar = usesPhoneBar(path.replace(/\/$/, ''), isFullManager(me) && !isFinanceController(me) && !isFinanceOnlyOrg(org), opBar);
   // The HUB count shows on a job's bar too (Andy, 11 Nov 2026: a manager's fourth button there is the HUB now).
-  const hubAll = useHubAll(siteMgr || (projBar && isFullManager(me)) ? me : null, org, allSites, ''); // Projects, Finance and the Company Chat (7 Nov 2026)
+  const hubN = useHubBadge(siteMgr || (projBar && isFullManager(me)) ? me : null, org, allSites, path); // Projects, Finance and the Company Chat (7 Nov 2026)
   const opChat = useChatUnread(me && !isManager(me) && me.role !== 'client' ? me : null);
   const { data: ownBadge } = useOutstanding(me && !siteMgr && !isManager(me) && hasSites ? allSites : undefined);
   // The job's Inbox badge on a manager's phone bar: unread messages for this job (it never showed, found 5 Nov 2026).
@@ -56,12 +57,15 @@ export default function AppLayout() {
   const mgrInbox = !!me && isManager(me);
   const { data: jobMsgs } = useManagerMessages(mgrInbox ? jobId : undefined);
   const { data: opMsgs } = useSiteMessages(mgrInbox ? undefined : jobId);
-  const inboxN = siteMgr ? (hubAll.items.length + hubAll.chatUnread) : outstandingCount(ownBadge) + (opChat.data ?? 0);
+  const inboxN = siteMgr ? hubN : outstandingCount(ownBadge) + (opChat.data ?? 0);
   const { width } = useWindowDimensions();
   const desk = Platform.OS === 'web' && width >= 1100;
   // Compulsory H&S Policy: until it's signed, nothing but the signature page (640).
   const policy = useHsPolicy();
   useEffect(() => { recordPath(path); }, [path]);
+  // The PDF code waits until the screen is up (speed review, 15 Nov 2026), then loads behind, so Export still works
+  // if the signal drops later. Phones have it built in.
+  useEffect(() => { if (Platform.OS !== 'web') return; const t = setTimeout(preloadPdfKit, 8000); return () => clearTimeout(t); }, []);
   // Finance's own trail, with each tab's ?tab=….
   const gp = useGlobalSearchParams();
   const gpKey = JSON.stringify(gp);
@@ -131,7 +135,7 @@ export default function AppLayout() {
       <Tabs.Screen name="pm" options={{ ...(siteMgr && !desk ? { tabBarIcon: icon('bell'), tabBarLabel: 'HUB', href: '/pm/hub' as never, tabBarBadge: inboxN || undefined } : hidden), title: 'Manager', headerShown: false }} />
       <Tabs.Screen name="fin" options={{ ...hidden, title: 'Finance', headerShown: false }} />
     </Tabs>
-    {!desk && projBar && <PhoneBar hubCount={hubAll.items.length + hubAll.chatUnread} inboxCount={(mgrInbox ? jobMsgs?.unread.length : opMsgs?.unread.length) || undefined} outstanding={opBar ? inboxN || undefined : undefined} />}
+    {!desk && projBar && <PhoneBar hubCount={hubN} inboxCount={(mgrInbox ? jobMsgs?.unread.length : opMsgs?.unread.length) || undefined} outstanding={opBar ? inboxN || undefined : undefined} />}
     </View>
   );
 }

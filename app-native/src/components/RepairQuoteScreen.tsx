@@ -18,7 +18,7 @@ import { emailRepairQuote, QUOTE_STATUS, quoteStatusOf, repairApprovalLink, save
 import { useRepairJob } from '@/data/repairs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { buildRepairReport, exportRepairReport } from '@/lib/repairReportPdf';
+import { buildRepairReport, exportRepairReport } from '@/lib/pdfLazy';
 import { FIN_TRIAL_MSG } from '@/lib/rules/finance';
 import { lineValue, quoteTotals, rateLine, type QuoteLine } from '@/lib/rules/repairQuote';
 import { isManager } from '@/lib/roles';

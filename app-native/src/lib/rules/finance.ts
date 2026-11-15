@@ -56,7 +56,9 @@ export const fdate = (d: string | null | undefined) => (d ? new Date(d + (String
 
 // ---------- sales invoices ----------
 export type FinInv = { id: string; site_id: string; status: string; due_date?: string | null; issue_date?: string | null; total?: number | null; paid?: number | null; net?: number | null; number?: string | null; vat?: number | null };
-const OPEN = ['issued', 'sent', 'part_paid'];
+/** Sales invoices still to be paid (issued, sent or part paid). */
+export const INV_OPEN = ['issued', 'sent', 'part_paid'];
+const OPEN = INV_OPEN;
 export const invOutstanding = (i: FinInv) => (OPEN.includes(i.status) ? round2(Number(i.total || 0) - Number(i.paid || 0)) : 0);
 export function invOutstandingNet(i: FinInv) { const o = invOutstanding(i), t = Number(i.total || 0), n = Number(i.net || 0); return o && t ? round2((o * n) / t) : 0; }
 export const invOverdue = (i: FinInv, now = today()) => OPEN.includes(i.status) && !!i.due_date && i.due_date < now;

@@ -10,7 +10,8 @@ import { Button, Empty, Muted } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { CERT_CATEGORIES, matrixState } from '@/lib/rules/certs';
 import { isManager } from '@/lib/roles';
-import { exportTrainingMatrixExcel, exportTrainingMatrixPdf, loadTrainingMatrix, matrixCellText } from '@/lib/trainingMatrix';
+import { exportTrainingMatrixExcel, exportTrainingMatrixPdf } from '@/lib/pdfLazy';
+import { loadTrainingMatrix, matrixCellText } from '@/lib/trainingMatrixData';
 import { base, space } from '@/theme/theme';
 
 const BG = { ok: '#E6F4EA', soon: '#FFF3D6', expired: '#FDECEC', none: 'transparent' };

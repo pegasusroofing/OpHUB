@@ -14,8 +14,9 @@ import { deleteReports, startReport, useSiteReports, useTemplates } from '@/data
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { newReportsAll, parkedAll, sendParked } from '@/lib/reportOffline';
-import { deliverPdf, emailPdf, exportFilename, PDFDocument } from '@/lib/pdf';
-import { buildReportPdf, type PdfSub } from '@/lib/reportPdf';
+import { deliverPdf, emailPdf, exportFilename } from '@/lib/fileOut';
+import { PDFDocument, buildReportPdf } from '@/lib/pdfLazy';
+import type { PdfSub } from '@/lib/reportPdf';
 import { supabase } from '@/lib/supabase';
 import { REPORT_STATUS_LABEL } from '@/lib/rules/reports';
 import { isManager } from '@/lib/roles';

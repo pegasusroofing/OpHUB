@@ -17,7 +17,7 @@ import { Button, Card, Muted } from '@/components/ui';
 import { openDocLink } from '@/data/hs';
 import { repairCheck, useRepairCheck } from '@/data/repairCheckin';
 import { useSite } from '@/data/sites';
-import { exportRepairReport } from '@/lib/repairReportPdf';
+import { exportRepairReport } from '@/lib/pdfLazy';
 import { repairReportsAfter, scheduleRepairReport } from '@/data/repairOneDrive';
 import { hasRepairPhoto, notifyPmOfRepairNotes, patchRepairJob, recordNoAccess, syncRepairEvent, useRepairJob, useRepairJobs } from '@/data/repairs';
 import { useAuth } from '@/lib/auth';

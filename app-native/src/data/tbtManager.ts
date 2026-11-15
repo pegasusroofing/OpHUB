@@ -4,6 +4,7 @@
 // file, mark completed, delete, and remind whoever hasn't signed.
 import { packDoc } from '@/data/jobPack';
 import { siteStatusKey } from '@/lib/rules/checkin';
+import { pdfKit } from '@/lib/pdfLazy';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
 
@@ -140,7 +141,7 @@ export async function similarTbts(me: Profile, siteId: string, title: string): P
 }
 /** A written talk as a PDF: the company, the title, the job and date, then the talk's points. */
 async function tbtPdf(company: string, title: string, siteName: string, body: string): Promise<Uint8Array> {
-  const { PDFDocument, StandardFonts, rgb } = await import('@/lib/pdf');
+  const { PDFDocument, StandardFonts, rgb } = await pdfKit();
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica), bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const ink = rgb(0.06, 0.06, 0.07), slate = rgb(0.36, 0.37, 0.41);

@@ -6,8 +6,9 @@ import { useQuery } from '@tanstack/react-query';
 
 import { log, tellOperatives } from '@/data/hsManager';
 import { loadSettings } from '@/data/ramsBuilder';
-import { buildCoshhPdf, type CoshhJob } from '@/lib/coshhPdf';
-import { fetchBytes, PDFDocument } from '@/lib/pdf';
+import { buildCoshhPdf, PDFDocument } from '@/lib/pdfLazy';
+import type { CoshhJob } from '@/lib/coshhPdf';
+import { fetchBytes } from '@/lib/fileOut';
 import { publicUrl } from '@/lib/privateFiles';
 import { pdfPageTexts } from '@/lib/pdfjs';
 import { assessName, cleanMaker, COSHH_DEFAULTS, coshhBlank, coshhItem, duplicates, titleKey, type CoshhItem } from '@/lib/rules/coshh';

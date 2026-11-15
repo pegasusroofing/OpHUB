@@ -17,7 +17,8 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { billingType, forecast } from '@/lib/rules/finBook';
 import { invOutstandingNet, money, num, round2 } from '@/lib/rules/finance';
-import { exportTableExcel, exportTablePdf } from '@/lib/tableExport';
+import { exportTableExcel } from '@/lib/tableExcel';
+import { exportTablePdf } from '@/lib/pdfLazy';
 import { base, page, space, useDesk } from '@/theme/theme';
 
 type P = { id: string; name: string; detail: string; value: number | null; materials: number; labour: number; plant: number; subcontract: number; other: number; cost: number; committed: number; margin: number | null; invoiced: number; owed: number; left: number };

@@ -13,7 +13,8 @@ import { inPeriod, useStatPeriods } from '@/lib/useStatPeriods';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinFilterBar, stickyFoot, ThinExportBar, type FilterPart, type FilterSel } from '@/components/FinFilterBar';
-import { exportTableExcel, exportTablePdf, type TCol } from '@/lib/tableExport';
+import { exportTableExcel, type TCol } from '@/lib/tableExcel';
+import { exportTablePdf } from '@/lib/pdfLazy';
 import { FinRow, FinStat, FinTabs } from '@/components/FinNav';
 import { Cell, FinChoicePop, FinInfoPop, FinTable, FootPick } from '@/components/FinTable';
 import { PhoneTable } from '@/components/PhoneTable';

@@ -8,6 +8,7 @@
 import { isValidElement, useEffect, useState, type ReactNode } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
+import { useShowMore } from '@/components/ShowMore';
 import { chooseAction } from '@/components/toast';
 import { nextSort, sortRows, type FinSort } from '@/lib/rules/finTable';
 import { base } from '@/theme/theme';
@@ -132,6 +133,8 @@ export function PhoneTable<T>({ cols, rows, keyOf, onRow, foot, label = 'Table',
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { onShown?.(find.shown); }, [shownKey]);
   const box = boxOf;
+  // The first 50 rows drawn, then Show More; the searches, totals and Select All still use every row (speed review, 15 Nov 2026).
+  const { rows: drawn, more } = useShowMore(find.shown);
   return (
     <>
       <View accessibilityLabel={label} style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, overflow: 'hidden', marginBottom: find.searching ? 0 : 10 }}>
@@ -142,7 +145,7 @@ export function PhoneTable<T>({ cols, rows, keyOf, onRow, foot, label = 'Table',
           </View>
         )}
         {!find.shown.length && <Text style={{ padding: 14, textAlign: 'center', color: base.slate, borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>Nothing matches.</Text>}
-        {find.shown.map((r) => (
+        {drawn.map((r) => (
           <Pressable key={keyOf(r)} disabled={!onRow} accessibilityRole={onRow ? 'button' : undefined} onPress={() => onRow?.(r)}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 50, paddingVertical: 7, paddingHorizontal: 10, borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>
             {!!lead && <View style={{ width: lead.w, alignItems: 'center' }}>{lead.cell(r)}</View>}
@@ -156,6 +159,7 @@ export function PhoneTable<T>({ cols, rows, keyOf, onRow, foot, label = 'Table',
         ))}
         {foot}
       </View>
+      {more}
       {search && <PhoneClear find={find} />}
     </>
   );

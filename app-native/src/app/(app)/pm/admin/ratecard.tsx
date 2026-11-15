@@ -12,7 +12,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Muted, SectionTitle } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
-import { deliverXlsx } from '@/lib/pdf';
+import { deliverXlsx } from '@/lib/fileOut';
 import { rateCardSheets, readRateCard } from '@/lib/rules/rateCardExcel';
 import { makeXlsx } from '@/lib/rules/xlsx';
 import { readXlsx } from '@/lib/rules/xlsxRead';

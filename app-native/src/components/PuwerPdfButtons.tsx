@@ -9,8 +9,8 @@ import { nameOf, usePeople } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { deliverPdf } from '@/lib/pdf';
-import { buildPuwerPdf, emailPuwerPdf } from '@/lib/puwerPdf';
+import { deliverPdf } from '@/lib/fileOut';
+import { buildPuwerPdf, emailPuwerPdf } from '@/lib/pdfLazy';
 import { supabase } from '@/lib/supabase';
 
 export function PuwerPdfButtons({ siteId, weekStart, one, picked = [] }: { siteId: string; weekStart: string; one?: { id: string; name: string }; picked?: { id: string; name: string }[] }) {

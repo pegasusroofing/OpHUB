@@ -4,7 +4,7 @@
 // emailing the invoice are switched off while Finance is on trial.
 import { packPdfBytes } from '@/data/jobPack';
 import { fdb, finInvoke, loadSettings, xeroAutoOk } from '@/data/finance';
-import { buildInvoicePdf } from '@/lib/finInvoicePdf';
+import { buildInvoicePdf } from '@/lib/pdfLazy';
 import { daysOr, addDays, fdate, FIN_TRIAL_MSG, finBlocked, money, round2, today } from '@/lib/rules/finance';
 import { cleanLines, invTotals, treatmentOf, type InvLine, INV_VAT } from '@/lib/rules/finInvoice';
 import { supabase } from '@/lib/supabase';

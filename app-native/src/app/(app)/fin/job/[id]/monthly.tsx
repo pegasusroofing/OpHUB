@@ -19,7 +19,8 @@ import { useAuth } from '@/lib/auth';
 import { billingType, forecast } from '@/lib/rules/finBook';
 import { money, round2, today } from '@/lib/rules/finance';
 import { itemPlots, monthlyReport, monthlyRows, type MonGroup } from '@/lib/rules/finMonthly';
-import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
+import { exportTableExcel, type Table } from '@/lib/tableExcel';
+import { exportTablePdf } from '@/lib/pdfLazy';
 import { base, page, space } from '@/theme/theme';
 
 type Row = Record<string, any>;

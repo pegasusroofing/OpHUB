@@ -23,7 +23,8 @@ import { useAuth } from '@/lib/auth';
 import { REPORT_GROUPS, REPORTS as BOOK_REPORTS, type Col, type Filters } from '@/lib/finReports';
 import { PLOT_REPORT } from '@/lib/finPlotReport';
 import { fdate, jobTag, money } from '@/lib/rules/finance';
-import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
+import { exportTableExcel, type Table } from '@/lib/tableExcel';
+import { exportTablePdf } from '@/lib/pdfLazy';
 import { base, radius } from '@/theme/theme';
 
 type Row = Record<string, any>;

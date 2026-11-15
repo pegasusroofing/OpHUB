@@ -15,7 +15,7 @@ import { PanResponder, Platform, Pressable, Text, View, type GestureResponderEve
 import { NativePdfPage } from '@/components/NativePdfPage';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
-import { fetchBytes } from '@/lib/pdf';
+import { fetchBytes } from '@/lib/fileOut';
 import { loadPdfJs, type PdfDoc } from '@/lib/pdfjs';
 import { publicUrl } from '@/lib/privateFiles';
 import { align, BOX_WHAT, clientNum, MAX_OPS, opNum, repeatBoxes, repeatOffset, summary, whoColor, whoLabel, type SBox } from '@/lib/rules/signBoxes';

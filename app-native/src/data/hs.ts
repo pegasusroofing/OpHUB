@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth';
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
 import { currentCycleSigs, tbtAllSigned } from '@/lib/rules/hs';
 import { isManager } from '@/lib/roles';
+import { pdfKit } from '@/lib/pdfLazy';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
 
@@ -230,8 +231,8 @@ async function emailCompletedTbt(talk: Tbt): Promise<void> {
   try {
     const site = ((await db.from('sites').select('*').eq('id', talk.site_id).limit(1)).data as Site[] | null)?.[0];
     if (!site) return;
-    const { buildSignedTbtPdf } = await import('@/data/hsPdf');
-    const { emailPdf } = await import('@/lib/pdf');
+    // Through the one PDF kit (lib/pdfLazy): a second way in put pdf-lib back in the start-up download.
+    const { buildSignedTbtPdf, emailPdf } = await pdfKit();
     const built = await buildSignedTbtPdf(talk.id, site);
     if (typeof built === 'string') return;
     const s = site as Site & { responsible_pm_id?: string | null; org_id?: string | null };

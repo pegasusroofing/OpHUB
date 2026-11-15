@@ -1,4 +1,6 @@
-// A manager's phone bar on a job shows the job's unread Inbox count (it never showed; found 5 Nov 2026). Fake database only.
+// A manager's phone bar on a job shows a count on its fourth button (it never showed; found 5 Nov 2026). Since 11 Nov 2026
+// a manager's fourth button is the HUB (it was the job's Inbox), with the HUB's count (15 Nov 2026: worked out by the
+// menu's own cheap count). Fake database only.
 // node inboxbadge-check.js
 const {chromium, makeContext, S1} = require('./harness');
 const path = require('path');
@@ -15,8 +17,9 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
   await page.goto(B + '/sites/' + S1); await page.waitForTimeout(5000);
-  const bar = await page.evaluate(() => { const el = [...document.querySelectorAll('*')].find((e) => e.childElementCount === 0 && e.textContent === 'Inbox'); let n = el; for (let i = 0; i < 4 && n; i++) n = n.parentElement; return n ? n.innerText : ''; });
-  check(/\d/.test(bar), `Inbox on the job's bar shows a count (${bar.replace(/\s+/g, ' ')})`);
+  const bar = await page.evaluate(() => { const el = [...document.querySelectorAll('*')].find((e) => e.childElementCount === 0 && e.textContent === 'HUB'); let n = el; for (let i = 0; i < 4 && n; i++) n = n.parentElement; return n ? n.innerText : ''; });
+  const hubN = (/HUB\s*(\d+)/.exec(bar) || [])[1];
+  check(!!hubN, `HUB on the job's bar shows a count (${hubN || 'none'})`);
   await page.screenshot({path: path.join(__dirname, 'shots', 'job', 'inboxbadge-phone.png')});
   check(!errs.length, `no errors ${errs.slice(0, 2).join(' | ')}`);
   await browser.close();

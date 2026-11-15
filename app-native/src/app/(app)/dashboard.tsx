@@ -15,8 +15,8 @@ import { Button, Card, Field, Muted, Screen, SectionTitle, Toggle } from '@/comp
 import { viewDoc } from '@/components/DocViewer';
 import { DateField } from '@/components/DateField';
 import { uploadCert, useMyCerts } from '@/data/certs';
-import { buildCertBundlePdf } from '@/lib/certBundlePdf';
-import { deliverPdf, emailPdf } from '@/lib/pdf';
+import { buildCertBundlePdf } from '@/lib/pdfLazy';
+import { deliverPdf, emailPdf } from '@/lib/fileOut';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { CERT_CATEGORIES_AZ, certCategoryLabel, certDisplayName, certStats } from '@/lib/rules/certs';

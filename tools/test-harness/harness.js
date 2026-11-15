@@ -56,6 +56,8 @@ function query(db, table, sp){
   let out = rows.filter(r=>{ if(orParts && !orParts.some(([k,e])=>match(r,k,e))) return false; for(const [k,v] of sp){ if(SKIP.has(k) || k.includes('.')) continue; if(!match(r,k,v)) return false; } return true; });
   const ord = sp.get('order');
   if(ord){ const [col,dir] = ord.split(',')[0].split('.'); out = out.slice().sort((a,b)=>{ const x=a[col], y=b[col]; if(x==y) return 0; if(x==null) return 1; if(y==null) return -1; return (x<y?-1:1)*(dir==='desc'?-1:1); }); }
+  // offset: paged reads (.range) ask for the next 1000; without it a big table sent its first page again for ever.
+  const off = +(sp.get('offset')||0); if(off) out = out.slice(off);
   const lim = sp.get('limit'); if(lim) out = out.slice(0, +lim);
   return out;
 }
@@ -67,7 +69,7 @@ async function makeContext(browser, role, log, opts){
   await ctx.route(/supabase\.co/, async route=>{
     if(opts.delay) await new Promise(r=>setTimeout(r, opts.delay));
     const req = route.request(); const u = new URL(req.url()); const p = u.pathname; const m = req.method();
-    const json = (o,s)=>route.fulfill({status:s||200, contentType:'application/json', body:JSON.stringify(o)});
+    const json = (o,s)=>{ const body = JSON.stringify(o); if(opts.onReply) opts.onReply(body.length, m+' '+p.replace('/rest/v1/', '')); return route.fulfill({status:s||200, contentType:'application/json', body}); };
     if(log) log.push(m+' '+p+u.search);
     if(p.startsWith('/auth/v1/token')) return json({access_token:'h.'+Buffer.from(JSON.stringify({sub:'me'})).toString('base64')+'.s', refresh_token:'r', expires_in:3600, user:{id:'me', email:'a@x.co'}});
     if(p.startsWith('/auth/v1/')) return json({});
@@ -81,7 +83,12 @@ async function makeContext(browser, role, log, opts){
       // .single() / .maybeSingle() ask for one object (Accept: vnd.pgrst.object): give the first row, or 406 when there is none.
       const one = /vnd.pgrst.object/.test(req.headers()['accept']||'');
       const reply = (rows, st) => !one ? json(rows, st) : rows.length ? json(rows[0], st) : route.fulfill({status:406, contentType:'application/json', body:JSON.stringify({code:'PGRST116', message:'no rows'})});
-      if(m==='GET' || m==='HEAD') return reply(query(db, table, sp));
+      // opts.project: send back only the columns asked for, as Supabase does (speed check, 15 Nov 2026). Plain column
+      // lists only; a select with embedded tables, renames or casts is sent whole.
+      const pick = (rows) => { const sel = sp.get('select'); if(!opts.project || !sel || /[()*:]/.test(sel)) return rows; const cols = sel.split(',').map(c=>c.trim()).filter(Boolean); return rows.map(r=>{ const o = {}; cols.forEach(c=>{ if(c in r) o[c] = r[c]; }); return o; }); };
+      // A count (Prefer: count=exact, as .select(…, { count: 'exact', head: true }) sends) comes back in Content-Range.
+      if((m==='GET' || m==='HEAD') && /count=exact/.test(req.headers()['prefer']||'')){ const all = query(db, table, new URLSearchParams([...sp].filter(([k])=>k!=='limit'&&k!=='offset'))); return route.fulfill({status:200, contentType:'application/json', headers:{'content-range':`0-${Math.max(0,all.length-1)}/${all.length}`}, body: m==='HEAD' ? '' : JSON.stringify(pick(query(db, table, sp)))}); }
+      if(m==='GET' || m==='HEAD') return reply(pick(query(db, table, sp)));
       let body = null; try{ body = JSON.parse(req.postData()||'null'); }catch(e){}
       if(m==='POST'){
         const merge = /merge-duplicates/.test(req.headers()['prefer']||'');

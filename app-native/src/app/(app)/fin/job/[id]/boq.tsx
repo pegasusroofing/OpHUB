@@ -36,7 +36,8 @@ import { bestSheet, boqRows, guessColumns, importPdfLines, importRows, type BoqL
 import { csvRows, readXlsx, type Cell } from '@/lib/rules/xlsxRead';
 import { groupTotals, isItem, itemValue } from '@/lib/rules/finApp';
 import { money, num, round2 } from '@/lib/rules/finance';
-import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
+import { exportTableExcel, type Table } from '@/lib/tableExcel';
+import { exportTablePdf } from '@/lib/pdfLazy';
 import { base, page, radius, space, useDesk, useTheme } from '@/theme/theme';
 
 type Row = Record<string, any>;

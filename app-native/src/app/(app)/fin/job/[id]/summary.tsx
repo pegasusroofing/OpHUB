@@ -18,7 +18,7 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { forecast, poInvoiced, type CostLine } from '@/lib/rules/finBook';
 import { fdate, invOutstandingNet, money, retentionStillHeld, round2 } from '@/lib/rules/finance';
-import { exportTableExcel, type Table } from '@/lib/tableExport';
+import { exportTableExcel, type Table } from '@/lib/tableExcel';
 import { base, page, radius, space } from '@/theme/theme';
 
 type Row = Record<string, any>;

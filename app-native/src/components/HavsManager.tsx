@@ -17,8 +17,8 @@ import {
 import { usePeople } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { useFlushOnLeave } from '@/lib/useFlushOnLeave';
-import { buildHavsPdf, emailHavsPdf } from '@/lib/havsPdf';
-import { deliverPdf } from '@/lib/pdf';
+import { buildHavsPdf, emailHavsPdf } from '@/lib/pdfLazy';
+import { deliverPdf } from '@/lib/fileOut';
 import { localISODate } from '@/lib/rules/driver';
 import { DAY_STATUS_LABEL, dayStatus, HAVS_DAY_LABELS, points, titleCaseWords, weekDates, weekLabel, wholeMinutes } from '@/lib/rules/havs';
 import type { Site } from '@/lib/types';

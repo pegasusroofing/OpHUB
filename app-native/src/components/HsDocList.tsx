@@ -24,8 +24,8 @@ import { Button, Card, Empty, Muted, Toggle, SectionTitle } from '@/components/u
 import { viewDoc } from '@/components/DocViewer';
 import { DOC_LABEL, docBucket, nameOf, openDocLink, sigDocId, signDocs, useHsDocs, usePeople, type DocKind, type HsDoc, type HsSig } from '@/data/hs';
 import { deleteHsDoc, replaceCoshh, uploadHsDoc } from '@/data/hsManager';
-import { buildSignedHsPdf, buildSignedLayoutPdf } from '@/data/hsPdf';
-import { deliverPdf, emailPdf, emailPdfsSeparately, fetchBytes, PDFDocument, showPdf } from '@/lib/pdf';
+import { buildSignedHsPdf, buildSignedLayoutPdf, PDFDocument } from '@/lib/pdfLazy';
+import { deliverPdf, emailPdf, emailPdfsSeparately, fetchBytes, showPdf } from '@/lib/fileOut';
 import { publicUrl } from '@/lib/privateFiles';
 import { useAuth } from '@/lib/auth';
 import { resignDue, signers } from '@/lib/rules/hs';

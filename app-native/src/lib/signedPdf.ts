@@ -4,29 +4,11 @@
 // and a "Signature Record" table at the end for anyone without a box.
 import { drawFit, fetchBytes, INK, PDFDocument, rgb, safe, SLATE, StandardFonts, wrap, type PDFImage } from '@/lib/pdf';
 import { publicUrl } from '@/lib/privateFiles';
+import { boxClientNum, boxOpNum, layoutBoxes, layoutClients, layoutHas, layoutSlots, type SignLayout } from '@/lib/signLayout';
+
+export { boxClientNum, layoutBoxes, layoutClients, layoutHas, layoutSlots, type SignLayout } from '@/lib/signLayout';
 
 export type Signer = { name: string; plainName: string; dateText: string; when: string; imagePath: string | null; issued?: boolean; label?: string; blank?: boolean; pmImagePath?: string | null; slot?: number };
-type Box = { p: number; w: string; t: string; r: number[] };
-export type SignLayout = { boxes?: Box[]; tables?: { page: number; rows?: number; step?: number; name?: number[]; sig?: number[]; date?: number[] }[] } | null;
-
-export const boxClientNum = (w: string) => { const m = /^client(\d*)$/.exec(String(w)); return m ? parseInt(m[1], 10) || 1 : 0; };
-const boxOpNum = (w: string) => { const m = /^op(\d+)$/.exec(String(w)); return m ? parseInt(m[1], 10) : 0; };
-export function layoutBoxes(layout: SignLayout): Box[] {
-  if (!layout) return [];
-  if (Array.isArray(layout.boxes)) return layout.boxes.filter((b) => b && b.p && b.w && b.t && Array.isArray(b.r) && b.r.length === 4);
-  const out: Box[] = [];
-  (Array.isArray(layout.tables) ? layout.tables : []).forEach((t) => {
-    if (!t || !t.page) return;
-    for (let i = 0; i < (t.rows || 1); i++) {
-      if (i > 0 && !t.step) break;
-      (['name', 'sig', 'date'] as const).forEach((k) => { const b = t[k]; if (b) out.push({ p: t.page, w: `op${i + 1}`, t: k, r: [b[0], b[1] + i * (t.step || 0), b[2], b[3]] }); });
-    }
-  });
-  return out;
-}
-export const layoutSlots = (l: SignLayout) => layoutBoxes(l).reduce((m, b) => (/^op\d+$/.test(b.w) ? Math.max(m, parseInt(b.w.slice(2), 10)) : m), 0);
-export const layoutHas = (l: SignLayout, who: string) => layoutBoxes(l).some((b) => b.w === who);
-export const layoutClients = (l: SignLayout) => layoutBoxes(l).reduce((m, b) => Math.max(m, boxClientNum(b.w)), 0);
 
 async function sigImage(doc: PDFDocument, cache: Map<string, Promise<PDFImage | null>>, path: string | null | undefined) {
   if (!path) return null;

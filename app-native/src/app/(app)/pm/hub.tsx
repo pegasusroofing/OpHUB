@@ -10,6 +10,7 @@ import { useCallback, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import { CompanyChat } from '@/components/CompanyChat';
+import { ShowMore } from '@/components/ShowMore';
 import { KeepInView } from '@/components/FinNav';
 import { HowTo } from '@/components/HowTo';
 import { TodoPop } from '@/components/TodoPop';
@@ -19,7 +20,7 @@ import { useHubAll, type HubArea, type HubItem } from '@/data/hub';
 import { markMessagesRead } from '@/data/inbox';
 import { useSites } from '@/data/sites';
 import { nameOf, usePeople } from '@/data/hs';
-import { setTodoDone, usePmList } from '@/data/todos';
+import { tickTodo, usePmList } from '@/data/todos';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { money } from '@/lib/rules/finance';
@@ -83,7 +84,7 @@ export default function Hub() {
     const late = !!x.date_required_by && todoDay(x.date_required_by)! < now;
     return (
       <View key={x.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderTopWidth: i ? 1 : 0, borderTopColor: '#EEF0F2' }}>
-        <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: false }} accessibilityLabel={`Done: ${x.text}`} hitSlop={8} onPress={async () => { if (await setTodoDone(x.id, true)) { void refetchTodos(); ['hub', 'pmTodos', 'todos'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); } else toast('Could not save — try again.'); }}
+        <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: false }} accessibilityLabel={`Done: ${x.text}`} hitSlop={8} onPress={async () => { if (!(await tickTodo(qc, x.id, true))) toast('Could not save — try again.'); }}
           style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: '#C9CDD3', backgroundColor: '#fff', marginTop: 1 }} />
         <Pressable accessibilityRole="button" accessibilityLabel={x.text} onPress={() => router.push((x.site_id ? `/sites/${x.site_id}/todos?open=${x.id}` : '/pm/todos') as never)} style={{ flex: 1, minWidth: 0 }}>
           <Text numberOfLines={2} style={{ fontSize: 14, fontWeight: '700', color: base.ink }}>{x.text}</Text>
@@ -116,7 +117,8 @@ export default function Hub() {
       <Text style={{ fontSize: 18, color: base.slate }}>›</Text>
     </Pressable>
   );
-  const listBox = (items: HubItem[], showType: boolean) => <View style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, overflow: 'hidden', marginBottom: 10 }}>{items.map((it, i) => row(it, i, showType))}</View>;
+  // The first 50, then Show More (speed review, 15 Nov 2026); the tab counts use them all.
+  const listBox = (items: HubItem[], showType: boolean) => <ShowMore items={items}>{(drawn) => <View style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, overflow: 'hidden', marginBottom: 10 }}>{drawn.map((it, i) => row(it, i, showType))}</View>}</ShowMore>;
   // Groups in the order they first come (the list is soonest-due first). Finance to-dos are a tile each.
   const groups = (items: HubItem[], each?: (it: HubItem) => boolean) => {
     const out: { k: string; l: string; items: HubItem[] }[] = [];

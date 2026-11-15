@@ -5,6 +5,7 @@
 // job shows under Completed (internal — no PO). Dates come from a calendar; qty is numbers only.
 // A request on a sent PO is locked here (changes are made in Finance) — 9219zr.
 import { InfoBox } from '@/components/InfoBox';
+import { ShowMore } from '@/components/ShowMore';
 import { MatTabs, type MatTabKey } from '@/components/MatTabs';
 import { useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
@@ -243,7 +244,8 @@ export default function MaterialRequests() {
         </Card>
       )}
 
-      {isLoading ? <Muted>Loading…</Muted> : entries.length ? entries.map((e) => {
+      {/* The first 50, then Show More (speed review, 15 Nov 2026); Select All and the counts use them all. */}
+      {isLoading ? <Muted>Loading…</Muted> : entries.length ? <ShowMore items={entries}>{(drawn) => drawn.map((e) => {
         if (e.items.length < 2) return row(e.m);
         const ids = e.items.map((x) => x.id);
         if (done) {
@@ -284,7 +286,7 @@ export default function MaterialRequests() {
             </View>
           </Card>
         );
-      }) : <Empty>{mgr ? (tab === 'pending' ? 'Nothing to action — no new requests from operatives.' : 'Nothing completed yet.') : `No ${tab === 'live' ? 'live' : 'closed'} material requests.`}</Empty>}
+      })}</ShowMore> : <Empty>{mgr ? (tab === 'pending' ? 'Nothing to action — no new requests from operatives.' : 'Nothing completed yet.') : `No ${tab === 'live' ? 'live' : 'closed'} material requests.`}</Empty>}
 
       {mgr && tab === 'done' && !!yardIssues?.length && (
         <View style={{ marginTop: space.m }}>

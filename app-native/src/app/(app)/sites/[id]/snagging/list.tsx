@@ -22,11 +22,12 @@ import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { addSnag, closeSnag, emailSnagPdf, replaceSnagPhoto, snagPhotos, snagsForPdf, tagSnag, useSnags, type Snag } from '@/data/snags';
 import { useAuth } from '@/lib/auth';
-import { deliverPdf } from '@/lib/pdf';
+import { deliverPdf } from '@/lib/fileOut';
 import { pickPhotos, type Picked } from '@/lib/photos';
 import { publicUrl, resolveStorageUrl } from '@/lib/privateFiles';
 import { isManager } from '@/lib/roles';
-import { buildSnagPdf, type SnagScope } from '@/lib/snagPdf';
+import { buildSnagPdf } from '@/lib/pdfLazy';
+import type { SnagScope } from '@/lib/snagPdf';
 import { base, page, space } from '@/theme/theme';
 
 const d = (t: string | null) => (t ? new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '');

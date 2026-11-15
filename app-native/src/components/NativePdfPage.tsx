@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ComponentType, type Ref } from 'react
 import { Image, Text, View } from 'react-native';
 import { WebView as RNWebView, type WebViewMessageEvent, type WebViewProps } from 'react-native-webview';
 
-import { fetchBytes } from '@/lib/pdf';
+import { fetchBytes } from '@/lib/fileOut';
 import { base } from '@/theme/theme';
 
 const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';

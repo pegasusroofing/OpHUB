@@ -22,7 +22,7 @@ import { useSites } from '@/data/sites';
 import { syncOpInvoice, wagesOff, withdrawOpInvoice } from '@/data/wageBook';
 import { WagesToBook } from '@/components/WagesToBook';
 import { useAuth } from '@/lib/auth';
-import { cisStatement } from '@/lib/finCisPdf';
+import { cisStatement } from '@/lib/pdfLazy';
 import { addDays, fdate, jobTag, money, num, round2, today } from '@/lib/rules/finance';
 import { opCalc } from '@/lib/rules/finSubs';
 import { supabase } from '@/lib/supabase';

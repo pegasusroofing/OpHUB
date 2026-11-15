@@ -17,7 +17,8 @@ import { deleteCompletion, HEALTH_ITEMS, inductionItems, setInductionQuestions, 
 import { unlinkFolder } from '@/data/onedrive';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { deliverPdf, exportFilename, fetchBytes, PDFDocument } from '@/lib/pdf';
+import { deliverPdf, exportFilename, fetchBytes } from '@/lib/fileOut';
+import { PDFDocument } from '@/lib/pdfLazy';
 import { publicUrl } from '@/lib/privateFiles';
 import { supabase } from '@/lib/supabase';
 

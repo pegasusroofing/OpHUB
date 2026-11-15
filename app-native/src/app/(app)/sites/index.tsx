@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { HomePrompts } from '@/components/HomePrompts';
+import { ShowMore } from '@/components/ShowMore';
 import { askDate } from '@/components/DateField';
 import { HowTo } from '@/components/HowTo';
 import { OphIcon } from '@/components/OphIcon';
@@ -57,9 +58,10 @@ export default function Sites() {
       <TextInput value={q} onChangeText={setQ} placeholder="Search projects" placeholderTextColor={base.slateLight} style={{ flex: 1, fontSize: 14, color: base.ink, height: 44 }} />
     </View>
   );
-  const grid = (list: Site[], card: (x: Site) => React.ReactNode) => desk
-    ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 }}>{list.map((x) => <View key={x.id} style={{ width: '50%', paddingHorizontal: 6 }}>{card(x)}</View>)}</View>
-    : <>{list.map((x) => <View key={x.id}>{card(x)}</View>)}</>;
+  // The first 50 projects in a list, then Show More (speed review, 15 Nov 2026); the counts and search use them all.
+  const grid = (list: Site[], card: (x: Site) => React.ReactNode) => <ShowMore items={list}>{(rows) => desk
+    ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 }}>{rows.map((x) => <View key={x.id} style={{ width: '50%', paddingHorizontal: 6 }}>{card(x)}</View>)}</View>
+    : <>{rows.map((x) => <View key={x.id}>{card(x)}</View>)}</>}</ShowMore>;
   const head = (k: string, label: string, n: number, on: boolean, toggle: () => void) => (
     <Pressable key={`h${k}`} onPress={toggle} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, marginBottom: 10, paddingVertical: 12, paddingHorizontal: 14, backgroundColor: base.card, borderWidth: 1, borderColor: base.line, borderRadius: 12 }}>
       <Text style={{ fontWeight: '600', fontSize: 13, letterSpacing: 0.8, color: base.ink }}>{label.toUpperCase()}</Text>

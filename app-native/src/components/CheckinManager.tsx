@@ -16,7 +16,7 @@ import { checkinsForExport, clearFence, setFencePoint, setFenceRadius, usePmLogi
 import { nameOf, usePeople } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { exportTableExcel } from '@/lib/tableExport';
+import { exportTableExcel } from '@/lib/tableExcel';
 import { buildCheckinSessions, checkinDayLabel, timeHM } from '@/lib/rules/checkin';
 import { parseCoordToken, radiusOptions, splitCoordPair, validLatLon } from '@/lib/rules/geo';
 import type { Site, SubAddress } from '@/lib/types';

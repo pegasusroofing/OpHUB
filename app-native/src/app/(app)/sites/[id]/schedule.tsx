@@ -36,7 +36,7 @@ import { isFullManager, isManager } from '@/lib/roles';
 import { columnTasks, pdfTaskLines, sheetColumns } from '@/lib/rules/sowImport';
 import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
 import { makeXlsx } from '@/lib/rules/xlsx';
-import { deliverXlsx } from '@/lib/pdf';
+import { deliverXlsx } from '@/lib/fileOut';
 import { supabase } from '@/lib/supabase';
 import { VisibilityEditor } from '@/components/VisibilityEditor';
 import { HowTo } from '@/components/HowTo';

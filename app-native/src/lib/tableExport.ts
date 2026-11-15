@@ -1,24 +1,11 @@
 // One table → an Excel file or a branded landscape PDF. Used by the reports,
 // summaries and registers that the current app exports with SheetJS / pdf-lib
 // (finExportExcel, exportXxxExcel / Pdf). Money stays a number in Excel.
-import { DEFAULT_BRAND1, deliverPdf, deliverXlsx, drawFit, exportFilename, hexToRgb, INK, PDFDocument, rgb, safe, SLATE, StandardFonts, storageImage, WHITE, wrap, type PDFPage } from '@/lib/pdf';
-import { makeXlsx, reportSheet, type XCell } from '@/lib/rules/xlsx';
+import { DEFAULT_BRAND1, deliverPdf, drawFit, exportFilename, hexToRgb, INK, PDFDocument, rgb, safe, SLATE, StandardFonts, storageImage, WHITE, wrap, type PDFPage } from '@/lib/pdf';
+import { cellText, type Table } from '@/lib/tableExcel';
 import type { Organization } from '@/lib/types';
 
-export type TCol = { l: string; money?: boolean; num?: boolean; w?: number };
-export type Table = { title: string; sub?: string; cols: TCol[]; rows: (string | number | null | undefined)[][]; totals?: (string | number | null | undefined)[]; site?: string | null; boldRows?: number[] };
-const gbp = (n: number) => `${n < 0 ? '-' : ''}£${Math.abs(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-export const cellText = (c: TCol, v: unknown) => (v == null || v === '' ? '' : c.money && typeof v === 'number' ? gbp(v) : typeof v === 'number' ? v.toLocaleString('en-GB', { maximumFractionDigits: 2 }) : String(v));
-
-export function tableSheets(t: Table, org: Organization | null, more: Table[] = []) {
-  return [t, ...more].map((x) => {
-    const cell = (c: TCol, v: unknown, bold = false): XCell => (c.money && typeof v === 'number' ? { v, s: 'money' } : bold ? { v: v as string, s: 'bold' } : (v as string | number | null));
-    const rows = x.rows.map((r, n) => x.cols.map((c, i) => cell(c, r[i], !!x.boldRows?.includes(n))));
-    if (x.totals) rows.push(x.cols.map((c, i) => cell(c, x.totals?.[i], true)));
-    return reportSheet(x.title, `${org?.name || 'OpHUB'} — ${x.title}`, x.cols.map((c) => c.l), rows, x.cols.map((c, i) => c.w ? c.w / 6 : i === 0 ? 30 : c.money || c.num ? 14 : 22), x.sub ? `${x.sub} · exported ${new Date().toLocaleDateString('en-GB')}` : undefined);
-  });
-}
-export const exportTableExcel = (t: Table, org: Organization | null, more: Table[] = []) => deliverXlsx(makeXlsx(tableSheets(t, org, more)), exportFilename(t.site || '', t.title, 'xlsx'));
+export { cellText, exportTableExcel, tableSheets, type Table, type TCol } from '@/lib/tableExcel';
 
 /** deliver: what to do with the finished PDF (default: hand it to the person). */
 export async function exportTablePdf(t: Table, org: Organization | null, deliver: (bytes: Uint8Array, filename: string) => Promise<boolean> = deliverPdf) {

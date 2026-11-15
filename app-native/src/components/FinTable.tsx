@@ -9,6 +9,7 @@ import { isValidElement, useEffect, useState, type ReactNode } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { DateBox } from '@/components/DateField';
+import { useShowMore } from '@/components/ShowMore';
 import { plainGet, plainSet } from '@/lib/kv';
 import { type FinSort, nextSort, sortRows } from '@/lib/rules/finTable';
 import { base, useTheme } from '@/theme/theme';
@@ -113,6 +114,8 @@ export function FinTable<T>({ cols: allCols, rows, keyOf, onRow, foot, onMenu, d
   const openCol = open === '__cols' ? null : cols.find((c) => c.k === open && (c.choices || isPick(c)));
   const openDate = open.startsWith('date:') ? cols.find((c) => `date:${c.k}` === open) : null;
   const shown = sortRows(filtered, cols, sort || defaultSort || null, (c, r) => nodeText((c as FinCol<T>).render(r)));
+  // The first 50 rows drawn, then Show More; filters, totals and the footer still use every row (speed review, 15 Nov 2026).
+  const { rows: drawn, more } = useShowMore(shown);
   const footer = typeof foot === 'function' ? foot(shown) : foot;
   const hasTotals = cols.some((c) => c.total);
   const cell = (c: FinCol<T>) => ({ flex: c.flex ?? 1, minWidth: c.min ?? 80, paddingHorizontal: 6, alignItems: 'center' as const, justifyContent: 'center' as const });
@@ -210,7 +213,7 @@ export function FinTable<T>({ cols: allCols, rows, keyOf, onRow, foot, onMenu, d
           )}
           <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
             {!shown.length && <Text style={{ padding: 14, textAlign: 'center', color: base.slate }}>Nothing matches those filters.</Text>}
-            {shown.map((r, i) => (
+            {drawn.map((r, i) => (
               <Pressable key={keyOf(r)} onPress={onRow ? () => onRow(r) : undefined}
                 style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', minHeight: 52, paddingVertical: 8, paddingHorizontal: 8, borderTopWidth: i ? 1 : 0, borderTopColor: '#F0F1F4' }, pressed && { backgroundColor: '#F8F9FB' }]}>
                 {cols.map((c) => <View key={c.k} style={cell(c)} testID={`col-${c.k}`}>{c.render(r)}</View>)}
@@ -227,6 +230,7 @@ export function FinTable<T>({ cols: allCols, rows, keyOf, onRow, foot, onMenu, d
           )}
         </View>
       </ScrollView>
+      {more}
       {hasTotals && (!!footRight || !!colsBtn) && <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 6 }}>{footRight}{colsKey ? <View style={{ backgroundColor: t.brand1, borderRadius: 8, padding: 2 }}>{colsBtn}</View> : null}</View>}
       {/* tally: the totals as a bar across the table, left and right, that stays in view while the list scrolls. */}
       {!hasTotals && (!!footer || !!colsBtn || !!footRight) && tally && <View style={{ position: 'sticky' as never, bottom: 10, marginTop: 10, backgroundColor: t.brand1, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>{footer}{(footRight || colsBtn) ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>{footRight}{colsBtn}</View> : null}</View>}

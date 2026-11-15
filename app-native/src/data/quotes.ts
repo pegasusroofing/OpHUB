@@ -8,7 +8,7 @@ import { localISODate } from '@/lib/rules/driver';
 import { quoteReport, type AutoExport } from '@/lib/rules/quoteReports';
 import { readTenderLog, statusPatch, type ImportRow, type QuoteRow } from '@/lib/rules/quotes';
 import { makeXlsx } from '@/lib/rules/xlsx';
-import { tableSheets } from '@/lib/tableExport';
+import { tableSheets } from '@/lib/tableExcel';
 import type { Organization } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';

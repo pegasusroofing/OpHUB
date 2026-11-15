@@ -9,7 +9,7 @@ import { Text, TextInput, View } from 'react-native';
 
 import { Popup, PopupButtons } from '@/components/Popup';
 import { useToast } from '@/components/toast';
-import { layoutClients, type SignLayout } from '@/lib/signedPdf';
+import { layoutClients, type SignLayout } from '@/lib/signLayout';
 import { supabase } from '@/lib/supabase';
 import type { Site } from '@/lib/types';
 import { base, radius } from '@/theme/theme';

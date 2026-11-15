@@ -17,7 +17,7 @@ import { dismissRequest, moveDelivery, moveToSlot, useDeliveryRequests, useDrive
 import { planPush, pushDelivery, siteHeading } from '@/data/driver';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { exportDeliverySchedule } from '@/lib/deliveryExport';
+import { exportDeliverySchedule } from '@/lib/pdfLazy';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import { bySlotOrder, collectionLine, continuations, dayTotals, DELIVERY_TIME_SLOTS, fullSlots, localISODate, minsLabel, nextSlotKey, slotLabel } from '@/lib/rules/driver';
 import { isManager } from '@/lib/roles';

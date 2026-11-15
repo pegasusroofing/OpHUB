@@ -10,7 +10,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { isChatTag, useChatUnread } from '@/data/companyChat';
-import { useFinOverview } from '@/data/finance';
+import { useFinOverview, useFinTodoCount } from '@/data/finance';
 import { msgDest, SPECIAL_LABEL } from '@/data/siteMessages';
 import { isFinanceUser, isManager } from '@/lib/roles';
 import { siteStatusKey } from '@/lib/rules/checkin';
@@ -39,20 +39,48 @@ export function useHub(me: Profile | null, allSites: Site[] | undefined, pmId: s
     queryFn: async () => {
       const p = me as Profile;
       const open = (allSites ?? []).filter((s) => ['live', 'upcoming'].includes(siteStatusKey(s)));
+      // Speed review, 15 Nov 2026: the requests ran in about six rounds one after another. Now three: what doesn't
+      // depend on anything (whose jobs, messages to me, Finance's to-book lists) together; then everything about
+      // those jobs; then the signatures and read receipts they point to.
+      const who = pmId !== 'all' ? (pmId || p.id) : null;
+      const own = pmId === '' || pmId === p.id || pmId === 'all';
+      const since0 = new Date(Date.now() - 180 * 864e5).toISOString();
+      const none = Promise.resolve({ data: [] as unknown });
+      const [mineR, dmR, inbR, wpR] = await Promise.all([
+        who ? db.from('site_assignments').select('site_id').eq('user_id', who) : none,
+        own ? db.from('messages').select('id,site_id,kind,body,related_id,created_at').eq('audience', 'single').eq('recipient_id', p.id).neq('sender_id', p.id).is('parent_id', null).gte('created_at', since0).order('created_at', { ascending: false }).limit(50) : none,
+        own && isManager(p) ? db.from('fin_inbox').select('id,site_id,file_name,extracted,assigned_at,received_at').eq('assigned_pm', p.id).eq('status', 'new').order('assigned_at') : none,
+        own && isManager(p) ? db.from('wage_pushes').select('id,site_id,amount,week_start').eq('status', 'pending') : none,
+      ]);
       let sites = open;
-      if (pmId !== 'all') {
-        const who = pmId || p.id;
-        const mine = new Set(rows<{ site_id: string }>(await db.from('site_assignments').select('site_id').eq('user_id', who)).map((a) => a.site_id));
+      if (who) {
+        const mine = new Set(rows<{ site_id: string }>(mineR).map((a) => a.site_id));
         sites = open.filter((s) => s.responsible_pm_id === who || mine.has(s.id));
       }
       const ids = sites.map((s) => s.id);
+      const dm = rows<{ id: string; site_id: string | null; kind: string; body: string | null; related_id: string | null; created_at: string }>(dmR);
+      const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
+      const since = new Date(Date.now() - 180 * 864e5).toISOString();
+      const [dmReadR, jobs] = await Promise.all([
+        dm.length ? db.from('message_reads').select('message_id').eq('user_id', p.id).in('message_id', dm.map((m) => m.id)) : none,
+        ids.length ? Promise.all([
+          db.from('rams_docs').select('id,site_id,uploaded_at,resign_cycle_start').eq('status', 'current').in('site_id', ids).is('subcontractor_company_id', null),
+          db.from('coshh_docs').select('id,site_id,uploaded_at,resign_cycle_start').in('site_id', ids).is('subcontractor_company_id', null),
+          db.from('toolbox_talks').select('id,site_id,status,created_at').in('site_id', ids).is('subcontractor_company_id', null).neq('status', 'bank'),
+          db.from('snags').select('id,site_id,created_at').in('site_id', ids).eq('status', 'open'),
+          db.from('schedule_tasks').select('site_id,status').in('site_id', ids),
+          db.from('site_assignments').select('site_id,user_id').in('site_id', ids),
+          db.from('todos').select('id,site_id,text,date_required_by').in('site_id', ids).eq('done', false).order('created_at'),
+          db.from('messages').select('id,site_id,created_at').eq('audience', 'managers').or(`site_id.in.(${ids.join(',')}),site_id.is.null`).neq('sender_id', p.id).gte('created_at', since),
+          // A database request has then() but no catch(): wrapped so a failure here can't empty the whole HUB.
+          Promise.resolve(rpc('sow_photo_alerts', {})).catch(() => ({ data: [], error: null })),
+        ]) : null,
+      ]);
       // 9219zr (PB-07): unread messages sent to me alone (delivery problems, invoice queries, time off,
       // delivery assigned, sub form…) — on my own HUB (or All), not when looking at a colleague's.
       const direct: HubItem[] = [];
-      if (pmId === '' || pmId === p.id || pmId === 'all') {
-        const since0 = new Date(Date.now() - 180 * 864e5).toISOString();
-        const dm = rows<{ id: string; site_id: string | null; kind: string; body: string | null; related_id: string | null; created_at: string }>(await db.from('messages').select('id,site_id,kind,body,related_id,created_at').eq('audience', 'single').eq('recipient_id', p.id).neq('sender_id', p.id).is('parent_id', null).gte('created_at', since0).order('created_at', { ascending: false }).limit(50));
-        const read = dm.length ? new Set(rows<{ message_id: string }>(await db.from('message_reads').select('message_id').eq('user_id', p.id).in('message_id', dm.map((m) => m.id))).map((r) => r.message_id)) : new Set<string>();
+      if (own) {
+        const read = new Set(rows<{ message_id: string }>(dmReadR).map((r) => r.message_id));
         dm.filter((m) => !read.has(m.id)).forEach((m) => {
           const s = m.site_id ? (allSites ?? []).find((x) => x.id === m.site_id) : null;
           const at = new Date(m.created_at);
@@ -66,10 +94,7 @@ export function useHub(me: Profile | null, allSites: Site[] | undefined, pmId: s
         // Finance: invoices and receipts sent to you to book (gone once booked or sent back), and wages waiting to go
         // against a price on your jobs (gone once booked). Admins see every job's wages, as on To Book.
         if (isManager(p)) {
-        const [inb, wp] = await Promise.all([
-          db.from('fin_inbox').select('id,site_id,file_name,extracted,assigned_at,received_at').eq('assigned_pm', p.id).eq('status', 'new').order('assigned_at'),
-          db.from('wage_pushes').select('id,site_id,amount,week_start').eq('status', 'pending'),
-        ]);
+        const inb = inbR, wp = wpR;
         rows<Row>(inb).forEach((it) => {
           const ex = (it.extracted || {}) as Row, rc = ex.receipt === true;
           const s = it.site_id ? (allSites ?? []).find((x) => x.id === it.site_id) : null;
@@ -85,34 +110,24 @@ export function useHub(me: Profile | null, allSites: Site[] | undefined, pmId: s
         });
         }
       }
-      if (!ids.length) return { items: direct, sites };
-      const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
-      const since = new Date(Date.now() - 180 * 864e5).toISOString();
-      const [rams, coshh, talks, snags, tasks, assigned, todos, msgs, ops, alerts] = await Promise.all([
-        db.from('rams_docs').select('id,site_id,uploaded_at,resign_cycle_start').eq('status', 'current').in('site_id', ids).is('subcontractor_company_id', null),
-        db.from('coshh_docs').select('id,site_id,uploaded_at,resign_cycle_start').in('site_id', ids).is('subcontractor_company_id', null),
-        db.from('toolbox_talks').select('id,site_id,status,created_at').in('site_id', ids).is('subcontractor_company_id', null).neq('status', 'bank'),
-        db.from('snags').select('id,site_id,created_at').in('site_id', ids).eq('status', 'open'),
-        db.from('schedule_tasks').select('site_id,status').in('site_id', ids),
-        db.from('site_assignments').select('site_id,user_id').in('site_id', ids),
-        db.from('todos').select('id,site_id,text,date_required_by').in('site_id', ids).eq('done', false).order('created_at'),
-        db.from('messages').select('id,site_id,created_at').eq('audience', 'managers').or(`site_id.in.(${ids.join(',')}),site_id.is.null`).neq('sender_id', p.id).gte('created_at', since),
-        db.from('profiles').select('id').eq('role', 'operative'),
-        // A database request has then() but no catch(): wrapped so a failure here can't empty the whole HUB.
-        Promise.resolve(rpc('sow_photo_alerts', {})).catch(() => ({ data: [], error: null })),
-      ]);
+      if (!jobs) return { items: direct, sites };
+      const [rams, coshh, talks, snags, tasks, assigned, todos, msgs, alerts] = jobs;
       type Doc = { id: string; site_id: string; uploaded_at: string; resign_cycle_start: string | null };
       const ramsD = rows<Doc>(rams), coshhD = rows<Doc>(coshh);
-      const [rs, cs] = await Promise.all([
-        ramsD.length ? db.from('rams_signatures').select('rams_id,user_id,signed_at').in('rams_id', ramsD.map((d) => d.id)) : Promise.resolve({ data: [] }),
-        coshhD.length ? db.from('coshh_signatures').select('coshh_id,user_id,signed_at').in('coshh_id', coshhD.map((d) => d.id)) : Promise.resolve({ data: [] }),
-      ]);
       const msgList = rows<{ id: string; site_id: string | null; created_at: string }>(msgs);
+      const chunks = <T,>(list: T[], n: number) => { const out: T[][] = []; for (let i = 0; i < list.length; i += n) out.push(list.slice(i, i + n)); return out; };
+      // Only the people on these jobs are looked up to see who's an operative (it read every operative in the company).
+      const people = [...new Set(rows<{ user_id: string }>(assigned).map((a) => a.user_id))];
+      const [rs, cs, readR, opsR] = await Promise.all([
+        ramsD.length ? db.from('rams_signatures').select('rams_id,user_id,signed_at').in('rams_id', ramsD.map((d) => d.id)) : none,
+        coshhD.length ? db.from('coshh_signatures').select('coshh_id,user_id,signed_at').in('coshh_id', coshhD.map((d) => d.id)) : none,
+        // Read receipts 120 at a time (a long list makes the address too long), all at once.
+        Promise.all(chunks(msgList, 120).map((part) => db.from('message_reads').select('message_id').eq('user_id', p.id).in('message_id', part.map((m) => m.id)))),
+        Promise.all(chunks(people, 150).map((part) => db.from('profiles').select('id').eq('role', 'operative').in('id', part))),
+      ]);
       const readIds = new Set<string>();
-      for (let i = 0; i < msgList.length; i += 120) {
-        rows<{ message_id: string }>(await db.from('message_reads').select('message_id').eq('user_id', p.id).in('message_id', msgList.slice(i, i + 120).map((m) => m.id))).forEach((r) => readIds.add(r.message_id));
-      }
-      const opSet = new Set(rows<{ id: string }>(ops).map((o) => o.id));
+      readR.forEach((r) => rows<{ message_id: string }>(r).forEach((x) => readIds.add(x.message_id)));
+      const opSet = new Set(opsR.flatMap((r) => rows<{ id: string }>(r)).map((o) => o.id));
       const roster: Record<string, string[]> = {};
       rows<{ site_id: string; user_id: string }>(assigned).forEach((a) => { if (opSet.has(a.user_id)) (roster[a.site_id] ||= []).push(a.user_id); });
       const started = new Set(rows<{ site_id: string; status: string }>(tasks).filter((t) => t.status && t.status !== 'todo').map((t) => t.site_id));
@@ -172,4 +187,16 @@ export function useHubAll(me: Profile | null, org: Organization | null, allSites
     items, sites: hub.data?.sites ?? [], chatUnread: chat.data ?? 0, isLoading: hub.isLoading, isRefetching: hub.isRefetching,
     refetch: () => { void hub.refetch(); if (fin.data) void fin.refetch(); void chat.refetch(); },
   };
+}
+
+/** The screens that load the whole Finance Overview anyway (Home, the HUB, Finance's own page). */
+export const loadsFinOverview = (path: string) => /^\/(home|pm\/hub|fin)\/?$/.test(path);
+/** The menu's red HUB count: the same as the HUB's list (useHubAll), but Finance's to-dos are counted cheaply unless
+ *  the screen open loads the whole Overview anyway (speed review, 15 Nov 2026: the menu read nine whole Finance tables
+ *  on every app open). */
+export function useHubBadge(me: Profile | null, org: Organization | null, allSites: Site[] | undefined, path: string): number {
+  const hub = useHub(me, allSites, '');
+  const fin = useFinTodoCount(isFinanceUser(me, org) ? me : null, allSites, loadsFinOverview(path));
+  const chat = useChatUnread(me);
+  return (hub.data?.items.length ?? 0) + fin + (chat.data ?? 0);
 }

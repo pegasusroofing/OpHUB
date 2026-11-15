@@ -28,7 +28,8 @@ import { localISODate } from '@/lib/rules/driver';
 import { nextSort, sortRows, type FinSort } from '@/lib/rules/finTable';
 import { quoteReport, REPORTS, type ReportKey } from '@/lib/rules/quoteReports';
 import { chaseStatus, clientNames, groupQuotes, isQuoted, outcomeOf, OUTCOMES, statusWord, WORK_STATUS, type Outcome } from '@/lib/rules/quotes';
-import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
+import { exportTableExcel, type Table } from '@/lib/tableExcel';
+import { exportTablePdf } from '@/lib/pdfLazy';
 import { base, page, useDesk } from '@/theme/theme';
 
 const money = (n: number | null | undefined) => (n ? `£${Math.round(n).toLocaleString('en-GB')}` : '—');

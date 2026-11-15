@@ -20,7 +20,7 @@ import { useAuth } from '@/lib/auth';
 import { pdfPageTexts } from '@/lib/pdfjs';
 import { applySds, dropRepeats, readSds } from '@/lib/rules/sdsRead';
 import { COSHH_PICTO_IMG } from '@/lib/coshhPictoImages';
-import { deliverPdf } from '@/lib/pdf';
+import { deliverPdf } from '@/lib/fileOut';
 import { codeText, COSHH_PICTOS, COSHH_ROUTES, parseCodes, suggestPictos, suggestSignal, type CoshhData, type CoshhItem } from '@/lib/rules/coshh';
 import { RAMS_PPE } from '@/lib/rules/rams';
 import { isFullManager } from '@/lib/roles';

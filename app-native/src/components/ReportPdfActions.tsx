@@ -10,9 +10,10 @@ import { nameOf, usePeople } from '@/data/hs';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { deliverPdf, emailPdf } from '@/lib/pdf';
+import { deliverPdf, emailPdf } from '@/lib/fileOut';
 import { saveToOneDrive } from '@/lib/oneDriveSave';
-import { buildReportPdf, type PdfSub } from '@/lib/reportPdf';
+import { buildReportPdf } from '@/lib/pdfLazy';
+import type { PdfSub } from '@/lib/reportPdf';
 import { supabase } from '@/lib/supabase';
 
 /** A report's PDF; a daily briefing goes out with its signature table (700 buildBriefingPdfWithSignatures). */

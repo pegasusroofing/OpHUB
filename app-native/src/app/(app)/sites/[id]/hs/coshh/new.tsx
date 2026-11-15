@@ -14,7 +14,7 @@ import { Button, Card, Check, Empty, Muted } from '@/components/ui';
 import { issueToSite, newProduct, previewAssessment, productFromSds, useProducts } from '@/data/coshhLib';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { showPdf } from '@/lib/pdf';
+import { showPdf } from '@/lib/fileOut';
 import { isFullManager, isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 

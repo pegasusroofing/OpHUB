@@ -8,6 +8,11 @@ import { cachedQuery, orThrow, readCached } from '@/lib/offlineCache';
 import { supabase } from '@/lib/supabase';
 import type { Checkin, Site, SubAddress } from '@/lib/types';
 
+// The project columns the app uses (speed review, 15 Nov 2026: it read all 54 for every project on every screen).
+// Left out, as nothing in the app reads them: additional_works_amount, additional_works_note, overbooked_notified, price_excel_path, price_onedrive_drive_id, price_onedrive_item_id, price_updated_at.
+// A new column the app needs must be added here too.
+export const SITE_COLS = 'id,name,address,status,geofence_lat,geofence_lon,created_by,created_at,org_id,responsible_pm_id,postcode,onedrive_folder_id,onedrive_folder_name,onedrive_drive_id,geofence_radius_m,price_enabled,price_total,price_booked_override,start_date,closed_at,closed_by,job_number,material_orders_folder_id,material_orders_folder_name,material_orders_drive_id,material_orders_last_synced_at,onedrive_last_synced_at,multi_site,acting_as_main_contractor,site_inductions_folder_id,site_inductions_folder_name,site_inductions_drive_id,mc_hidden_tiles,client_name,client_phone,client_email,client_contact_name,repair_contract,materials_visibility,tile_visibility,job_pack,estimating_linked_at,repair_discount_pct,repair_uses_rates,repair_rates_name,repair_online_approval,repair_no_access_charge';
+
 // RLS decides which sites each person can see (operatives: the jobs they're assigned to).
 export function useSites() {
   const { me } = useAuth();
@@ -25,7 +30,7 @@ export function useSites() {
     enabled: !!me,
     staleTime: 120000,
     queryFn: () => cachedQuery(`sites:${me?.id}`, async () =>
-      orThrow(await supabase.from('sites').select('*').order('created_at', { ascending: true })) as Site[]),
+      orThrow(await supabase.from('sites').select(SITE_COLS).order('created_at', { ascending: true })) as unknown as Site[]),
   });
 }
 

@@ -10,7 +10,7 @@ import { StorageImage } from '@/components/StorageImage';
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
-import { DEFAULT_BRAND1 } from '@/lib/pdf';
+import { DEFAULT_BRAND1 } from '@/lib/fileOut';
 import { pickPhotos } from '@/lib/photos';
 import { supabase } from '@/lib/supabase';
 import { base, page, radius, space } from '@/theme/theme';

@@ -9,10 +9,10 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
-import { buildSignedTbtPdf } from '@/data/hsPdf';
+import { buildSignedTbtPdf, PDFDocument } from '@/lib/pdfLazy';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { deliverPdf, emailPdf, PDFDocument } from '@/lib/pdf';
+import { deliverPdf, emailPdf } from '@/lib/fileOut';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import type { Site } from '@/lib/types';

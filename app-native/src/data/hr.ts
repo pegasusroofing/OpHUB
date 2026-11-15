@@ -4,9 +4,9 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { messageTo } from '@/data/driver';
-import { exportFilename, fetchBytes, PDFDocument } from '@/lib/pdf';
+import { exportFilename, fetchBytes } from '@/lib/fileOut';
+import { PDFDocument, drawSignatureTable } from '@/lib/pdfLazy';
 import { publicUrl } from '@/lib/privateFiles';
-import { drawSignatureTable } from '@/lib/signedPdf';
 import { HR_COLOURS, HR_DEFAULT_ALLOWANCE, HR_DEFAULT_CODES, type Leave } from '@/lib/rules/hr';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';

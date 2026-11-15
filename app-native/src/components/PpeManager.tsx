@@ -12,11 +12,10 @@ import { orThrow } from '@/lib/offlineCache';
 import { nameOf, usePeople } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { isFullManager } from '@/lib/roles';
-import { deliverPdf } from '@/lib/pdf';
-import { ppeEmailPdfs, ppeExportPdf } from '@/lib/ppePdf';
+import { deliverPdf } from '@/lib/fileOut';
+import { ppeEmailPdfs, ppeExportPdf, exportTablePdf } from '@/lib/pdfLazy';
 import { cap1, currentPpe, PPE_STANDARD_ITEMS, type Issuance } from '@/lib/rules/ppe';
 import { supabase } from '@/lib/supabase';
-import { exportTablePdf } from '@/lib/tableExport';
 import type { Site } from '@/lib/types';
 import { base, radius, live } from '@/theme/theme';
 
