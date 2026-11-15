@@ -58,9 +58,6 @@ Deno.serve(async (req) => {
     if (!u?.user) return json({ error: 'Please sign in again' }, 401);
     const { data: me } = await admin.from('profiles').select('org_id, finance_enabled').eq('id', u.user.id).maybeSingle();
     if (!me || !me.finance_enabled) return json({ error: 'Finance access only' }, 403);
-    const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-    const { count: usedToday } = await admin.from('ai_usage_log').select('id', { count: 'exact', head: true }).eq('org_id', me.org_id).eq('fn', 'finance-ai-read').gte('created_at', since);
-    if ((usedToday || 0) >= DAILY) return json({ error: `The AI reader has been used ${DAILY} times today — try again tomorrow.` }, 429);
     const body = await req.json().catch(() => ({}));
     const kind = body.kind === 'quote' ? 'quote' : 'invoice';
     const content: any[] = [];
@@ -81,6 +78,11 @@ Deno.serve(async (req) => {
       content.push({ type: 'text', text: 'Document contents (from a spreadsheet):\n' + String(body.text).slice(0, 60000) });
     } else return json({ error: 'Nothing to read' }, 400);
     content.push({ type: 'text', text: `This is a UK construction ${kind === 'quote' ? 'supplier quotation / price list' : 'supplier invoice'} for a roofing contractor. Record it with the record_document tool. List every priced line in order, exactly as written (keep product codes and sizes in the description). Use numbers without currency symbols or thousands separators. Unit prices exclude VAT. Put delivery charges and discounts in their own lines with kind set. Where an invoice covers more than one delivery or site, give each line its own site_reference, and copy any PO or job reference shown for that delivery into it. Leave out anything you cannot read rather than guessing.` });
+    // Logged first, then counted (this read included), so reads sent all at once can't get past the cap.
+    const { data: use } = await admin.from('ai_usage_log').insert({ org_id: me.org_id, user_id: u.user.id, fn: 'finance-ai-read', ok: false, note: `${kind} · ${body.path ? 'file' : 'spreadsheet'}` }).select('id').single();
+    const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const { count: usedToday } = await admin.from('ai_usage_log').select('id', { count: 'exact', head: true }).eq('org_id', me.org_id).eq('fn', 'finance-ai-read').gte('created_at', since);
+    if ((usedToday || 0) > DAILY) return json({ error: `The AI reader has been used ${DAILY} times today — try again tomorrow.` }, 429);
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
@@ -88,11 +90,12 @@ Deno.serve(async (req) => {
     });
     const j = await res.json().catch(() => ({}));
     const tool = res.ok ? (j.content || []).find((c: any) => c.type === 'tool_use') : null;
-    await admin.from('ai_usage_log').insert({ org_id: me.org_id, user_id: u.user.id, fn: 'finance-ai-read', ok: !!tool, note: `${kind} · ${body.path ? 'file' : 'spreadsheet'}` }).then(undefined, () => undefined);
+    if (tool && use?.id) await admin.from('ai_usage_log').update({ ok: true }).eq('id', use.id).then(undefined, () => undefined);
     if (!res.ok) return json({ error: 'Reader error: ' + (j?.error?.message || res.status) }, 502);
     if (!tool) return json({ error: 'Could not read the document' }, 422);
     return json({ ok: true, model: MODEL, data: tool.input });
   } catch (e) {
-    return json({ error: String((e as Error).message || e) }, 500);
+    console.error('finance-ai-read failed', e);
+    return json({ error: 'Something went wrong reading the document — please try again.' }, 500);
   }
 });

@@ -1,5 +1,102 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
+// HR folder lock: an exact copy of app-native/src/lib/rules/hrLock.ts (review 15 Nov 2026, section 3 #5).
+// ---- HR folder lock ----
+export type HrLock = { id: string; driveId: string | null; path: string | null };
+type HrRef = { driveId?: string; path?: string } | undefined;
+type HrItem = { id?: string; name?: string; parentReference?: HrRef; remoteItem?: { id?: string; name?: string; parentReference?: HrRef } } | null | undefined;
+type HrDb = { from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => { maybeSingle: () => PromiseLike<{ data: unknown }> } } } };
+/** A Graph parentReference.path ("/drives/x/root:/A/B") as "/a/b" ("" for the top of the drive); null if it isn't one. */
+export function hrNorm(p: unknown): string | null {
+  const s = String(p ?? '');
+  const i = s.indexOf('root:');
+  if (i < 0) return null;
+  let r = s.slice(i + 5);
+  try { r = decodeURIComponent(r); } catch { /* keep it as it is */ }
+  return r.replace(/\/+$/, '').toLowerCase();
+}
+/** A folder path relative to the top of a drive ("A/B/") the way hrNorm gives them ("/a/b"). */
+export function hrRel(p: string): string {
+  const parts = String(p ?? '').split('/').filter(Boolean);
+  return parts.length ? ('/' + parts.join('/')).toLowerCase() : '';
+}
+/** Is this folder (its drive and path, as hrNorm gives it) the HR folder or inside it? */
+export function hrPathInside(lock: HrLock | null, driveId: string | null | undefined, path: string | null): boolean {
+  if (!lock || lock.path === null || path === null) return false;
+  if (lock.driveId && driveId && driveId !== lock.driveId) return false;
+  return lock.path === '' || path === lock.path || path.startsWith(lock.path + '/');
+}
+/** Is this Graph item the HR folder or inside it? */
+export function hrInside(lock: HrLock | null, it: HrItem): boolean {
+  if (!lock || !it) return false;
+  if (it.id === lock.id || it.remoteItem?.id === lock.id) return true;
+  const src = it.remoteItem?.parentReference ? it.remoteItem : it;
+  const pp = hrNorm(src.parentReference?.path);
+  return pp !== null && hrPathInside(lock, src.parentReference?.driveId, `${pp}/${String(src.name ?? it.name ?? '').toLowerCase()}`);
+}
+/** Would moving or copying this item carry the HR folder along (it is the HR folder, inside it, or holds it)? */
+export function hrHolds(lock: HrLock | null, it: HrItem): boolean {
+  if (!lock || !it) return false;
+  if (hrInside(lock, it)) return true;
+  if (lock.path === null) return false;
+  const src = it.remoteItem?.parentReference ? it.remoteItem : it;
+  const pp = hrNorm(src.parentReference?.path);
+  if (pp === null) return false;
+  const d = src.parentReference?.driveId;
+  if (lock.driveId && d && d !== lock.driveId) return false;
+  return lock.path.startsWith(`${pp}/${String(src.name ?? it.name ?? '').toLowerCase()}/`);
+}
+/** One folder's contents from Graph: is that folder the HR folder or inside it? */
+export function hrListingInside(lock: HrLock | null, parentId: string | null | undefined, children: HrItem[]): boolean {
+  if (!lock) return false;
+  if (parentId && parentId === lock.id) return true;
+  return children.some((c) => hrPathInside(lock, c?.parentReference?.driveId, hrNorm(c?.parentReference?.path)));
+}
+/** The company's HR folder lock for this caller: null when there's no HR folder or HR Access lets them in. */
+export async function hrLockFor(db: HrDb, orgId: string, msToken: string, supabaseUrl: string, anonKey: string, userToken: string): Promise<HrLock | null> {
+  const { data } = await db.from('hr_secure_settings').select('onedrive').eq('org_id', orgId).maybeSingle();
+  const od = (data as { onedrive?: { id?: string; driveId?: string | null } | null } | null)?.onedrive;
+  if (!od?.id) return null;
+  // Asked as the caller, so it's the database's own rule.
+  try {
+    const r = await fetch(`${supabaseUrl}/rest/v1/rpc/hr_is_team`, { method: 'POST', headers: { Authorization: `Bearer ${userToken}`, apikey: anonKey, 'Content-Type': 'application/json' }, body: '{}' });
+    if (r.ok && (await r.json().catch(() => false)) === true) return null;
+  } catch { /* not let in */ }
+  const lock: HrLock = { id: od.id, driveId: od.driveId || null, path: null };
+  const g = 'https://graph.microsoft.com/v1.0';
+  const u = od.driveId ? `${g}/drives/${encodeURIComponent(od.driveId)}/items/${encodeURIComponent(od.id)}` : `${g}/me/drive/items/${encodeURIComponent(od.id)}`;
+  let r: Response;
+  try { r = await fetch(`${u}?$select=id,name,parentReference,root`, { headers: { Authorization: `Bearer ${msToken}` } }); } catch { throw new HrLockUnknown(); }
+  // Gone (404), or the company sign-in isn't allowed to see it (403): nothing inside it can be reached, so the id
+  // check is all that's needed, and the rest of OneDrive keeps working.
+  if (r.status === 404 || r.status === 403) return lock;
+  if (!r.ok) throw new HrLockUnknown();
+  const it = (await r.json().catch(() => null)) as { name?: string; root?: unknown; parentReference?: { driveId?: string; path?: string } } | null;
+  if (!it) throw new HrLockUnknown();
+  lock.driveId = it.parentReference?.driveId || lock.driveId;
+  const pp = hrNorm(it.parentReference?.path);
+  lock.path = it.root ? '' : pp === null ? null : `${pp}/${String(it.name ?? '').toLowerCase()}`;
+  return lock;
+}
+/** A OneDrive item by id, for the checks above: null if it doesn't exist or the company sign-in can't see it (so it
+ *  can't be reached either); HrLockUnknown if Microsoft doesn't answer. */
+export async function hrItem(msToken: string, driveId: string | null | undefined, itemId: string): Promise<HrItem> {
+  const g = 'https://graph.microsoft.com/v1.0';
+  const u = driveId ? `${g}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}` : `${g}/me/drive/items/${encodeURIComponent(itemId)}`;
+  let r: Response;
+  try { r = await fetch(`${u}?$select=id,name,parentReference,remoteItem,root`, { headers: { Authorization: `Bearer ${msToken}` } }); } catch { throw new HrLockUnknown(); }
+  if (r.status === 404 || r.status === 403) return null;
+  if (!r.ok) throw new HrLockUnknown();
+  const it = (await r.json().catch(() => null)) as HrItem;
+  if (!it) throw new HrLockUnknown();
+  return it;
+}
+export const HR_LOCKED = 'This is in the HR folder. Only the people HR › HR Access lets in can open it.';
+export const HR_TRY_AGAIN = 'OneDrive didn’t answer about the HR folder, so this has been held back. Please try again in a minute.';
+/** Microsoft couldn't say where the HR folder (or an item) is: refuse with HR_TRY_AGAIN. */
+export class HrLockUnknown extends Error { constructor() { super(HR_TRY_AGAIN); this.name = 'HrLockUnknown'; } }
+// ---- end HR folder lock ----
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, pragma',
@@ -31,7 +128,7 @@ async function refreshIfNeeded(admin: any, conn: any){
     }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error('Token refresh failed: ' + JSON.stringify(data));
+  if (!res.ok) { console.error('sync-operative-certification: token refresh failed', data); throw new Error('OneDrive sign-in needs reconnecting'); }
   const expiresAt = new Date(Date.now() + (data.expires_in || 3600) * 1000).toISOString();
   await admin.from('onedrive_connections').update({ access_token: data.access_token, refresh_token: data.refresh_token || conn.refresh_token, expires_at: expiresAt }).eq('org_id', conn.org_id);
   return data.access_token;
@@ -54,16 +151,17 @@ function childrenUrl(driveId: string | null, folderId: string){
     : `https://graph.microsoft.com/v1.0/me/drive/items/${encodeURIComponent(folderId)}/children?$select=id,name,file,folder,size,parentReference&$top=200`;
 }
 
-async function listFilesRecursive(accessToken: string, driveId: string | null, folderId: string, depth: number): Promise<any[]> {
+async function listFilesRecursive(accessToken: string, driveId: string | null, folderId: string, depth: number, hrLock: HrLock | null = null): Promise<any[]> {
   const res = await fetch(childrenUrl(driveId, folderId), { headers: { Authorization: `Bearer ${accessToken}` } });
-  if (!res.ok) throw new Error('OneDrive list failed: ' + await res.text());
+  if (!res.ok) { console.error('sync-operative-certification: list failed', res.status, await res.text()); throw new Error('OneDrive list failed'); }
   const data = await res.json();
-  const items = data.value || [];
+  // Nothing in (or is) the HR folder is listed for anyone HR › HR Access doesn't let in.
+  const items = (data.value || []).filter((it: any) => !hrInside(hrLock, it));
   let files = items.filter((it: any) => it.file);
   if (depth > 0) {
     const folders = items.filter((it: any) => it.folder);
     for (const f of folders) {
-      const nested = await listFilesRecursive(accessToken, f.parentReference?.driveId || driveId, f.id, depth - 1);
+      const nested = await listFilesRecursive(accessToken, f.parentReference?.driveId || driveId, f.id, depth - 1, hrLock);
       files = files.concat(nested);
     }
   }
@@ -118,6 +216,15 @@ Deno.serve(async (req) => {
     const accessToken = await refreshIfNeeded(admin, conn);
     const folder = { id: operative.onedrive_folder_id, driveId: operative.onedrive_drive_id || null, name: operative.onedrive_folder_name };
 
+    // HR folder lock (review 15 Nov 2026, section 3 #5): an operative's folder is chosen in the app, so it could be the
+    // HR folder, a folder inside it, or the folder that holds it. Nothing is pulled from or pushed into the HR folder by
+    // anyone HR › HR Access doesn't let in.
+    let hrLock: HrLock | null;
+    try {
+      hrLock = await hrLockFor(admin, caller.org_id, accessToken, SUPABASE_URL, String(ANON_KEY), token);
+      if (hrLock && hrInside(hrLock, await hrItem(accessToken, folder.driveId, folder.id))) return new Response(JSON.stringify({ error: HR_LOCKED }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    } catch (e) { if (e instanceof HrLockUnknown) return new Response(JSON.stringify({ error: HR_TRY_AGAIN }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }); throw e; }
+
     // ---- PUSH ----
     // #337: pushing to OneDrive is no longer automatic on every sync. A
     // phone-uploaded certificate (source='upload') sits as "not yet pushed"
@@ -152,7 +259,7 @@ Deno.serve(async (req) => {
 
     // ---- PULL: OneDrive files not yet in OpHUB (recurse one level so files
     // moved into a subfolder inside the operative's folder still get picked up) ----
-    const files = await listFilesRecursive(accessToken, folder.driveId, folder.id, 1);
+    const files = await listFilesRecursive(accessToken, folder.driveId, folder.id, 1, hrLock);
     const { data: existing } = await admin.from('operative_certifications').select('item_id, name').eq(ownerCol, ownerId);
     const alreadyIds = new Set((existing || []).map((r: any) => r.item_id).filter(Boolean));
     const alreadyNames = new Set((existing || []).map((r: any) => normalizeFileName(r.name)));
@@ -190,6 +297,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ ok: true, pushed, pulled, folderName: folder.name }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    console.error('sync-operative-certification failed', e);
+    return new Response(JSON.stringify({ error: 'Something went wrong syncing with OneDrive — please try again.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });

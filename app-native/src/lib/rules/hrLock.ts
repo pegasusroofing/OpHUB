@@ -3,12 +3,13 @@
 // one company Microsoft sign-in, which can see the HR folder. So the OneDrive server functions lock it: the HR folder
 // HR › HR Access links to (hr_secure_settings.onedrive), and everything inside it, is left out of folder lists and
 // can't be listed, opened or saved into by anyone HR Access doesn't let in (hr_is_team(), asked as the caller).
-// onedrive-list-folders, onedrive-download-file, onedrive-upload, quote-tracker, sync-material-orders and
-// sync-certifications carry an exact copy of the block below (Deno can't import from the app); hrLock.test.ts checks
-// every copy matches this one.
+// onedrive-list-folders, onedrive-download-file, onedrive-upload, quote-tracker, sync-material-orders,
+// sync-certifications, sync-operative-certification and onedrive-job-pack carry an exact copy of the block below
+// (Deno can't import from the app); hrLock.test.ts checks every copy matches this one.
 // Review 15 Nov 2026 (section 3 #5): when Microsoft can't say where the HR folder is, hrLockFor throws HrLockUnknown and
-// the function refuses with HR_TRY_AGAIN, rather than letting a request inside the HR folder through. A 404 for the HR
-// folder means it's gone: no lock. hrHolds stops a move or copy carrying the HR folder along inside another folder.
+// the function refuses with HR_TRY_AGAIN, rather than letting a request inside the HR folder through. If the HR folder
+// is gone (404) or the company sign-in can't see it (403), only its id is locked. hrHolds stops a move or copy
+// carrying the HR folder along inside another folder.
 // ---- HR folder lock ----
 export type HrLock = { id: string; driveId: string | null; path: string | null };
 type HrRef = { driveId?: string; path?: string } | undefined;
@@ -75,7 +76,9 @@ export async function hrLockFor(db: HrDb, orgId: string, msToken: string, supaba
   const u = od.driveId ? `${g}/drives/${encodeURIComponent(od.driveId)}/items/${encodeURIComponent(od.id)}` : `${g}/me/drive/items/${encodeURIComponent(od.id)}`;
   let r: Response;
   try { r = await fetch(`${u}?$select=id,name,parentReference,root`, { headers: { Authorization: `Bearer ${msToken}` } }); } catch { throw new HrLockUnknown(); }
-  if (r.status === 404) return null; // the HR folder is gone: nothing to lock
+  // Gone (404), or the company sign-in isn't allowed to see it (403): nothing inside it can be reached, so the id
+  // check is all that's needed, and the rest of OneDrive keeps working.
+  if (r.status === 404 || r.status === 403) return lock;
   if (!r.ok) throw new HrLockUnknown();
   const it = (await r.json().catch(() => null)) as { name?: string; root?: unknown; parentReference?: { driveId?: string; path?: string } } | null;
   if (!it) throw new HrLockUnknown();
@@ -84,13 +87,14 @@ export async function hrLockFor(db: HrDb, orgId: string, msToken: string, supaba
   lock.path = it.root ? '' : pp === null ? null : `${pp}/${String(it.name ?? '').toLowerCase()}`;
   return lock;
 }
-/** A OneDrive item by id, for the checks above: null if it doesn't exist; HrLockUnknown if Microsoft doesn't answer. */
+/** A OneDrive item by id, for the checks above: null if it doesn't exist or the company sign-in can't see it (so it
+ *  can't be reached either); HrLockUnknown if Microsoft doesn't answer. */
 export async function hrItem(msToken: string, driveId: string | null | undefined, itemId: string): Promise<HrItem> {
   const g = 'https://graph.microsoft.com/v1.0';
   const u = driveId ? `${g}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}` : `${g}/me/drive/items/${encodeURIComponent(itemId)}`;
   let r: Response;
   try { r = await fetch(`${u}?$select=id,name,parentReference,remoteItem,root`, { headers: { Authorization: `Bearer ${msToken}` } }); } catch { throw new HrLockUnknown(); }
-  if (r.status === 404) return null;
+  if (r.status === 404 || r.status === 403) return null;
   if (!r.ok) throw new HrLockUnknown();
   const it = (await r.json().catch(() => null)) as HrItem;
   if (!it) throw new HrLockUnknown();

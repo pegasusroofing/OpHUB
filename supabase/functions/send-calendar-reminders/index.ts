@@ -97,11 +97,13 @@ Deno.serve(async (req) => {
     for (const ev of events) {
       try {
         const recipientIds = Array.from(new Set([...(ev.reminder_recipient_ids || []), ev.created_by].filter(Boolean)));
-        const [{ data: site }, { data: org }, { data: recipients }] = await Promise.all([
-          admin.from('sites').select('name').eq('id', ev.site_id).maybeSingle(),
-          admin.from('organizations').select('name, logo_path, color_primary').eq('id', ev.org_id).maybeSingle(),
-          // Only people in the event's own company (review 15 Nov 2026, section 3 #8); estimators receive no notifications.
-          admin.from('profiles').select('id, email, name').in('id', recipientIds).eq('org_id', ev.org_id).eq('is_estimator', false),
+        // Only people in the event's own company (review 15 Nov 2026, section 3 #8). The company is taken from the
+        // event's site, not the event's own org_id, which whoever adds the event can set. Estimators receive no notifications.
+        const { data: site } = await admin.from('sites').select('name, org_id').eq('id', ev.site_id).maybeSingle();
+        if (!site?.org_id) { await admin.from('site_calendar_events').update({ reminder_sent: true }).eq('id', ev.id); continue; }
+        const [{ data: org }, { data: recipients }] = await Promise.all([
+          admin.from('organizations').select('name, logo_path, color_primary').eq('id', site.org_id).maybeSingle(),
+          admin.from('profiles').select('id, email, name').in('id', recipientIds).eq('org_id', site.org_id).eq('is_estimator', false),
         ]);
         const emails = (recipients || []).map((r) => r.email).filter(Boolean);
         if (!emails.length) { await admin.from('site_calendar_events').update({ reminder_sent: true }).eq('id', ev.id); continue; }

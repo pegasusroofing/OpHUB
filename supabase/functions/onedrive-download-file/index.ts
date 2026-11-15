@@ -132,7 +132,9 @@ export async function hrLockFor(db: HrDb, orgId: string, msToken: string, supaba
   const u = od.driveId ? `${g}/drives/${encodeURIComponent(od.driveId)}/items/${encodeURIComponent(od.id)}` : `${g}/me/drive/items/${encodeURIComponent(od.id)}`;
   let r: Response;
   try { r = await fetch(`${u}?$select=id,name,parentReference,root`, { headers: { Authorization: `Bearer ${msToken}` } }); } catch { throw new HrLockUnknown(); }
-  if (r.status === 404) return null; // the HR folder is gone: nothing to lock
+  // Gone (404), or the company sign-in isn't allowed to see it (403): nothing inside it can be reached, so the id
+  // check is all that's needed, and the rest of OneDrive keeps working.
+  if (r.status === 404 || r.status === 403) return lock;
   if (!r.ok) throw new HrLockUnknown();
   const it = (await r.json().catch(() => null)) as { name?: string; root?: unknown; parentReference?: { driveId?: string; path?: string } } | null;
   if (!it) throw new HrLockUnknown();
@@ -141,13 +143,14 @@ export async function hrLockFor(db: HrDb, orgId: string, msToken: string, supaba
   lock.path = it.root ? '' : pp === null ? null : `${pp}/${String(it.name ?? '').toLowerCase()}`;
   return lock;
 }
-/** A OneDrive item by id, for the checks above: null if it doesn't exist; HrLockUnknown if Microsoft doesn't answer. */
+/** A OneDrive item by id, for the checks above: null if it doesn't exist or the company sign-in can't see it (so it
+ *  can't be reached either); HrLockUnknown if Microsoft doesn't answer. */
 export async function hrItem(msToken: string, driveId: string | null | undefined, itemId: string): Promise<HrItem> {
   const g = 'https://graph.microsoft.com/v1.0';
   const u = driveId ? `${g}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}` : `${g}/me/drive/items/${encodeURIComponent(itemId)}`;
   let r: Response;
   try { r = await fetch(`${u}?$select=id,name,parentReference,remoteItem,root`, { headers: { Authorization: `Bearer ${msToken}` } }); } catch { throw new HrLockUnknown(); }
-  if (r.status === 404) return null;
+  if (r.status === 404 || r.status === 403) return null;
   if (!r.ok) throw new HrLockUnknown();
   const it = (await r.json().catch(() => null)) as HrItem;
   if (!it) throw new HrLockUnknown();

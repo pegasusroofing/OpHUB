@@ -36,6 +36,9 @@ test('#3 the subcontractor form: fixed thank-you wording, real caps, no caller-s
   assert.doesNotMatch(s, /x-forwarded-for'\) \|\| ''\)\.split\(','\)\[0\]/, 'not the first X-Forwarded-For entry');
   assert.match(s, /orgDay \|\| 0\) >= 30/);
   assert.match(s, /emailDay \|\| 0\) >= 3/);
+  // Counted again once saved, so forms sent all at once can't get past the email limits.
+  assert.match(s, /const emailsOk = \(orgNow \|\| 0\) <= 30 && \(emailNow \|\| 0\) <= 3;/);
+  assert.match(s, /if \(RESEND_API_KEY && emailsOk\)/);
 });
 
 // pathInFolder exactly as written in each file-access function.
@@ -56,13 +59,23 @@ test('#4 a file is only signed when it sits in the checked site’s / to-do’s 
   for (const fn of ['price-file-access', 'labour-invoice-access', 'material-order-file-access', 'todo-attachment-access', 'operative-certification-file-access', 'certification-file-access']) {
     const f = pathInFolderOf(fn);
     for (const [p, folder, want] of cases) assert.equal(f(p, folder), want, `${fn}: ${String(p)} in ${folder}`);
-    assert.match(src(fn), /if \(!pathInFolder\(fileRow\.storage_path, /, `${fn} uses it before signing`);
+    assert.match(src(fn), /if \(!(pathInFolder\(fileRow\.storage_path, |folders\.some\(\(f\) => pathInFolder\(fileRow\.storage_path, f\)\)\))/, `${fn} uses it before signing`);
   }
+  // Signing up moves a hand-added operative's certificates to them but leaves the files in <org>/m-<id>/.
+  assert.match(src('operative-certification-file-access'), /manual_operatives'\)\.select\('id'\)\.eq\('org_id', fileRow\.org_id\)\.eq\('linked_profile_id', userData\.user\.id\)/);
 });
 
 test('#6 the Finance AI reader has a daily cap', () => {
   assert.match(src('finance-ai-read'), /const DAILY = \d+;/);
-  assert.match(src('finance-ai-read'), /ai_usage_log'\)\.insert/);
+  const ai = src('finance-ai-read');
+  assert.ok(ai.indexOf("ai_usage_log').insert") > 0 && ai.indexOf("ai_usage_log').insert") < ai.indexOf('api.anthropic.com'), 'logged before the AI is asked, so a burst can’t get past the cap');
+  assert.match(ai, /\(usedToday \|\| 0\) > DAILY/);
+});
+
+test('#8 calendar reminders take the company from the event’s site', () => {
+  const s = src('send-calendar-reminders');
+  assert.match(s, /\.in\('id', recipientIds\)\.eq\('org_id', site\.org_id\)/);
+  assert.doesNotMatch(s, /eq\('org_id', ev\.org_id\)|eq\('id', ev\.org_id\)/);
 });
 
 test('#7 the Finance trial is enforced on the server too (sandbox exempt)', () => {

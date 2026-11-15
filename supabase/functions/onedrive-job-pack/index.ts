@@ -1,5 +1,102 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
+// HR folder lock: an exact copy of app-native/src/lib/rules/hrLock.ts (review 15 Nov 2026, section 3 #5).
+// ---- HR folder lock ----
+export type HrLock = { id: string; driveId: string | null; path: string | null };
+type HrRef = { driveId?: string; path?: string } | undefined;
+type HrItem = { id?: string; name?: string; parentReference?: HrRef; remoteItem?: { id?: string; name?: string; parentReference?: HrRef } } | null | undefined;
+type HrDb = { from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => { maybeSingle: () => PromiseLike<{ data: unknown }> } } } };
+/** A Graph parentReference.path ("/drives/x/root:/A/B") as "/a/b" ("" for the top of the drive); null if it isn't one. */
+export function hrNorm(p: unknown): string | null {
+  const s = String(p ?? '');
+  const i = s.indexOf('root:');
+  if (i < 0) return null;
+  let r = s.slice(i + 5);
+  try { r = decodeURIComponent(r); } catch { /* keep it as it is */ }
+  return r.replace(/\/+$/, '').toLowerCase();
+}
+/** A folder path relative to the top of a drive ("A/B/") the way hrNorm gives them ("/a/b"). */
+export function hrRel(p: string): string {
+  const parts = String(p ?? '').split('/').filter(Boolean);
+  return parts.length ? ('/' + parts.join('/')).toLowerCase() : '';
+}
+/** Is this folder (its drive and path, as hrNorm gives it) the HR folder or inside it? */
+export function hrPathInside(lock: HrLock | null, driveId: string | null | undefined, path: string | null): boolean {
+  if (!lock || lock.path === null || path === null) return false;
+  if (lock.driveId && driveId && driveId !== lock.driveId) return false;
+  return lock.path === '' || path === lock.path || path.startsWith(lock.path + '/');
+}
+/** Is this Graph item the HR folder or inside it? */
+export function hrInside(lock: HrLock | null, it: HrItem): boolean {
+  if (!lock || !it) return false;
+  if (it.id === lock.id || it.remoteItem?.id === lock.id) return true;
+  const src = it.remoteItem?.parentReference ? it.remoteItem : it;
+  const pp = hrNorm(src.parentReference?.path);
+  return pp !== null && hrPathInside(lock, src.parentReference?.driveId, `${pp}/${String(src.name ?? it.name ?? '').toLowerCase()}`);
+}
+/** Would moving or copying this item carry the HR folder along (it is the HR folder, inside it, or holds it)? */
+export function hrHolds(lock: HrLock | null, it: HrItem): boolean {
+  if (!lock || !it) return false;
+  if (hrInside(lock, it)) return true;
+  if (lock.path === null) return false;
+  const src = it.remoteItem?.parentReference ? it.remoteItem : it;
+  const pp = hrNorm(src.parentReference?.path);
+  if (pp === null) return false;
+  const d = src.parentReference?.driveId;
+  if (lock.driveId && d && d !== lock.driveId) return false;
+  return lock.path.startsWith(`${pp}/${String(src.name ?? it.name ?? '').toLowerCase()}/`);
+}
+/** One folder's contents from Graph: is that folder the HR folder or inside it? */
+export function hrListingInside(lock: HrLock | null, parentId: string | null | undefined, children: HrItem[]): boolean {
+  if (!lock) return false;
+  if (parentId && parentId === lock.id) return true;
+  return children.some((c) => hrPathInside(lock, c?.parentReference?.driveId, hrNorm(c?.parentReference?.path)));
+}
+/** The company's HR folder lock for this caller: null when there's no HR folder or HR Access lets them in. */
+export async function hrLockFor(db: HrDb, orgId: string, msToken: string, supabaseUrl: string, anonKey: string, userToken: string): Promise<HrLock | null> {
+  const { data } = await db.from('hr_secure_settings').select('onedrive').eq('org_id', orgId).maybeSingle();
+  const od = (data as { onedrive?: { id?: string; driveId?: string | null } | null } | null)?.onedrive;
+  if (!od?.id) return null;
+  // Asked as the caller, so it's the database's own rule.
+  try {
+    const r = await fetch(`${supabaseUrl}/rest/v1/rpc/hr_is_team`, { method: 'POST', headers: { Authorization: `Bearer ${userToken}`, apikey: anonKey, 'Content-Type': 'application/json' }, body: '{}' });
+    if (r.ok && (await r.json().catch(() => false)) === true) return null;
+  } catch { /* not let in */ }
+  const lock: HrLock = { id: od.id, driveId: od.driveId || null, path: null };
+  const g = 'https://graph.microsoft.com/v1.0';
+  const u = od.driveId ? `${g}/drives/${encodeURIComponent(od.driveId)}/items/${encodeURIComponent(od.id)}` : `${g}/me/drive/items/${encodeURIComponent(od.id)}`;
+  let r: Response;
+  try { r = await fetch(`${u}?$select=id,name,parentReference,root`, { headers: { Authorization: `Bearer ${msToken}` } }); } catch { throw new HrLockUnknown(); }
+  // Gone (404), or the company sign-in isn't allowed to see it (403): nothing inside it can be reached, so the id
+  // check is all that's needed, and the rest of OneDrive keeps working.
+  if (r.status === 404 || r.status === 403) return lock;
+  if (!r.ok) throw new HrLockUnknown();
+  const it = (await r.json().catch(() => null)) as { name?: string; root?: unknown; parentReference?: { driveId?: string; path?: string } } | null;
+  if (!it) throw new HrLockUnknown();
+  lock.driveId = it.parentReference?.driveId || lock.driveId;
+  const pp = hrNorm(it.parentReference?.path);
+  lock.path = it.root ? '' : pp === null ? null : `${pp}/${String(it.name ?? '').toLowerCase()}`;
+  return lock;
+}
+/** A OneDrive item by id, for the checks above: null if it doesn't exist or the company sign-in can't see it (so it
+ *  can't be reached either); HrLockUnknown if Microsoft doesn't answer. */
+export async function hrItem(msToken: string, driveId: string | null | undefined, itemId: string): Promise<HrItem> {
+  const g = 'https://graph.microsoft.com/v1.0';
+  const u = driveId ? `${g}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}` : `${g}/me/drive/items/${encodeURIComponent(itemId)}`;
+  let r: Response;
+  try { r = await fetch(`${u}?$select=id,name,parentReference,remoteItem,root`, { headers: { Authorization: `Bearer ${msToken}` } }); } catch { throw new HrLockUnknown(); }
+  if (r.status === 404 || r.status === 403) return null;
+  if (!r.ok) throw new HrLockUnknown();
+  const it = (await r.json().catch(() => null)) as HrItem;
+  if (!it) throw new HrLockUnknown();
+  return it;
+}
+export const HR_LOCKED = 'This is in the HR folder. Only the people HR › HR Access lets in can open it.';
+export const HR_TRY_AGAIN = 'OneDrive didn’t answer about the HR folder, so this has been held back. Please try again in a minute.';
+/** Microsoft couldn't say where the HR folder (or an item) is: refuse with HR_TRY_AGAIN. */
+export class HrLockUnknown extends Error { constructor() { super(HR_TRY_AGAIN); this.name = 'HrLockUnknown'; } }
+// ---- end HR folder lock ----
+
 // New job pack (1 Nov 2026). Only runs for a company with job_pack_settings.enabled = true.
 //   { action: 'setup', site_id }  PM / admin: makes the job's folder from the company's rules, copies the
 //     working documents chosen from the template (never overwriting), and links the job to it.
@@ -113,6 +210,17 @@ Deno.serve(async (req) => {
       if (!site.job_pack && site.onedrive_folder_id) return reply(req, { error: 'This job is already linked to a OneDrive folder. Unlink it first.' });
       const parent = cleanPath(config.parent_path), template = cleanPath(config.template_path), name = seg(site.name);
       if (!parent || !name) return reply(req, { error: 'The job pack has no folder set for new jobs.' });
+      // HR folder lock (review 15 Nov 2026, section 3 #5): the job pack's folders come from the company's settings, so
+      // the new job's folder could be made inside the HR folder, or the template could be (or hold) it. Checked before
+      // anything is made, for anyone HR › HR Access doesn't let in.
+      try {
+        const lock = await hrLockFor(admin, me.org_id, graph, SUPABASE_URL, ANON, token);
+        if (lock) {
+          const pRef = await walk(graph, ROOT, parent, false);
+          const tRef = (config.files || []).length && template ? await walk(graph, ROOT, template, false) : null;
+          if ((pRef && hrInside(lock, await hrItem(graph, pRef.drive, pRef.id))) || (tRef && hrHolds(lock, await hrItem(graph, tRef.drive, tRef.id)))) return reply(req, { error: HR_LOCKED }, 403);
+        }
+      } catch (e) { if (e instanceof HrLockUnknown) return reply(req, { error: HR_TRY_AGAIN }, 503); throw e; }
       const rootRef = await walk(graph, ROOT, `${parent}/${name}`, true);
       if (!rootRef) return reply(req, { error: 'Could not make the job folder in OneDrive.' }, 502);
       const templateRef = (config.files || []).length ? await walk(graph, ROOT, template, false) : null;

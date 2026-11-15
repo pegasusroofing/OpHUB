@@ -82,8 +82,15 @@ Deno.serve(withCors(async (req) => {
     if (!isManager && fileRow.operative_id !== userData.user.id) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    // Managers: anything in their company's folder. Operatives: their own folder only.
-    if (!pathInFolder(fileRow.storage_path, isManager ? String(fileRow.org_id) : `${fileRow.org_id}/${userData.user.id}`)) return new Response(JSON.stringify({ error: 'File not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    // Managers: anything in their company's folder. Operatives: their own folder, and the folder of anyone added by hand
+    // who has since been linked to them (signing up moves the certificates to them but leaves the files where they
+    // were: <org>/m-<id>/ or <org>/manual/<id>/).
+    const folders = isManager ? [String(fileRow.org_id)] : [`${fileRow.org_id}/${userData.user.id}`];
+    if (!isManager) {
+      const { data: linked } = await admin.from('manual_operatives').select('id').eq('org_id', fileRow.org_id).eq('linked_profile_id', userData.user.id);
+      for (const m of linked || []) folders.push(`${fileRow.org_id}/m-${m.id}`, `${fileRow.org_id}/manual/${m.id}`);
+    }
+    if (!folders.some((f) => pathInFolder(fileRow.storage_path, f))) return new Response(JSON.stringify({ error: 'File not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     const { data: signed, error: signErr } = await admin.storage.from('certifications').createSignedUrl(storage_path, 300);
     if (signErr) { console.error('operative-certification-file-access: sign failed', signErr.message); return new Response(JSON.stringify({ error: 'Could not open that file right now — please try again.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }); }

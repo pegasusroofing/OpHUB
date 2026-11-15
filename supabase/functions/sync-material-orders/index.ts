@@ -67,7 +67,9 @@ export async function hrLockFor(db: HrDb, orgId: string, msToken: string, supaba
   const u = od.driveId ? `${g}/drives/${encodeURIComponent(od.driveId)}/items/${encodeURIComponent(od.id)}` : `${g}/me/drive/items/${encodeURIComponent(od.id)}`;
   let r: Response;
   try { r = await fetch(`${u}?$select=id,name,parentReference,root`, { headers: { Authorization: `Bearer ${msToken}` } }); } catch { throw new HrLockUnknown(); }
-  if (r.status === 404) return null; // the HR folder is gone: nothing to lock
+  // Gone (404), or the company sign-in isn't allowed to see it (403): nothing inside it can be reached, so the id
+  // check is all that's needed, and the rest of OneDrive keeps working.
+  if (r.status === 404 || r.status === 403) return lock;
   if (!r.ok) throw new HrLockUnknown();
   const it = (await r.json().catch(() => null)) as { name?: string; root?: unknown; parentReference?: { driveId?: string; path?: string } } | null;
   if (!it) throw new HrLockUnknown();
@@ -76,13 +78,14 @@ export async function hrLockFor(db: HrDb, orgId: string, msToken: string, supaba
   lock.path = it.root ? '' : pp === null ? null : `${pp}/${String(it.name ?? '').toLowerCase()}`;
   return lock;
 }
-/** A OneDrive item by id, for the checks above: null if it doesn't exist; HrLockUnknown if Microsoft doesn't answer. */
+/** A OneDrive item by id, for the checks above: null if it doesn't exist or the company sign-in can't see it (so it
+ *  can't be reached either); HrLockUnknown if Microsoft doesn't answer. */
 export async function hrItem(msToken: string, driveId: string | null | undefined, itemId: string): Promise<HrItem> {
   const g = 'https://graph.microsoft.com/v1.0';
   const u = driveId ? `${g}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}` : `${g}/me/drive/items/${encodeURIComponent(itemId)}`;
   let r: Response;
   try { r = await fetch(`${u}?$select=id,name,parentReference,remoteItem,root`, { headers: { Authorization: `Bearer ${msToken}` } }); } catch { throw new HrLockUnknown(); }
-  if (r.status === 404) return null;
+  if (r.status === 404 || r.status === 403) return null;
   if (!r.ok) throw new HrLockUnknown();
   const it = (await r.json().catch(() => null)) as HrItem;
   if (!it) throw new HrLockUnknown();
@@ -114,7 +117,7 @@ async function refreshIfNeeded(admin, conn){
     }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error('Token refresh failed: ' + JSON.stringify(data));
+  if (!res.ok) { console.error('sync-material-orders: token refresh failed', data); throw new Error('OneDrive sign-in needs reconnecting'); }
   const expiresAt = new Date(Date.now() + (data.expires_in || 3600) * 1000).toISOString();
   await admin.from('onedrive_connections').update({ access_token: data.access_token, refresh_token: data.refresh_token || conn.refresh_token, expires_at: expiresAt }).eq('org_id', conn.org_id);
   return data.access_token;
@@ -149,7 +152,7 @@ async function syncOneSite(admin, site, conn, accessToken, hrLock: HrLock | null
     ? `https://graph.microsoft.com/v1.0/drives/${encodeURIComponent(site.material_orders_drive_id)}/items/${encodeURIComponent(site.material_orders_folder_id)}/children?$select=id,name,file,size,lastModifiedDateTime,parentReference,remoteItem&$top=200`
     : `https://graph.microsoft.com/v1.0/me/drive/items/${encodeURIComponent(site.material_orders_folder_id)}/children?$select=id,name,file,size,lastModifiedDateTime,parentReference,remoteItem&$top=200`;
   const listRes = await fetch(graphUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
-  if (!listRes.ok) return { site_id: site.id, error: 'OneDrive list failed: ' + await listRes.text() };
+  if (!listRes.ok) { console.error('sync-material-orders: list failed', listRes.status, await listRes.text()); return { site_id: site.id, error: 'Could not read the OneDrive folder (' + listRes.status + ').' }; }
   const listData = await listRes.json();
   const files = (listData.value || []).filter((it) => it.file && !it.folder && !hrInside(hrLock, it));
   if (!files.length) return { site_id: site.id, synced: 0 };
@@ -267,6 +270,7 @@ Deno.serve(async (req) => {
     if (result.error) return new Response(JSON.stringify({ error: result.error }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     return new Response(JSON.stringify({ ok: true, mode: 'manual', synced: result.synced, dupSkipped: result.dupSkipped || 0 }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    console.error('sync-material-orders failed', e);
+    return new Response(JSON.stringify({ error: 'Something went wrong syncing with OneDrive — please try again.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });

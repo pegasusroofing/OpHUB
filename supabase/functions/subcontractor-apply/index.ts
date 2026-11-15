@@ -143,11 +143,18 @@ Deno.serve(async (req) => {
       }).select('id').single();
       if (error || !row) return json({ error: 'Could not save your form — please try again.' }, 500);
       await admin.from('subcontractor_apply_hits').insert({ ip, org_id: orgId, action: 'submit', app_key: key });
+      // Counted again now this form is saved: each form counts itself, so forms sent all at once can't get past the
+      // limits. Over a limit, the form is kept for the company to see but no email goes out.
+      const [{ count: orgNow }, { count: emailNow }] = await Promise.all([
+        admin.from('subcontractor_applications').select('id', { count: 'exact', head: true }).eq('org_id', orgId).gte('created_at', daySince),
+        admin.from('subcontractor_applications').select('id', { count: 'exact', head: true }).eq('email', email).gte('created_at', daySince),
+      ]);
+      const emailsOk = (orgNow || 0) <= 30 && (emailNow || 0) <= 3;
 
       // Tell the company's admins and PMs.
       const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
       const FROM_EMAIL = Deno.env.get('INVITES_FROM_EMAIL') || Deno.env.get('ORDERS_FROM_EMAIL') || 'reports@ophub.app';
-      if (RESEND_API_KEY) {
+      if (RESEND_API_KEY && emailsOk) {
         const { data: people } = await admin.from('profiles').select('email, role').eq('org_id', orgId).in('role', ['admin', 'pm']);
         const to = (people || []).map((p: any) => p.email).filter((e: string) => e && EMAIL.test(e)).slice(0, 20);
         if (to.length) {
