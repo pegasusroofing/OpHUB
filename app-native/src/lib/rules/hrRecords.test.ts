@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { expiringDocs, HR_CHECKLIST, itemState, itemsFor, nextAppraisal, type Appraisal, type HrDoc } from './hrRecords.ts';
+import { addMonths, expiringDocs, HR_CHECKLIST, itemState, itemsFor, nextAppraisal, type Appraisal, type HrDoc } from './hrRecords.ts';
 
 const doc = (o: Partial<HrDoc>): HrDoc => ({ id: 'd', org_id: 'o', user_id: 'u', folder: 'rtw', item_key: null, title: 't', file_name: null, storage_path: 'p', doc_date: null, expiry_date: null, hidden_from_employee: false, uploaded_by: null, created_at: '2026-01-01T09:00:00Z', ...o });
 const item = (k: string) => HR_CHECKLIST.find((i) => i.key === k)!;
@@ -36,4 +36,9 @@ test('when the next appraisal is due', () => {
   const open = a({ status: 'self_done', due_date: '2026-12-01' });
   assert.equal(nextAppraisal(rec, [open], 12, '2026-11-14')!.open, open);
   assert.equal(nextAppraisal({ user_id: 'u', org_id: 'o' }, [], 12), null);
+  // Month ends stay in the right month (review, 15 Nov 2026).
+  assert.equal(addMonths('2026-08-31', 6), '2027-02-28');
+  assert.equal(addMonths('2026-11-30', 3), '2027-02-28');
+  assert.equal(addMonths('2027-08-31', 6), '2028-02-29');
+  assert.equal(addMonths('2026-01-15', 12), '2027-01-15');
 });

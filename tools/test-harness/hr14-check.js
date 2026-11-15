@@ -60,7 +60,7 @@ const fillBox = async (page, label, text) => { const l = page.getByText(label, {
   await pick(page, 'Appraisals Come Round', 'Every 6 Months');
   check((db.hr_settings.find((x) => x.org_id === O) || {}).appraisal_months === 6, 'appraisals every 6 months saved');
   t = await body();
-  check(/never shown to them/.test(t) && /OneDrive/.test(t) && /only the HR team can open/.test(t), 'it explains what line managers never see, and the private OneDrive folder');
+  check(/never shown to them/.test(t) && /Copying HR documents to OneDrive is switched off for now/.test(t) && !/Choose The HR Folder/.test(t), 'it explains what line managers never see, and that the OneDrive copy is switched off (review, 15 Nov 2026)');
   await page.screenshot({path: path.join(SHOTS, 'hr-access.png'), fullPage: true});
   await page.goto(B + '/pm/hr/records'); await page.waitForTimeout(3500);
 

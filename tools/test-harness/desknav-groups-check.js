@@ -24,7 +24,7 @@ const menuText = (page) => page.evaluate(() => [...document.querySelectorAll('di
     const at = (x) => m.indexOf(x);
     if (role === 'operative') check(at('WORK') < 0 && at('TEAM') < 0 && at('OFFICE') < 0 && at('OPHUB') < 0, `${name}: no headings (a short menu), no OPHUB line`);
     else {
-      check(at('WORK') > at('Home') && at('Projects') > at('WORK') && at('Calendar') > at('Projects') && at('TEAM') > at('Calendar') && at('Hub') > at('TEAM') && at('Dashboards') > at('Hub') && at('OFFICE') > at('Dashboards') && at('Admin') > at('OFFICE'), `${name}: Home, then WORK (Projects … Calendar), TEAM (Hub, Dashboards), OFFICE (… Admin) [${m.slice(0, 22).join(' | ')}]`);
+      check(at('WORK') > at('Home') && at('Projects') > at('WORK') && at('Calendar') > at('Projects') && at('TEAM') > at('Calendar') && at('Hub') > at('TEAM') && at('Dashboards') > at('Hub') && (fin ? at('OFFICE') > at('Dashboards') : at('OFFICE') < 0) && at('Admin') > at('Dashboards'), `${name}: Home, then WORK (Projects … Calendar), TEAM (Hub, Dashboards), OFFICE only with Finance, Admin at the bottom (Andy, 14 Nov 2026) [${m.slice(0, 22).join(' | ')}]`);
       check(fin ? at('Finance') > at('OFFICE') && at('OpHUB Finance') < 0 : at('Finance') < 0, fin ? `${name}: Finance under Office (not "OpHUB Finance")` : `${name}: no Finance (Admin alone under Office)`);
       check(at('OPHUB') < 0 && m.filter((x) => x === '▾').length >= 3, `${name}: no OPHUB line; ▾ beside the items that open`);
       await page.getByLabel('Show Projects pages').click(); await page.waitForTimeout(500);

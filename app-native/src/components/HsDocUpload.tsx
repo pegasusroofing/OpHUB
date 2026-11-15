@@ -59,7 +59,7 @@ export function HsDocUpload({ kind, site, companyId = null, create, createLabel,
           Smaller buttons, with "Ask Outstanding To Sign" on one line (Andy, 14 Nov 2026): each is as wide as its words,
           and the room left over is shared out. */}
       {!!data?.docs.length && kind !== 'layout' && !companyId && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 6 }}>
           <Button small grow oneLine kind="ghost" title="🔔 Ask Outstanding To Sign" onPress={async () => {
             const out = outstanding(kind, data.roster, data.docs, data.sigs);
             if (!out.length) { toast(`Everyone on this site has signed all ${label} documents.`); return; }

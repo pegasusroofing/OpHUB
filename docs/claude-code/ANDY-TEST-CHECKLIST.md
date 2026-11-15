@@ -245,6 +245,17 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
     - a line manager (set on someone's Employment) sees that person's Performance side only.
     - HR Access (15 Nov; Employee Records › HR Access): Start The HR Team With Me, then add whoever else should see everyone's folders (other admins then can't, and can't add themselves); What Line Managers See (Yes / No each); Appraisals; OneDrive: Choose The HR Folder (pick a private one only the HR team can open in Microsoft 365), then Copy Everything Now.
 
+77. Fixes from the deep review of 12–15 Nov (15 Nov). Worth a try on a real phone:
+    - Schedule of Works: scroll up and down over a progress bar; the % mustn't change (drag sideways to change it);
+    - the ☰ menu on a phone: Settings is there; tapping the page you're on closes it;
+    - Finance on a phone: search Purchase Invoices, tick one, Select All only picks what's shown; Job Costs shows a total and exports what's shown; Retention's total matches the rows;
+    - a project's Materials › Yard: Return From Job (was Book In) won't return more than went out to that job;
+    - RAMS signature boxes: carried-over signers can be placed on a later page; Save warns if one wasn't placed;
+    - Send To Client To Sign: a failed send keeps the pop-up and what was typed;
+    - HR Access: OneDrive copy shows as switched off (needs HR's own Microsoft sign-in first).
+
 ## To discuss with Andy
+- HR documents in OneDrive (15 Nov 2026): switched off, as OpHUB reaches OneDrive through one company Microsoft sign-in every PM and admin can browse. Option: HR gets its own Microsoft sign-in to a folder the company one can't open. Andy to decide.
+- The server copy of the quote rules (quote-tracker) still says "No News" in its monthly export; change it with that function's next update.
 - ~~OneDrive and the full job set-up~~: talked through and built 8 Nov 2026 (item 55).
 - Sort out plots: how multi-site (multi-plot) jobs should work (Andy, 2 Nov 2026; asked again 5 Nov 2026: "we need to discuss and sort plots out"). Bring this up before Finance is signed off. Plots show today on BoQ lines and as a column on PO lines (only when the project has plots).

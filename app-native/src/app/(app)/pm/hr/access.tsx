@@ -15,8 +15,7 @@ import { YesNo } from '@/components/OneDriveSettings';
 import { SelectBox } from '@/components/SelectBox';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
-import { useOneDriveStatus } from '@/data/onedrive';
-import { addToHrTeam, copyHrToOneDrive, removeFromHrTeam, saveHrSettings, useHrAccess, useHrTeam, useStaff } from '@/data/hrRecords';
+import { addToHrTeam, removeFromHrTeam, saveHrSettings, useHrAccess, useHrTeam, useStaff } from '@/data/hrRecords';
 import { useAuth } from '@/lib/auth';
 import { base, page, space } from '@/theme/theme';
 
@@ -27,7 +26,7 @@ export const LM_SECTIONS: [string, string, string][] = [
   ['licences', 'Licences & Cards', 'Driving licence, DVLA check'],
   ['health', 'Health & Safety', 'Induction, health questionnaire, HAVS'],
   ['absence', 'Absence & Fit Notes', 'Return to work forms, fit notes'],
-  ['history', 'Job History', 'Role changes, training, pay reviews (not amounts)'],
+  ['history', 'Job History', 'Role changes and training (pay reviews are left out)'],
 ];
 
 export default function HrAccess() {
@@ -37,8 +36,8 @@ export default function HrAccess() {
   const { data: acc } = useHrAccess(me?.org_id);
   const { data: teamRows = [] } = useHrTeam(me?.org_id);
   const { data: staff = [] } = useStaff();
-  const { data: od } = useOneDriveStatus(me?.org_id);
   const [busy, setBusy] = useState('');
+  const [lmLocal, setLmLocal] = useState<string[] | null>(null);
   // Back from choosing the OneDrive folder: look again.
   useFocusEffect(useCallback(() => { void qc.invalidateQueries({ queryKey: ['hrAccess'] }); }, [qc]));
   if (!me) return null;
@@ -57,9 +56,12 @@ export default function HrAccess() {
     if (!(await confirmAsk(msg, 'Take Off'))) return;
     if (await removeFromHrTeam(me, id)) { refresh(); if (id === me.id && !last) router.back(); } else toast('Could not change it — try again.');
   };
-  const lm = acc.lm_sections;
-  const setLm = async (k: string, on: boolean) => { if (await saveHrSettings({ lmSections: on ? [...new Set([...lm, k])] : lm.filter((x) => x !== k) })) refresh(); else toast('Could not save — try again.'); };
-  const odSet = acc.onedrive;
+  const lm = lmLocal ?? acc.lm_sections;
+  const setLm = async (k: string, on: boolean) => {
+    const next = on ? [...new Set([...lm, k])] : lm.filter((x) => x !== k);
+    setLmLocal(next);
+    if (await saveHrSettings({ lmSections: next })) refresh(); else { setLmLocal(null); toast('Could not save — try again.'); }
+  };
   const row = (children: React.ReactNode, key: string) => <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 9, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>{children}</View>;
   return (
     <ScrollView contentContainerStyle={page(720)}>
@@ -102,20 +104,9 @@ export default function HrAccess() {
 
       <Card>
         <Text style={{ fontSize: 15, fontWeight: '600', color: base.ink, marginBottom: 4 }}>OneDrive</Text>
-        <Muted style={{ marginBottom: 8 }}>A copy of each HR document goes into this folder, in a folder per person (Name › Contracts & Letters › file). Choose a folder only the HR team can open in Microsoft 365, such as a private SharePoint library: OpHUB can&apos;t control who Microsoft lets into a folder, so never choose one shared with the whole company or a job folder.</Muted>
-        {!od ? <Muted>Connect the company OneDrive first (Admin Centre › OneDrive).</Muted> : odSet ? (
-          <>
-            {row(<><Text style={{ flex: 1, fontSize: 14, color: base.ink }}>📁 {odSet.name}</Text><Pressable accessibilityRole="button" onPress={() => router.push('/pm/onedrive-pick?target=hr&id=hr' as never)}><Text style={{ fontSize: 13, fontWeight: '600', color: base.slate }}>Change</Text></Pressable></>, 'f')}
-            {row(<><Text style={{ flex: 1, fontSize: 14, color: base.ink }}>Copy HR Documents To It?</Text><YesNo label="Copy HR documents to it?" value={odSet.on} onChange={async (v) => { if (await saveHrSettings({ onedrive: { ...odSet, on: v } })) refresh(); }} /></>, 'on')}
-            <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 10 }}>
-              <Button busy={busy === 'all'} disabled={!odSet.on} title="Copy Everything Now" onPress={async () => {
-                setBusy('all'); const r = await copyHrToOneDrive({ all: true }); setBusy('');
-                toast(r.error ? `Could not copy — ${r.error}` : `${r.data?.copied ?? 0} copied to OneDrive.`);
-              }} />
-              <Button kind="ghost" title="Stop Using It" onPress={async () => { if (await confirmAsk('Stop copying HR documents to this folder? What’s already there stays.', 'Stop')) { if (await saveHrSettings({ clearOneDrive: true })) refresh(); } }} />
-            </View>
-          </>
-        ) : <Button title="Choose The HR Folder" onPress={() => router.push('/pm/onedrive-pick?target=hr&id=hr' as never)} />}
+        {/* Switched off (review, 15 Nov 2026): OpHUB reaches OneDrive through the one company Microsoft sign-in, and PMs and
+            admins can browse that through OpHUB, so an HR folder there wouldn't be private. */}
+        <Muted>Copying HR documents to OneDrive is switched off for now. OpHUB reaches OneDrive through the one company Microsoft sign-in, and every PM and admin can browse that through OpHUB, so an HR folder there wouldn&apos;t be private. It needs HR&apos;s own Microsoft sign-in first. Until then HR documents are kept only in OpHUB&apos;s private store.</Muted>
       </Card>
     </ScrollView>
   );

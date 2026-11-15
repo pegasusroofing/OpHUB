@@ -14,6 +14,7 @@ import { useAuth } from '@/lib/auth';
 import { brand } from '@/lib/fonts';
 import { homeKind, isFinanceUser, isFullManager, isManager, roleLabel } from '@/lib/roles';
 import { base, useTheme } from '@/theme/theme';
+import { closeSideMenu } from '@/lib/sideMenuBus';
 
 // sec: the heading a manager's item sits under (Andy, 9 Nov 2026, option A): Work, Team, Office.
 type Item = { k: string; ic: string; lbl: string; go: string; badge?: number; kids?: Item[]; sec?: string };
@@ -57,6 +58,8 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
         { k: 'pm/hr', ic: 'users', lbl: 'HR', go: '/pm/hr' },
       ] },
       ...(isFinanceUser(me, org) ? [{ k: 'fin', ic: 'pound', lbl: 'Finance', go: '/fin', sec: 'Office' }] : []),
+      // On a phone the menu is the only way to Settings (review, 15 Nov 2026).
+      ...(drawer ? [{ k: 'account', ic: 'gear', lbl: 'Settings', go: '/account' }] : []),
     ]
     : [
       ...(me.role === 'operative' ? [{ k: 'home', ic: 'home', lbl: 'Home', go: '/home' }] : []),
@@ -71,7 +74,7 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
   const isOn = (k: string) => (k === 'home' ? seg === 'home' || seg === '' : k === 'sites' ? seg === 'sites' || seg.startsWith('sites/') : seg === k || seg.startsWith(`${k}/`));
   // Charcoal menu (Andy, 6 Nov 2026: option 1): light text, the page you're on in white with a red edge.
   const row = (i: Item, on: boolean, small = false, press?: () => void) => (
-    <Pressable key={i.k + i.go} onPress={press ?? (() => router.navigate(i.go as never))} accessibilityRole={press ? 'button' : 'link'}
+    <Pressable key={i.k + i.go} onPress={press ?? (() => { if (drawer) closeSideMenu(); router.navigate(i.go as never); })} accessibilityRole={press ? 'button' : 'link'}
       style={(st) => [{ flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: small ? 7 : 9, paddingHorizontal: small ? 10 : 12, borderRadius: 10, flex: 1 },
         on ? { backgroundColor: NAV.on, borderLeftWidth: 3, borderLeftColor: t.brand1, paddingLeft: (small ? 10 : 12) - 3 } : (st as { hovered?: boolean }).hovered ? { backgroundColor: NAV.hover } : null]}>
       <OphIcon name={i.ic} size={small ? 15 : 18} color={on ? '#fff' : NAV.dim} />
@@ -117,7 +120,7 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
     <View style={drawer ? { flex: 1, backgroundColor: NAV.bg, paddingBottom: 14 } : { width: 248, backgroundColor: NAV.bg, paddingBottom: 14 }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 12 }}>
         {/* The top in the company's colour, the name in the Home header's style with OpHUB under it (Andy, 14 Nov 2026). */}
-        <Pressable onPress={() => router.navigate('/home' as never)} accessibilityRole="link" accessibilityLabel={`${org?.name || 'OpHUB'}: Home`}
+        <Pressable onPress={() => { if (drawer) closeSideMenu(); router.navigate('/home' as never); }} accessibilityRole="link" accessibilityLabel={`${org?.name || 'OpHUB'}: Home`}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: t.brand1, marginHorizontal: -12, paddingHorizontal: 18, paddingTop: 22, paddingBottom: 18, marginBottom: 10 }}>
           <View style={{ width: 40, height: 40, borderRadius: 10, borderWidth: 1, borderColor: '#EEE', overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
             {org?.logo_path ? <StorageImage bucket="org-logos" path={org.logo_path} style={{ width: 38, height: 38, resizeMode: 'contain' }} /> : <Image source={require('@/../assets/images/icon.png')} style={{ width: 38, height: 38 }} />}
@@ -128,7 +131,7 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
           </View>
         </Pressable>
         {kind !== 'finance' && kind !== 'superadmin' && (
-          <Pressable onPress={() => router.push('/search' as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 4, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 10, backgroundColor: NAV.search }}>
+          <Pressable onPress={() => { if (drawer) closeSideMenu(); router.push('/search' as never); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 4, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 10, backgroundColor: NAV.search }}>
             <OphIcon name="search" size={16} color={NAV.dim} />
             <Text style={{ flex: 1, fontSize: 13, fontWeight: '500', color: NAV.dim }}>Search</Text>
             <Text style={{ fontSize: 10.5, fontWeight: '600', color: NAV.dim, borderWidth: 1, borderColor: NAV.line, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 }}>Ctrl K</Text>

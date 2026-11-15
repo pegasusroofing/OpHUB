@@ -139,7 +139,7 @@ const monthsBetween = (from: string, to: string) => {
  *  PMs, admins and Finance users only (site_application_dates checks too). */
 export async function appDateLines(siteId: string | null, from: string, to: string): Promise<ExtraLine[]> {
   const r = await Promise.resolve(rpcAny('site_application_dates', { p_site_ids: null })).catch(() => ({ data: [] as unknown }));
-  const rows = Array.isArray(r.data) ? (r.data as { site_id: string; app_dates: Record<string, string> | null; app_reminder_day: number | null; org_app_day: number | null; applied_dates: string[] | null }[]) : [];
+  const rows = Array.isArray(r.data) ? (r.data as { site_id: string; app_dates: Record<string, string> | null; app_reminder_day: number | null; org_app_day: number | null; applied_dates: string[] | null; billing_type?: string | null }[]) : [];
   const months = monthsBetween(from, to), out: ExtraLine[] = [];
   rows.forEach((row) => {
     if (siteId && row.site_id !== siteId) return;
@@ -147,6 +147,8 @@ export async function appDateLines(siteId: string | null, from: string, to: stri
     const madeMonths = new Set(made.map((d) => d.slice(0, 7)));
     made.forEach((d, i) => { if (d >= from && d <= to) out.push({ kind: 'app', id: `appm-${row.site_id}-${d}-${i}`, site_id: row.site_id, event_date: d, title: '💷 Application sent', colour: '#1E7A43' }); });
     const lastDay = made.length ? Number(made[made.length - 1].slice(8, 10)) : null;
+    // "Due" only for a job billed by application: set as such, or with applications already (review, 15 Nov 2026).
+    if (row.billing_type ? row.billing_type !== 'application' : !made.length) return;
     months.forEach((ym) => {
       if (madeMonths.has(ym)) return;
       const date = appDateFor({ app_dates: row.app_dates, app_reminder_day: row.app_reminder_day }, { app_reminder_day: row.org_app_day } as never, ym)

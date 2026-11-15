@@ -9,10 +9,9 @@ export type HomeTiles = { finance_pm?: boolean; finance_site_manager?: boolean; 
 export type HomeTileKey = keyof HomeTiles;
 
 /** The questions on Admin › Company › Home Page, in order. */
+// Only project managers are asked: site managers open on Projects, not Home, and admins always see it (review, 15 Nov 2026).
 export const HOME_TILE_ASKS: { k: HomeTileKey; q: string }[] = [
   { k: 'finance_pm', q: 'Project Managers See Finance On Home?' },
-  { k: 'finance_site_manager', q: 'Site Managers See Finance On Home?' },
-  { k: 'finance_other', q: 'Everyone Else With Finance Sees It On Home?' },
 ];
 
 export const homeTileKey = (role: string | undefined): HomeTileKey =>

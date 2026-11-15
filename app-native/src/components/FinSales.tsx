@@ -95,6 +95,8 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   // Laptop: the current app's "All months" picker on the totals bar (9219 sales tables; cmp-fin 5 Nov 2026).
   const [deskMon, setDeskMon] = useState('');
   const [monAt, setMonAt] = useState<{ x: number; y: number } | null>(null);
+  // Retention on a phone: the jobs the table's boxes have left, for the total (review, 15 Nov 2026).
+  const [retShown, setRetShown] = useState<Set<string> | null>(null);
   const monthPick = (months: string[]) => (
     <>
       <FootPick label={deskMon ? monthLabel(deskMon) : 'All months'} onPress={(x, y) => setMonAt({ x, y })} />
@@ -224,6 +226,8 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   const total = round2(rows.reduce((t, x) => t + x.held, 0));
   // The next release date for a job, as words: the dates themselves are set on the project (Andy, 11 Nov 2026).
   const nextRelease = (x: (typeof rows)[number]) => { const d = retentionDates(x.jf, st || {}); const one = !(x.jf.ret1_invoice_id || x.jf.ret1_app_id) && d.first ? d.first : null; const two = !(x.jf.ret2_invoice_id || x.jf.ret2_app_id) && d.second ? d.second : null; const n = one || two; return n ? fdate(n) : 'Not Set'; };
+  const nextDate = (x: (typeof rows)[number]) => { const d = retentionDates(x.jf, st || {}); return (!(x.jf.ret1_invoice_id || x.jf.ret1_app_id) && d.first) || (!(x.jf.ret2_invoice_id || x.jf.ret2_app_id) && d.second) || '9999-12-31'; };
+  const retLeft = !desk && retShown ? rows.filter((x) => retShown.has(x.s.id)) : rows;
   return (
     <View>
       {desk && rows.length ? (
@@ -233,21 +237,21 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
             { k: 'c', l: 'Client', flex: 1.4, min: 140, render: (x) => <Cell>{x.s.client_name || '—'}</Cell> },
             // The practical completion date; for a closed job with none set, its final invoice date.
             { k: 'pc', l: 'Date Of PC', sort: (x) => x.pc.date, date: (x) => x.pc.date, render: (x) => <Cell>{x.pc.date ? `${fdate(x.pc.date)}${x.pc.final ? ' (Final Invoice)' : ''}` : '—'}</Cell> },
-            { k: 'nx', l: 'Next Release', render: (x) => <Cell>{nextRelease(x)}</Cell> },
+            { k: 'nx', l: 'Next Release', sort: (x) => nextDate(x), render: (x) => <Cell>{nextRelease(x)}</Cell> },
             { k: 't', l: 'Retention', sort: (x) => x.tot, total: (l) => money(round2(l.reduce((t, x) => t + x.tot, 0))), render: (x) => <Cell>{money(x.tot)}</Cell> },
             { k: 'r', l: 'Released', sort: (x) => x.rel, total: (l) => money(round2(l.reduce((t, x) => t + x.rel, 0))), render: (x) => <Cell>{x.rel ? money(x.rel) : '—'}</Cell> },
             { k: 'h', l: 'Still Held', sort: (x) => x.held, total: (l) => money(round2(l.reduce((t, x) => t + x.held, 0))), render: (x) => <Cell bold>{money(x.held)}</Cell> },
           ]}
           footLabel={(left) => `${left.length} job${left.length === 1 ? '' : 's'}`} />
       ) : rows.length ? (
-        <PhoneTable label="Retention" rows={rows} keyOf={(x) => x.s.id} onRow={(x) => router.push(`/fin/job/${x.s.id}?tab=setup` as never)}
+        <PhoneTable label="Retention" rows={rows} keyOf={(x) => x.s.id} onShown={(r) => setRetShown(new Set(r.map((x) => x.s.id)))} onRow={(x) => router.push(`/fin/job/${x.s.id}?tab=setup` as never)}
           cols={[
             { l: 'Project', main: (x) => jobTag(x.s), sub: (x) => x.s.client_name || '' },
-            { l: 'Next Release', w: 92, main: (x) => nextRelease(x), sub: (x) => (x.pc.date ? `PC ${fdate(x.pc.date)}` : '') },
+            { l: 'Next Release', w: 92, sort: (x) => nextDate(x), main: (x) => nextRelease(x), sub: (x) => (x.pc.date ? `PC ${fdate(x.pc.date)}` : '') },
             { l: 'Held', w: 80, right: true, bold: true, main: (x) => money(x.held), sub: (x) => `Of ${money(x.tot)}` },
           ]} />
       ) : <Empty>No retention held.</Empty>}
-      {!desk && rows.length > 0 && <Card><Text style={{ fontWeight: '600', color: base.ink }}>{rows.length} job{rows.length === 1 ? '' : 's'} · {money(total)} still held</Text></Card>}
+      {!desk && retLeft.length > 0 && <Card><Text style={{ fontWeight: '600', color: base.ink }}>{retLeft.length} job{retLeft.length === 1 ? '' : 's'} · {money(round2(retLeft.reduce((t, x) => t + x.held, 0)))} still held</Text></Card>}
     </View>
   );
 }

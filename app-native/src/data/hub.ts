@@ -91,7 +91,7 @@ export function useHub(me: Profile | null, allSites: Site[] | undefined, pmId: s
       const [rams, coshh, talks, snags, tasks, assigned, todos, msgs, ops, alerts] = await Promise.all([
         db.from('rams_docs').select('id,site_id,uploaded_at,resign_cycle_start').eq('status', 'current').in('site_id', ids).is('subcontractor_company_id', null),
         db.from('coshh_docs').select('id,site_id,uploaded_at,resign_cycle_start').in('site_id', ids).is('subcontractor_company_id', null),
-        db.from('toolbox_talks').select('id,site_id,status,created_at').in('site_id', ids).is('subcontractor_company_id', null),
+        db.from('toolbox_talks').select('id,site_id,status,created_at').in('site_id', ids).is('subcontractor_company_id', null).neq('status', 'bank'),
         db.from('snags').select('id,site_id,created_at').in('site_id', ids).eq('status', 'open'),
         db.from('schedule_tasks').select('site_id,status').in('site_id', ids),
         db.from('site_assignments').select('site_id,user_id').in('site_id', ids),

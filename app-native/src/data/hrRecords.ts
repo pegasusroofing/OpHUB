@@ -116,8 +116,7 @@ export async function uploadHrDoc(me: Profile, userId: string, f: { folder: stri
     const r = await db.from('hr_docs').insert({ org_id: me.org_id, user_id: userId, folder: f.folder, item_key: f.item_key, title: f.title, file_name: file.name, storage_path: up.data.path, doc_date: f.doc_date, expiry_date: f.expiry_date, hidden_from_employee: f.hidden, uploaded_by: me.id } as never).select('id').single();
     const id = (r.data as { id: string } | null)?.id;
     if (r.error || !id) { void supabase.storage.from('hr-docs').remove([up.data.path]); return null; }
-    // A copy in the HR team's OneDrive folder, if they've chosen one (in the background; the file is safe here either way).
-    void copyHrToOneDrive({ doc_ids: [id] });
+    // No OneDrive copy for now: it's switched off until HR has its own Microsoft sign-in (review, 15 Nov 2026).
     return id;
   } catch { return null; }
 }

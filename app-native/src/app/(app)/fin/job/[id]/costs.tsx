@@ -41,6 +41,8 @@ export default function FinCosts() {
   const [sort, setSort] = useState<'new' | 'old' | 'big' | 'az'>('new');
   const { data: sites } = useSites();
   const [edit, setEdit] = useState<Record<string, any> | 'new' | null>(null);
+  // On a phone: the cost lines the table's boxes and ▾ have left, for the total and the export (review, 15 Nov 2026).
+  const [phoneShown, setPhoneShown] = useState<{ key: string; net: number }[] | null>(null);
   // A yard-stock cost (9219zd yard_cost_edit, Andy 23 Oct): change its qty, rate, date or job; a changed qty puts the
   // difference back in the yard (or takes it out).
   const [yardEdit, setYardEdit] = useState<{ x: Record<string, any>; mv: Record<string, any> | null; st: Record<string, any> | null; qty: number | null; rate: number | null; ret: boolean } | null>(null);
@@ -62,10 +64,12 @@ export default function FinCosts() {
   // A phone's table (Andy, 14 Nov 2026): the dates and plot still narrow it; the type is a ▾ under Net, the words a box under each heading.
   const phoneRows = fc.lines.filter((l) => (!sub || (sub === 'none' ? !l.sub : l.sub === sub)) && (!from || String(l.date || '') >= from) && (!to || String(l.date || '').slice(0, 10) <= to))
     .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
-  const shownTotal = list.reduce((t, l) => t + l.net, 0);
+  // What's on screen: the laptop's filtered list, or the rows left in the phone's table.
+  const outRows = desk ? list : ((phoneShown as typeof list | null) ?? list);
+  const shownTotal = outRows.reduce((t, l) => t + l.net, 0);
   const site = (sites ?? []).find((x) => x.id === id);
   const table = () => ({ title: 'Costs ledger', site: site?.name || '', sub: site?.name || '', cols: [{ l: 'Date', w: 70 }, { l: 'Type', w: 85 }, { l: 'Description', w: 220 }, { l: 'Supplier / who', w: 120 }, { l: 'Ref', w: 85 }, { l: 'Status', w: 70 }, { l: 'Net £', w: 80, money: true }],
-    rows: [...list.map((l) => [l.date ? fdate(l.date) : '', COST_CATS[l.cat] || (l.cat === 'committed' ? 'Ordered' : l.cat), l.desc || '', l.who || '', l.ref || '', l.status || '', round2(l.net)]), ['', '', 'Total', '', '', '', round2(shownTotal)]] });
+    rows: [...outRows.map((l) => [l.date ? fdate(l.date) : '', COST_CATS[l.cat] || (l.cat === 'committed' ? 'Ordered' : l.cat), l.desc || '', l.who || '', l.ref || '', l.status || '', round2(l.net)]), ['', '', 'Total', '', '', '', round2(shownTotal)]] });
   const tot = (k: string) => fc.lines.filter((l) => l.cat === k).reduce((t, l) => t + l.net, 0);
   const howMany = (n: number) => `${n} line${n === 1 ? '' : 's'}`;
   const waiting = list.filter((l) => l.waiting).reduce((t, l) => t + l.net, 0);
@@ -115,7 +119,7 @@ export default function FinCosts() {
           ]}
           footLabel={(rows) => howMany(rows.length)} />
       ) : !desk && phoneRows.length ? (
-        <PhoneTable key="costs" label="Costs" rows={phoneRows} keyOf={(l) => l.key} onRow={(l) => { if (l.go) router.push(l.go as never); else if (l.key.startsWith('jc:')) openCost(l.key); }}
+        <PhoneTable key="costs" label="Costs" rows={phoneRows} keyOf={(l) => l.key} onShown={(r) => setPhoneShown(r)} onRow={(l) => { if (l.go) router.push(l.go as never); else if (l.key.startsWith('jc:')) openCost(l.key); }}
           cols={[
             { k: 'ds', l: 'Cost', lines: 2, main: (l) => l.desc, sub: (l) => [l.date ? fdate(l.date) : '', COST_CATS[l.cat] || (l.cat === 'committed' ? 'Ordered' : l.cat)].filter(Boolean).join(' · '), find: (l) => [l.desc, l.who, l.ref].filter(Boolean).join(' '), sort: (l) => String(l.desc || '').toLowerCase() },
             { k: 'w', l: 'Who', w: 92, main: (l) => l.who || '—', sub: (l) => l.ref || '', find: (l) => `${l.who || ''} ${l.ref || ''}` },
@@ -171,7 +175,8 @@ export default function FinCosts() {
       )}
       <Muted style={{ marginTop: 8 }}>All excl. VAT. Labour from sign-ins is only costed for PAYE staff with a day rate (People &amp; rates).</Muted>
     </ScrollView>
-    {list.length > 0 && <ThinExportBar onExcel={() => void exportTableExcel(table(), org)} onPdf={async () => { if (!(await exportTablePdf(table(), org).catch(() => false))) toast('Could not build the PDF.'); }} />}
+    {!desk && outRows.length > 0 && <Muted style={{ textAlign: 'center', marginTop: -2, marginBottom: 6 }}>{howMany(outRows.length)} · {money(shownTotal)}</Muted>}
+    {outRows.length > 0 && <ThinExportBar onExcel={() => void exportTableExcel(table(), org)} onPdf={async () => { if (!(await exportTablePdf(table(), org).catch(() => false))) toast('Could not build the PDF.'); }} />}
     </View>
   );
 }

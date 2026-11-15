@@ -3,7 +3,7 @@
 // trial switch stops anything going out (emails, Xero, inbox, PM pushes).
 import { useQuery } from '@tanstack/react-query';
 
-import { appDateFor, appOverdue, FIN_DEFAULTS, finBlocked, FIN_TRIAL_MSG, invOutstandingNet, invOverdue, jobTag, plantCost, retentionAlerts, retentionStillHeld, today, type FinApp, type FinInv, type FinSettings, type JobFin } from '@/lib/rules/finance';
+import { appOverdueFor, FIN_DEFAULTS, finBlocked, FIN_TRIAL_MSG, invOutstandingNet, invOverdue, jobTag, plantCost, retentionAlerts, retentionStillHeld, today, type FinApp, type FinInv, type FinSettings, type JobFin } from '@/lib/rules/finance';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
@@ -75,7 +75,10 @@ export function useFinOverview(me: Profile | null, sites: Site[] | undefined) {
       const retHeld = S.reduce((t, s) => t + still(s), 0);
       const retDue = S.filter((s) => retentionAlerts(jfBy[s.id], st, still(s)).length);
       // Invoice jobs have no applications; only one past its date with nothing raised is a to-do (the dates are on the calendar).
-      const appsDue = live.filter((s) => jfBy[s.id]?.billing_type !== 'invoice' && appOverdue(appsBy[s.id] || [], appDateFor(jfBy[s.id], st, today().slice(0, 7))));
+      // Only jobs billed by application (set as such, or with applications already); repair contracts and other jobs
+      // with no billing type and no applications aren't (review, 15 Nov 2026).
+      const byApp = (s: Site) => jfBy[s.id]?.billing_type ? jfBy[s.id]?.billing_type === 'application' : (appsBy[s.id] || []).length > 0;
+      const appsDue = live.filter((s) => byApp(s) && appOverdueFor(jfBy[s.id], st, appsBy[s.id] || []));
       const longHire = onHire.filter((h) => plantCost(h).days > 28);
       const noPo = live.filter((s) => !hasPo.has(s.id)), noValue = live.filter((s) => !jfBy[s.id]?.contract_value);
       const one = (list: Site[], many: string) => (list.length === 1 ? `/fin/job/${list[0].id}` : many);

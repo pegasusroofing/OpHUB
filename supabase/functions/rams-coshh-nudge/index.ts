@@ -69,6 +69,23 @@ function filterCurrentCycleSigs(sigs: any[], docs: any[], docKeyField: string) {
 //      every live, started site across the whole org — the org-wide
 //      oversight view a PM's own email doesn't need.
 // A company with organizations.morning_emails_off set gets none of it (Andy, 13 Nov 2026: the Sandbox company).
+// One reminder per address per day, logged in edge_email_log like the other sending functions (review, 15 Nov 2026:
+// a retry or a second call emailed everyone twice).
+const lc = (e: unknown) => String(e || '').trim().toLowerCase();
+// kind: '' for a PM's digest, '-admin' for the company admins' one (someone can get one of each).
+async function sentToday(admin: any, to: string, kind: string): Promise<boolean> {
+  try {
+    const since = new Date(Date.now() - 20 * 3600000).toISOString();
+    const { count, error } = await admin.from('edge_email_log').select('id', { count: 'exact', head: true }).eq('fn', 'rams-coshh-nudge' + kind).eq('to_email', lc(to)).gte('created_at', since);
+    if (error) { console.warn('edge_email_log: check skipped -', error.message || error.code || error); return false; }
+    return (count || 0) > 0;
+  } catch (_e) { return false; }
+}
+async function logSend(admin: any, orgId: string | null, to: string, subject: string, kind: string) {
+  console.log('email sent', JSON.stringify({ fn: 'rams-coshh-nudge' + kind, org: orgId, to: lc(to), subject }));
+  try { await admin.from('edge_email_log').insert({ fn: 'rams-coshh-nudge' + kind, sender_id: null, org_id: orgId, to_email: lc(to), cc: [], subject }); } catch (_e) { /* logged above */ }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
@@ -90,7 +107,9 @@ Deno.serve(async (req) => {
 
     const { data: allSites } = await admin.from('sites').select('id, org_id, name, status, responsible_pm_id').in('status', ['active', 'live']);
     // Companies that have the morning emails switched off are left out altogether.
-    const { data: quiet } = await admin.from('organizations').select('id').eq('morning_emails_off', true);
+    const { data: quiet, error: quietErr } = await admin.from('organizations').select('id').eq('morning_emails_off', true);
+    // If we can't tell who switched them off, send nothing (review, 15 Nov 2026).
+    if (quietErr) return new Response(JSON.stringify({ error: 'Could not read who has the morning emails off' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     const quietIds = new Set((quiet || []).map((o: any) => o.id));
     const sites = (allSites || []).filter((s: any) => !quietIds.has(s.org_id));
     if (!sites || !sites.length) {
@@ -110,20 +129,20 @@ Deno.serve(async (req) => {
       const rosterIds = (assignments || []).map((a: any) => a.user_id);
       if (!rosterIds.length) continue;
       const { data: rosterProfiles } = await admin.from('profiles').select('id, role').in('id', rosterIds);
-      const allRoster = (rosterProfiles || []).map((p: any) => p.id);
+      // Operatives only, for RAMS as for COSHH: the apps count no one else (review, 15 Nov 2026).
       const operativeRoster = (rosterProfiles || []).filter((p: any) => p.role === 'operative').map((p: any) => p.id);
 
-      const { data: ramsDocs } = await admin.from('rams_docs').select('id, uploaded_at, resign_cycle_start').eq('site_id', site.id).eq('status', 'current');
-      const { data: coshhDocs } = await admin.from('coshh_docs').select('id, uploaded_at, resign_cycle_start').eq('site_id', site.id);
+      const { data: ramsDocs } = await admin.from('rams_docs').select('id, uploaded_at, resign_cycle_start').eq('site_id', site.id).eq('status', 'current').is('subcontractor_company_id', null);
+      const { data: coshhDocs } = await admin.from('coshh_docs').select('id, uploaded_at, resign_cycle_start').eq('site_id', site.id).is('subcontractor_company_id', null);
 
       let ramsMissing = 0;
-      if (ramsDocs && ramsDocs.length && allRoster.length) {
+      if (ramsDocs && ramsDocs.length && operativeRoster.length) {
         const ids = ramsDocs.map((d: any) => d.id);
         const { data: sigsRaw } = await admin.from('rams_signatures').select('rams_id, user_id, signed_at').in('rams_id', ids);
         const sigs = filterCurrentCycleSigs(sigsRaw || [], ramsDocs, 'rams_id');
         const signedByDoc: Record<string, Set<string>> = {};
         sigs.forEach((s: any) => { (signedByDoc[s.rams_id] = signedByDoc[s.rams_id] || new Set()).add(s.user_id); });
-        ramsDocs.forEach((d: any) => { ramsMissing += allRoster.filter((uid) => !(signedByDoc[d.id] || new Set()).has(uid)).length; });
+        ramsDocs.forEach((d: any) => { ramsMissing += operativeRoster.filter((uid) => !(signedByDoc[d.id] || new Set()).has(uid)).length; });
       }
 
       let coshhMissing = 0;
@@ -211,13 +230,14 @@ Deno.serve(async (req) => {
       const { html, text } = digestEmail(org, 'RAMS and COSHH sign-off outstanding', profile.name,
         `Work has started on ${rows.length} site${rows.length === 1 ? '' : 's'} of yours where RAMS and/or COSHH is not yet fully signed off by the operatives on site.`, rows);
       const subject = rows.length === 1 ? `RAMS/COSHH sign-off outstanding — ${rows[0].name}` : 'RAMS/COSHH sign-off outstanding';
+      if (await sentToday(admin, profile.email, '')) continue;
       try {
         const res = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ from: ophubFrom(FROM_EMAIL, companyName), to: [profile.email], subject, html, text }),
         });
-        if (res.ok) pmEmailed++;
+        if (res.ok) { pmEmailed++; await logSend(admin, rows[0].org_id, profile.email, subject, ''); }
       } catch (_e) { /* keep going */ }
     }
 
@@ -237,13 +257,14 @@ Deno.serve(async (req) => {
         if (!a.email) continue;
         const { html, text } = digestEmail(org, 'H&S policy sign-off outstanding', a.name,
           `Company-wide health and safety check: ${rows.length} live site${rows.length === 1 ? '' : 's'} where work has started but RAMS and/or COSHH is not yet fully signed off.`, rows);
+        if (await sentToday(admin, a.email, '-admin')) continue;
         try {
           const res = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ from: ophubFrom(FROM_EMAIL, companyName), to: [a.email], subject, html, text }),
           });
-          if (res.ok) adminEmailed++;
+          if (res.ok) { adminEmailed++; await logSend(admin, orgId, a.email, subject, '-admin'); }
         } catch (_e) { /* keep going */ }
       }
     }

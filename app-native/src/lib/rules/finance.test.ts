@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { addMonths, appDateFor, appDueThisMonth, appOverdue, finBlocked, FIN_TRIAL, invOutstandingNet, invOverdue, money, num, plantCost, retentionAlerts, retentionStillHeld, retHalf, retHalfAmt } from './finance.ts';
+import { addMonths, appDateFor, appDueThisMonth, appOverdue, appOverdueFor, finBlocked, FIN_TRIAL, invOutstandingNet, invOverdue, money, num, plantCost, retentionAlerts, retentionStillHeld, retHalf, retHalfAmt } from './finance.ts';
 
 test('trial blocks everything that leaves Finance, except the sandbox and Directory contacts', () => {
   assert.equal(FIN_TRIAL, true);
@@ -37,6 +37,16 @@ test('application dates and plant hire', () => {
   assert.equal(appOverdue([], '2026-02-25', '2026-02-26'), true);
   assert.equal(appOverdue([{ number: 1, status: 'draft', valuation_date: '2026-02-20' }], '2026-02-25', '2026-02-26'), false);
   assert.equal(appOverdue([], null, '2026-02-26'), false);
+  // Month ends and the 1st of the next month (review, 15 Nov 2026).
+  const d31 = { app_reminder_day: 31 };
+  assert.equal(appOverdueFor(d31, {}, [], '2026-11-30'), true); // October's (31 Oct) went by with nothing
+  assert.equal(appOverdueFor(d31, {}, [{ number: 1, status: 'draft', valuation_date: '2026-10-31' }], '2026-11-30'), false); // November's is due today
+  assert.equal(appOverdueFor(d31, {}, [{ number: 1, status: 'draft', valuation_date: '2026-10-31' }], '2026-12-01'), true); // 30 Nov went by
+  assert.equal(appOverdueFor(d31, {}, [{ number: 2, status: 'draft', valuation_date: '2026-11-30' }], '2026-12-01'), false);
+  // No day set: the day of the last application, as the calendar.
+  assert.equal(appOverdueFor({}, {}, [{ number: 1, status: 'certified', valuation_date: '2026-10-20' }], '2026-11-21'), true);
+  assert.equal(appOverdueFor({}, {}, [{ number: 1, status: 'certified', valuation_date: '2026-10-20' }], '2026-11-19'), false);
+  assert.equal(appOverdueFor({}, {}, [], '2026-11-21'), false);
   assert.deepEqual(plantCost({ on_hire: '2026-01-01', off_hire: '2026-01-14', rate: 70, rate_period: 'week' }), { days: 14, weeks: 2, cost: 140 });
 });
 

@@ -60,6 +60,8 @@ export default function FinYard() {
   const { data: sites = [] } = useSites();
   const [edit, setEdit] = useState<Item | 'new' | null>(null);
   const [move, setMove] = useState<{ kind: Kind; stockId: string } | null>(null);
+  // Before the early return: a hook must run on every render (lint, 15 Nov 2026).
+  const desk = useDesk();
   if (!me) return null;
   const items = data?.items ?? [], rateBy = data?.rateBy ?? {};
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['finYard'] }); void qc.invalidateQueries({ queryKey: ['yard'] }); void qc.invalidateQueries({ queryKey: ['finYardMoves'] }); };
@@ -159,7 +161,6 @@ export default function FinYard() {
     </>
   );
 
-  const desk = useDesk();
   // The Purchases tabs stay on every yard page, an item's too (Andy, 9 Nov 2026: "I also lose the tabs").
   const onSub = (k: string) => (k === 'yard' ? (id ? router.replace('/fin/yard' as never) : undefined) : k === 'statements' ? router.replace('/fin/statements' as never) : router.replace(`/fin/purchases?tab=${k}` as never));
   if (id) {
@@ -188,6 +189,8 @@ function YardList({ items, rateBy, loading, onNew, onIn, onOut }: { items: Item[
   const [sort, setSort] = useState('as');
   const desk = useDesk(); // laptop: a full table in the laptop's style, with the phone's columns (Andy, 14 Nov 2026)
   const f = (sel.show[0] || 'all') as 'all' | 'low' | 'off';
+  // Each tap on Low Stock starts the table afresh on low stock, even after its own ▾ was changed (review, 15 Nov 2026).
+  const [lowTap, setLowTap] = useState(0);
   const [q, setQ] = useState('');
   const F = { all: (s: Item) => s.active !== false, low: (s: Item) => s.active !== false && yardLow(s), off: (s: Item) => s.active === false };
   const val = (s: Item) => (rateBy[s.id] != null ? rateBy[s.id] * Number(s.qty || 0) : 0);
@@ -213,7 +216,7 @@ function YardList({ items, rateBy, loading, onNew, onIn, onOut }: { items: Item[
       <Muted style={{ marginBottom: 8 }}>Materials held in the yard. Book them out to a job and the cost goes on that job (qty × price). PMs can see the list and book out to their projects from Material Requests, but don’t see prices.</Muted>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <FinStat v={money(total)} label="Stock Value (Items With A Price)" />
-        <FinStat v={String(items.filter(F.low).length)} label="Low Stock" hot={items.some(F.low)} onPress={() => (desk ? setSel({ ...sel, show: ['low'] }) : find.setPick({ ...find.pick, q: 'low' }))} />
+        <FinStat v={String(items.filter(F.low).length)} label="Low Stock" hot={items.some(F.low)} onPress={() => { if (desk) { setSel({ ...sel, show: ['low'] }); setLowTap((n) => n + 1); } else find.setPick({ ...find.pick, q: 'low' }); }} />
       </View>
       {/* One row of buttons (Andy, 14 Nov 2026): Return is under Book In, Lost under Book Out; Adjust count went. On a
           laptop: + New Item across the page, Book In / Book Out on each row, Stock Take beside the Stock / Plant tabs,
@@ -225,7 +228,7 @@ function YardList({ items, rateBy, loading, onNew, onIn, onOut }: { items: Item[
         </View>
       )}
       {loading ? <Muted>Loading…</Muted> : desk && items.length ? (
-        <FinTable key={'yt' + f} rows={items} keyOf={(s) => s.id} onRow={(s) => openItem(s.id)} startFilter={{ q: [f === 'low' ? 'low' : 'use'] }}
+        <FinTable key={'yt' + f + lowTap} rows={items} keyOf={(s) => s.id} onRow={(s) => openItem(s.id)} startFilter={{ q: [f === 'low' ? 'low' : 'use'] }}
           cols={[
             // The phone's columns (Andy, 14 Nov 2026): the item, what's in stock, the price per unit and the value; the
             // location, minimum and the rest are on the item's own page, and Book Out is in the row of buttons above.

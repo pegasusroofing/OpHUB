@@ -202,7 +202,7 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
           cols={[
             { k: 's', l: 'Subcontractor', lines: 2, main: (a) => `${scBy[a.subcontract_id]?.name || ''} · App ${a.number}`, sub: (a) => [scBy[a.subcontract_id]?.number, siteId ? '' : jobTag(site(a.site_id))].filter(Boolean).join(' · '), find: (a) => `${scBy[a.subcontract_id]?.name || ''} ${scBy[a.subcontract_id]?.number || ''} ${jobTag(site(a.site_id))}` },
             { k: 'pb', l: 'Pay By', w: 86, center: true, main: (a) => (a.final_date ? fdate(a.final_date) : '—'), sub: (a) => (a.status === 'paid' ? 'Paid' : a.status === 'certified' ? (a.payless ? 'Pay Less' : 'Certified') : 'To Certify'), tone: (a) => (a.status !== 'paid' && a.final_date && a.final_date < today() ? '#C0392B' : undefined), sort: (a) => String(a.final_date || ''),
-              choose: { opts: [['', 'All'], ['open', 'To Certify'], ['certified', 'To Pay'], ['paid', 'Paid']], test: (a, v) => (F[v] ? F[v](a) : true) } },
+              choose: { opts: [['', 'All'], ['open', 'To Certify'], ['certified', 'To Pay'], ['paid', 'Paid']], test: (a, v) => (F[v] ? F[v](a) : true), start: f && f !== 'all' && F[f] ? f : 'open' } },
             { k: 'v', l: 'Amount', w: 84, right: true, bold: true, bigFirst: true, main: (a) => money(a.certified_gross != null ? a.pay_amount : a.applied_gross), sub: (a) => (a.certified_gross != null ? 'To Pay' : 'Applied'), sort: (a) => Number((a.certified_gross != null ? a.pay_amount : a.applied_gross) || 0) },
           ]} /> : <Empty>Nothing here.</Empty>}
       </View>

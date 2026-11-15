@@ -119,6 +119,10 @@ export async function issueBuild(me: Me, org: Org, siteId: string, b: RamsBuild)
   for (const which of ['ra', 'ms'] as const) {
     const isRA = which === 'ra';
     if (isRA ? !b.hazards.length : !b.sections.length) continue;
+    // The document this replaces must still be the current one: if another build has replaced it already, issuing this
+    // would leave two current and operatives signing both (review, 15 Nov 2026).
+    const prev0 = isRA ? b.ra_doc_id : b.ms_doc_id;
+    if (prev0) { const ps = ((await db.from('rams_docs').select('status').eq('id', prev0).maybeSingle()).data as { status?: string } | null)?.status; if (ps && ps !== 'current') return 'The document this replaces has already been replaced by another. Open the current one and revise that instead.'; }
     const out = await buildRamsPdf(b, which, org, st);
     const name = `${isRA ? 'Risk Assessment' : 'Method Statement'} — ${b.title}${rev > 1 ? ` (rev ${rev})` : ''}`;
     const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;

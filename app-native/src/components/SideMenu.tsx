@@ -8,15 +8,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DeskNav } from '@/components/DeskNav';
 import { base } from '@/theme/theme';
 
-const listeners = new Set<(open: boolean) => void>();
-export const openSideMenu = () => listeners.forEach((l) => l(true));
+import { openSideMenu, sideMenuListen } from '@/lib/sideMenuBus';
+
+export { openSideMenu };
 
 export function SideMenuHost() {
   const [open, setOpen] = useState(false);
   const path = usePathname();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  useEffect(() => { listeners.add(setOpen); return () => { listeners.delete(setOpen); }; }, []);
+  useEffect(() => sideMenuListen(setOpen), []);
   // Going to a page closes it.
   useEffect(() => { setOpen(false); }, [path]);
   if (!open) return null;

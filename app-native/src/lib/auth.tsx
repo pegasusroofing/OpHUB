@@ -68,8 +68,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* already gone */ }
     await clearOfflineCache();
     await clearSignedCache();
+    // Forget everything the last person loaded, so the next one on a shared laptop never sees it (review, 15 Nov 2026).
+    qc.clear();
     setSession(null); setMe(null); setOrg(null); setStatus('signedOut');
-  }, []);
+  }, [qc]);
 
   const signOut = useCallback(async () => {
     try { await supabase.auth.signOut(); } catch { /* offline: local sign-out below still happens */ }

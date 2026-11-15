@@ -14,13 +14,15 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   const {ctx, db} = await makeContext(browser, 'admin', [], {shot: true});
   require('./seeds/world')(db); const me = db.profiles.find((p) => p.id === 'me'); me.role = 'admin'; me.howto_dismissed = ['home', 'site_home', 'materials', 'sow', 'tbt', 'guide:closed'];
   const O = db.organizations[0].id, today = new Date().toISOString().slice(0, 10);
+  // Next 5 Days starts on the next working day at a weekend, so the application goes there.
+  const appDay = (() => { const d = new Date(); while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); })();
   Object.assign(db.organizations[0], {has_pm: true, has_finance: true});
   const site = db.sites.find((s) => s.id === S1);
   Object.assign(site, {client_contact_name: 'Sue Client', client_phone: '07700 111222', price_enabled: false});
   db.quotes = [{id: 'q1', org_id: O, client_name: 'Bellway Homes', title: 'Hove Flats', status: 'pricing', chase_on: true, chase_count: 0, created_at: today}];
   db.yard_stock = [{id: 'ys1', org_id: O, item: 'Code 4 lead', unit: 'roll', qty: 5, min_qty: 1, active: true}]; db.yard_moves = [];
   const t2 = db.schedule_tasks.find((t) => t.id === 't2'); Object.assign(t2, {status: 'progress', percent_complete: 40});
-  global.__rpc = (name) => (name === 'site_application_dates' ? [{site_id: S1, app_dates: null, app_reminder_day: null, org_app_day: null, billing_type: 'application', applied_dates: [today]}] : undefined);
+  global.__rpc = (name) => (name === 'site_application_dates' ? [{site_id: S1, app_dates: null, app_reminder_day: null, org_app_day: null, billing_type: 'application', applied_dates: [appDay]}] : undefined);
   const page = await ctx.newPage(); page.on('pageerror', (e) => errs.push(e.message));
   page.on('dialog', (d) => d.accept());
   const body = async () => page.locator('body').innerText();
@@ -103,8 +105,8 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.goto(B + `/sites/${S1}/materials/yard`); await page.waitForTimeout(4500);
   t = await body();
   check(!/Return from this job/i.test(t), 'yard: no Return From Job');
-  const bo = await vis('[aria-label="Book Out"]').boundingBox(), bi = await vis('[aria-label="Book In"]').boundingBox(), st = await vis('[aria-label="Stock Take"]').boundingBox(), nl = await vis('[aria-label="Not On The List"]').boundingBox();
-  check(Math.abs(bo.width - bi.width) < 1 && Math.abs(bo.y - bi.y) < 1 && Math.abs(st.width - nl.width) < 1 && Math.abs(st.y - nl.y) < 1, 'yard: Book Out / Book In, and Stock Take / Not On The List, the same size on one row');
+  const bo = await vis('[aria-label="Book Out"]').boundingBox(), bi = await vis('[aria-label="Return From Job"]').boundingBox(), st = await vis('[aria-label="Stock Take"]').boundingBox(), nl = await vis('[aria-label="Not On The List"]').boundingBox();
+  check(Math.abs(bo.width - bi.width) < 1 && Math.abs(bo.y - bi.y) < 1 && Math.abs(st.width - nl.width) < 1 && Math.abs(st.y - nl.y) < 1, 'yard: Book Out / Return From Job (was Book In, review 15 Nov 2026), and Stock Take / Not On The List, the same size on one row');
   check(/In Stock/i.test(t) && /On Purchase Orders, Not In The Yard Yet/i.test(t) && /Batten 25x50/.test(t), 'yard: in stock shown; purchase order items pulled through');
   await page.screenshot({path: path.join(SHOTS, 'yard.png'), fullPage: true});
   await vis('[aria-label="Qty: ys1"]').fill('2');

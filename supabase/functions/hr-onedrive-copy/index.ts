@@ -1,11 +1,17 @@
 // hr-onedrive-copy (new app, Andy 15 Nov 2026): copies HR documents (hr_docs, files in the private hr-docs store) into
-// the OneDrive folder the HR team chose (hr_settings.hr_onedrive), a folder per person:
+// the OneDrive folder the HR team chose (hr_secure_settings.onedrive), a folder per person:
 //   <HR folder>/<Person Name>/<Contracts & Letters>/<file>
 // Body: { doc_ids: [...] } (just added; the caller must be able to read each one themselves, so the database's own
 // rules decide) or { all: true } (everything not copied yet; HR team only). Nothing is sent if no folder is chosen or
 // copying is switched off. verify_jwt false like onedrive-upload: the user's token comes in X-User-Token and is checked
 // by making the reads with it.
+// SWITCHED OFF (15 Nov 2026 review): every OneDrive folder OpHUB uses goes through the one company Microsoft sign-in, and
+// PMs and admins can browse that through OpHUB (folder pickers, project Documents, operative sync), so an HR folder there
+// wouldn't be private. It stays off until HR has its own Microsoft sign-in that the company one can't open (Andy to
+// decide). The folder is read from hr_secure_settings (HR team only) when it's switched back on.
 import { createClient } from 'npm:@supabase/supabase-js@2';
+
+const SWITCHED_OFF = true;
 
 const corsHeaders = { 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-token, cache-control, pragma' };
 const OPHUB_ORIGINS = new Set(['https://operativehub.co.uk', 'https://www.operativehub.co.uk', 'https://ophub-ten.vercel.app', 'https://ophub-beta.vercel.app', 'capacitor://localhost', 'https://localhost', 'http://localhost']);
@@ -63,6 +69,7 @@ async function put(base: string, token: string, bytes: Uint8Array): Promise<bool
 
 Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  if (SWITCHED_OFF) return json({ ok: true, copied: 0, skipped: 'switched_off' });
   try {
     const token = req.headers.get('X-User-Token') || (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
     if (!token) return json({ error: 'Not authenticated' }, 401);
@@ -80,8 +87,8 @@ Deno.serve(withCors(async (req) => {
     if (!orgId) return json({ error: 'Forbidden' }, 403);
 
     const body = await req.json().catch(() => ({}));
-    const { data: st } = await admin.from('hr_settings').select('hr_onedrive').eq('org_id', orgId).maybeSingle();
-    const od = st?.hr_onedrive as { id?: string; driveId?: string | null; on?: boolean } | null;
+    const { data: st } = await admin.from('hr_secure_settings').select('onedrive').eq('org_id', orgId).maybeSingle();
+    const od = st?.onedrive as { id?: string; driveId?: string | null; on?: boolean } | null;
     if (!od?.id || od.on === false) return json({ ok: true, copied: 0, skipped: 'no_folder' });
 
     let ids: string[] = [];
@@ -100,9 +107,11 @@ Deno.serve(withCors(async (req) => {
     if (!conn?.access_token) return json({ ok: true, copied: 0, skipped: 'not_connected' });
     const msToken = await refreshIfNeeded(admin, conn);
     const { data: docs } = await admin.from('hr_docs').select('id,org_id,user_id,folder,title,file_name,storage_path').in('id', ids).eq('org_id', orgId);
+    // Only files in that person's own folder of the store.
+    const own = (d: { org_id: string; user_id: string; storage_path: string }) => d.storage_path.startsWith(`${d.org_id}/${d.user_id}/`);
     const people = new Map<string, string>();
     let copied = 0;
-    for (const d of docs ?? []) {
+    for (const d of (docs ?? []).filter(own)) {
       if (!people.has(d.user_id)) { const { data: p } = await admin.from('profiles').select('name').eq('id', d.user_id).maybeSingle(); people.set(d.user_id, clean(p?.name || 'Unknown')); }
       const { data: blob } = await admin.storage.from('hr-docs').download(d.storage_path);
       if (!blob) continue;

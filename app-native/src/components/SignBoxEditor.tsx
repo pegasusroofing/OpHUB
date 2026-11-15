@@ -13,7 +13,7 @@ import { createElement as h, useEffect, useRef, useState } from 'react';
 import { PanResponder, Platform, Pressable, Text, View, type GestureResponderEvent } from 'react-native';
 
 import { NativePdfPage } from '@/components/NativePdfPage';
-import { useToast } from '@/components/toast';
+import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import { fetchBytes } from '@/lib/pdf';
 import { loadPdfJs, type PdfDoc } from '@/lib/pdfjs';
@@ -103,7 +103,8 @@ export function SignBoxEditor({ storagePath, initial, intro, saveLabel, onSave, 
   const pageCount = boxes.filter((b) => b.p === page).length;
   const pagesWith = Array.from(new Set(boxes.map((b) => b.p))).sort((a, b) => a - b);
   const pick = (w: string) => { if (opNum(who)) setLastOp(opNum(who)); if (clientNum(who)) setLastClient(clientNum(who)); setWho(w); setMode(null); setSels([]); };
-  const goPage = (p: number) => { if (!numPages) return; const n = Math.min(numPages, Math.max(1, p)); if (n !== page) { setPage(n); setMode(null); setSels([]); } };
+  // Placing carried-over signers carries on across pages (review, 15 Nov 2026: their sign-off is usually on a later page).
+  const goPage = (p: number) => { if (!numPages) return; const n = Math.min(numPages, Math.max(1, p)); if (n !== page) { setPage(n); setMode(mode === 'place' ? 'place' : null); setSels([]); } };
   // The box under a finger, top one first, with a little give for fingers.
   const hitAt = (x: number, y: number) => { for (let i = boxes.length - 1; i >= 0; i--) { const b = boxes[i]; if (b.p === page && x >= b.r[0] - 0.012 && x <= b.r[0] + b.r[2] + 0.012 && y >= b.r[1] - 0.012 && y <= b.r[1] + b.r[3] + 0.012) return i; } return -1; };
   const doRepeat = (bx: SBox[], w: string, off: { dx: number; dy: number }) => {
@@ -120,7 +121,10 @@ export function SignBoxEditor({ storagePath, initial, intro, saveLabel, onSave, 
     const wide = Math.max(...g.map((b) => b.r[0] + b.r[2])) - minX, high = Math.max(...g.map((b) => b.r[1] + b.r[3])) - minY;
     // Where tapped is the group's top-left corner, kept on the page; null = the same spot as on the other document.
     const px = x == null ? minX : Math.max(0, Math.min(x, 1 - wide)), py = y == null ? minY : Math.max(0, Math.min(y, 1 - high));
-    const nb = g.map((b) => ({ p: page, w: b.w, t: b.t, r: [r4(px + b.r[0] - minX), r4(py + b.r[1] - minY), b.r[2], b.r[3]] }));
+    // The same spot means the same page too (kept within this document), as on the other document (review, 15 Nov 2026).
+    const onPage = x == null && y == null ? Math.min(numPages || g[0].p, Math.max(1, g[0].p)) : page;
+    if (onPage !== page) setPage(onPage);
+    const nb = g.map((b) => ({ p: onPage, w: b.w, t: b.t, r: [r4(px + b.r[0] - minX), r4(py + b.r[1] - minY), b.r[2], b.r[3]] }));
     const all = boxes.concat(nb);
     setBoxes(all); setSels(nb.map((_, k) => boxes.length + k));
     const rest = queue.filter((q) => q !== w); setQueue(rest);
@@ -273,7 +277,11 @@ export function SignBoxEditor({ storagePath, initial, intro, saveLabel, onSave, 
           {drag ? <View pointerEvents="none" style={{ position: 'absolute', left: `${drag[0] * 100}%`, top: `${drag[1] * 100}%`, width: `${drag[2] * 100}%`, height: `${drag[3] * 100}%`, borderWidth: 2, borderColor: '#111', backgroundColor: 'rgba(17,17,17,.12)', borderRadius: 3 }} /> : null}
         </View>
       </View>
-      <Button busy={busy} title={saveLabel} onPress={async () => { setBusy(true); try { await onSave(boxes, numPages); } finally { setBusy(false); } }} />
+      <Button busy={busy} title={saveLabel} onPress={async () => {
+        // Someone still to place: say so before saving without their boxes (review, 15 Nov 2026).
+        if (queue.length && !(await confirmAsk(`${queue.map((w) => whoLabel(w)).join(', ')} ${queue.length === 1 ? 'hasn’t' : 'haven’t'} been placed yet, so they won’t sign this document. Save anyway?`, 'Save'))) return;
+        setBusy(true); try { await onSave(boxes, numPages); } finally { setBusy(false); }
+      }} />
       {extra?.({ boxes, numPages, setBoxes: (b) => { setBoxes(b); setSels([]); setMode(null); if (b[0]) setPage(b[0].p); }, setPage })}
     </View>
   );

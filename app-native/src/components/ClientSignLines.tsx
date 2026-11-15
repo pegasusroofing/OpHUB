@@ -52,12 +52,15 @@ export function ClientSignLines({ ramsId, site }: { ramsId: string; site: Site }
     // The name is needed as well as the email (Andy, 14 Nov 2026).
     const nerr = name ? '' : 'Enter the client’s name.', err = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em) ? '' : 'Enter a valid email address.';
     if (nerr || err) { setAsk({ ...ask, nerr, err }); return; }
-    setAsk(null);
+    // The pop-up stays open until it has gone, so a failed send keeps what was typed (review, 15 Nov 2026).
     setBusy(true); toast('Sending…');
     const r = await supabase.functions.invoke('client-sign', { body: { action: 'request', rams_id: ramsId, client_email: em, client_name: name } });
-    if (!r.error && slot > 1) { const out = r.data as { id?: string } | null; if (out?.id) await supabase.rpc('set_client_sign_slot' as never, { p_id: out.id, p_slot: slot } as never); }
-    setBusy(false);
-    toast(r.error ? 'Could not send — try again.' : `Sent to ${em}`);
+    if (r.error) { setBusy(false); setAsk({ ...ask, err: 'Could not send — check the email and try again.' }); return; }
+    // Client 2, 3…: their place on the document. If that can't be set they'd sign in Client 1's boxes, so say so.
+    let slotErr = false;
+    if (slot > 1) { const out = r.data as { id?: string } | null; slotErr = !out?.id || !!(await supabase.rpc('set_client_sign_slot' as never, { p_id: out.id, p_slot: slot } as never)).error; }
+    setBusy(false); setAsk(null);
+    toast(slotErr ? `Sent to ${em}, but it couldn’t be set as Client ${slot}, so they would sign in Client 1’s place. Send it again.` : `Sent to ${em}`);
     void qc.invalidateQueries({ queryKey: ['ramsClientSigs', ramsId] });
   };
   const who = ask && count > 1 ? `Client ${ask.slot}` : 'Client';

@@ -95,7 +95,9 @@ export function retentionTotal(apps: FinApp[]) {
 export function pcOrFinalDate(jf: JobFin | null | undefined, closed: boolean, invs: FinInv[], siteId: string): { date: string | null; final: boolean } {
   if (jf?.pc_date) return { date: String(jf.pc_date).slice(0, 10), final: false };
   if (!closed) return { date: null, final: false };
-  const last = invs.filter((i) => i.site_id === siteId && !['void', 'draft'].includes(i.status) && i.issue_date).map((i) => String(i.issue_date).slice(0, 10)).sort().pop();
+  // Not a retention release invoice (review, 15 Nov 2026): that comes after completion, so it isn't the final invoice.
+  const rel = new Set([jf?.ret1_invoice_id, jf?.ret2_invoice_id].filter(Boolean));
+  const last = invs.filter((i) => i.site_id === siteId && !['void', 'draft'].includes(i.status) && i.issue_date && !rel.has(i.id)).map((i) => String(i.issue_date).slice(0, 10)).sort().pop();
   return { date: last || null, final: !!last };
 }
 export const retentionStillHeld = (apps: FinApp[], jf: JobFin | null | undefined, invs: FinInv[]) => round2(Math.max(0, retentionHeld(apps) - retentionReleased(jf, invs, apps)));
@@ -146,6 +148,23 @@ export function appDueThisMonth(apps: FinApp[], due: string | null, now = today(
  *  application isn't raised by the due date"). The due dates themselves are on the calendar (data/calendar.ts). */
 export function appOverdue(apps: FinApp[], due: string | null, now = today()) {
   return !!due && now > due && appDueThisMonth(apps, due, now);
+}
+/** The day a job's application is due in a month (yyyy-mm): its own date for that month, its application day, the
+ *  company's; else the day of the month of its last application, as the calendar does (data/calendar.ts). */
+export function appDueOn(jf: JobFin | null | undefined, st: Partial<FinSettings>, ym: string, apps: FinApp[]): string | null {
+  const d = appDateFor(jf, st, ym);
+  if (d) return d;
+  const last = apps.filter((a) => a.status !== 'void' && a.valuation_date).map((a) => String(a.valuation_date).slice(0, 10)).sort().pop();
+  return last ? appDateFor({ app_dates: null, app_reminder_day: Number(last.slice(8, 10)) }, {}, ym) : null;
+}
+/** An application not raised by its date (review, 15 Nov 2026: a day 30 / 31 date was never flagged, and on the 1st the
+ *  month just gone was forgotten): last month's or this month's date has gone with nothing raised since that month began. */
+export function appOverdueFor(jf: JobFin | null | undefined, st: Partial<FinSettings>, apps: FinApp[], now = today()): boolean {
+  const ym = now.slice(0, 7);
+  const [y, m] = ym.split('-').map(Number);
+  const prev = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+  const madeSince = (from: string) => apps.some((a) => a.status !== 'void' && String(a.valuation_date || '').slice(0, 10) >= from);
+  return [prev, ym].some((mm) => { const due = appDueOn(jf, st, mm, apps); return !!due && now > due && !madeSince(`${mm}-01`); });
 }
 
 // ---------- plant hire (905) ----------

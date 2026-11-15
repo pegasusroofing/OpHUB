@@ -40,9 +40,10 @@ export default function Yard() {
   const fin = isFinanceUser(me, org);
   // Purchase order lines, to pull through the ones not in the yard list yet.
   const { data: pos = [], refetch: refetchPos } = useQuery({
-    queryKey: ['yardPoLines', me?.org_id], enabled: !!me?.org_id && !mat,
+    // Finance users only (others can't read purchase orders); sent orders, not ones delivered straight to a job (review, 15 Nov 2026).
+    queryKey: ['yardPoLines', me?.org_id], enabled: !!me?.org_id && !mat && fin,
     queryFn: async () => ((await (supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }).from('purchase_orders').select('id,number,supplier_name,items,status')
-      .eq('org_id', me?.org_id as string).neq('status', 'cancelled').order('created_at', { ascending: false }).limit(200)).data as { id: string; number: string | null; supplier_name: string | null; items: unknown; status: string | null }[] | null) ?? [],
+      .eq('org_id', me?.org_id as string).neq('status', 'cancelled').not('is_draft', 'is', true).or('delivery_to.is.null,delivery_to.neq.job').order('created_at', { ascending: false }).limit(200)).data as { id: string; number: string | null; supplier_name: string | null; items: unknown; status: string | null }[] | null) ?? [],
   });
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!yardCanEdit(me, fin)) return <Muted style={{ padding: space.l }}>Only managers and Finance can use the yard stock.</Muted>;
@@ -82,7 +83,13 @@ export default function Yard() {
   const qtyBox = (key: string, ph = 'Qty') => <TextInput accessibilityLabel={`Qty: ${key}`} value={qty[key] ?? ''} onChangeText={(t) => setQty({ ...qty, [key]: t })} keyboardType="decimal-pad" placeholder={ph} placeholderTextColor={base.slateLight} style={{ flex: 1, height: 38, borderWidth: 1, borderColor: base.line, borderRadius: 9, textAlign: 'center', color: base.ink, backgroundColor: base.card, fontSize: 15 }} />;
 
   const move = async (s: YardItem, kind: 'issue' | 'return', n: number, materialId?: string) => {
-    if (!(n > 0)) { toast(kind === 'issue' ? 'Enter the qty to book out.' : 'Enter the qty to book in.'); return; }
+    if (!(n > 0)) { toast(kind === 'issue' ? 'Enter the qty to book out.' : 'Enter the qty to return.'); return; }
+    // A return comes back from this job and takes its cost off the job, so no more than went out to it (review, 15 Nov 2026).
+    if (kind === 'return') {
+      const mv = ((await (supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }).from('yard_moves').select('kind,qty').eq('site_id', id).eq('stock_id', s.id).in('kind', ['issue', 'return'])).data as { kind: string; qty: number }[] | null) ?? [];
+      const out = mv.reduce((t, m) => t + (m.kind === 'issue' ? 1 : -1) * Math.abs(Number(m.qty || 0)), 0);
+      if (n > out + 1e-9) { toast(out > 0 ? `Only ${yardQty(out)} ${s.unit || ''} went out to this job. New stock from a supplier goes in through Finance › Yard › Book In.` : 'None of this went out to this job. New stock from a supplier goes in through Finance › Yard › Book In.'); return; }
+    }
     if (kind === 'issue' && n > Number(s.qty || 0) && !(await confirmAsk(`Only ${yardQty(s.qty)} ${s.unit || ''} showing in the yard. Book out ${yardQty(n)} anyway? (The count will go below zero — adjust it after.)`, 'Yes', 'No'))) return;
     setBusy(s.id);
     const note = '';
@@ -90,7 +97,7 @@ export default function Yard() {
     setBusy(null);
     if (err) { toast(err); return; }
     const after = Number(s.qty || 0) + (kind === 'issue' ? -n : n);
-    toast(`${kind === 'issue' ? 'Booked out' : 'Booked in'} — ${yardQty(after)} ${s.unit || ''} now in the yard${s.min_qty != null && after <= Number(s.min_qty) ? ' (low stock)' : ''}`);
+    toast(`${kind === 'issue' ? 'Booked out' : 'Returned'} — ${yardQty(after)} ${s.unit || ''} now in the yard${s.min_qty != null && after <= Number(s.min_qty) ? ' (low stock)' : ''}`);
     setQty({ ...qty, [s.id]: '' });
     void refetch(); void qc.invalidateQueries({ queryKey: ['materials', id] });
     if (materialId) router.back();
@@ -121,7 +128,7 @@ export default function Yard() {
         </Card>
       )}
 
-      <Muted style={{ marginBottom: 8 }}>What&apos;s in the yard. {request ? 'Tap Use to fill the request with an item.' : `Book Out sends it to ${site.name}; Book In puts it back in the yard.`}</Muted>
+      <Muted style={{ marginBottom: 8 }}>What&apos;s in the yard. {request ? 'Tap Use to fill the request with an item.' : `Book Out sends it to ${site.name}; Return From Job brings what’s left back to the yard.`}</Muted>
       {!request && <YardLeftovers siteId={id} />}
       {!request && <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>{act('Stock Take', () => router.push('/yardcount' as never), false, '_take')}{act('Not On The List', () => setAdding(true), false, '_new')}</View>}
       {adding && (
@@ -161,7 +168,7 @@ export default function Yard() {
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
               {qtyBox(s.id)}
               {act('Book Out', () => void move(s, 'issue', yardNum(qty[s.id]) ?? 0), true, s.id)}
-              {act('Book In', () => void move(s, 'return', yardNum(qty[s.id]) ?? 0), false, s.id)}
+              {act('Return From Job', () => void move(s, 'return', yardNum(qty[s.id]) ?? 0), false, s.id)}
             </View>
           )}
         </View>

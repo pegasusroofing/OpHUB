@@ -5,7 +5,7 @@
 // and a small search box under each heading, its writing lined up with the heading. A column can have a ▾ choice
 // instead of a box (a status), which can start on one choice (Owed, To Pay…). The Filter / Sort buttons and the search
 // bar above went. usePhoneFind, PhoneHeads and PhoneFindRow are the same pieces for a screen that draws its own rows.
-import { isValidElement, useState, type ReactNode } from 'react';
+import { isValidElement, useEffect, useState, type ReactNode } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { chooseAction } from '@/components/toast';
@@ -123,9 +123,14 @@ export function PhoneClear<T>({ find }: { find: PhoneFind<T> }) {
 // search: the heading sort and the search row (on unless turned off, e.g. a laptop with its own filter bar). find: the
 // screen's own usePhoneFind, when it needs the rows left (for a total). lead: a small cell before the columns on each row
 // (a tick box to pick rows for Approve / Mark Paid), with a gap of its width above it.
-export function PhoneTable<T>({ cols, rows, keyOf, onRow, foot, label = 'Table', search = true, find: given, lead }: { cols: PCol<T>[]; rows: T[]; keyOf: (r: T) => string; onRow?: (r: T) => void; foot?: ReactNode; label?: string; search?: boolean; find?: PhoneFind<T>; lead?: { w: number; cell: (r: T) => ReactNode } }) {
+export function PhoneTable<T>({ cols, rows, keyOf, onRow, foot, label = 'Table', search = true, find: given, lead, onShown }: { cols: PCol<T>[]; rows: T[]; keyOf: (r: T) => string; onRow?: (r: T) => void; foot?: ReactNode; label?: string; search?: boolean; find?: PhoneFind<T>; onShown?: (rows: T[]) => void; lead?: { w: number; cell: (r: T) => ReactNode } }) {
   const own = usePhoneFind(cols, rows, search);
   const find = given || own;
+  // onShown: tells the screen which rows the boxes and ▾ choices have left, for its totals and Select All (review, 15 Nov
+  // 2026: they counted hidden rows too).
+  const shownKey = find.shown.map(keyOf).join('|');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { onShown?.(find.shown); }, [shownKey]);
   const box = boxOf;
   return (
     <>

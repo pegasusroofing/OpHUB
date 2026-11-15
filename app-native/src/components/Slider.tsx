@@ -2,6 +2,8 @@
 // `step` and calls onDone when let go. On an iPhone (web) the page mustn't scroll while you drag, or Safari cancels the
 // drag part-way: touch-action none on the track stops that (Andy, 13 Nov 2026: "doesn't work smoothly on an iPhone"). It
 // settles on 10s, the same as the task's saved percentage (snapPct), so what it shows is what's saved.
+// 15 Nov 2026 (review): a finger moving up or down is the page scrolling, not the bar: the track lets the page scroll
+// up and down (touch-action pan-y), and a mostly-vertical move lets go of the bar without saving anything.
 import { useRef, useState } from 'react';
 import { PanResponder, Platform, Text, View } from 'react-native';
 
@@ -15,6 +17,8 @@ export function Slider({ value, onDone, step = 10, color = '#16A34A' }: { value:
   // Where it last was while dragging: saved on letting go, so it saves exactly what it showed (the let-go event's own
   // position can be a few pixels out on the web).
   const last = useRef(0);
+  // Where the touch started, and which way it is going once it has moved a little (h: the bar, v: the page).
+  const start = useRef({ x: 0, y: 0, dir: '' as '' | 'h' | 'v' });
   // Where the finger is along the track, 0–100, not rounded (so the bar moves smoothly).
   const raw = (pageX: number) => Math.max(0, Math.min(100, ((pageX - left.current) / width.current) * 100));
   const snap = (p: number) => Math.max(0, Math.min(100, Math.round(p / step) * step));
@@ -25,7 +29,7 @@ export function Slider({ value, onDone, step = 10, color = '#16A34A' }: { value:
   const [pan] = useState(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
-    onPanResponderTerminationRequest: () => false,
+    onPanResponderTerminationRequest: () => start.current.dir === 'v',
     onPanResponderGrant: (e) => {
       // The track's left edge on the page. On the web, read it from the page itself (exact, whatever was touched);
       // on a phone app, where you pressed less how far into the track that was.
@@ -35,10 +39,16 @@ export function Slider({ value, onDone, step = 10, color = '#16A34A' }: { value:
         left.current = r.left + (typeof window !== 'undefined' ? window.scrollX : 0);
         width.current = r.width || width.current;
       } else left.current = e.nativeEvent.pageX - e.nativeEvent.locationX;
+      start.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY, dir: '' };
       last.current = raw(e.nativeEvent.pageX); setDrag(last.current);
     },
-    onPanResponderMove: (e) => { last.current = raw(e.nativeEvent.pageX); setDrag(last.current); },
-    onPanResponderRelease: () => { const v = snap(last.current); setDrag(null); latest.current.onDone(v); },
+    onPanResponderMove: (e) => {
+      const st = start.current, dx = e.nativeEvent.pageX - st.x, dy = e.nativeEvent.pageY - st.y;
+      if (!st.dir && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) st.dir = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
+      if (st.dir === 'v') { setDrag(null); return; }
+      last.current = raw(e.nativeEvent.pageX); setDrag(last.current);
+    },
+    onPanResponderRelease: () => { setDrag(null); if (start.current.dir === 'v') return; latest.current.onDone(snap(last.current)); },
     onPanResponderTerminate: () => setDrag(null),
   }));
   const v = drag ?? value;
@@ -47,7 +57,7 @@ export function Slider({ value, onDone, step = 10, color = '#16A34A' }: { value:
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
       <View ref={track as never} {...pan.panHandlers} accessibilityRole="adjustable" accessibilityLabel="Progress" accessibilityValue={{ min: 0, max: 100, now: shown }}
         onLayout={(e) => { width.current = e.nativeEvent.layout.width || 1; }}
-        style={{ flex: 1, height: 44, justifyContent: 'center', cursor: 'pointer', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' } as never}>
+        style={{ flex: 1, height: 44, justifyContent: 'center', cursor: 'pointer', touchAction: 'pan-y', userSelect: 'none', WebkitUserSelect: 'none' } as never}>
         <View pointerEvents="none" style={{ height: 8, borderRadius: 5, backgroundColor: base.line, overflow: 'hidden' }}>
           <View style={{ width: `${v}%`, height: '100%', backgroundColor: color }} />
         </View>

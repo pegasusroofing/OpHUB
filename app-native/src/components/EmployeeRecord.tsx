@@ -72,6 +72,7 @@ export function EmployeeRecord({ userId }: { userId: string }) {
   const items = itemsFor(rec, role);
   const states = items.map((i) => ({ i, ...itemState(i, docs, todayIso(), rec) }));
   const attention = states.filter((s) => s.state !== 'ok').length;
+  const left = !!rec?.end_date && rec.end_date <= todayIso();
   const appr = nextAppraisal(rec, data?.appraisals ?? [], months);
   const full = admin || self;
   const tabs = ([['details', 'Details'], ['docs', 'Documents'], ['perf', 'Performance'], ['bonus', 'Bonus'], ['history', 'History']] as [Tab, string][])
@@ -184,7 +185,7 @@ export function EmployeeRecord({ userId }: { userId: string }) {
           <DateBox value={f.expiry} onChange={(x) => setF({ ...f, expiry: x || '' })} title="Expiry Date" style={{ marginBottom: 12 }} />
           {admin && !self && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}><Text style={{ flex: 1, fontSize: 14, color: base.ink }}>Can {first} See It?</Text><YesNo label={`Can ${first} see it?`} value={!f.hidden} onChange={(x) => setF({ ...f, hidden: !x })} /></View>}
           <Button kind="ghost" title={f.file ? `📎 ${f.file.name}` : 'Choose File…'} onPress={async () => {
-            const r = await DocumentPicker.getDocumentAsync({ type: ['image/*', 'application/pdf'], copyToCacheDirectory: true });
+            const r = await DocumentPicker.getDocumentAsync({ type: ['image/*', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'], copyToCacheDirectory: true });
             if (!r.canceled && r.assets[0]) setF({ ...f, file: { uri: r.assets[0].uri, name: r.assets[0].name, mimeType: r.assets[0].mimeType } });
           }} />
         </View>
@@ -522,7 +523,8 @@ export function EmployeeRecord({ userId }: { userId: string }) {
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
             {full && chip(attention ? `${attention} Document${attention === 1 ? '' : 's'} To Sort` : 'Documents Up To Date', attention ? STATE_TONE.expiring : STATE_TONE.ok)}
-            {!!appr && chip(`Appraisal ${appr.overdue ? 'Overdue' : `Due ${showDate(appr.due)}`}`, appr.overdue ? STATE_TONE.expired : STATE_TONE.missing)}
+            {!!appr && (full || lmPerf) && !left && chip(`Appraisal ${appr.overdue ? 'Overdue' : `Due ${showDate(appr.due)}`}`, appr.overdue ? STATE_TONE.expired : STATE_TONE.missing)}
+            {left && chip(`Left ${showDate(rec?.end_date)}`, STATE_TONE.missing)}
           </View>
         </Card>
         {/* The tabs: across the page on a laptop; on a phone they slide sideways rather than squash (each its own width). */}

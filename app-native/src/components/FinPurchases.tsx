@@ -163,6 +163,8 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   });
   // Tick several to approve, or to mark paid (9219g finPiBulkApprove / finPiBulkPaid).
   const [picks, setSel] = useState<Set<string>>(new Set());
+  // On a phone: the purchase invoices the table's boxes and ▾ have left (null = all), for Select All and the total.
+  const [phoneShown, setPhoneShown] = useState<Set<string> | null>(null);
   const { data: fset } = useFinSettings(me?.org_id);
   const toast = useToast();
   const qc = useQueryClient();
@@ -393,7 +395,9 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
           <>
             {(() => {
               const list = sortBy(data.pinvs.filter(F[cur]).filter(fOK).filter((i) => cur !== 'pm' || !pmF || askedOf[i.id] === pmF).filter((i) => hit(i.supplier_name, i.invoice_no, jobTag(site(i.site_id)), posBy[i.po_id]?.number)), 'invoice_date', 'total');
-              const bulk = true, picked = list.filter((i) => picks.has(i.id));
+              // What's on screen: on a phone, only the rows the column boxes have left (review, 15 Nov 2026).
+              const vis = !desk && phoneShown ? list.filter((i) => phoneShown.has(i.id)) : list;
+              const bulk = true, picked = vis.filter((i) => picks.has(i.id));
               const tick = (i: Row) => <Pressable hitSlop={8} accessibilityRole="checkbox" accessibilityState={{ checked: picks.has(i.id) }} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n; })} style={{ width: 13, height: 13, borderRadius: 3, borderWidth: 1.5, borderColor: picks.has(i.id) ? base.blue : '#c3c8d0', backgroundColor: picks.has(i.id) ? base.blue : '#fff', alignItems: 'center', justifyContent: 'center', alignSelf: 'center' }}>{picks.has(i.id) && <Text style={{ color: '#fff', fontSize: 9, fontWeight: '700', lineHeight: 11 }}>✓</Text>}</Pressable>;
               const refresh = () => { setSel(new Set()); ['finPurchases', 'finBook', 'finOverview', 'finPo'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
               const queryPm = async (i: Row) => {
@@ -447,7 +451,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               const bulkBar = picked.length > 0 ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 10, padding: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10 }}>
                   <Text style={{ fontWeight: '600', color: base.ink, fontSize: 13 }}>{picked.length} Selected · {money(picked.reduce((t, i) => t + Number(i.total || 0), 0))}</Text>
-                  {picked.length < list.length && <Pressable onPress={() => setSel(new Set(list.map((i) => i.id)))}><Text style={{ color: base.blue, fontWeight: '500', fontSize: 13 }}>Select All ({list.length})</Text></Pressable>}
+                  {picked.length < vis.length && <Pressable onPress={() => setSel(new Set(vis.map((i) => i.id)))}><Text style={{ color: base.blue, fontWeight: '500', fontSize: 13 }}>Select All ({vis.length})</Text></Pressable>}
                   <Pressable onPress={() => setSel(new Set())}><Text style={{ color: base.slate, fontSize: 13 }}>Clear</Text></Pressable>
                   <View style={{ flex: 1 }} />
                   {waiting > 0 && <Button small title={`Approve ${waiting}`} onPress={() => void approveAll()} />}
@@ -485,14 +489,14 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               // A phone: a table like the rest of Finance, a tick at the start of each row for Approve / Mark Paid (Andy, 14 Nov 2026).
               if (list.length) return (
                 <>
-                  <PhoneTable key={`pinv${cur}`} label="Purchase invoices" rows={list} keyOf={(i) => i.id} onRow={(i) => router.push(`/fin/pinv/${i.id}` as never)} lead={bulk ? { w: 16, cell: tick } : undefined}
+                  <PhoneTable key={`pinv${cur}`} label="Purchase invoices" rows={list} keyOf={(i) => i.id} onShown={(r) => setPhoneShown(new Set(r.map((i) => i.id)))} onRow={(i) => router.push(`/fin/pinv/${i.id}` as never)} lead={bulk ? { w: 16, cell: tick } : undefined}
                     cols={[
                       { k: 'sup', l: 'Supplier', lines: 2, main: (i) => i.supplier_name || 'Supplier', sub: (i) => [i.invoice_no, siteId ? '' : jobTag(site(i.site_id))].filter(Boolean).join(' · '), find: (i) => `${i.supplier_name || ''} ${i.invoice_no || ''} ${jobTag(site(i.site_id))} ${posBy[i.po_id]?.number || ''}` },
                       { k: 's', l: 'Status', w: 88, center: true, lines: 2, main: (i) => piWord(i), tone: (i) => piTone(i), sub: (i) => (posBy[i.po_id] ? posBy[i.po_id].number : 'No PO'), sort: (i) => piWord(i) },
                       { k: 'g', l: 'Gross', w: 80, right: true, bold: true, bigFirst: true, main: (i) => money(i.total), sub: (i) => fdate(i.invoice_date), sort: (i) => Number(i.total || 0) },
                     ]} />
                   {bulkBar}
-                  {list.length > 1 && <Muted>Total ({list.length}): net {money(list.reduce((t, i) => t + Number(i.net || 0), 0))} · VAT {money(list.reduce((t, i) => t + Number(i.vat || 0), 0))} · gross {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</Muted>}
+                  {vis.length > 1 && <Muted>Total ({vis.length}): net {money(vis.reduce((t, i) => t + Number(i.net || 0), 0))} · VAT {money(vis.reduce((t, i) => t + Number(i.vat || 0), 0))} · gross {money(vis.reduce((t, i) => t + Number(i.total || 0), 0))}</Muted>}
                 </>
               );
               return list.length ? (

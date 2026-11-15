@@ -25,7 +25,10 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
     {id: 'ra2', org_id: O, site_id: S1, number: 2, status: 'certified', valuation_date: '2026-09-30', cert_date: '2026-10-10', cert_gross: 40000, cert_net: 38000, cert_retention: 2000},
   ];
   db.fin_invoices = (db.fin_invoices || []).concat([
-    {id: 'rinv1', org_id: O, site_id: S1, number: 'INV-900', status: 'issued', issue_date: '2026-10-20', net: 1000, vat: 0, total: 1000, paid: 0, lines: [], created_at: '2026-10-20T09:00:00Z'},
+    // The job's final invoice (20 Oct), then its retention release (2 Nov): Date Of PC comes from the final invoice, never
+    // the retention release (review, 15 Nov 2026).
+    {id: 'finv1', org_id: O, site_id: S1, number: 'INV-899', status: 'paid', issue_date: '2026-10-20', net: 5000, vat: 0, total: 5000, paid: 5000, lines: [], created_at: '2026-10-20T08:00:00Z'},
+    {id: 'rinv1', org_id: O, site_id: S1, number: 'INV-900', status: 'issued', issue_date: '2026-11-02', net: 1000, vat: 0, total: 1000, paid: 0, lines: [], created_at: '2026-11-02T09:00:00Z'},
     {id: 'dinv1', org_id: O, site_id: S1, number: null, status: 'draft', issue_date: '2026-11-14', net: 0, vat: 0, total: 0, lines: [], bill_name: null, bill_address: null, bill_email: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString()},
   ]);
   db.job_finance = (db.job_finance || []).filter((j) => j.site_id !== S1).concat([{id: 'jf1', org_id: O, site_id: S1, billing_type: 'application', ret1_invoice_id: 'rinv1'}]);

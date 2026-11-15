@@ -14,7 +14,8 @@ const B = 'http://localhost:8081', shot = (p, n) => p.screenshot({path: `shots/a
   const go = async (u, ms = 5000) => { await page.goto(B + u); await page.waitForTimeout(ms); };
   const text = () => page.locator('body').innerText();
   await go('/login', 6000); await shot(page, 'login');
-  say('login title colour', await page.getByText('OpHUB', {exact: true}).first().evaluate((e) => getComputedStyle(e).color));
+  // The sign-in page's header changed on 14 Nov 2026 (OpHUB in two colours), so its plain 'OpHUB' title may not be there.
+  say('login title colour', await page.getByText('OpHUB', {exact: true}).first().evaluate((e) => getComputedStyle(e).color, null, {timeout: 3000}).catch(() => 'n/a (new sign-in header)'));
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
 

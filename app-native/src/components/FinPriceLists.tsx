@@ -24,6 +24,8 @@ import { base, useDesk } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const keyOf = (n: unknown) => String(n || '').trim().toLowerCase();
+/** The page for prices and lists with no supplier named (opened by this, not by the words shown). */
+const NO_SUPPLIER = '*none';
 const rid = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}${Math.random().toString(36).slice(2, 8)}`);
 /** One priced item on a supplier's page: from a price list, or learned / added (the Price Book). */
 type Price = { id: string; desc: string; code: string; unit: string; rate: number | null; from: string; date: string; list?: string; pb?: PB };
@@ -58,10 +60,10 @@ const open = (name: string) => router.push({ pathname: '/fin/purchases', params:
 function Suppliers({ data }: { data: { lists: Row[]; items: Row[]; book: PB[]; sups: Row[] } }) {
   const desk = useDesk();
   const listBy: Record<string, Row> = {}; data.lists.forEach((l) => { listBy[l.id] = l; });
-  const by: Record<string, { name: string; items: number; lists: number; date: string }> = {};
+  const by: Record<string, { name: string; key: string; items: number; lists: number; date: string }> = {};
   const add = (name: unknown, date: unknown, kind: 'item' | 'list') => {
     const k = keyOf(name); const n = String(name || '').trim() || 'No Supplier Named';
-    const e = (by[k] = by[k] || { name: n, items: 0, lists: 0, date: '' });
+    const e = (by[k] = by[k] || { name: n, key: k, items: 0, lists: 0, date: '' });
     if (kind === 'item') e.items++; else e.lists++;
     const d = String(date || '').slice(0, 10); if (d > e.date) e.date = d;
   };
@@ -81,7 +83,7 @@ function Suppliers({ data }: { data: { lists: Row[]; items: Row[]; book: PB[]; s
       <Muted style={{ marginBottom: 8 }}>Each supplier’s prices: their price lists, and prices picked up from their quotes and invoices. New POs from the Materials tile are priced from here until the real price comes in. Tap a supplier to see their prices.</Muted>
       <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 10 }}><Button grow title="+ Add A Supplier’s Prices" onPress={() => void addSupplier()} /></View>
       {rows.length && desk ? (
-        <FinTable rows={rows} keyOf={(r) => r.name} onRow={(r) => open(r.name)} defaultSort={{ k: 's', dir: 'asc' } as never}
+        <FinTable rows={rows} keyOf={(r) => r.name} onRow={(r) => open(r.key ? r.name : NO_SUPPLIER)} defaultSort={{ k: 's', dir: 'asc' } as never}
           cols={[
             { k: 's', l: 'Supplier', flex: 2, min: 180, sort: (r) => r.name.toLowerCase(), text: (r) => r.name, render: (r) => <Cell bold>{r.name}</Cell> },
             { k: 'l', l: 'Price Lists', sort: (r) => r.lists, render: (r) => <Cell>{r.lists ? String(r.lists) : '—'}</Cell> },
@@ -90,7 +92,7 @@ function Suppliers({ data }: { data: { lists: Row[]; items: Row[]; book: PB[]; s
           ]}
           footLabel={(shown) => `${shown.length} Supplier${shown.length === 1 ? '' : 's'}`} />
       ) : rows.length ? (
-        <PhoneTable label="Price lists" rows={rows} keyOf={(r) => r.name} onRow={(r) => open(r.name)}
+        <PhoneTable label="Price lists" rows={rows} keyOf={(r) => r.name} onRow={(r) => open(r.key ? r.name : NO_SUPPLIER)}
           cols={[
             { k: 's', l: 'Supplier', lines: 2, main: (r) => r.name, sub: (r) => (r.lists ? `${r.lists} Price List${r.lists === 1 ? '' : 's'}` : ''), sort: (r) => r.name.toLowerCase() },
             { k: 'n', l: 'Items', w: 56, center: true, main: (r) => String(r.items), sort: (r) => r.items, bigFirst: true },
@@ -111,7 +113,9 @@ function SupplierPrices({ name, data }: { name: string; data: { lists: Row[]; it
   const [price, setPrice] = useState<PB | 'new' | null>(null);
   const desk = useDesk();
   if (!me) return null;
-  const k = keyOf(name);
+  const none = name === NO_SUPPLIER;
+  const k = none ? '' : keyOf(name);
+  const shownName = none ? 'No Supplier Named' : name;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['finPriceLists'] }); void qc.invalidateQueries({ queryKey: ['finPQuotes'] }); void qc.invalidateQueries({ queryKey: ['finPriceBook'] }); };
   const listBy: Record<string, Row> = {}; data.lists.forEach((l) => { listBy[l.id] = l; });
   const lists = data.lists.filter((l) => keyOf(l.supplier_name) === k).sort((a, b) => String(b.quote_date || b.created_at || '').localeCompare(String(a.quote_date || a.created_at || '')));
@@ -151,10 +155,10 @@ function SupplierPrices({ name, data }: { name: string; data: { lists: Row[]; it
   };
   return (
     <View>
-      <Text accessibilityRole="header" style={{ fontSize: 20, fontWeight: '700', color: base.ink, marginBottom: 10 }}>{name}</Text>
+      <Text accessibilityRole="header" style={{ fontSize: 20, fontWeight: '700', color: base.ink, marginBottom: 10 }}>{shownName}</Text>
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
-        <Button grow oneLine busy={!!busy} title={busy || '📥 Upload Price List'} onPress={() => void upload()} />
-        <Button grow oneLine kind="ghost" title="+ Add A Price" onPress={() => setPrice('new')} />
+        <Button grow oneLine busy={!!busy} title={busy || '📥 Upload Price List'} onPress={() => (none ? toast('Choose the supplier first: + Add A Supplier’s Prices.') : void upload())} />
+        <Button grow oneLine kind="ghost" title="+ Add A Price" onPress={() => (none ? toast('Choose the supplier first: + Add A Supplier’s Prices.') : setPrice('new'))} />
       </View>
       {editList && <PriceListEdit qid={editList} onClose={(saved) => { setEditList(null); if (saved) refresh(); }} />}
       {price && <PriceForm cur={price === 'new' ? null : price} supplier={name} onClose={() => setPrice(null)} />}
@@ -199,7 +203,7 @@ function SupplierPrices({ name, data }: { name: string; data: { lists: Row[]; it
             { k: 'p', l: 'Price', w: 96, right: true, bold: true, bigFirst: true, main: (p) => (p.rate != null ? money(p.rate) : '—'), sub: (p) => p.from, sort: (p) => p.rate,
               choose: { opts: [['', 'All'], ['list', 'Price Lists'], ['learned', 'Picked Up']], test: (p, v) => (v === 'list' ? !!p.list : !!p.pb) } },
           ]} />
-      ) : <Empty>No prices from {name} yet. Upload their price list (Excel or CSV) or add a price.</Empty>}
+      ) : <Empty>No prices from {shownName} yet. Upload their price list (Excel or CSV) or add a price.</Empty>}
     </View>
   );
 }

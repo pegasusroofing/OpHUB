@@ -121,7 +121,13 @@ export const APPRAISAL_SCORES = ['Quality Of Work', 'Health & Safety', 'Timekeep
 export type Appraisal = { id: string; user_id: string; manager_id: string | null; due_date: string; status: 'due' | 'self_done' | 'done'; self_answers: Record<string, string> | null; review: { scores?: Record<string, number>; comments?: string; goals?: string } | null; rating: number | null; summary: string | null; completed_at: string | null; created_at: string };
 export const APPRAISAL_STATUS: Record<string, string> = { due: 'Waiting For Their Side', self_done: 'Ready For Review', done: 'Signed Off' };
 
-const addMonths = (d: string, n: number) => { const x = new Date(`${d.slice(0, 10)}T12:00:00`); x.setMonth(x.getMonth() + n); return x.toISOString().slice(0, 10); };
+/** n months on, kept to the end of a shorter month (31 Aug + 6 = 28/29 Feb, not 3 Mar). */
+export const addMonths = (d: string, n: number) => {
+  const [y, m, day] = d.slice(0, 10).split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1 + n, 1));
+  const last = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 0)).getUTCDate();
+  return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(Math.min(day, last)).padStart(2, '0')}`;
+};
 /** When the next appraisal is due: an open one's date; else the last signed off + the cycle; else the end of probation;
  *  else the start date + the cycle. Null if there's nothing to go on. */
 export function nextAppraisal(rec: HrRecord | null | undefined, apps: Appraisal[], months = 12, today = new Date().toISOString().slice(0, 10)): { due: string; open: Appraisal | null; overdue: boolean } | null {

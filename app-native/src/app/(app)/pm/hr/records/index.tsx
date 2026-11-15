@@ -33,6 +33,7 @@ export default function EmployeeRecords() {
   const status = (id: string, role: string) => {
     if (!team) return { toSort: 0, expired: 0, apprOver: false };
     const rec = recOf(id), docs = (ov?.docs ?? []).filter((d) => d.user_id === id);
+    if (rec?.end_date && rec.end_date <= today) return { toSort: 0, expired: 0, apprOver: false };
     const st = itemsFor(rec, role).map((i) => itemState(i, docs, today, rec).state);
     const appr = nextAppraisal(rec, (ov?.apps ?? []).filter((a) => a.user_id === id), months, today);
     return { toSort: st.filter((s) => s !== 'ok').length, expired: st.filter((s) => s === 'expired').length, apprOver: !!appr?.overdue };

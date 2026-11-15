@@ -122,7 +122,10 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   const sideW = menuBtn && onBack ? 80 : home ? logoW : 44;
   const menu = menuBtn ? (
     <Pressable onPress={openSideMenu} hitSlop={8} accessibilityRole="button" accessibilityLabel="Open the menu" style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: home ? base.paper : 'transparent' }}>
-      <Text style={{ fontSize: 20, lineHeight: 22, color: base.ink }}>☰</Text>
+      {/* Three drawn lines, not the ☰ character: an iPhone's font sits that low in the circle (Andy, 15 Nov 2026). */}
+      <View pointerEvents="none" style={{ width: 18, gap: 4 }}>
+        {[0, 1, 2].map((i) => <View key={i} style={{ height: 2, borderRadius: 1, backgroundColor: base.ink }} />)}
+      </View>
     </Pressable>
   ) : null;
   const noSelect = { userSelect: 'none' } as never;

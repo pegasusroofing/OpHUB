@@ -276,7 +276,8 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
                   if (k === 'view') void view(r);
                   else if (k === 'revise') {
                     // Built in the app: back into its builder, where Issue re-issues it as the next revision and everyone signs again.
-                    const b = ((await supabase.from('rams_builds').select('id').or(`ra_doc_id.eq.${r.id},ms_doc_id.eq.${r.id}`).limit(1)).data as { id: string }[] | null)?.[0];
+                    // The build that issued it first (a newer draft replacing it holds the same link): issued, oldest first.
+                    const b = ((await supabase.from('rams_builds').select('id').or(`ra_doc_id.eq.${r.id},ms_doc_id.eq.${r.id}`).order('issued_at', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true }).limit(1)).data as { id: string }[] | null)?.[0];
                     if (b) { router.push(`/sites/${site.id}/hs/rams/build/${b.id}` as never); toast('Make your changes, then Re-issue on the Issue tab'); return; }
                     // Uploaded: the revised PDF replaces it and everyone signs again.
                     if (!(await confirmAsk(`Revise "${r.name}"? Choose the revised PDF — it replaces this one (kept under Superseded) and everyone on the job is asked to sign again.`, 'Choose PDF'))) return;

@@ -23,10 +23,23 @@ export function recordPath(p: string) {
 const finTrail: string[] = [];
 let finBacking = false;
 /** Called on every page change, with the address and its query. */
-export function recordFin(url: string) {
-  if (!/^\/fin(\/|$|\?)/.test(url)) { finTrail.length = 0; finBacking = false; return; }
-  if (finBacking) { finBacking = false; if (finTrail[finTrail.length - 1] === url) return; }
-  if (finTrail[finTrail.length - 1] === url) return;
+/** The address without empty settings (?po= left behind when a form closes). */
+const tidyUrl = (url: string) => {
+  const [p, q = ''] = url.split('?');
+  const kept = q.split('&').filter((x) => x && x.indexOf('=') > 0 && !/=$/.test(x));
+  return kept.length ? `${p}?${kept.join('&')}` : p;
+};
+const paramsOf = (url: string) => (url.split('?')[1] || '').split('&').filter(Boolean);
+export function recordFin(raw: string) {
+  if (!/^\/fin(\/|$|\?)/.test(raw)) { finTrail.length = 0; finBacking = false; return; }
+  const url = tidyUrl(raw);
+  const last = finTrail[finTrail.length - 1];
+  if (finBacking) { finBacking = false; if (last === url) return; }
+  if (last === url) return;
+  // Back with the browser or a swipe: step back along the trail too (review, 15 Nov 2026).
+  if (finTrail[finTrail.length - 2] === url) { finTrail.pop(); return; }
+  // The same page dropping one of its own settings (a form closing): replace, so back doesn't reopen it.
+  if (last && last.split('?')[0] === url.split('?')[0] && paramsOf(url).every((x) => paramsOf(last).includes(x))) { finTrail[finTrail.length - 1] = url; return; }
   finTrail.push(url);
   if (finTrail.length > 60) finTrail.shift();
 }
