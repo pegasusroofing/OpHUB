@@ -29,9 +29,6 @@ import { seesHomeFinance } from '@/lib/homeTiles';
 import { roleLabel } from '@/lib/roles';
 import { base, space, useDesk, useTheme } from '@/theme/theme';
 
-/** How far in Home's headings start: a number tile's 1px edge plus its inside space (18 on a laptop, 8 on a phone). */
-export const homeInset = (desk: boolean) => (desk ? 19 : 9);
-
 export function PmHome() {
   const { me, org, signOut } = useAuth();
   const t = useTheme();
@@ -99,10 +96,9 @@ export function PmHome() {
 
   return (
     <Screen>
-      {/* The date, greeting and headings line up with the writing inside the tiles below (Andy, 15 Nov 2026: "good morning
-          still sits slightly left of the tile below"): HOME_INSET is a tile's edge plus its inside space. */}
-      <Text style={{ fontSize: 12.5, color: base.slate, fontWeight: '600', paddingLeft: homeInset(desk) }}>{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
-      <Text style={[heading(800), { fontSize: 21, color: base.ink, marginBottom: 10, letterSpacing: -0.2, paddingLeft: homeInset(desk) }]}>{greeting()}{first ? `, ${first}` : ''}</Text>
+      {/* The date, greeting and headings start at the tiles' outer edge (Andy, 15 Nov 2026). */}
+      <Text style={{ fontSize: 12.5, color: base.slate, fontWeight: '600' }}>{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
+      <Text style={[heading(800), { fontSize: 21, color: base.ink, marginBottom: 10, letterSpacing: -0.2 }]}>{greeting()}{first ? `, ${first}` : ''}</Text>
       {!desk && <SearchButton />}
       <HowTo k="home" />
       <AdminGuide />
@@ -201,7 +197,7 @@ function TodayBar({ rows, go, first }: { rows: TodayRow[]; go: (p: string) => ()
   const tw = w ? (w - 10) / 2 : 170;
   return (
     <View style={{ marginBottom: space.m }} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
-      <Text style={{ fontWeight: '700', color: base.ink, fontSize: 16, marginBottom: 8, paddingLeft: homeInset(false) }}>Today</Text>
+      <Text style={{ fontWeight: '700', color: base.ink, fontSize: 16, marginBottom: 8 }}>Today</Text>
       <ScrollView horizontal testID="today-bar" showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
         {first?.(tw)}
         {rows.map((r, k) => (

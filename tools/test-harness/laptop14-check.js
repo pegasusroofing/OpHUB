@@ -76,7 +76,7 @@ const VP = {viewport: {width: 1300, height: 900}};
   const al = await page.evaluate(() => {
     const leaf = (re) => [...document.querySelectorAll('div')].find((d) => d.childElementCount === 0 && re.test(d.innerText) && d.getBoundingClientRect().width > 0);
     const L = (e) => e ? Math.round(e.getBoundingClientRect().left) : -1;
-    // Where the writing starts (15 Nov 2026: the date, greeting and headings line up with the writing in the tiles).
+    // Where the writing starts (15 Nov 2026: the date, greeting and headings start at the tiles' outer edge).
     const T = (e) => { if (!e) return -1; const r = document.createRange(); r.selectNodeContents(e); return Math.round(r.getBoundingClientRect().left); };
     const tile = [...document.querySelectorAll('[role="button"], a, div')].find((d) => /^\d+\s*Live projects$/i.test((d.innerText || '').trim()) && d.getBoundingClientRect().width < 400);
     const tr = tile ? tile.getBoundingClientRect() : null;
@@ -86,8 +86,11 @@ const VP = {viewport: {width: 1300, height: 900}};
     return { tileL: tr ? Math.round(tr.left) : -1, date: T(leaf(/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday) \d+ /)), hi: T(leaf(/^Good (morning|afternoon|evening)/)), next: T(leaf(/^Next 5 Days$/)), tileText: T(leaf(/^Live projects$/)), dayL: dayBox ? Math.round(dayBox.getBoundingClientRect().left) : -1,
       tileR: notif ? Math.round(notif.getBoundingClientRect().right) : -1, calR: cal ? Math.round(cal.getBoundingClientRect().right) : -1, logoR: lg ? Math.round(lg.getBoundingClientRect().right) : -1 };
   });
-  check(al.dayL === al.tileL && al.tileText > al.tileL && [al.date, al.hi, al.next].every((x) => Math.abs(x - al.tileText) <= 1), `left side: the tiles line up, and the date, greeting and Next 5 Days start where the writing in the tiles starts (${JSON.stringify(al)})`);
+  check([al.date, al.hi, al.next, al.dayL].every((x) => Math.abs(x - al.tileL) <= 1), `left side: the date, greeting and Next 5 Days start at the tiles' outer edge (${JSON.stringify(al)})`);
   check([al.calR, al.logoR].every((x) => Math.abs(x - al.tileR) <= 1), 'right side lines up with the tiles');
+  // The Calendar button is the same height as the Next 5 Days heading (15 Nov 2026).
+  const hh = await page.evaluate(() => { const h = [...document.querySelectorAll('div')].find((d) => !d.children.length && d.innerText === 'Next 5 Days'); const c = document.querySelector('[aria-label="Open the calendar"]'); return { heading: h ? Math.round(h.getBoundingClientRect().height) : -1, button: c ? Math.round(c.getBoundingClientRect().height) : -2 }; });
+  check(hh.heading > 0 && Math.abs(hh.heading - hh.button) <= 1, `the Calendar button is the same height as Next 5 Days (${JSON.stringify(hh)})`);
   await page.screenshot({path: path.join(SHOTS, 'laptop-home.png')});
   await page.screenshot({path: path.join(SHOTS, 'laptop-home-full.png'), fullPage: true});
 
