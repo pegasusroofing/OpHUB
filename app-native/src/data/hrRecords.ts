@@ -38,6 +38,11 @@ export async function saveHrSettings(s: { months?: number; lmSections?: string[]
   const r = await rpc('hr_save_settings', { p_months: s.months ?? null, p_lm_sections: s.lmSections ?? null, p_onedrive: s.onedrive ?? null, p_clear_onedrive: !!s.clearOneDrive });
   return !r.error;
 }
+/** The parts of someone's folder the signed-in person may see as their line manager or someone HR allowed (15 Nov 2026:
+ * set person by person; the database's own rule, hr_lm_sees). */
+export function useHrSectionsFor(userId: string | null | undefined, on: boolean) {
+  return useQuery({ queryKey: ['hrSectionsFor', userId], enabled: on && !!userId, queryFn: async () => { const r = await rpc('hr_sections_for', { p_user: userId }); return (Array.isArray(r.data) ? r.data : []) as string[]; } });
+}
 /** The people the signed-in person line-manages. */
 export function useMyReports(on: boolean) {
   return useQuery({ queryKey: ['hrMyReports'], enabled: on, queryFn: async () => { const r = await rpc('hr_my_reports'); return (Array.isArray(r.data) ? r.data : []) as { user_id: string; job_title: string | null }[]; } });
@@ -55,7 +60,7 @@ export type HrWho = { set_up: boolean; team_admins: boolean; team_pms: boolean; 
   /** Besides HR: who may see the signed-in person's folder (allowed by HR, or their line manager). */
   sees_mine: { id: string; name: string }[];
   /** For HR: every "viewer may see user's folder" HR has allowed (Andy, 15 Nov 2026: person by person, not by team). */
-  grants: { viewer_id: string; user_id: string }[] };
+  grants: { viewer_id: string; user_id: string; sections?: string[] | null }[] };
 const whoOf = (d: unknown): HrWho | null => {
   if (!d || Array.isArray(d) || typeof d !== 'object') return null;
   const w = d as Partial<HrWho>;
@@ -72,6 +77,12 @@ export async function saveHrTeam(t: { admins: boolean; pms: boolean; people: str
 /** Sets whose folders one person may see besides their own (replaces their list; HR only). */
 export async function saveViewerAccess(viewerId: string, people: string[]): Promise<boolean> {
   return !(await rpc('hr_set_viewer_access', { p_viewer: viewerId, p_people: people })).error;
+}
+/** One person's HR access in one go (HR only): sees everyone's folders, whose folders they see, and which parts. */
+export async function savePersonAccess(viewerId: string, everyone: boolean, people: string[], sections: string[]): Promise<string | null> {
+  const r = await rpc('hr_set_person_access', { p_viewer: viewerId, p_everyone: everyone, p_people: people, p_sections: sections });
+  if (!r.error) return null;
+  return /at least one/i.test(String((r.error as { message?: string }).message ?? '')) ? 'Someone has to see everyone’s folders. Choose another person first.' : 'Could not save — try again.';
 }
 /** Links the HR folder in OneDrive. An error to show, or null when it's saved. */
 export async function linkHrFolder(f: { id: string; name: string; driveId?: string | null }): Promise<string | null> {

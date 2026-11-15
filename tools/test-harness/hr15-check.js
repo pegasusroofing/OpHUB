@@ -2,7 +2,7 @@
 // their folder, and then the admin sets who else can see it ... I can also allow pm 1 to see estimator 1 and pm 3 (as
 // that's their team, but I don't want to group by team just individual)", and the HR folder in OneDrive "where access is
 // managed".
-// The company admin: Who Sees Everyone's Folders (every company admin to start; leaving yourself out asks first); Who
+// Compact (Andy, 15 Nov 2026: grouped by role, tap someone for a pop-up of who and what they see). The company admin: grouped by role; Paul Planner sees Jake Morris and Dave Price (Licences & Cards too); Tom Hughes sees everyone's; switching company admins off asks first. Before that: Who Sees Everyone's Folders; Who
 // Can See Whose Folder, person by person (Paul Planner allowed Jake Morris and Dave Price); the HR folder (a folder
 // already used in OpHUB refused; who can open it shown; Copy All Now); the change log; the HR folder can't be picked for
 // anything else. A PM allowed to see Jake: HR (holiday, policies), their own folder and Jake's (the parts HR allows), not
@@ -54,6 +54,14 @@ const setFakes = () => {
       S.grants = S.grants.filter((g) => g.viewer_id !== b.p_viewer).concat((b.p_people || []).map((u) => ({viewer_id: b.p_viewer, user_id: u})));
       stamp(`${nameOf(b.p_viewer)} can see the folders of ${(b.p_people || []).map(nameOf).sort().join(', ')}.`); return true;
     }
+    if (name === 'hr_set_person_access') {
+      if (!onTeam()) return {__status: 400, body: {message: 'HR team only'}};
+      S.set_up = true; if (S.admins === null) S.admins = true;
+      S.named = b.p_everyone ? [...new Set([...S.named, b.p_viewer])] : S.named.filter((x) => x !== b.p_viewer);
+      S.grants = S.grants.filter((g) => g.viewer_id !== b.p_viewer).concat((b.p_people || []).map((u) => ({viewer_id: b.p_viewer, user_id: u, sections: b.p_sections})));
+      stamp(`${nameOf(b.p_viewer)}: ${b.p_everyone ? 'sees everyone’s folders' : 'sees the folders of ' + (b.p_people || []).map(nameOf).sort().join(', ')}.`); return true;
+    }
+    if (name === 'hr_sections_for') { const g = S.grants.find((x) => x.viewer_id === ME.id && x.user_id === b.p_user); return g ? (g.sections && g.sections.length ? g.sections : ['performance', 'emergency']) : []; }
     if (name === 'hr_save_settings') {
       if (b.p_onedrive && b.p_onedrive.id === 'USED1') return {__status: 400, body: {code: 'P0001', message: 'linked_elsewhere'}};
       if (b.p_lm_sections) S.lm = b.p_lm_sections;
@@ -107,36 +115,50 @@ const pressChange = (page, name) => page.evaluate((n) => {
   check(/Every company admin sees everyone’s folders/.test(t) && /Paul Planner/.test(t) && /Jake Morris/.test(t) && /Tom Hughes/.test(t), 'the admin sees everyone’s folder; every company admin does, to start');
   await page.getByLabel('HR Access', {exact: true}).click(); await page.waitForTimeout(3500);
   t = await body();
-  check(/Who Sees Everyone’s Folders/.test(t) && /All Company Admins/.test(t) && /Named People/.test(t) && !/All Project Managers/.test(t), 'Who Sees Everyone’s Folders: company admins and named people (no all-PMs switch)');
-  check(t.includes(ME.name) && /This Person Sees Everyone’s Folders/.test(t) && !/Save Changes/.test(t), 'to start: the company admins (me); nothing to save');
-  check(/Who Can See Whose Folder/.test(t) && /Their own folder only/.test(t), 'Who Can See Whose Folder: everyone their own folder only, to start');
+  check(/Who Can See What/.test(t) && /Company Admins · \d+/.test(t) && /Project Managers · \d+/.test(t) && /Operatives · 2/.test(t), 'grouped by role, with how many in each');
+  check(/Paul Planner/.test(t) && /Own Only/.test(t) && /Everyone’s/.test(t) && !/Jake Morris/.test(t), 'one line each (admins: everyone’s; others: own only); operatives folded away');
+  check(!/Who Sees Everyone’s Folders/.test(t) && !/Who Can See Whose Folder/.test(t) && !/Through OpHUB/.test(t), 'compact: no long sections on the page');
   await page.screenshot({path: path.join(SHOTS, 'hr-access-start.png'), fullPage: true});
 
-  // Person by person: Paul Planner may see Jake Morris and Dave Price.
-  check(await pressChange(page, 'Paul Planner'), 'Paul Planner’s row has Change');
-  await page.waitForTimeout(1500);
-  check(/Whose Folders Can Paul Planner See\?/.test(await body()), 'Change opens Whose Folders Can Paul Planner See?');
-  await page.getByLabel('Jake Morris: Yes', {exact: true}).last().click(); await page.waitForTimeout(300);
-  await page.getByLabel('Dave Price: Yes', {exact: true}).last().click(); await page.waitForTimeout(300);
+  // Tap Paul Planner: add Jake Morris and Dave Price, parts: Licences & Cards as well.
+  await page.getByLabel('Paul Planner: Own Only', {exact: true}).click(); await page.waitForTimeout(1500);
+  t = await body();
+  check(/Paul Planner · Project Manager/.test(t) && /Sees Everyone’s Folders/.test(t) && /Whose Folders They Can See/.test(t) && /Who Can See Paul’s Folder/.test(t), 'the pop-up: sees everyone’s, whose folders, who sees his');
+  await page.getByLabel('Add Someone', {exact: true}).last().click(); await page.waitForTimeout(600); await page.getByText('Jake Morris · Operative', {exact: true}).last().click(); await page.waitForTimeout(500);
+  await page.getByLabel('Add Someone', {exact: true}).last().click(); await page.waitForTimeout(600); await page.getByText('Dave Price · Project Manager', {exact: true}).last().click(); await page.waitForTimeout(500);
+  check(/What They See Of Those/.test(await body()), 'once someone’s added: what he sees of them');
+  await page.getByLabel('Licences & Cards: Yes', {exact: true}).last().click(); await page.waitForTimeout(300);
   await page.screenshot({path: path.join(SHOTS, 'hr-viewer-pop.png')});
   await page.getByText('Save', {exact: true}).last().click(); await page.waitForTimeout(2500);
-  const g = S.grants.filter((x) => x.viewer_id === 'pmx9').map((x) => x.user_id).sort();
-  check(g.length === 2 && g.includes('o1'), `saved: Paul Planner may see Jake Morris and Dave Price (${g.join(', ')})`);
-  check(/Sees: (Dave Price, Jake Morris|Jake Morris, Dave Price)/.test(await body()), 'his row now says who he sees');
+  const g = S.grants.filter((x) => x.viewer_id === 'pmx9');
+  check(g.length === 2 && g.some((x) => x.user_id === 'o1') && (g[0].sections || []).includes('licences') && (g[0].sections || []).includes('performance'), `saved: Jake Morris and Dave Price, with Licences & Cards (${JSON.stringify(g)})`);
+  check(/Sees 2 Others/.test(await body()), 'his line now says Sees 2 Others');
 
-  // Leaving myself out of Who Sees Everyone's asks first; No changes nothing.
-  await page.getByLabel('All Company Admins: No', {exact: true}).click(); await page.waitForTimeout(500);
-  await page.getByText('Save Changes', {exact: true}).click(); await page.waitForTimeout(1200);
-  check(/Choose at least one person/.test(await body()), 'with no one left, it asks for at least one person');
-  await page.getByText('OK', {exact: true}).last().click(); await page.waitForTimeout(600);
-  await page.getByLabel('Add Someone', {exact: true}).last().click(); await page.waitForTimeout(600); await page.getByText('Tom Hughes', {exact: true}).last().click(); await page.waitForTimeout(500);
-  await page.getByText('Save Changes', {exact: true}).click(); await page.waitForTimeout(1200);
-  check(/You’re not in this list/.test(await body()), 'leaving myself out asks first');
+  // Tom Hughes sees everyone's (operatives opened first).
+  await page.getByLabel('Operatives: show', {exact: true}).click(); await page.waitForTimeout(600);
+  await page.getByLabel('Tom Hughes: Own Only', {exact: true}).click(); await page.waitForTimeout(1200);
+  await page.getByLabel('Sees Everyone’s Folders: Yes', {exact: true}).last().click(); await page.waitForTimeout(300);
+  check(!/Whose Folders They Can See/.test(await body()), 'Yes to everyone’s hides the person-by-person part');
+  await page.getByText('Save', {exact: true}).last().click(); await page.waitForTimeout(2500);
+  check(S.named.includes('o2'), 'saved: Tom Hughes sees everyone’s folders');
+
+  // Switching company admins off asks first; No changes nothing.
+  await page.getByLabel('Company Admins See Everyone’s Folders: No', {exact: true}).click(); await page.waitForTimeout(1200);
+  check(/Switch this off\?/.test(await body()), 'switching company admins off asks first');
   await page.getByText('No', {exact: true}).last().click(); await page.waitForTimeout(800);
-  check(!S.set_up, 'No: nothing saved');
-  await page.getByText('Cancel', {exact: true}).click(); await page.waitForTimeout(600);
+  check(S.admins !== false, 'No: nothing changed');
+
+  // What line managers see, and the changes, each in a pop-up.
+  await page.getByLabel('What Line Managers See', {exact: true}).click(); await page.waitForTimeout(1200);
+  await page.getByLabel('Job History: Yes', {exact: true}).last().click(); await page.waitForTimeout(1200);
+  check((S.lm || []).includes('history'), 'What Line Managers See: Job History saved');
+  await page.getByLabel('Close', {exact: true}).last().click(); await page.waitForTimeout(600);
+  await page.getByLabel('Changes', {exact: true}).click(); await page.waitForTimeout(1200);
+  check(/Changes To HR Access/.test(await body()) && /Paul Planner: sees the folders of/.test(await body()), 'Changes: who changed what');
+  await page.getByLabel('Close', {exact: true}).last().click(); await page.waitForTimeout(600);
 
   // ---------- the HR folder ----------
+  await page.getByLabel('HR Folder In OneDrive', {exact: true}).click(); await page.waitForTimeout(1500);
   await page.getByText('Choose The HR Folder', {exact: true}).click(); await page.waitForTimeout(3500);
   t = await body();
   check(/Choose The HR Folder/.test(t) && /HR Private/.test(t) && !/Quick Link/.test(t), 'the picker opens, with no Quick Link pinning for the HR folder');
@@ -148,19 +170,22 @@ const pressChange = (page, name) => page.evaluate((n) => {
   await page.getByText('📁 HR Private', {exact: true}).click(); await page.waitForTimeout(2500);
   await page.getByText('Use "HR Private"', {exact: true}).click(); await page.waitForTimeout(4000);
   check(S.onedrive && S.onedrive.id === 'NEW1' && S.onedrive.on === true, 'a new folder is linked');
+  check(/📁 HR Private/.test(await body()), 'its line on HR Access shows the folder');
+  await page.getByLabel('HR Folder In OneDrive', {exact: true}).click(); await page.waitForTimeout(2500);
   t = await body();
-  check(/📁 HR Private/.test(t) && /Through OpHUB/.test(t) && /who see everyone['’]s folders/.test(t), 'who can open it through OpHUB: the people who see everyone’s');
-  check(/In OneDrive Itself/.test(t) && /Andy Cramp/.test(t) && /⚠ Anyone With The Link/.test(t) && /office@rtb\.test/.test(t), 'in OneDrive itself: who it’s shared with (link flagged), and the company sign-in');
+  check(/Through OpHUB/.test(t) && /In OneDrive itself/.test(t) && /Andy Cramp/.test(t) && /⚠ Anyone With The Link/.test(t) && /office@rtb\.test/.test(t), 'the folder pop-up: who can open it (link flagged, company sign-in)');
   await page.getByText('Copy All Now', {exact: true}).click(); await page.waitForTimeout(2000);
   check(/3 documents copied/.test(await body()), 'Copy All Now copies, and says how many');
-  t = await body();
-  check(/What Others See/.test(t) && /Changes To HR Access/.test(t) && /Paul Planner can see the folders of/.test(t), 'What Others See, and the change log');
+  await page.screenshot({path: path.join(SHOTS, 'hr-folder-pop.png')});
+  await page.getByLabel('Close', {exact: true}).last().click(); await page.waitForTimeout(600);
   await page.screenshot({path: path.join(SHOTS, 'hr-access-laptop.png'), fullPage: true});
   await page.setViewportSize({width: 390, height: 844}); await page.waitForTimeout(1500);
   await page.screenshot({path: path.join(SHOTS, 'hr-access-phone.png'), fullPage: true});
   check(!(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2)), 'phone: nothing runs off the side');
-  const ys = await page.evaluate(() => ['Change Folder', 'Copy All Now'].map((x) => { const el = [...document.querySelectorAll('div')].find((d) => d.innerText === x && !d.children.length); return el ? Math.round(el.getBoundingClientRect().top) : null; }));
-  check(ys.every((y) => y !== null) && new Set(ys).size === 1, `phone: the folder buttons sit on one row (${ys.join(', ')})`);
+  await page.getByLabel('Paul Planner: Sees 2 Others', {exact: true}).click(); await page.waitForTimeout(1500);
+  await page.screenshot({path: path.join(SHOTS, 'hr-viewer-pop-phone.png')});
+  check(!(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2)), 'phone: the person pop-up fits');
+  await page.getByLabel('Close', {exact: true}).last().click(); await page.waitForTimeout(600);
   await page.setViewportSize({width: 1300, height: 900});
   await page.goto(B + '/pm/onedrive-pick?target=progress&id=s1'); await page.waitForTimeout(3500);
   await page.getByText('📁 HR Private', {exact: true}).click(); await page.waitForTimeout(2500);
@@ -170,7 +195,7 @@ const pressChange = (page, name) => page.evaluate((n) => {
   await ctx.close();
 
   // ---------- a PM allowed to see Jake Morris ----------
-  S.grants = [{viewer_id: 'me', user_id: 'o1'}];
+  S.grants = [{viewer_id: 'me', user_id: 'o1', sections: ['performance', 'licences']}];
   const p2 = await makeContext(browser, 'pm', [], {viewport: {width: 1300, height: 900}});
   require('./seeds/world')(p2.db);
   DB = p2.db; ME = p2.db.profiles.find((p) => p.id === 'me'); Object.assign(ME, {role: 'pm', howto_dismissed: ['*']});

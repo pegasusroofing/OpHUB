@@ -22,7 +22,7 @@ import { Button, Card, Muted } from '@/components/ui';
 import { usePolicies } from '@/data/hr';
 import {
   addBonus, addFeedback, addGoal, addHistory, deleteFeedback, deleteGoal, deleteHistory, deleteHrDoc, hrDocUrl, saveAppraisalReview, saveAppraisalSelf, saveRecord,
-  startAppraisal, updateBonus, updateGoal, uploadHrDoc, useHrAccess, useHrFolder, useHrWho, useMyReports, useStaff, type HrBonus, type HrGoal, type UpFile,
+  startAppraisal, updateBonus, updateGoal, uploadHrDoc, useHrAccess, useHrFolder, useHrSectionsFor, useHrWho, useMyReports, useStaff, type HrBonus, type HrGoal, type UpFile,
 } from '@/data/hrRecords';
 import { useAuth } from '@/lib/auth';
 import { publicUrl } from '@/lib/privateFiles';
@@ -49,6 +49,7 @@ export function EmployeeRecord({ userId }: { userId: string }) {
   const { data: acc } = useHrAccess(me?.org_id);
   const { data: who } = useHrWho(me?.org_id);
   const { data: reports = [] } = useMyReports(!!acc && !acc.team);
+  const { data: secsFor } = useHrSectionsFor(userId, !!acc && !acc.team && userId !== me?.id);
   const months = acc?.appraisal_months ?? 12;
   const { data: pol } = usePolicies(me?.org_id);
   const [tab, setTab] = useState<Tab>('details');
@@ -63,7 +64,8 @@ export function EmployeeRecord({ userId }: { userId: string }) {
   // Their line manager, or someone HR has allowed to see this folder (Andy, 15 Nov 2026): the parts HR allows.
   const lineMgr = !admin && !self && ((!!rec && rec.line_manager_id === me.id) || reports.some((r) => r.user_id === userId));
   // What their line manager may see (the HR team chooses; never contracts, pay, right to work, bonus or disciplinary).
-  const lmSees = (s: string) => lineMgr && (acc?.lm_sections ?? []).includes(s) && !['contracts', 'pay', 'rtw', 'conduct', 'bonus', 'other'].includes(s);
+  // The parts are set person by person (HR Access, 15 Nov 2026); the database says which (hr_sections_for).
+  const lmSees = (s: string) => lineMgr && (secsFor ?? acc?.lm_sections ?? []).includes(s) && !['contracts', 'pay', 'rtw', 'conduct', 'bonus', 'other'].includes(s);
   const lmPerf = lmSees('performance');
   const lmFolders = HR_FOLDERS.filter((f) => lmSees(f.k));
   if (!acc || (!admin && !self && !lineMgr && !isLoading)) return <Muted style={{ padding: 20 }}>{acc ? `This record is private to ${first} and the HR team.` : 'Loading…'}</Muted>;
@@ -383,7 +385,7 @@ export function EmployeeRecord({ userId }: { userId: string }) {
           </Pressable>
         )) : <Muted>No policies uploaded yet.</Muted>}
       </Card>}
-      {!full && <Muted>As {first}&apos;s line manager you see {[lmPerf ? 'their performance' : '', lmSees('emergency') ? 'emergency contact' : '', ...lmFolders.map((f) => f.l.toLowerCase()), lmSees('history') ? 'job history' : ''].filter(Boolean).join(', ').replace(/, ([^,]*)$/, ' and $1') || 'their employment details only'}. Contracts, pay and the rest are for the HR team.</Muted>}
+      {!full && <Muted>Of {first}&apos;s folder you see {[lmPerf ? 'their performance' : '', lmSees('emergency') ? 'emergency contact' : '', ...lmFolders.map((f) => f.l.toLowerCase()), lmSees('history') ? 'job history' : ''].filter(Boolean).join(', ').replace(/, ([^,]*)$/, ' and $1') || 'their employment details only'}. Contracts, pay and the rest are for the HR team.</Muted>}
     </>
   );
   const docsTab = (

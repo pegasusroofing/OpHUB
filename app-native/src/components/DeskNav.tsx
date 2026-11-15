@@ -58,8 +58,7 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
         { k: 'pm/hr', ic: 'users', lbl: 'HR', go: '/pm/hr' },
       ] },
       ...(isFinanceUser(me, org) ? [{ k: 'fin', ic: 'pound', lbl: 'Finance', go: '/fin', sec: 'Office' }] : []),
-      // On a phone the menu is the only way to Settings (review, 15 Nov 2026).
-      ...(drawer ? [{ k: 'account', ic: 'gear', lbl: 'Settings', go: '/account' }] : []),
+      // On a phone your own Settings are under your name at the foot of the menu (one gear only: Admin; Andy, 15 Nov 2026).
     ]
     : [
       ...(me.role === 'operative' ? [{ k: 'home', ic: 'home', lbl: 'Home', go: '/home' }] : []),
@@ -114,6 +113,8 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
     ...(mgr ? [{ k: 'admin', ic: 'gear', lbl: 'Project Settings', go: `/sites/${siteId}/admin` }] : []),
   ] : [];
   const subPart = siteId ? (path.split('/')[3] || '') : null;
+  // Phone menu: your name opens your Settings where the list doesn't already have a Settings line (managers).
+  const nameToSettings = !!drawer && !items.some((i) => i.k === 'account');
   // Admin sits at the bottom, just above the name and role (Andy, 14 Nov 2026).
   const adminItem: Item | null = mgr && kind !== 'finance' && kind !== 'superadmin' ? { k: 'pm/admin', ic: 'gear', lbl: 'Admin', go: '/pm/admin' } : null;
   return (
@@ -155,10 +156,11 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
         {adminItem && <View style={{ flexDirection: 'row', marginTop: 14 }}>{row(adminItem, isOn(adminItem.k))}</View>}
         <View style={{ marginTop: adminItem ? 8 : 14, paddingTop: 14, paddingHorizontal: 8, borderTopWidth: 1, borderTopColor: NAV.line, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: NAV.avatar, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 11.5, fontWeight: '600' }}>{(me.name || '?').split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()}</Text></View>
-          <View style={{ flex: 1, minWidth: 0 }}>
+          {/* On a phone, tap your name for your own Settings (the menu is the only way there from Home). */}
+          <Pressable disabled={!nameToSettings} onPress={() => { closeSideMenu(); router.navigate('/account' as never); }} accessibilityRole={nameToSettings ? 'button' : undefined} accessibilityLabel={nameToSettings ? 'My Settings' : undefined} style={{ flex: 1, minWidth: 0 }}>
             <Text numberOfLines={1} style={{ fontSize: 12.5, fontWeight: '600', color: '#fff' }}>{me.name}</Text>
-            <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '500', color: NAV.dim }}>{roleLabel(me)}</Text>
-          </View>
+            <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '500', color: NAV.dim }}>{nameToSettings ? 'My Settings ›' : roleLabel(me)}</Text>
+          </Pressable>
           <Pressable onPress={() => void signOut()}><Text style={{ fontSize: 12, fontWeight: '600', color: base.warn }}>Sign out</Text></Pressable>
         </View>
       </ScrollView>

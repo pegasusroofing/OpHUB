@@ -256,16 +256,16 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
 
 78. HR: who sees whose folder, and the HR folder in OneDrive (15 Nov, late). To try, as a company admin on the laptop:
     - in OneDrive first: lock the main HR folder (Share › Manage Access) to the people who should see everyone's contracts;
-    - HR › Employee Records: you see everyone; HR Access › Who Sees Everyone's Folders: every company admin to start (Yes / No), + Add Someone for anyone else;
-    - Who Can See Whose Folder: press Change on PM 1, say Yes to Estimator 1 and PM 3, Save; the row then says "Sees: …"; everyone else stays "Their own folder only";
-    - What Others See: which parts they see of those folders (contracts, pay, right to work, bonus and disciplinary never);
-    - HR Folder In OneDrive › Choose The HR Folder: pick the locked folder (one already used for a project, operative, repair job, quote or Quick Link is refused, with why); Copy All Now; check Who Can Open This Folder;
+    - HR › Employee Records: you see everyone; HR Access (compact since 15 Nov, late): people grouped by role, one line each;
+    - tap PM 1: + Add Someone (Estimator 1, PM 3), choose What They See Of Those (Yes / No each), Save; the line says "Sees 2 others"; tap someone else and set Sees Everyone's Folders to Yes if they should see all;
+    - Company Admins See Everyone's Folders at the top (Yes to start); What Line Managers See, Appraisals and Changes are one line each;
+    - the HR Folder In OneDrive line › Choose The HR Folder: pick the locked folder (one already used for a project, operative, repair job, quote or Quick Link is refused, with why); Copy All Now; check Who Can Open This Folder;
     - as PM 1: HR has the holiday calendar, company policies and Employee Records with their own folder plus Estimator 1 and PM 3 only (the parts allowed); no one else's;
     - as another PM: HR with holiday, policies and only their own folder; the HR folder isn't in any OneDrive folder list;
     - as Estimator 1: Settings › My Employee Record says who can see their folder (HR, and PM 1 for the parts allowed);
     - a Finance Controller now has HR in their menu;
     - Changes To HR Access lists every change (who, when, what).
-79. Home (15 Nov, late): the date, Good Morning and Next 5 Days now start where the writing inside the tiles starts, on the laptop and the phone.
+79. Home (15 Nov, late): the date, Good Morning and Next 5 Days start at the tiles' left edge; the Calendar button is the same height as Next 5 Days.
 
 ## To discuss with Andy
 - ~~HR documents in OneDrive~~: Andy, 15 Nov 2026: "I want to have hr linked to a specific folder in the OneDrive where access is managed". Built the same day (item 78): OpHUB locks the HR folder to the people HR Access lets in. Left open: anyone who signs in to OneDrive itself as the company Microsoft account OpHUB uses can open the folder there, so keep that password to the HR people.

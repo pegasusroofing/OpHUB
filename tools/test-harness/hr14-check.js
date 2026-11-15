@@ -24,6 +24,7 @@ const setRpc = (db) => { global.__rpc = (name, b) => {
   if (name === 'hr_save_settings') { db.hr_settings = db.hr_settings || []; let row = db.hr_settings.find((x) => x.org_id === db.organizations[0].id); if (!row) { row = {org_id: db.organizations[0].id}; db.hr_settings.push(row); } if (b.p_months != null) row.appraisal_months = b.p_months; if (b.p_lm_sections) row.hr_lm_sections = b.p_lm_sections; if (b.p_onedrive) row.hr_onedrive = b.p_onedrive; if (b.p_clear_onedrive) row.hr_onedrive = null; return true; }
   if (name === 'hr_who_has_access') { const team = db.hr_team || []; const set = team.length > 0; return {set_up: set, team_admins: !set, team_pms: false, named: team.map((x) => x.user_id), people: db.profiles.filter((p) => team.some((x) => x.user_id === p.id) || (!set && p.role === 'admin')).map((p) => ({id: p.id, name: p.name, role: p.role, why: team.some((x) => x.user_id === p.id) ? ['named'] : ['admin']})), set_up_at: null, set_up_by: null, log: []}; }
   if (name === 'hr_save_team') { db.hr_team = (b.p_people || []).map((u) => ({org_id: db.organizations[0].id, user_id: u})); return {set_up: true, team_admins: !!b.p_admins, team_pms: !!b.p_pms, named: b.p_people || [], people: [], log: []}; }
+  if (name === 'hr_sections_for') return (db.hr_records || []).some((x) => x.user_id === b.p_user && x.line_manager_id === 'me') ? (st.hr_lm_sections || ['performance', 'emergency']) : [];
   if (name === 'hr_basic') { const r = (db.hr_records || []).find((x) => x.user_id === b.p_user); return r ? {user_id: r.user_id, job_title: r.job_title, line_manager_id: r.line_manager_id, emergency_name: r.emergency_name} : null; }
   if (name === 'hr_my_reports') return (db.hr_records || []).filter((x) => x.line_manager_id === 'me').map((x) => ({user_id: x.user_id, job_title: x.job_title}));
   return undefined;
@@ -52,20 +53,22 @@ const fillBox = async (page, label, text) => { const l = page.getByText(label, {
   await page.screenshot({path: path.join(SHOTS, 'hr-records-list.png')});
   // HR Access.
   await page.getByLabel('HR Access', {exact: true}).click(); await page.waitForTimeout(3000);
-  await page.getByLabel('All Company Admins: No', {exact: true}).click(); await page.waitForTimeout(400);
-  await pick(page, 'Add Someone', me.name);
-  await page.getByText('Save Changes', {exact: true}).click(); await page.waitForTimeout(2000);
-  check(db.hr_team.some((x) => x.user_id === 'me' && x.org_id === O), 'Save Changes, with me named, puts me on it');
-  check(/(You)/.test(await body()) && /Take Off/.test(await body()), 'and lists me, with Take Off');
-  await page.getByLabel('Job History: Yes', {exact: true}).click();
+  // Compact HR Access (15 Nov 2026; its own check: hr15-check.js): grouped by role, a line each opening a pop-up.
+  t = await body();
+  check(/Who Can See What/.test(t) && /Company Admins · \d+/.test(t) && /Everyone’s/.test(t), 'HR Access: grouped by role; the company admins see everyone’s');
+  await page.getByLabel('What Line Managers See', {exact: true}).click(); await page.waitForTimeout(1200);
+  check(/never/.test(await body()), 'What Line Managers See says what they never see');
+  await page.getByLabel('Job History: Yes', {exact: true}).last().click();
   await page.waitForTimeout(1500);
   const lm = (db.hr_settings.find((x) => x.org_id === O) || {}).hr_lm_sections || [];
   check(lm.includes('history') && lm.includes('performance'), `line managers may now see job history too (${lm.join(', ')})`);
+  await page.getByLabel('Close', {exact: true}).last().click(); await page.waitForTimeout(600);
   await pick(page, 'Appraisals Come Round', 'Every 6 Months');
   check((db.hr_settings.find((x) => x.org_id === O) || {}).appraisal_months === 6, 'appraisals every 6 months saved');
-  t = await body();
-  check(/never shown to them/.test(t) && /Choose The HR Folder/.test(t), 'it explains what line managers never see, and offers the HR folder in OneDrive');
   await page.screenshot({path: path.join(SHOTS, 'hr-access.png'), fullPage: true});
+  await page.getByLabel('HR Folder In OneDrive', {exact: true}).click(); await page.waitForTimeout(1500);
+  check(/Choose The HR Folder/.test(await body()), 'the HR folder in OneDrive can be chosen');
+  await page.getByLabel('Close', {exact: true}).last().click(); await page.waitForTimeout(600);
   await page.goto(B + '/pm/hr/records'); await page.waitForTimeout(3500);
 
   // Jake's folder: employment.
