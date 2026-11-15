@@ -67,6 +67,9 @@ export function EmployeeRecord({ userId }: { userId: string }) {
   // The parts are set person by person (HR Access, 15 Nov 2026); the database says which (hr_sections_for).
   const lmSees = (s: string) => lineMgr && (secsFor ?? acc?.lm_sections ?? []).includes(s) && !['contracts', 'pay', 'rtw', 'conduct', 'bonus', 'other'].includes(s);
   const lmPerf = lmSees('performance');
+  // Changing someone's performance side (goals, notes, appraisals): HR and their real line manager only. Someone HR has
+  // only allowed to see the folder reads it (review, 15 Nov 2026; the database enforces it: hr_lm_writes).
+  const canPerf = admin || (lmPerf && !!rec && rec.line_manager_id === me.id);
   const lmFolders = HR_FOLDERS.filter((f) => lmSees(f.k));
   if (!acc || (!admin && !self && !lineMgr && !isLoading)) return <Muted style={{ padding: 20 }}>{acc ? `This record is private to ${first} and the HR team.` : 'Loading…'}</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['hrFolder', userId] }); void qc.invalidateQueries({ queryKey: ['hrOverview'] }); };
@@ -236,7 +239,7 @@ export function EmployeeRecord({ userId }: { userId: string }) {
     })}><Body /></Pop>);
   };
   const feedbackPop = () => {
-    const kinds = admin || lmPerf ? FEEDBACK_KINDS : FEEDBACK_KINDS.filter(([k]) => k === 'praise');
+    const kinds = canPerf ? FEEDBACK_KINDS : FEEDBACK_KINDS.filter(([k]) => k === 'praise');
     const v = { kind: 'praise', body: '', private: false };
     const Body = () => {
       const [f, setF] = useState(v);
@@ -245,7 +248,7 @@ export function EmployeeRecord({ userId }: { userId: string }) {
         <View>
           {kinds.length > 1 && <SelectBox label="Type" value={f.kind as never} options={kinds} onChange={(x) => setF({ ...f, kind: x, private: x === 'note' })} />}
           <QBox label={f.kind === 'praise' ? `What Did ${first} Do Well?` : f.kind === 'improve' ? 'What To Work On' : 'Note'} value={f.body} onChangeText={(x) => setF({ ...f, body: x })} multiline />
-          {(admin || lmPerf) && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}><Text style={{ flex: 1, fontSize: 14, color: base.ink }}>Can {first} See It?</Text><YesNo label={`Can ${first} see it?`} value={!f.private} onChange={(x) => setF({ ...f, private: !x })} /></View>}
+          {canPerf && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}><Text style={{ flex: 1, fontSize: 14, color: base.ink }}>Can {first} See It?</Text><YesNo label={`Can ${first} see it?`} value={!f.private} onChange={(x) => setF({ ...f, private: !x })} /></View>}
         </View>
       );
     };
@@ -437,9 +440,9 @@ export function EmployeeRecord({ userId }: { userId: string }) {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
             <Text style={{ flex: 1, fontSize: 13.5, fontWeight: '600', color: base.ink }}>{APPRAISAL_STATUS[appr.open.status]}</Text>
             {self && <Button small title={appr.open.self_answers ? 'Update Your Side' : 'Fill In Your Side'} onPress={() => selfPop(appr.open as Appraisal)} />}
-            {(admin || lmPerf) && !self && <Button small title="Review And Sign Off" onPress={() => reviewPop(appr.open as Appraisal)} />}
+            {canPerf && !self && <Button small title="Review And Sign Off" onPress={() => reviewPop(appr.open as Appraisal)} />}
           </View>
-        ) : (admin || lmPerf) && !self ? <Button title="Start An Appraisal" onPress={async () => { if (await startAppraisal(me, userId, appr && appr.due > todayIso() ? appr.due : todayIso(), rec?.line_manager_id ?? null)) refresh(); else toast('Could not start it — try again.'); }} /> : null}
+        ) : canPerf && !self ? <Button title="Start An Appraisal" onPress={async () => { if (await startAppraisal(me, userId, appr && appr.due > todayIso() ? appr.due : todayIso(), rec?.line_manager_id ?? null)) refresh(); else toast('Could not start it — try again.'); }} /> : null}
         {apps.filter((a) => a.status === 'done').map((a) => (
           <Pressable key={a.id} accessibilityRole="button" onPress={() => viewAppraisal(a)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
             <Text style={{ flex: 1, fontSize: 13.5, color: base.ink }}>Signed Off {showDate(a.completed_at)}</Text>
@@ -448,13 +451,13 @@ export function EmployeeRecord({ userId }: { userId: string }) {
         ))}
       </Card>
       <Card>
-        {head('Goals', admin || lmPerf || self ? () => goalPop() : undefined, '+ Add')}
+        {head('Goals', canPerf || self ? () => goalPop() : undefined, '+ Add')}
         {(data?.goals ?? []).length ? (data?.goals ?? []).map((g) => (
           <Pressable key={g.id} accessibilityRole="button" accessibilityLabel={g.title} onPress={() => goalPop(g)} style={{ paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Text style={{ flex: 1, fontSize: 13.5, fontWeight: '600', color: base.ink }}>{g.title}</Text>
               {chip(goalStatusLabel(g.status), g.status === 'done' ? STATE_TONE.ok : g.status === 'at_risk' ? STATE_TONE.expired : STATE_TONE.missing)}
-              {(admin || lmPerf) && <Pressable accessibilityLabel={`Delete goal ${g.title}`} hitSlop={8} onPress={async () => { if (await confirmAsk(`Delete the goal "${g.title}"?`, 'Delete')) { if (await deleteGoal(g.id)) refresh(); } }}><Text>🗑</Text></Pressable>}
+              {canPerf && <Pressable accessibilityLabel={`Delete goal ${g.title}`} hitSlop={8} onPress={async () => { if (await confirmAsk(`Delete the goal "${g.title}"?`, 'Delete')) { if (await deleteGoal(g.id)) refresh(); } }}><Text>🗑</Text></Pressable>}
             </View>
             <View style={{ height: 6, borderRadius: 3, backgroundColor: '#EEF0F2', marginTop: 6, overflow: 'hidden' }}><View style={{ width: `${Math.max(0, Math.min(100, Number(g.progress) || 0))}%`, height: 6, backgroundColor: t.brand1 }} /></View>
             <Text style={{ fontSize: 12, color: base.slate, marginTop: 3 }}>{[`${Number(g.progress) || 0}%`, g.due_date ? `by ${showDate(g.due_date)}` : '', `set by ${nameOf(g.set_by)}`].filter(Boolean).join(' · ')}</Text>

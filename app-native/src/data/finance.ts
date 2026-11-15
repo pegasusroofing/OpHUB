@@ -40,14 +40,16 @@ export async function loadSettings(orgId: string | null): Promise<FinSettings> {
   Object.entries(r || {}).forEach(([k, v]) => { if (v !== null && v !== undefined) (out as Record<string, unknown>)[k] = v; });
   return out;
 }
-export const useFinSettings = (orgId: string | null | undefined) => useQuery({ queryKey: ['finSettings', orgId], enabled: !!orgId, queryFn: () => loadSettings(orgId ?? null) });
+export const useFinSettings = (orgId: string | null | undefined) => useQuery({ queryKey: ['finSettings', orgId], enabled: !!orgId, staleTime: 300000, queryFn: () => loadSettings(orgId ?? null) });
 export const finStatus = (s: Site) => siteStatusKey(s as never) as string;
 export const groupBy = <T, K extends string>(rows: T[], key: (r: T) => K | null | undefined) => { const o: Record<string, T[]> = {}; rows.forEach((r) => { const k = key(r); if (k) (o[k] = o[k] || []).push(r); }); return o; };
 
 export type Todo = { tone: 'warn' | 'bad' | 'blue' | 'grey'; t: string; s: string; n: number; go: string };
 export function useFinOverview(me: Profile | null, sites: Site[] | undefined) {
   return useQuery({
-    queryKey: ['finOverview', me?.org_id, (sites || []).length], enabled: !!me && !!sites,
+    // Kept 2 minutes (speed review, 15 Nov 2026): the menu's badge has this open on every page, so at 30 seconds each
+    // return to the tab re-read nine Finance tables. Every Finance save still refreshes it at once.
+    queryKey: ['finOverview', me?.org_id, (sites || []).length], enabled: !!me && !!sites, staleTime: 120000,
     queryFn: async () => {
       const org = me!.org_id as string;
       const [jf, pos, invs, apps, st, toApprove, onHire, inbox, subApps] = await Promise.all([

@@ -52,7 +52,11 @@ if (fs.existsSync(nmDir)) {
 fs.writeFileSync(path.join(dir, 'vercel.json'), JSON.stringify({
   rewrites: [{source: '/(.*)', destination: '/index.html'}],
   headers: [
-    {source: '/(.*)', headers: [{key: 'X-Robots-Tag', value: 'noindex, nofollow'}]},
+    // Security headers (review, 15 Nov 2026): no framing by other sites, no content-type guessing, HTTPS only, no
+    // address leaks to other sites; camera and location for this site only.
+    {source: '/(.*)', headers: [{key: 'X-Robots-Tag', value: 'noindex, nofollow'}, {key: 'X-Frame-Options', value: 'SAMEORIGIN'}, {key: 'X-Content-Type-Options', value: 'nosniff'},
+      {key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin'}, {key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains'},
+      {key: 'Permissions-Policy', value: 'camera=(self), geolocation=(self), payment=(), usb=()'}]},
     {source: '/manifest.webmanifest', headers: [{key: 'Content-Type', value: 'application/manifest+json'}]},
     {source: '/version.json', headers: [{key: 'Cache-Control', value: 'no-store'}]},
   ],

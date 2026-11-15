@@ -57,6 +57,7 @@ export default function OneDrivePick() {
         return;
       }
       if (target === 'hr') {
+        if (!(await confirmAsk(`Everything inside "${f.name}" will be hidden in OpHUB from everyone who doesn’t see everyone’s HR folders, including any project folders inside it. Is "${f.name}" only for HR?`, 'Yes, Use It'))) return;
         const err = await linkHrFolder(f);
         if (err) { showAlert(err); return; }
         void qc.invalidateQueries({ queryKey: ['hrAccess'] });

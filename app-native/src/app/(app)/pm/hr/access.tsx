@@ -67,6 +67,7 @@ function PersonPop({ p, who, acc, staff, meId, onClose, onSaved }: { p: Person; 
   const hrNames = who.people.filter((x) => x.id !== p.id).map((x) => x.name);
   const seenBy = who.grants.filter((g) => g.user_id === p.id).map((g) => nm(g.viewer_id));
   const save = async () => {
+    if (!all && ids.length > 0 && !secs.length) { showAlert('Choose at least one part they can see, or take the people off.'); return; }
     const leaving = p.id === meId && why.length > 0 && !all && !byRole;
     if (leaving && !(await confirmAsk('You won’t see everyone’s folders or be able to change HR Access after this. Carry on?', 'Yes, Save'))) return;
     setBusy(true);
@@ -77,12 +78,12 @@ function PersonPop({ p, who, acc, staff, meId, onClose, onSaved }: { p: Person; 
   };
   return (
     <Pop title={`${p.name} · ${ROLE[groupOf(p)]}`} onClose={onClose}
-      footer={buttons(<><Button busy={busy} title="Save" onPress={save} /><Button kind="ghost" title="Cancel" onPress={onClose} /></>)}>
-      {line(<>{name('Sees Everyone’s Folders', byRole ? 'Yes, as a company admin (set at the top)' : 'Every folder in full, and can change HR Access')}
+      footer={byRole ? undefined : buttons(<><Button busy={busy} title="Save" onPress={save} /><Button kind="ghost" title="Cancel" onPress={onClose} /></>)}>
+      {line(<>{name('Sees Everyone’s Folders', byRole ? `Yes, as a ${why.includes('admin') ? 'company admin' : 'project manager'} (set at the top)` : 'Every folder in full, and can change HR Access')}
         {!byRole && <YesNo label="Sees Everyone’s Folders" value={all} onChange={setAll} />}</>, 'all')}
       {!all && !byRole && (
         <>
-          {sub('Whose Folders They Can See')}
+          {sub('Whose Folders They Can See (Not Change)')}
           {ids.length ? (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
               {ids.map((id) => (
@@ -234,6 +235,9 @@ export default function HrAccess() {
         {title('Who Can See What')}
         <Muted style={{ marginBottom: 4 }}>Everyone sees their own folder, the holiday calendar and policies. Tap someone to choose what else they see.</Muted>
         {line(<>{name('Company Admins See Everyone’s Folders')}<YesNo label="Company Admins See Everyone’s Folders" value={who.team_admins} onChange={(v) => void setAdmins(v)} /></>, 'adm')}
+        {who.team_pms && line(<>{name('Project Managers See Everyone’s Folders')}<YesNo label="Project Managers See Everyone’s Folders" value={who.team_pms} onChange={async (v) => {
+          if (await saveHrTeam({ admins: who.team_admins, pms: v, people: who.named })) refresh(); else showAlert('Someone has to see everyone’s folders. Set a person to Yes first.');
+        }} /></>, 'pms')}
         {GROUPS.map((g) => {
           const ppl = staff.filter((p) => groupOf(p) === g);
           if (!ppl.length) return null;

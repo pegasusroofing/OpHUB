@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
 
 import { secureDelete, secureGet, secureSet } from './kv';
+import { isTimedRead, READ_TIMEOUT_MS } from './rules/readTimeout';
 import type { Database } from './types';
 
 export const SUPABASE_URL = 'https://dtrfupmcazoioubhwdml.supabase.co';
@@ -18,7 +19,20 @@ const sessionStorage = {
   removeItem: (key: string) => secureDelete(key),
 };
 
+// Reads give up after 12 seconds (lib/rules/readTimeout.ts): the screen then falls back to its saved copy.
+const timedFetch: typeof fetch = (input, init) => {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  const method = (init?.method || (typeof input === 'object' && !(input instanceof URL) ? input.method : '') || 'GET').toUpperCase();
+  if (!isTimedRead(url, method)) return fetch(input, init);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), READ_TIMEOUT_MS);
+  const outer = init?.signal;
+  if (outer) { if (outer.aborted) ctrl.abort(); else outer.addEventListener('abort', () => ctrl.abort(), { once: true }); }
+  return fetch(input, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+};
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  global: { fetch: timedFetch },
   auth: {
     storage: sessionStorage,
     storageKey: 'ophub-native-session',

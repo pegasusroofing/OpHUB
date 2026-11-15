@@ -134,6 +134,12 @@ const pressChange = (page, name) => page.evaluate((n) => {
   check(g.length === 2 && g.some((x) => x.user_id === 'o1') && (g[0].sections || []).includes('licences') && (g[0].sections || []).includes('performance'), `saved: Jake Morris and Dave Price, with Licences & Cards (${JSON.stringify(g)})`);
   check(/Sees 2 Others/.test(await body()), 'his line now says Sees 2 Others');
 
+  // A company admin sees everyone's through the switch at the top: the pop-up says so and has nothing to save.
+  await page.getByLabel(ME.name + ': Everyone’s', {exact: true}).click(); await page.waitForTimeout(1200);
+  t = await body();
+  const saveBtns = await page.evaluate(() => [...document.querySelectorAll('div')].filter((d) => !d.children.length && d.innerText === 'Save' && d.getBoundingClientRect().width > 0).length);
+  check(/Yes, as a company admin \(set at the top\)/.test(t) && saveBtns === 0, 'a company admin’s pop-up says why, with nothing to save');
+  await page.getByLabel('Close', {exact: true}).last().click(); await page.waitForTimeout(600);
   // Tom Hughes sees everyone's (operatives opened first).
   await page.getByLabel('Operatives: show', {exact: true}).click(); await page.waitForTimeout(600);
   await page.getByLabel('Tom Hughes: Own Only', {exact: true}).click(); await page.waitForTimeout(1200);
@@ -163,12 +169,15 @@ const pressChange = (page, name) => page.evaluate((n) => {
   t = await body();
   check(/Choose The HR Folder/.test(t) && /HR Private/.test(t) && !/Quick Link/.test(t), 'the picker opens, with no Quick Link pinning for the HR folder');
   await page.getByText('📁 Jobs', {exact: true}).click(); await page.waitForTimeout(2500);
-  await page.getByText('Use "Jobs"', {exact: true}).click(); await page.waitForTimeout(2000);
+  await page.getByText('Use "Jobs"', {exact: true}).click(); await page.waitForTimeout(1500);
+  check((await body()).includes('Is "Jobs" only for HR?'), 'choosing the HR folder asks first: everything inside it gets hidden from everyone else');
+  await page.getByText('Yes, Use It', {exact: true}).click(); await page.waitForTimeout(2000);
   check(/already used in OpHUB/.test(await body()), 'a folder already used in OpHUB is refused, with why');
   await page.getByText('OK', {exact: true}).last().click(); await page.waitForTimeout(600);
   await page.getByText('‹ Up one level', {exact: true}).click(); await page.waitForTimeout(2000);
   await page.getByText('📁 HR Private', {exact: true}).click(); await page.waitForTimeout(2500);
-  await page.getByText('Use "HR Private"', {exact: true}).click(); await page.waitForTimeout(4000);
+  await page.getByText('Use "HR Private"', {exact: true}).click(); await page.waitForTimeout(1500);
+  await page.getByText('Yes, Use It', {exact: true}).click(); await page.waitForTimeout(4000);
   check(S.onedrive && S.onedrive.id === 'NEW1' && S.onedrive.on === true, 'a new folder is linked');
   check(/📁 HR Private/.test(await body()), 'its line on HR Access shows the folder');
   await page.getByLabel('HR Folder In OneDrive', {exact: true}).click(); await page.waitForTimeout(2500);
@@ -211,6 +220,9 @@ const pressChange = (page, name) => page.evaluate((n) => {
   await pg2.getByText('Jake Morris', {exact: true}).first().click(); await pg2.waitForTimeout(4000);
   t = await pg2.evaluate(() => document.body.innerText);
   check(!/private to/.test(t) && /Performance/.test(t) && !/Bonus/.test(t), 'Jake’s folder opens for them, with only the parts HR allows (no Bonus)');
+  await pg2.getByText('Performance', {exact: true}).first().click(); await pg2.waitForTimeout(1500);
+  t = await pg2.evaluate(() => document.body.innerText);
+  check(/Appraisals|Goals/.test(t) && !/Start An Appraisal/.test(t) && !/Review And Sign Off/.test(t) && !t.includes('+ Add'), 'they can read Performance but not change it (no Start An Appraisal, no + Add): seeing is read-only');
   await pg2.screenshot({path: path.join(SHOTS, 'pm-sees-jake.png'), fullPage: true});
   await pg2.goto(B + '/pm/hr/access'); await pg2.waitForTimeout(3500);
   t = await pg2.evaluate(() => document.body.innerText);

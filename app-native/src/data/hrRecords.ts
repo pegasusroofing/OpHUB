@@ -31,8 +31,6 @@ export function useHrAccess(orgId: string | null | undefined) {
 export function useHrTeam(orgId: string | null | undefined) {
   return useQuery({ queryKey: ['hrTeam', orgId], enabled: !!orgId, queryFn: async () => rows<{ user_id: string; added_at: string }>(await db.from('hr_team').select('user_id,added_at').eq('org_id', orgId as string)) });
 }
-export const addToHrTeam = async (me: Profile, userId: string) => !(await db.from('hr_team').insert({ org_id: me.org_id, user_id: userId, added_by: me.id } as never)).error;
-export const removeFromHrTeam = async (me: Profile, userId: string) => !!((await db.from('hr_team').delete().eq('org_id', me.org_id as string).eq('user_id', userId).select('user_id')).data as unknown[] | null)?.length;
 /** The HR team's settings; anything left out stays as it is. */
 export async function saveHrSettings(s: { months?: number; lmSections?: string[]; onedrive?: HrOneDrive; clearOneDrive?: boolean }): Promise<boolean> {
   const r = await rpc('hr_save_settings', { p_months: s.months ?? null, p_lm_sections: s.lmSections ?? null, p_onedrive: s.onedrive ?? null, p_clear_onedrive: !!s.clearOneDrive });
@@ -74,15 +72,13 @@ export async function saveHrTeam(t: { admins: boolean; pms: boolean; people: str
   const r = await rpc('hr_save_team', { p_admins: t.admins, p_pms: t.pms, p_people: t.people });
   return r.error ? null : whoOf(r.data);
 }
-/** Sets whose folders one person may see besides their own (replaces their list; HR only). */
-export async function saveViewerAccess(viewerId: string, people: string[]): Promise<boolean> {
-  return !(await rpc('hr_set_viewer_access', { p_viewer: viewerId, p_people: people })).error;
-}
 /** One person's HR access in one go (HR only): sees everyone's folders, whose folders they see, and which parts. */
 export async function savePersonAccess(viewerId: string, everyone: boolean, people: string[], sections: string[]): Promise<string | null> {
   const r = await rpc('hr_set_person_access', { p_viewer: viewerId, p_everyone: everyone, p_people: people, p_sections: sections });
   if (!r.error) return null;
-  return /at least one/i.test(String((r.error as { message?: string }).message ?? '')) ? 'Someone has to see everyone’s folders. Choose another person first.' : 'Could not save — try again.';
+  const m = String((r.error as { message?: string }).message ?? '');
+  return /at least one part/i.test(m) ? 'Choose at least one part they can see, or take the people off.'
+    : /at least one/i.test(m) ? 'Someone has to see everyone’s folders. Choose another person first.' : 'Could not save — try again.';
 }
 /** Links the HR folder in OneDrive. An error to show, or null when it's saved. */
 export async function linkHrFolder(f: { id: string; name: string; driveId?: string | null }): Promise<string | null> {

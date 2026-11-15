@@ -266,6 +266,12 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
     - a Finance Controller now has HR in their menu;
     - Changes To HR Access lists every change (who, when, what).
 79. Home (15 Nov, late): the date, Good Morning and Next 5 Days start at the tiles' left edge; the Calendar button is the same height as Next 5 Days.
+80. Review fixes (15 Nov, night; full write-up in REVIEW-2026-11-15.md). To try:
+    - HR Access: let PM 1 see someone, then sign in as PM 1: they can read that person's Performance but there's no + Add, Start An Appraisal or Review And Sign Off (only HR and the line manager set on Employment change those);
+    - HR Access: switching every part to No for someone and pressing Save is refused with a message;
+    - an admin's own line opens a pop-up that says why they see everyone's, with nothing to save;
+    - choosing the HR folder asks "Is this folder only for HR?" first;
+    - on a phone with a poor signal, screens fall back to the saved copy within about 12 seconds, and Projects opens straight away.
 
 ## To discuss with Andy
 - ~~HR documents in OneDrive~~: Andy, 15 Nov 2026: "I want to have hr linked to a specific folder in the OneDrive where access is managed". Built the same day (item 78): OpHUB locks the HR folder to the people HR Access lets in. Left open: anyone who signs in to OneDrive itself as the company Microsoft account OpHUB uses can open the folder there, so keep that password to the HR people.
