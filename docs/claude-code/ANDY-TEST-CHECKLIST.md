@@ -255,7 +255,7 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
     - HR Access: OneDrive copy shows as switched off (needs HR's own Microsoft sign-in first).
 
 ## To discuss with Andy
-- HR documents in OneDrive (15 Nov 2026): switched off, as OpHUB reaches OneDrive through one company Microsoft sign-in every PM and admin can browse. Option: HR gets its own Microsoft sign-in to a folder the company one can't open. Andy to decide.
+- HR documents in OneDrive (15 Nov 2026): switched off, as OpHUB reaches OneDrive through one company Microsoft sign-in every PM and admin can browse. Option: HR gets its own Microsoft sign-in to a folder the company one can't open. Andy, 15 Nov 2026: not now (HR documents stay in OpHUB's private store).
 - The server copy of the quote rules (quote-tracker) still says "No News" in its monthly export; change it with that function's next update.
 - ~~OneDrive and the full job set-up~~: talked through and built 8 Nov 2026 (item 55).
 - Sort out plots: how multi-site (multi-plot) jobs should work (Andy, 2 Nov 2026; asked again 5 Nov 2026: "we need to discuss and sort plots out"). Bring this up before Finance is signed off. Plots show today on BoQ lines and as a column on PO lines (only when the project has plots).
