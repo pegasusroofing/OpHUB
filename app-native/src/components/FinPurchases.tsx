@@ -96,13 +96,18 @@ function InboxRow({ it, pm, why, job, onJob, onPm }: { it: Row; pm: boolean; why
 }
 export const PO_STATUS: Record<string, string> = { open: 'Open', invoiced: 'Invoiced', cancelled: 'Cancelled', draft: 'Draft' };
 
+// Every column except the invoice lines / PO items and the query messages, which are about 40% of each row and only the
+// invoice or PO itself needs (speed, 16 Nov 2026). line1 / q1 (the first of each) say whether there are any. Add a new
+// column here if a list starts using it; opening an invoice or PO reads the whole row.
+const PINV_LIST_COLS = 'id,org_id,site_id,po_id,no_po,kind,supplier_id,supplier_name,invoice_no,invoice_date,net,vat,total,cost_code,description,status,query_note,file_path,file_name,approved_by,approved_at,created_by,created_at,xero_id,xero_synced_at,xero_error,paid_on,due_date,match_notes,sub_job_id,split,split_sites,xero_post,auto_approved,line1:lines->0,q1:query_thread->0';
+const PO_LIST_COLS = 'id,org_id,site_id,number,seq,supplier_id,supplier_name,supplier_branch,material_ids,required_by,fulfilment,note,value,status,ordered_by,ordered_by_name,created_at,pdf_path,sent_at,sent_to,source,value_estimated,quote_id,sub_job_id,split,split_sites,vat,total,reference,issue_date,site_contact,site_contact_phone,yard_booked_at,delivery_address,delivery_to,delivery_time,offload,is_draft';
 export function usePurchases(orgId: string | null | undefined, siteId?: string) {
   return useQuery({
     queryKey: ['finPurchases', orgId, siteId || ''], enabled: !!orgId,
     queryFn: async () => {
       const f = (q: Parameters<Parameters<typeof selectAll>[2]>[0]) => (siteId ? q.eq('site_id', siteId) : q.eq('org_id', orgId as string));
       const [pinvs, pos, inbox, hires, suppliers, stmts] = await Promise.all([
-        selectAll<Row>('purchase_invoices', '*', f), selectAll<Row>('purchase_orders', '*', f),
+        selectAll<Row>('purchase_invoices', PINV_LIST_COLS, f), selectAll<Row>('purchase_orders', PO_LIST_COLS, f),
         selectAll<Row>('fin_inbox', 'id,site_id,received_at,from_email,subject,extracted,stage,query_reason,comments,status,purchase_invoice_id,file_name,assigned_pm,supplier_override', (q) => f(q).or('status.eq.new,and(status.eq.filed,purchase_invoice_id.is.null)')),
         selectAll<Row>('fin_plant_hires', '*', f), selectAll<Row>('suppliers', 'id,name,email', (q) => q.eq('org_id', orgId as string)),
         selectAll<Row>('fin_statements', 'id,status,statement_date,reconciled_at,lines', (q) => q.eq('org_id', orgId as string)),
@@ -293,7 +298,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     const needJob = data.inbox.filter((i) => i.stage !== 'with_pm'), withPm = data.inbox.filter((i) => i.stage === 'with_pm');
     // The tabs follow the steps on each invoice (Andy, 6 Nov 2026): Received (no job yet), With A PM (to allocate, or
     // queried), Needs Checking, Approved (paid ones stay here: their status changes to Paid once on a statement).
-    const withSomeone = (i: Row) => i.status === 'query' && (!!askedOf[i.id] || (Array.isArray(i.query_thread) && i.query_thread.length > 0) || /^Queried with the supplier/.test(String(i.query_note || '')));
+    const withSomeone = (i: Row) => i.status === 'query' && (!!askedOf[i.id] || (Array.isArray(i.query_thread) && i.query_thread.length > 0) || !!i.q1 || /^Queried with the supplier/.test(String(i.query_note || '')));
     const F: Record<string, (i: Row) => boolean> = { pm: withSomeone, approve: (i) => i.status === 'to_approve' || (i.status === 'query' && !withSomeone(i)), unpaid: (i) => i.status === 'approved', all: () => true };
     const cnt: Record<string, number> = { job: needJob.length, pm: withPm.length + data.pinvs.filter(F.pm).length, approve: data.pinvs.filter(F.approve).length, unpaid: data.pinvs.filter(F.unpaid).length };
     const cur = (sel.status[0] === 'paid' ? 'unpaid' : sel.status[0]) || ['job', 'approve', 'pm', 'unpaid'].find((k) => cnt[k]) || 'all';
@@ -305,7 +310,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
       if (!po) return <Cell>No PO</Cell>;
       const g = grn[po.id], bad = !!i.match_notes || g === 'none' || g === 'some' || g === 'problem';
       const why = [
-        i.match_notes ? String(i.match_notes) : i.lines?.length ? `Every line matches ${po.number}.` : `Linked to ${po.number}.`,
+        i.match_notes ? String(i.match_notes) : i.lines?.length || i.line1 ? `Every line matches ${po.number}.` : `Linked to ${po.number}.`,
         g === 'all' ? 'Everything on it has been received.' : g === 'some' ? 'Only part of it has been marked received.' : g === 'none' ? 'Nothing on it has been marked received yet.' : g === 'problem' ? 'A delivery on it was marked with a problem.' : '',
         Array.isArray(i.split) && i.split.length > 1 ? `Split across ${i.split.length} projects.` : '',
       ].filter(Boolean);

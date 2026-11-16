@@ -144,6 +144,78 @@ const safeFilename = (name: unknown, ext = 'pdf') => {
 };
 // ---- end OpHUB email send guard ----
 
+// ---- OpHUB private file storage (16 Nov 2026) ----
+// The file buckets are being made private. Every file this function sends is
+// named by bucket + path (a storage path, or parsed out of a public or signed
+// Storage link) and is read or signed here with the service role, so it works
+// the same whether the bucket is public or private. The service role can read
+// anything, so a path is only used once it is proved to be in a folder of the
+// caller's own company.
+const EMAIL_LINK_SECONDS = 30 * 24 * 3600; // a link that goes out in an email lasts 30 days
+// bucket + path out of one of this project's own Storage links: the public
+// form (/object/public/...), a signed link (/object/sign/...?token=...) or the
+// signed-in form (/object/authenticated/...). Null for anything else.
+function storageRef(url: unknown, supabaseUrl: string | undefined): { bucket: string; path: string } | null {
+  if (!ownStorageUrl(url, supabaseUrl)) return null;
+  const m = /^\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/(.+)$/.exec(new URL(String(url)).pathname);
+  if (!m) return null;
+  try { return { bucket: decodeURIComponent(m[1]), path: m[2].split('/').map(decodeURIComponent).join('/') }; } catch (_e) { return null; }
+}
+// True only for a path in one of this company's own folders - the same ones
+// the storage rules let a company member read: <company>/..., <word>/<company>/...,
+// <job of this company>/..., <person in this company>/..., or
+// report-pdfs/<report of this company>/... Anything else (another company's
+// file, an old path with no company in it, a path that climbs out of its
+// folder) is refused. A client login never gets a file this way.
+async function pathInCompany(admin: any, orgId: unknown, role: unknown, path: unknown): Promise<boolean> {
+  const p = String(path || '');
+  const org = String(orgId || '').toLowerCase();
+  if (!p || !org || String(role || '') === 'client') return false;
+  if (p.startsWith('/') || p.includes('\\') || /[\u0000-\u001f]/.test(p)) return false;
+  const segs = p.split('/');
+  if (segs.length < 2 || segs.some((seg) => seg === '' || seg === '.' || seg === '..')) return false;
+  const s1 = segs[0].toLowerCase(), s2 = segs[1].toLowerCase();
+  if (s1 === org) return true;
+  if (!UUID_SEG.test(s1) && s2 === org) return true;
+  try {
+    if (UUID_SEG.test(s1)) {
+      const { data: site, error: sErr } = await admin.from('sites').select('org_id').eq('id', s1).maybeSingle();
+      if (sErr) return false;
+      if (site) return String(site.org_id).toLowerCase() === org;
+      const { data: person, error: pErr } = await admin.from('profiles').select('org_id').eq('id', s1).maybeSingle();
+      return !pErr && !!person && String(person.org_id).toLowerCase() === org;
+    }
+    if (s1 === 'report-pdfs' && UUID_SEG.test(s2)) {
+      const { data: rs, error: rErr } = await admin.from('report_submissions').select('org_id').eq('id', s2).maybeSingle();
+      return !rErr && !!rs && String(rs.org_id).toLowerCase() === org;
+    }
+  } catch (_e) { /* refused below */ }
+  return false;
+}
+// The file's bytes, or null if it is missing, empty or bigger than maxBytes.
+// Asks for the size first where it can, so a huge file is never pulled in.
+async function readStorageFile(admin: any, bucket: string, path: string, maxBytes: number): Promise<Uint8Array | null> {
+  try {
+    if (maxBytes <= 0) return null;
+    const store = admin.storage.from(bucket);
+    const size = await store.info(path).then((r: any) => Number(r?.data?.size)).catch(() => NaN);
+    if (size > maxBytes) return null;
+    const { data: blob, error } = await store.download(path);
+    if (error || !blob || !blob.size || blob.size > maxBytes) return null;
+    return new Uint8Array(await blob.arrayBuffer());
+  } catch (_e) { return null; }
+}
+// A signed link to the file, or null if one can't be made (e.g. the file is gone).
+async function signedStorageLink(admin: any, supabaseUrl: string, bucket: string, path: string, seconds: number): Promise<string | null> {
+  try {
+    const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, seconds);
+    if (error || !data?.signedUrl) return null;
+    const u = String(data.signedUrl);
+    return u.startsWith('http') ? u : `${supabaseUrl}/storage/v1${u}`;
+  } catch (_e) { return null; }
+}
+// ---- end OpHUB private file storage ----
+
 // ---- OpHUB standard email layout (identical in every function — do not edit per function) ----
 // One look for every email OpHUB sends: a header band in the company's
 // colour with its logo, a short heading, the content, an optional button,
@@ -217,6 +289,12 @@ async function fetchPdf(admin: any, bucket: string, path: string, maxBytes: numb
 // able to email themselves: any other link that passes the check below stays a
 // link, which gives nobody anything they couldn't already open.
 //
+// 16 Nov 2026: every PDF (attached or linked) must now be in this site's own
+// site-inductions folder, named by storage_path or by a public or signed link.
+// Files are read and linked with the service role (see "OpHUB private file
+// storage" above), so this works the same whether mc-documents is public or
+// private; every link is a signed one valid for 30 days.
+//
 // Optional cc_email: the client's "CC me a copy" tick box passes the
 // sender's own address here when checked; skipped if it matches the
 // recipient already. Optional client_cc_email: the "CC client contact" tick
@@ -255,13 +333,19 @@ Deno.serve(withCors(async (req) => {
       return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // M7: every link must be an induction PDF in this project's own Storage,
-    // in a folder of the sender's company.
+    // M7: every file must be an induction PDF in this project's own Storage,
+    // in this site's site-inductions folder in mc-documents (so a folder of
+    // the sender's company). 16 Nov 2026 (private storage): each is named by
+    // its storage_path or parsed out of a public or signed Storage link.
+    const refs: { bucket: string; path: string }[] = [];
     for (const it of items) {
-      const sp = publicStoragePath(it && it.file_url, SUPABASE_URL);
-      if (!sp || !(await storagePathAllowed(admin, caller.org_id, sp.path))) {
+      const ref = it && typeof it.storage_path === 'string' && it.storage_path
+        ? { bucket: 'mc-documents', path: String(it.storage_path) }
+        : storageRef(it && it.file_url, SUPABASE_URL);
+      if (!ref || ref.bucket !== 'mc-documents' || !ref.path.startsWith(`${site.id}/site-inductions/`) || !(await pathInCompany(admin, caller.org_id, caller.role, ref.path))) {
         return new Response(JSON.stringify({ error: 'That file link isn’t from OpHUB — try again from the app.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
+      refs.push(ref);
     }
     // M7: managers can email anyone; everyone else only themselves or a
     // manager in their own company.
@@ -281,12 +365,20 @@ Deno.serve(withCors(async (req) => {
       return new Response(JSON.stringify({ error: 'Email sending is not configured yet (missing RESEND_API_KEY secret).' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // The link for each PDF, used wherever it isn't attached: signed with the
+    // service role, valid 30 days (works for a private bucket). A PDF that
+    // can't be signed isn't there to send.
+    const links = await Promise.all(refs.map((ref) => signedStorageLink(admin, SUPABASE_URL, ref.bucket, ref.path, EMAIL_LINK_SECONDS)));
+    if (links.some((l) => !l)) {
+      return new Response(JSON.stringify({ error: 'Could not find one of the induction PDFs — try again.' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     // Attach what we can, in order, until the 26MB runs out. The rest stay links.
     const attachments = new Map<number, { filename: string; content: string }>();
     let attachBytes = 0;
     for (let i = 0; i < items.length; i++) {
-      const sp = publicStoragePath(items[i].file_url, SUPABASE_URL);
-      if (!sp || sp.bucket !== 'mc-documents' || !sp.path.startsWith(`${site.id}/site-inductions/`) || /[%?#\u0000-\u001f]/.test(sp.path)) continue;
+      const sp = refs[i];
+      if (/[%?#\u0000-\u001f]/.test(sp.path)) continue;
       const pdf = await fetchPdf(admin, sp.bucket, sp.path, MAX_ATTACH_TOTAL_BYTES - attachBytes);
       if (!pdf) continue;
       attachBytes += pdf.bytes;
@@ -298,9 +390,9 @@ Deno.serve(withCors(async (req) => {
     const intro = `${caller.name} shared ${plural ? 'these' : 'this'} signed site induction PDF${plural ? 's' : ''} for ${site.name}.`;
     // The text and html for a given set of attachments (none = links, as before).
     const compose = (attached: Map<number, { filename: string; content: string }>) => {
-      const linksText = items.map((it: any, i: number) => `${it.operative_name || 'Operative'}: ${attached.has(i) ? 'attached to this email' : it.file_url}`).join('\n');
+      const linksText = items.map((it: any, i: number) => `${it.operative_name || 'Operative'}: ${attached.has(i) ? 'attached to this email' : links[i]}`).join('\n');
       const text = `Hi,\n\n${caller.name} shared ${plural ? 'these' : 'this'} signed site induction PDF${plural ? 's' : ''} for ${site.name}:\n\n${linksText}\n\nSent via OpHUB.`;
-      const linkButtons = items.map((it: any, i: number) => attached.has(i) ? '' : `<p style="margin:8px 0;"><a href="${ophubEsc(it.file_url)}" style="background:#1A1D21;color:#ffffff;padding:11px 18px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:700;font-size:14px;">${ophubEsc(it.operative_name || 'Operative')} — site induction PDF</a></p>`).join('');
+      const linkButtons = items.map((it: any, i: number) => attached.has(i) ? '' : `<p style="margin:8px 0;"><a href="${ophubEsc(links[i])}" style="background:#1A1D21;color:#ffffff;padding:11px 18px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:700;font-size:14px;">${ophubEsc(it.operative_name || 'Operative')} — site induction PDF</a></p>`).join('');
       const attachedHtml = attached.size ? `<p style="margin:0 0 12px;font-size:14px;color:#3A3B3E;">Attached: ${[...attached.values()].map((a) => ophubEsc(a.filename)).join(', ')}</p>` : '';
       const linksHtml = attached.size ? attachedHtml + linkButtons
         : plural ? linkButtons
@@ -314,7 +406,7 @@ Deno.serve(withCors(async (req) => {
         greeting: 'Hi,',
         intro,
         bodyHtml: linksHtml,
-        button: !plural && !attached.size ? { label: 'View the PDF', url: items[0].file_url } : null,
+        button: !plural && !attached.size ? { label: 'View the PDF', url: String(links[0]) } : null,
       });
       return { text, html };
     };

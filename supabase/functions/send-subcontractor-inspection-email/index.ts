@@ -144,6 +144,78 @@ const safeFilename = (name: unknown, ext = 'pdf') => {
 };
 // ---- end OpHUB email send guard ----
 
+// ---- OpHUB private file storage (16 Nov 2026) ----
+// The file buckets are being made private. Every file this function sends is
+// named by bucket + path (a storage path, or parsed out of a public or signed
+// Storage link) and is read or signed here with the service role, so it works
+// the same whether the bucket is public or private. The service role can read
+// anything, so a path is only used once it is proved to be in a folder of the
+// caller's own company.
+const EMAIL_LINK_SECONDS = 30 * 24 * 3600; // a link that goes out in an email lasts 30 days
+// bucket + path out of one of this project's own Storage links: the public
+// form (/object/public/...), a signed link (/object/sign/...?token=...) or the
+// signed-in form (/object/authenticated/...). Null for anything else.
+function storageRef(url: unknown, supabaseUrl: string | undefined): { bucket: string; path: string } | null {
+  if (!ownStorageUrl(url, supabaseUrl)) return null;
+  const m = /^\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/(.+)$/.exec(new URL(String(url)).pathname);
+  if (!m) return null;
+  try { return { bucket: decodeURIComponent(m[1]), path: m[2].split('/').map(decodeURIComponent).join('/') }; } catch (_e) { return null; }
+}
+// True only for a path in one of this company's own folders - the same ones
+// the storage rules let a company member read: <company>/..., <word>/<company>/...,
+// <job of this company>/..., <person in this company>/..., or
+// report-pdfs/<report of this company>/... Anything else (another company's
+// file, an old path with no company in it, a path that climbs out of its
+// folder) is refused. A client login never gets a file this way.
+async function pathInCompany(admin: any, orgId: unknown, role: unknown, path: unknown): Promise<boolean> {
+  const p = String(path || '');
+  const org = String(orgId || '').toLowerCase();
+  if (!p || !org || String(role || '') === 'client') return false;
+  if (p.startsWith('/') || p.includes('\\') || /[\u0000-\u001f]/.test(p)) return false;
+  const segs = p.split('/');
+  if (segs.length < 2 || segs.some((seg) => seg === '' || seg === '.' || seg === '..')) return false;
+  const s1 = segs[0].toLowerCase(), s2 = segs[1].toLowerCase();
+  if (s1 === org) return true;
+  if (!UUID_SEG.test(s1) && s2 === org) return true;
+  try {
+    if (UUID_SEG.test(s1)) {
+      const { data: site, error: sErr } = await admin.from('sites').select('org_id').eq('id', s1).maybeSingle();
+      if (sErr) return false;
+      if (site) return String(site.org_id).toLowerCase() === org;
+      const { data: person, error: pErr } = await admin.from('profiles').select('org_id').eq('id', s1).maybeSingle();
+      return !pErr && !!person && String(person.org_id).toLowerCase() === org;
+    }
+    if (s1 === 'report-pdfs' && UUID_SEG.test(s2)) {
+      const { data: rs, error: rErr } = await admin.from('report_submissions').select('org_id').eq('id', s2).maybeSingle();
+      return !rErr && !!rs && String(rs.org_id).toLowerCase() === org;
+    }
+  } catch (_e) { /* refused below */ }
+  return false;
+}
+// The file's bytes, or null if it is missing, empty or bigger than maxBytes.
+// Asks for the size first where it can, so a huge file is never pulled in.
+async function readStorageFile(admin: any, bucket: string, path: string, maxBytes: number): Promise<Uint8Array | null> {
+  try {
+    if (maxBytes <= 0) return null;
+    const store = admin.storage.from(bucket);
+    const size = await store.info(path).then((r: any) => Number(r?.data?.size)).catch(() => NaN);
+    if (size > maxBytes) return null;
+    const { data: blob, error } = await store.download(path);
+    if (error || !blob || !blob.size || blob.size > maxBytes) return null;
+    return new Uint8Array(await blob.arrayBuffer());
+  } catch (_e) { return null; }
+}
+// A signed link to the file, or null if one can't be made (e.g. the file is gone).
+async function signedStorageLink(admin: any, supabaseUrl: string, bucket: string, path: string, seconds: number): Promise<string | null> {
+  try {
+    const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, seconds);
+    if (error || !data?.signedUrl) return null;
+    const u = String(data.signedUrl);
+    return u.startsWith('http') ? u : `${supabaseUrl}/storage/v1${u}`;
+  } catch (_e) { return null; }
+}
+// ---- end OpHUB private file storage ----
+
 // ---- OpHUB standard email layout (identical in every function — do not edit per function) ----
 // One look for every email OpHUB sends: a header band in the company's
 // colour with its logo, a short heading, the content, an optional button,
@@ -216,8 +288,10 @@ async function fetchAttachment(admin: any, bucket: string, path: string, maxByte
 // If it is bigger, can't be fetched or the email service refuses it, the email
 // carries the link button instead. The file comes from storage_path
 // (mc-documents only, this site's subcontractor-inspections folder only) or,
-// from the current app, the same folder in the public file_url. When only
-// storage_path is sent the link is a signed one.
+// from the current app, the same folder in the public file_url. 16 Nov 2026:
+// file_url may also be a signed link, and the link in the email is always a
+// signed one valid for 30 days, so this works whether mc-documents is public
+// or private.
 Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
@@ -251,7 +325,8 @@ Deno.serve(withCors(async (req) => {
     // M7: the file must be in this site's own subcontractor-inspections folder
     // in Storage, never an outside link. If storage_path is sent it decides the
     // file and file_url is ignored, so the two can't point at different things.
-    const sp = storage_path ? { bucket: String(storage_bucket || 'mc-documents'), path: String(storage_path) } : publicStoragePath(file_url, SUPABASE_URL);
+    // 16 Nov 2026 (private storage): file_url may be a public or a signed link.
+    const sp = storage_path ? { bucket: String(storage_bucket || 'mc-documents'), path: String(storage_path) } : storageRef(file_url, SUPABASE_URL);
     if (!sp || sp.bucket !== 'mc-documents' || !sp.path.startsWith(`${site.id}/subcontractor-inspections/`) || (storage_path && UNSAFE_PATH_CHARS.test(sp.path)) || !(await storagePathAllowed(admin, caller.org_id, sp.path))) {
       return new Response(JSON.stringify({ error: 'That file link isn’t from OpHUB — try again from the app.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
@@ -293,14 +368,10 @@ Deno.serve(withCors(async (req) => {
     const subLabel = company_name ? `${company_name} — ${site.name}` : site.name;
     const subject = `New inspection upload — ${subLabel}`;
 
-    // The link used when the file doesn't go as an attachment.
-    const fileLink = async (): Promise<string | null> => {
-      if (!storage_path) return file_url;
-      try {
-        const { data } = await admin.storage.from(sp.bucket).createSignedUrl(sp.path, SIGNED_LINK_SECONDS);
-        return data?.signedUrl || null;
-      } catch (e) { console.warn('send-subcontractor-inspection-email: no signed link', e); return null; }
-    };
+    // The link used when the file doesn't go as an attachment: always a signed
+    // one (16 Nov 2026 - before, a file_url-only call sent the public link,
+    // which stops opening once the bucket is private).
+    const fileLink = (): Promise<string | null> => signedStorageLink(admin, SUPABASE_URL, sp.bucket, sp.path, SIGNED_LINK_SECONDS);
     const sendEmail = (link: string | null, attachment: { filename: string; content: string } | null) => {
       const how = attachment ? 'The file is attached to this email.' : link ? `View or download it here:\n${link}` : 'Open the job in OpHUB to see it.';
       const text = `Hi,\n\n${caller.name} (${company_name || 'Subcontractor'}) uploaded a new inspection file for ${site.name}.\n\nFile: ${file_name}\n\n${how}\n\nSent via OpHUB · ${companyName}`;

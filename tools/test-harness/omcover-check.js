@@ -23,11 +23,14 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/sites/'+S1+'/om/om1'); await page.waitForTimeout(6000);
   const img = path.join(os.tmpdir(), 'cover.png'); fs.writeFileSync(img, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64'));
-  await page.getByText('📷 Take / upload').click(); await page.waitForTimeout(400);
-  const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout:15000}), page.getByText('🖼 Choose from library').click()]);
+  await page.getByText('Edit Cover', {exact: true}).first().click(); await page.waitForTimeout(500); // the cover editor opens from Edit Cover since 14 Nov
+  await page.getByText('📷 Take Or Upload').click(); await page.waitForTimeout(400);
+  const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout:15000}), page.getByText('🖼 Choose From Library').click()]);
   await fc.setFiles(img); await page.waitForTimeout(6000);
-  console.log('cover photo:', JSON.stringify(db.handover_om_manuals[0].data.cover.coverPhoto || null));
+  const cp = db.handover_om_manuals[0].data.cover.coverPhoto || null;
+  console.log((cp ? 'PASS' : 'FAIL') + ' the cover photo is saved: ' + JSON.stringify(cp));
+  if (!cp) process.exitCode = 1;
   await page.screenshot({path:'shots/omcover.png'});
   console.log('errors', errs.join(' / ').slice(0,400) || 'none');
-  await browser.close(); process.exit(0);
+  await browser.close(); process.exit(process.exitCode || 0);
 })();

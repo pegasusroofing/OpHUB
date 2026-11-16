@@ -7,7 +7,8 @@
 //             The caller's login token is verified here and they must be a
 //             manager in the company that owns the document.
 //   info    - the client's page asks what it is being asked to sign. Needs
-//             the private token from the emailed link.
+//             the private token from the emailed link. The document comes
+//             back as a 2-hour signed link (16 Nov 2026; was a public link).
 //   sign    - the client submits their name and drawn signature. Needs the
 //             same token; works once; the time and IP address are recorded.
 // Only a SHA-256 hash of the token is stored, so the link cannot be rebuilt
@@ -96,6 +97,47 @@ async function loadByToken(token: string) {
   const { data } = await admin.from('rams_client_signatures').select('*').eq('token_hash', await sha256Hex(token)).maybeSingle();
   return data || null;
 }
+// ---- OpHUB private file storage (16 Nov 2026) ----
+// rams-docs is being made private. The client's page gets the document as a
+// short-lived signed link made here with the service role (works whether the
+// bucket is public or private); the page asks for a fresh one every time it
+// opens. Only a file in a folder of the company that sent the request is ever
+// signed, and only while the request can still be signed.
+const DOC_LINK_SECONDS = 2 * 3600;
+const UUID_SEG = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// True only for a path in one of this company's own folders: <company>/...,
+// <word>/<company>/..., <job of this company>/... or <person in this
+// company>/... Anything else (another company's file, a path with no company
+// in it, a path that climbs out of its folder) is refused.
+async function pathInCompany(orgId: unknown, path: unknown): Promise<boolean> {
+  const p = String(path || '');
+  const org = String(orgId || '').toLowerCase();
+  if (!p || !org || p.startsWith('/') || p.includes('\\') || /[\u0000-\u001f]/.test(p)) return false;
+  const segs = p.split('/');
+  if (segs.length < 2 || segs.some((seg) => seg === '' || seg === '.' || seg === '..')) return false;
+  const s1 = segs[0].toLowerCase(), s2 = segs[1].toLowerCase();
+  if (s1 === org) return true;
+  if (!UUID_SEG.test(s1)) return s2 === org;
+  try {
+    const { data: site, error: sErr } = await admin.from('sites').select('org_id').eq('id', s1).maybeSingle();
+    if (sErr) return false;
+    if (site) return String(site.org_id).toLowerCase() === org;
+    const { data: person, error: pErr } = await admin.from('profiles').select('org_id').eq('id', s1).maybeSingle();
+    return !pErr && !!person && String(person.org_id).toLowerCase() === org;
+  } catch (_e) { return false; }
+}
+async function docFileUrl(doc: any, orgId: unknown): Promise<string | null> {
+  const path = String(doc?.storage_path || '');
+  if (!(await pathInCompany(orgId, path))) return null;
+  try {
+    const { data, error } = await admin.storage.from('rams-docs').createSignedUrl(path, DOC_LINK_SECONDS);
+    if (error || !data?.signedUrl) return null;
+    const u = String(data.signedUrl);
+    return u.startsWith('http') ? u : `${SUPABASE_URL}/storage/v1${u}`;
+  } catch (_e) { return null; }
+}
+// ---- end OpHUB private file storage ----
+
 async function docContext(row: any) {
   const { data: doc } = await admin.from('rams_docs').select('id, name, storage_path, site_id').eq('id', row.rams_id).maybeSingle();
   const { data: site } = await admin.from('sites').select('id, name').eq('id', row.site_id).maybeSingle();
@@ -186,7 +228,9 @@ Deno.serve(async (req) => {
         site_name: site?.name || '',
         company: org?.name || '',
         logo_url: org?.logo_path ? `${SUPABASE_URL}/storage/v1/object/public/org-logos/${org.logo_path}` : null,
-        file_url: `${SUPABASE_URL}/storage/v1/object/public/rams-docs/${String(doc.storage_path).split('/').map(encodeURIComponent).join('/')}`,
+        // A fresh signed link, only while the document is still to be signed
+        // (the page shows it only then). 16 Nov 2026: was the public address.
+        file_url: action === 'info' && !row.signed_at && !expired ? await docFileUrl(doc, row.org_id) : null,
         client_name: row.client_name || '',
         signed_at: row.signed_at,
         signer_name: row.signer_name || '',

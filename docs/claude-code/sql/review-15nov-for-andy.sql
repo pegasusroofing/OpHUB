@@ -1,4 +1,5 @@
--- NOT RUN. For Andy to decide, then paste into Supabase › SQL Editor. From the review of 15 Nov 2026
+-- Block A: APPLIED 16 Nov 2026 on Andy's yes, as a refusal with a message (see pm-role-admins-only-16nov.sql).
+-- Blocks B and C: NOT RUN. For Andy to decide, then paste into Supabase › SQL Editor. From the review of 15 Nov 2026
 -- (docs/claude-code/REVIEW-2026-11-15.md). Each block stands on its own; run only the ones you want.
 
 -- ---------------------------------------------------------------------------------------------------------------------

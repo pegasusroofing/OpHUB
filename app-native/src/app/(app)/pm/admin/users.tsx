@@ -1,35 +1,29 @@
 // Admin Centre › Users (260 users section, 100 roleActionsHtml): everyone by
 // role. Tap a person for what you're allowed to do: change role, phone number,
-// sub form on/off (operatives), remove.
+// sub form on/off (operatives), remove. Grouped under the company's own roles, and a role is chosen from that list
+// (Andy, 16 Nov 2026; Admin Centre › Roles); a company admin chooses any of them, anyone else each level's default.
 import { useQueryClient } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Empty, Muted, SectionTitle } from '@/components/ui';
-import { removeMember, setPhone, setRole, setSubform, toggleFinance, useTeam, type TeamMember } from '@/data/admin';
+import { removeMember, setPhone, setSubform, toggleFinance, useTeam, type TeamMember } from '@/data/admin';
+import { setPersonRole, useOrgRoles } from '@/data/orgRoles';
 import { useAuth } from '@/lib/auth';
 import { isFinanceUser, isFullManager, isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { ROLE_LABEL, roleActionsFor, shownRole } from '@/lib/rules/users';
+import { ACCESS_ORDER, accessOf, groupByRole, roleChoices, roleName, roleOf } from '@/lib/rules/orgRoles';
+import { roleActionsFor } from '@/lib/rules/users';
 import { base, page, radius, space, useTheme } from '@/theme/theme';
 
-const GROUPS: { title: string; match: (p: TeamMember) => boolean; empty: string }[] = [
-  { title: 'Company Admins', match: (p) => p.role === 'admin', empty: 'No other admins yet.' },
-  { title: 'Finance Controllers', match: (p) => p.role === 'pm' && !!p.finance_only, empty: '' },
-  { title: 'Project Managers', match: (p) => p.role === 'pm' && !p.is_estimator, empty: 'No project managers yet.' },
-  { title: 'Estimators', match: (p) => p.role === 'pm' && !!p.is_estimator && !p.finance_only, empty: '' },
-  { title: 'Site Managers', match: (p) => p.role === 'site_manager', empty: 'No site managers yet.' },
-  { title: 'Operatives', match: (p) => p.role === 'operative', empty: 'No operatives yet.' },
-  { title: 'Delivery Drivers', match: (p) => p.role === 'driver', empty: 'No delivery drivers yet.' },
-  { title: 'Clients', match: (p) => p.role === 'client', empty: 'No clients yet.' },
-];
 
 export default function Users() {
   const { me, org, refresh: refreshMe } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: team = [], isLoading } = useTeam(me?.org_id);
+  const { data: roles = [], isLoading: rolesLoading } = useOrgRoles(me?.org_id);
   const th = useTheme();
   // Initials coloured by role, as the current app (260): admins the company's second colour, PMs and drivers the main colour, the rest grey.
   const swatch = (role: string) => (role === 'admin' ? th.brand2 || base.ink : role === 'pm' || role === 'driver' ? th.brand1 : role === 'site_manager' ? '#6B6F78' : '#4B4F58');
@@ -37,6 +31,7 @@ export default function Users() {
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['team'] }); void qc.invalidateQueries({ queryKey: ['people'] }); };
+  const iAmAdmin = me.role === 'admin';
   // Finance is switched on the person's row: office roles only, never operatives (Andy, 2 Nov 2026).
   const finRole = (p: TeamMember) => p.role === 'admin' || p.role === 'pm';
   const canFin = me.role === 'admin' && isFinanceUser(me, org);
@@ -48,7 +43,7 @@ export default function Users() {
     const { options, canRemove } = roleActionsFor(me, p, team);
     const full = isFullManager(me);
     const opts = [
-      ...(options && options.length > 1 ? [{ key: 'role', label: `Role: ${ROLE_LABEL[shownRole(p)] || p.role} — change` }] : []),
+      ...(options && roleChoices(options.map((o) => o.value), roles, iAmAdmin, accessOf(p)).filter((r) => r.id !== roleOf(p, roles)?.id).length ? [{ key: 'role', label: `Role: ${roleName(p, roles)} — change` }] : []),
       ...(full && p.role === 'operative' ? [{ key: 'subform', label: `📝 Sub form: ${p.subform_required === false ? 'Off' : 'On'}` }] : []),
       ...(p.id === me.id && isFinanceUser(me, org) ? [{ key: 'myfin', label: `💷 Finance: ${me.finance_hidden ? 'Off — turn on' : 'On — turn off'}` }] : []),
       ...(me.role === 'superadmin' && p.email ? [{ key: 'pw', label: '🔑 Reset password' }] : []),
@@ -58,9 +53,11 @@ export default function Users() {
     if (!opts.length) return;
     const k = await chooseAction(p.name, opts);
     if (k === 'role' && options) {
-      const r = await chooseAction(`Change ${p.name}'s role`, options.filter((o) => o.value !== shownRole(p)).map((o) => ({ key: o.value, label: o.label })));
-      if (!r || !(await confirmAsk(`Change this person's role to ${ROLE_LABEL[r]}?`, 'Change'))) return;
-      toast((await setRole(p.id, r)) ? `Role changed to ${ROLE_LABEL[r]}` : 'Could not save — try again.'); refresh();
+      const choices = roleChoices(options.map((o) => o.value), roles, iAmAdmin, accessOf(p)).filter((r) => r.id !== roleOf(p, roles)?.id);
+      const k2 = await chooseAction(`Change ${p.name}'s role`, choices.map((r) => ({ key: r.id, label: r.name })));
+      const r = choices.find((x) => x.id === k2);
+      if (!r || !(await confirmAsk(`Change ${p.name}'s role to ${r.name}?`, 'Change'))) return;
+      toast((await setPersonRole(p.id, r, iAmAdmin)) ? `Role changed to ${r.name}` : 'Could not save — try again.'); refresh();
     } else if (k === 'subform') {
       toast((await setSubform(p.id, p.subform_required === false)) ? 'Saved' : 'Could not save — try again.'); refresh();
     } else if (k === 'phone') {
@@ -92,13 +89,17 @@ Pass it on securely — it won’t be shown again.`, 'Password reset');
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Users' }} />
-      {isLoading ? <Muted>Loading…</Muted> : GROUPS.map((g) => {
-        const list = team.filter(g.match);
-        if (!list.length && !g.empty) return null;
+      {iAmAdmin && (
+        <Pressable accessibilityRole="button" accessibilityLabel="Change the list of roles" onPress={() => router.push('/pm/admin/roles' as never)} hitSlop={6} style={{ alignSelf: 'flex-end', marginBottom: 4 }}>
+          <Text style={{ fontSize: 13, fontWeight: '600', color: base.slate }}>Change The List Of Roles ›</Text>
+        </Pressable>
+      )}
+      {isLoading || rolesLoading ? <Muted>Loading…</Muted> : groupByRole(team.filter((p) => (ACCESS_ORDER as string[]).includes(accessOf(p))), roles).map((g) => {
+        const list = g.people;
         return (
-          <View key={g.title}>
+          <View key={g.role?.id ?? g.title}>
             <SectionTitle>{g.title}</SectionTitle>
-            {g.title === 'Estimators' && <Muted style={{ marginBottom: 6 }}>Same access as a Project Manager, but they get no notifications or automatic emails.</Muted>}
+            {g.role?.access === 'estimator' && <Muted style={{ marginBottom: 6 }}>Same access as a Project Manager, but they get no notifications or automatic emails.</Muted>}
             {list.length ? list.map((p) => (
               <Pressable key={p.id} onPress={() => void act(p)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
                 <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: swatch(p.role), alignItems: 'center', justifyContent: 'center' }}>
@@ -115,7 +116,7 @@ Pass it on securely — it won’t be shown again.`, 'Password reset');
                     </Pressable>
                   : p.finance_enabled ? <Text style={{ fontSize: 12, fontWeight: '600', color: '#15803d' }}>Finance on</Text> : null)}
               </Pressable>
-            )) : <Empty>{g.empty}</Empty>}
+            )) : <Empty>Nobody yet.</Empty>}
           </View>
         );
       })}

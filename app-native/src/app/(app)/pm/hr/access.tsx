@@ -1,13 +1,18 @@
-// HR › Employee Records › HR Access, compact (Andy, 15 Nov 2026: "I don't like the admin bit for the hr, there's too
-// much going on. Can we have it as grouped by role, the click and a pop up to have who can see / What can they see,
-// similar to now but more compact").
-// - Who Can See What: everyone sees their own folder, holidays and policies. People are grouped by role; tap someone
-//   for a pop-up: Sees Everyone's Folders Yes / No (company admins do, unless switched off at the top), whose folders
-//   they see, and which parts of those (contracts, pay, right to work, bonus and disciplinary never), and who can see
-//   their own folder. Saved in one go (hr_set_person_access).
+// HR › Employee Records › HR Access (Andy, 15 Nov 2026: "grouped by role, the click and a pop up"; 16 Nov: "Who can see
+// what. Group by roles. Admin: Andy - See everyone. Project managers: Pm 1 - select who and what. So then the admin
+// selects pm, then selects what folders they can see for that pm. And then repeat").
+// - Who Can See What: everyone sees their own folder, holidays and policies. People are grouped under the company's
+//   roles (Admin Centre › Roles), each line saying what they see: See Everyone, the people they see, or Own Folder Only.
+//   Tap someone for a pop-up: Sees Everyone's Folders Yes / No, else each person whose folder they see with that
+//   person's own parts (contracts, pay, right to work, disciplinary and bonus too, if HR says Yes: Andy, 16 Nov 2026;
+//   personal details never), and who can see their own folder.
+//   Saved in one go (hr_set_person_access_each).
+// - Settings, one line each: company admins / PMs see everyone's, the HR folder in OneDrive (Andy locks it in OneDrive;
+//   OpHUB copies HR documents in and hides it from everyone else's folder lists), what line managers see, appraisals,
+//   and the change log.
 // - One line each, opening a pop-up: the HR folder in OneDrive (Andy locks it in OneDrive; OpHUB copies HR documents in
 //   and hides it from everyone else's folder lists), what line managers see, appraisals, and the change log.
-// The database enforces all of this (hr_is_team, hr_lm_sees, hr_set_person_access, hr_save_team, hr_save_settings);
+// The database enforces all of this (hr_is_team, hr_lm_sees, hr_set_person_access_each, hr_save_team, hr_save_settings);
 // this page only sets it.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useFocusEffect } from 'expo-router';
@@ -21,24 +26,28 @@ import { SelectBox } from '@/components/SelectBox';
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import type { Person } from '@/data/hs';
-import { copyHrToOneDrive, saveHrSettings, saveHrTeam, savePersonAccess, useHrAccess, useHrFolderAccess, useHrWho, useStaff, type HrAccess as HrAcc, type HrWho } from '@/data/hrRecords';
+import { copyHrToOneDrive, saveHrSettings, saveHrTeam, savePersonAccessEach, useHrAccess, useHrFolderAccess, useHrWho, useStaff, type HrAccess as HrAcc, type HrWho } from '@/data/hrRecords';
+import { useOrgRoles } from '@/data/orgRoles';
 import { useAuth } from '@/lib/auth';
+import { groupByRole, roleName } from '@/lib/rules/orgRoles';
 import { base, page, space } from '@/theme/theme';
 
-/** The parts someone allowed to see another's folder (or their line manager) can be shown. */
+/** The parts someone allowed to see another's folder (or their line manager) can be shown. The last five are off
+ *  unless HR says Yes (Andy, 16 Nov 2026: "contracts pay rights to work and disciplinary, this should be selectable by
+ *  the admin as well"). Personal details (address, date of birth) and the Other folder stay HR-only. */
 export const LM_SECTIONS: [string, string, string][] = [
   ['performance', 'Performance', 'Appraisals, goals and feedback'],
   ['emergency', 'Emergency Contact', 'Who to ring if they’re hurt on site'],
   ['licences', 'Licences & Cards', 'Driving licence, DVLA check'],
   ['health', 'Health & Safety', 'Induction, health questionnaire, HAVS'],
   ['absence', 'Absence & Fit Notes', 'Return to work forms, fit notes'],
-  ['history', 'Job History', 'Role changes and training (pay reviews left out)'],
+  ['history', 'Job History', 'Role changes and training (pay reviews under Pay)'],
+  ['contracts', 'Contracts & Letters', 'Contract, offer letter, start and probation dates, hours'],
+  ['pay', 'Payslips & Pay', 'Payslips, P60s and pay reviews'],
+  ['rtw', 'Right To Work & ID', 'Passport or share code, and the check'],
+  ['conduct', 'Disciplinary & Grievance', 'Including notes not shown to them'],
+  ['bonus', 'Bonus', 'Bonus targets and payments'],
 ];
-/** Role groups, in this order. */
-const GROUPS = ['Company Admins', 'Project Managers', 'Estimators', 'Finance', 'Site Managers', 'Operatives', 'Drivers'];
-const groupOf = (p: Person) => p.role === 'admin' ? 'Company Admins' : p.role === 'pm' ? (p.finance_only ? 'Finance' : p.is_estimator ? 'Estimators' : 'Project Managers')
-  : p.role === 'site_manager' ? 'Site Managers' : p.role === 'driver' ? 'Drivers' : 'Operatives';
-const ROLE: Record<string, string> = { 'Company Admins': 'Company Admin', 'Project Managers': 'Project Manager', Estimators: 'Estimator', Finance: 'Finance', 'Site Managers': 'Site Manager', Operatives: 'Operative', Drivers: 'Delivery Driver' };
 const AMBER = { backgroundColor: '#FFF4DE', borderRadius: 10, padding: 10 } as const;
 
 const line = (children: ReactNode, key: string, onPress?: () => void, label?: string, first?: boolean) => onPress
@@ -53,64 +62,74 @@ const buttons = (children: ReactNode) => <View style={{ flexDirection: 'row', fl
 /** Does this person see everyone's folders, and why? */
 const everyoneWhy = (who: HrWho, id: string) => who.people.find((x) => x.id === id)?.why ?? [];
 
-/** One person: sees everyone's folders, whose folders they see and which parts, and who sees theirs. */
-function PersonPop({ p, who, acc, staff, meId, onClose, onSaved }: { p: Person; who: HrWho; acc: HrAcc; staff: Person[]; meId: string; onClose: () => void; onSaved: (left: boolean) => void }) {
+/** The parts' names, short, for one line. */
+const partsOf = (secs: string[]) => LM_SECTIONS.filter(([k]) => secs.includes(k)).map(([, l]) => l).join(', ') || 'Nothing yet';
+
+/** One person: sees everyone's folders, or whose folders they see and, for each of those, which parts (Andy, 16 Nov
+ *  2026: "the admin selects pm, then selects what folders they can see for that pm. And then repeat"). */
+function PersonPop({ p, who, acc, staff, roleOfP, meId, onClose, onSaved }: { p: Person; who: HrWho; acc: HrAcc; staff: Person[]; roleOfP: (x: Person) => string; meId: string; onClose: () => void; onSaved: (left: boolean) => void }) {
   const why = everyoneWhy(who, p.id);
   const byRole = why.includes('admin') || why.includes('pm');
-  const mine = who.grants.filter((g) => g.viewer_id === p.id);
   const [all, setAll] = useState(why.length > 0);
-  const [ids, setIds] = useState(mine.map((g) => g.user_id));
-  const [secs, setSecs] = useState<string[]>(mine.find((g) => g.sections?.length)?.sections ?? acc.lm_sections);
+  const [grants, setGrants] = useState(who.grants.filter((g) => g.viewer_id === p.id).map((g) => ({ user_id: g.user_id, sections: g.sections?.length ? g.sections : acc.lm_sections })));
+  const [openId, setOpenId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const nm = (id: string) => staff.find((x) => x.id === id)?.name || 'Someone';
   const first = p.name.split(' ')[0];
   const hrNames = who.people.filter((x) => x.id !== p.id).map((x) => x.name);
   const seenBy = who.grants.filter((g) => g.user_id === p.id).map((g) => nm(g.viewer_id));
+  const setSecs = (id: string, k: string, on: boolean) => setGrants(grants.map((g) => (g.user_id !== id ? g : { ...g, sections: on ? [...new Set([...g.sections, k])] : g.sections.filter((x) => x !== k) })));
   const save = async () => {
-    if (!all && ids.length > 0 && !secs.length) { showAlert('Choose at least one part they can see, or take the people off.'); return; }
+    const empty = !all ? grants.find((g) => !g.sections.length) : undefined;
+    if (empty) { setOpenId(empty.user_id); showAlert(`Choose at least one part of ${nm(empty.user_id)}’s folder, or take them off.`); return; }
     const leaving = p.id === meId && why.length > 0 && !all && !byRole;
     if (leaving && !(await confirmAsk('You won’t see everyone’s folders or be able to change HR Access after this. Carry on?', 'Yes, Save'))) return;
     setBusy(true);
-    const err = await savePersonAccess(p.id, all && !byRole, all ? [] : ids, all ? [] : secs);
+    const err = await savePersonAccessEach(p.id, all && !byRole, all ? [] : grants);
     setBusy(false);
     if (err) { showAlert(err); return; }
     onSaved(leaving);
   };
   return (
-    <Pop title={`${p.name} · ${ROLE[groupOf(p)]}`} onClose={onClose}
+    <Pop title={`${p.name} · ${roleOfP(p)}`} onClose={onClose}
       footer={byRole ? undefined : buttons(<><Button busy={busy} title="Save" onPress={save} /><Button kind="ghost" title="Cancel" onPress={onClose} /></>)}>
-      {line(<>{name('Sees Everyone’s Folders', byRole ? `Yes, as a ${why.includes('admin') ? 'company admin' : 'project manager'} (set at the top)` : 'Every folder in full, and can change HR Access')}
-        {!byRole && <YesNo label="Sees Everyone’s Folders" value={all} onChange={setAll} />}</>, 'all')}
+      {line(<>{name('Sees Everyone’s Folders', byRole ? `Yes, as a ${why.includes('admin') ? 'company admin' : 'project manager'} (set under Settings below)` : 'Every folder in full, and can change HR Access')}
+        {!byRole && <YesNo label="Sees Everyone’s Folders" value={all} onChange={setAll} />}</>, 'all', undefined, undefined, true)}
       {!all && !byRole && (
         <>
           {sub('Whose Folders They Can See (Not Change)')}
-          {ids.length ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
-              {ids.map((id) => (
-                <Pressable key={id} accessibilityRole="button" accessibilityLabel={`Take ${nm(id)} off`} onPress={() => setIds(ids.filter((x) => x !== id))}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: base.line, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
-                  <Text style={{ fontSize: 13, color: base.ink }}>{nm(id)}</Text><Text style={{ fontSize: 12, color: base.slate }}>✕</Text>
-                </Pressable>
-              ))}
-            </View>
-          ) : <Muted style={{ marginBottom: 6 }}>Only their own.</Muted>}
-          <SelectBox title="Add Someone" placeholder="+ Add Someone" value={null}
-            options={staff.filter((x) => x.id !== p.id && !ids.includes(x.id)).map((x) => [x.id, `${x.name} · ${ROLE[groupOf(x)]}`] as [string, string])}
-            onChange={(id) => setIds([...ids, id])} />
-          {ids.length > 0 && (
-            <>
-              {sub('What They See Of Those')}
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 14 }}>
-                {LM_SECTIONS.map(([k, l]) => (
-                  <View key={k} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5, flexBasis: 220, flexGrow: 1 }}>
-                    <Text style={{ flex: 1, fontSize: 13.5, color: base.ink }}>{l}</Text>
-                    <YesNo label={l} value={secs.includes(k)} onChange={(v) => setSecs(v ? [...secs, k] : secs.filter((x) => x !== k))} />
+          {!grants.length && <Muted style={{ marginBottom: 6 }}>Only their own.</Muted>}
+          {grants.map((g) => {
+            const x = staff.find((s) => s.id === g.user_id);
+            const isOpen = openId === g.user_id;
+            return (
+              <View key={g.user_id} style={{ borderWidth: 1, borderColor: base.line, borderRadius: 10, marginBottom: 6, paddingHorizontal: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`${nm(g.user_id)}: ${isOpen ? 'hide' : 'choose'} what they see`} onPress={() => setOpenId(isOpen ? null : g.user_id)} style={{ flex: 1, paddingVertical: 8 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: base.ink }}>{nm(g.user_id)}{x ? <Text style={{ fontWeight: '400', color: base.slate }}> · {roleOfP(x)}</Text> : null}</Text>
+                    <Muted>{partsOf(g.sections)} {isOpen ? '▴' : '▾'}</Muted>
+                  </Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Take ${nm(g.user_id)} off`} hitSlop={8} onPress={() => setGrants(grants.filter((y) => y.user_id !== g.user_id))}>
+                    <Text style={{ fontSize: 15, color: base.slate }}>✕</Text>
+                  </Pressable>
+                </View>
+                {isOpen && (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, paddingBottom: 8 }}>
+                    {LM_SECTIONS.map(([k, l]) => (
+                      <View key={k} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, flexBasis: 210, flexGrow: 1 }}>
+                        <Text style={{ flex: 1, fontSize: 13.5, color: base.ink }}>{l}</Text>
+                        <YesNo label={`${nm(g.user_id)}: ${l}`} value={g.sections.includes(k)} onChange={(v) => setSecs(g.user_id, k, v)} />
+                      </View>
+                    ))}
                   </View>
-                ))}
+                )}
               </View>
-              <Muted style={{ marginTop: 4 }}>Contracts, pay, right to work, bonus and disciplinary: never.</Muted>
-            </>
-          )}
+            );
+          })}
+          <SelectBox title="Add Someone" placeholder="+ Add Someone" value={null}
+            options={staff.filter((x) => x.id !== p.id && !grants.some((g) => g.user_id === x.id)).map((x) => [x.id, `${x.name} · ${roleOfP(x)}`] as [string, string])}
+            onChange={(id) => { setGrants([...grants, { user_id: id, sections: acc.lm_sections }]); setOpenId(id); }} />
+          <Muted style={{ marginTop: 4 }}>Personal details (address, date of birth) stay with HR.</Muted>
         </>
       )}
       {sub(`Who Can See ${first}’s Folder`)}
@@ -187,13 +206,15 @@ export default function HrAccess() {
   const { data: acc } = useHrAccess(me?.org_id);
   const { data: who } = useHrWho(me?.org_id);
   const { data: staff = [] } = useStaff();
+  const { data: roles } = useOrgRoles(me?.org_id);
+  const roleOfP = (x: Person) => roleName(x, roles ?? []);
   const [pop, setPop] = useState<string>('');
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [lmLocal, setLmLocal] = useState<string[] | null>(null);
   // Back from choosing the OneDrive folder: look again.
   useFocusEffect(useCallback(() => { ['hrAccess', 'hrWho', 'hrFolderAccess'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); }, [qc]));
   if (!me) return null;
-  if (!acc || !who) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
+  if (!acc || !who || !roles) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!acc.team) {
     return (
       <ScrollView contentContainerStyle={page(720)}>
@@ -208,9 +229,9 @@ export default function HrAccess() {
   }
   const refresh = () => ['hrAccess', 'hrWho', 'hrTeam', 'hrFolder', 'hrOverview', 'hrFolderAccess', 'hrMyReports'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
   const summary = (p: Person) => {
-    if (everyoneWhy(who, p.id).length) return 'Everyone’s';
-    const n = who.grants.filter((g) => g.viewer_id === p.id).length;
-    return n ? `Sees ${n} Other${n === 1 ? '' : 's'}` : 'Own Only';
+    if (everyoneWhy(who, p.id).length) return 'Sees Everyone';
+    const names = who.grants.filter((g) => g.viewer_id === p.id).map((g) => staff.find((x) => x.id === g.user_id)?.name).filter(Boolean) as string[];
+    return !names.length ? 'Own Folder Only' : names.length <= 2 ? names.join(', ') : `${names.slice(0, 2).join(', ')} +${names.length - 2}`;
   };
   const setAdmins = async (v: boolean) => {
     const meNamed = who.named.includes(me.id);
@@ -233,22 +254,19 @@ export default function HrAccess() {
       <Stack.Screen options={{ title: 'HR Access' }} />
       <Card>
         {title('Who Can See What')}
-        <Muted style={{ marginBottom: 4 }}>Everyone sees their own folder, the holiday calendar and policies. Tap someone to choose what else they see.</Muted>
-        {line(<>{name('Company Admins See Everyone’s Folders')}<YesNo label="Company Admins See Everyone’s Folders" value={who.team_admins} onChange={(v) => void setAdmins(v)} /></>, 'adm')}
-        {who.team_pms && line(<>{name('Project Managers See Everyone’s Folders')}<YesNo label="Project Managers See Everyone’s Folders" value={who.team_pms} onChange={async (v) => {
-          if (await saveHrTeam({ admins: who.team_admins, pms: v, people: who.named })) refresh(); else showAlert('Someone has to see everyone’s folders. Set a person to Yes first.');
-        }} /></>, 'pms')}
-        {GROUPS.map((g) => {
-          const ppl = staff.filter((p) => groupOf(p) === g);
-          if (!ppl.length) return null;
-          const isOpen = open[g] ?? !['Operatives', 'Drivers'].includes(g);
+        <Muted style={{ marginBottom: 2 }}>Everyone sees their own folder, the holiday calendar and policies. Tap someone to choose whose folders they see, and what of each.</Muted>
+        {groupByRole(staff, roles).map((g) => {
+          const key = g.role?.id ?? g.title;
+          const big = ['operative', 'driver', 'client'].includes(g.role?.access ?? '');
+          const isOpen = open[key] ?? !big;
           return (
-            <View key={g}>
-              {line(<><Text style={{ flex: 1, fontSize: 13, fontWeight: '700', color: base.slate }}>{g} · {ppl.length}</Text><Text style={{ color: base.slate }}>{isOpen ? '▾' : '▸'}</Text></>,
-                `g-${g}`, () => setOpen({ ...open, [g]: !isOpen }), `${g}: ${isOpen ? 'hide' : 'show'}`)}
-              {isOpen && ppl.map((p) => line(<>
+            <View key={key}>
+              {big ? line(<><Text style={{ flex: 1, fontSize: 13, fontWeight: '700', color: base.slate }}>{g.title} · {g.people.length}</Text><Text style={{ color: base.slate }}>{isOpen ? '▾' : '▸'}</Text></>,
+                `g-${key}`, () => setOpen({ ...open, [key]: !isOpen }), `${g.title}: ${isOpen ? 'hide' : 'show'}`)
+                : <Text key={`g-${key}`} style={{ fontSize: 13, fontWeight: '700', color: base.slate, marginTop: 12, marginBottom: 2 }}>{g.title}</Text>}
+              {isOpen && g.people.map((p) => line(<>
                 {name(`${p.name}${p.id === me.id ? ' (You)' : ''}`)}
-                <Muted>{summary(p)}</Muted>{chev}
+                <Text numberOfLines={1} style={{ fontSize: 13, color: base.slate, maxWidth: '55%', textAlign: 'right' }}>{summary(p)}</Text>{chev}
               </>, p.id, () => setPop(`p:${p.id}`), `${p.name}: ${summary(p)}`))}
             </View>
           );
@@ -256,7 +274,12 @@ export default function HrAccess() {
       </Card>
 
       <Card>
-        {line(<>{name('HR Folder In OneDrive', od ? `📁 ${od.name}${od.on === false ? ' · copying off' : ''}` : 'Not Chosen Yet')}{chev}</>, 'od', () => setPop('folder'), 'HR Folder In OneDrive', true)}
+        {title('Settings')}
+        {line(<>{name('Company Admins See Everyone’s Folders')}<YesNo label="Company Admins See Everyone’s Folders" value={who.team_admins} onChange={(v) => void setAdmins(v)} /></>, 'adm', undefined, undefined, true)}
+        {who.team_pms && line(<>{name('Project Managers See Everyone’s Folders')}<YesNo label="Project Managers See Everyone’s Folders" value={who.team_pms} onChange={async (v) => {
+          if (await saveHrTeam({ admins: who.team_admins, pms: v, people: who.named })) refresh(); else showAlert('Someone has to see everyone’s folders. Set a person to Yes first.');
+        }} /></>, 'pms')}
+        {line(<>{name('HR Folder In OneDrive', od ? `📁 ${od.name}${od.on === false ? ' · copying off' : ''}` : 'Not Chosen Yet')}{chev}</>, 'od', () => setPop('folder'), 'HR Folder In OneDrive')}
         {line(<>{name('What Line Managers See', LM_SECTIONS.filter(([k]) => lm.includes(k)).map(([, l]) => l).join(', ') || 'Nothing')}{chev}</>, 'lm', () => setPop('lm'), 'What Line Managers See')}
         <View style={{ paddingTop: 9, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
           <SelectBox label="Appraisals Come Round" value={String(acc.appraisal_months) as never} options={[['3', 'Every 3 Months'], ['6', 'Every 6 Months'], ['12', 'Every 12 Months']]}
@@ -265,11 +288,11 @@ export default function HrAccess() {
         {who.log.length > 0 && line(<>{name('Changes', `${showDate(who.log[0].at.slice(0, 10))}: ${who.log[0].what}`)}{chev}</>, 'log', () => setPop('log'), 'Changes')}
       </Card>
 
-      {person && <PersonPop p={person} who={who} acc={acc} staff={staff} meId={me.id} onClose={() => setPop('')} onSaved={(left) => { setPop(''); refresh(); if (left) router.back(); }} />}
+      {person && <PersonPop key={person.id} p={person} who={who} acc={acc} staff={staff} roleOfP={roleOfP} meId={me.id} onClose={() => setPop('')} onSaved={(left) => { setPop(''); refresh(); if (left) router.back(); }} />}
       {pop === 'folder' && <FolderPop acc={acc} peopleN={who.people.length} onClose={() => setPop('')} refresh={refresh} />}
       {pop === 'lm' && (
         <Pop title="What Line Managers See" onClose={() => setPop('')}>
-          <Muted style={{ marginBottom: 4 }}>Of the people they line-manage (set on each person&apos;s Employment). Contracts, pay, right to work, bonus and disciplinary: never.</Muted>
+          <Muted style={{ marginBottom: 4 }}>Of the people they line-manage (set on each person&apos;s Employment). Personal details (address, date of birth) stay with HR.</Muted>
           {LM_SECTIONS.map(([k, l, s]) => line(<>{name(l, s)}<YesNo label={l} value={lm.includes(k)} onChange={(v) => void setLm(k, v)} /></>, k))}
         </Pop>
       )}

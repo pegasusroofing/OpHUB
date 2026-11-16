@@ -80,6 +80,15 @@ export async function savePersonAccess(viewerId: string, everyone: boolean, peop
   return /at least one part/i.test(m) ? 'Choose at least one part they can see, or take the people off.'
     : /at least one/i.test(m) ? 'Someone has to see everyone’s folders. Choose another person first.' : 'Could not save — try again.';
 }
+/** One person's HR access, each person they can see with their own parts (Andy, 16 Nov 2026: "selects pm, then selects
+ *  what folders they can see for that pm"). An error to show, or null when it's saved. */
+export async function savePersonAccessEach(viewerId: string, everyone: boolean, grants: { user_id: string; sections: string[] }[]): Promise<string | null> {
+  const r = await rpc('hr_set_person_access_each', { p_viewer: viewerId, p_everyone: everyone, p_grants: grants });
+  if (!r.error) return null;
+  const m = String((r.error as { message?: string }).message ?? '');
+  return /at least one part/i.test(m) ? 'Choose at least one part for each person, or take them off.'
+    : /at least one/i.test(m) ? 'Someone has to see everyone’s folders. Choose another person first.' : 'Could not save — try again.';
+}
 /** Links the HR folder in OneDrive. An error to show, or null when it's saved. */
 export async function linkHrFolder(f: { id: string; name: string; driveId?: string | null }): Promise<string | null> {
   const r = await rpc('hr_save_settings', { p_onedrive: { id: f.id, name: f.name, driveId: f.driveId || null, on: true } });

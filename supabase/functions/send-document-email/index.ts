@@ -144,6 +144,78 @@ const safeFilename = (name: unknown, ext = 'pdf') => {
 };
 // ---- end OpHUB email send guard ----
 
+// ---- OpHUB private file storage (16 Nov 2026) ----
+// The file buckets are being made private. Every file this function sends is
+// named by bucket + path (a storage path, or parsed out of a public or signed
+// Storage link) and is read or signed here with the service role, so it works
+// the same whether the bucket is public or private. The service role can read
+// anything, so a path is only used once it is proved to be in a folder of the
+// caller's own company.
+const EMAIL_LINK_SECONDS = 30 * 24 * 3600; // a link that goes out in an email lasts 30 days
+// bucket + path out of one of this project's own Storage links: the public
+// form (/object/public/...), a signed link (/object/sign/...?token=...) or the
+// signed-in form (/object/authenticated/...). Null for anything else.
+function storageRef(url: unknown, supabaseUrl: string | undefined): { bucket: string; path: string } | null {
+  if (!ownStorageUrl(url, supabaseUrl)) return null;
+  const m = /^\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/(.+)$/.exec(new URL(String(url)).pathname);
+  if (!m) return null;
+  try { return { bucket: decodeURIComponent(m[1]), path: m[2].split('/').map(decodeURIComponent).join('/') }; } catch (_e) { return null; }
+}
+// True only for a path in one of this company's own folders - the same ones
+// the storage rules let a company member read: <company>/..., <word>/<company>/...,
+// <job of this company>/..., <person in this company>/..., or
+// report-pdfs/<report of this company>/... Anything else (another company's
+// file, an old path with no company in it, a path that climbs out of its
+// folder) is refused. A client login never gets a file this way.
+async function pathInCompany(admin: any, orgId: unknown, role: unknown, path: unknown): Promise<boolean> {
+  const p = String(path || '');
+  const org = String(orgId || '').toLowerCase();
+  if (!p || !org || String(role || '') === 'client') return false;
+  if (p.startsWith('/') || p.includes('\\') || /[\u0000-\u001f]/.test(p)) return false;
+  const segs = p.split('/');
+  if (segs.length < 2 || segs.some((seg) => seg === '' || seg === '.' || seg === '..')) return false;
+  const s1 = segs[0].toLowerCase(), s2 = segs[1].toLowerCase();
+  if (s1 === org) return true;
+  if (!UUID_SEG.test(s1) && s2 === org) return true;
+  try {
+    if (UUID_SEG.test(s1)) {
+      const { data: site, error: sErr } = await admin.from('sites').select('org_id').eq('id', s1).maybeSingle();
+      if (sErr) return false;
+      if (site) return String(site.org_id).toLowerCase() === org;
+      const { data: person, error: pErr } = await admin.from('profiles').select('org_id').eq('id', s1).maybeSingle();
+      return !pErr && !!person && String(person.org_id).toLowerCase() === org;
+    }
+    if (s1 === 'report-pdfs' && UUID_SEG.test(s2)) {
+      const { data: rs, error: rErr } = await admin.from('report_submissions').select('org_id').eq('id', s2).maybeSingle();
+      return !rErr && !!rs && String(rs.org_id).toLowerCase() === org;
+    }
+  } catch (_e) { /* refused below */ }
+  return false;
+}
+// The file's bytes, or null if it is missing, empty or bigger than maxBytes.
+// Asks for the size first where it can, so a huge file is never pulled in.
+async function readStorageFile(admin: any, bucket: string, path: string, maxBytes: number): Promise<Uint8Array | null> {
+  try {
+    if (maxBytes <= 0) return null;
+    const store = admin.storage.from(bucket);
+    const size = await store.info(path).then((r: any) => Number(r?.data?.size)).catch(() => NaN);
+    if (size > maxBytes) return null;
+    const { data: blob, error } = await store.download(path);
+    if (error || !blob || !blob.size || blob.size > maxBytes) return null;
+    return new Uint8Array(await blob.arrayBuffer());
+  } catch (_e) { return null; }
+}
+// A signed link to the file, or null if one can't be made (e.g. the file is gone).
+async function signedStorageLink(admin: any, supabaseUrl: string, bucket: string, path: string, seconds: number): Promise<string | null> {
+  try {
+    const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, seconds);
+    if (error || !data?.signedUrl) return null;
+    const u = String(data.signedUrl);
+    return u.startsWith('http') ? u : `${supabaseUrl}/storage/v1${u}`;
+  } catch (_e) { return null; }
+}
+// ---- end OpHUB private file storage ----
+
 // ---- OpHUB standard email layout (identical in every function — do not edit per function) ----
 // One look for every email OpHUB sends: a header band in the company's
 // colour with its logo, a short heading, the content, an optional button,
@@ -193,6 +265,11 @@ function ophubRows(rows: [string, unknown][]): string {
 // a link. The link stays in the email as a fallback when the PDF is too big
 // to attach or could not be fetched - the email always goes out either way.
 //
+// 16 Nov 2026: files are read and linked with the service role (see "OpHUB
+// private file storage" above), so this works the same whether mc-documents
+// is public or private. Accepts storage_path, a files[] path, or a public or
+// signed link; every link in the email is a signed one valid for 30 days.
+//
 // Optional cc_email ("CC me a copy") and client_cc_email ("CC client
 // contact") are merged into one cc list, deduped against the recipient.
 //
@@ -224,39 +301,45 @@ Deno.serve(withCors(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const { site_id, general_label, recipient_email, doc_title, cc_email, client_cc_email, file_ext } = body || {};
-    // #(email-separate-pdfs) 2026-10-16: optional `files: [{url, name}]` sends
-    // several PDFs as separate attachments on ONE email (COSHH / TBT / daily
-    // briefings "separate PDFs"). Same own-storage-only rule as file_url.
-    const multi: { url: string; name: string }[] = Array.isArray(body?.files)
-      ? body.files.filter((f: any) => f && typeof f.url === 'string').slice(0, 40).map((f: any) => ({ url: String(f.url), name: String(f.name || 'Document').replace(/[^a-z0-9.\- ()&]+/gi, '_').slice(0, 110) }))
+    // #(email-separate-pdfs) 2026-10-16: optional `files: [{url, name, path}]`
+    // sends several PDFs as separate attachments on ONE email (COSHH / TBT /
+    // daily briefings "separate PDFs"). Same own-storage-only rule as file_url.
+    const multi: { url: string; path: string; name: string }[] = Array.isArray(body?.files)
+      ? body.files.filter((f: any) => f && (typeof f.url === 'string' || typeof f.path === 'string')).slice(0, 40).map((f: any) => ({ url: typeof f.url === 'string' ? f.url : '', path: typeof f.path === 'string' ? f.path : '', name: String(f.name || 'Document').replace(/[^a-z0-9.\- ()&]+/gi, '_').slice(0, 110) }))
       : [];
-    // M7: a storage path (storage_path / file_path, with storage_bucket) is
-    // preferred - the file is then read and signed here with the service
-    // role, so it keeps working once the bucket is private. Only the
-    // mc-documents bucket is accepted (the only one the app sends).
+    // 16 Nov 2026 (private storage): every file is named by bucket + path -
+    // storage_path / file_path (with storage_bucket), a files[] path, or
+    // parsed out of a public or signed Storage link - and read / signed here
+    // with the service role, so it works whether the bucket is public or
+    // private. Only mc-documents (the only bucket the apps send), and only a
+    // folder of the sender's own company.
     const rawPath = typeof body?.storage_path === 'string' ? body.storage_path : (typeof body?.file_path === 'string' ? body.file_path : '');
     const storageBucket = String(body?.storage_bucket || 'mc-documents');
-    let file_url = body?.file_url || (multi[0] && multi[0].url);
-    let storagePath = '';
-    if (rawPath && !multi.length) {
-      if (storageBucket !== 'mc-documents' || !(await storagePathAllowed(admin, caller.org_id, rawPath))) return json({ error: 'That file can’t be emailed from your account.' }, 403);
-      storagePath = rawPath;
-      const { data: signed, error: signErr } = await admin.storage.from(storageBucket).createSignedUrl(storagePath, 7 * 24 * 3600);
-      if (signErr || !signed?.signedUrl) { console.error('sign failed', signErr); return json({ error: 'Could not find the file to send — try again.' }, 404); }
-      file_url = signed.signedUrl.startsWith('http') ? signed.signedUrl : `${SUPABASE_URL}/storage/v1${signed.signedUrl}`;
+    const notOurs = () => json({ error: 'That file link isn’t from OpHUB — upload the file and try again.' }, 400);
+    const refs: { bucket: string; path: string }[] = [];
+    if (multi.length) {
+      for (const f of multi) {
+        const ref = f.path ? { bucket: 'mc-documents', path: f.path } : storageRef(f.url, SUPABASE_URL);
+        if (!ref) return notOurs();
+        refs.push(ref);
+      }
+    } else if (rawPath) {
+      refs.push({ bucket: storageBucket, path: rawPath });
+    } else if (body?.file_url) {
+      const ref = storageRef(body.file_url, SUPABASE_URL);
+      if (!ref) return notOurs();
+      refs.push(ref);
     }
-    if ((!site_id && !general_label) || !recipient_email || !file_url) {
+    if ((!site_id && !general_label) || !recipient_email || !refs.length) {
       return json({ error: 'site_id, recipient_email and file_url are required' }, 400);
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(recipient_email))) {
       return json({ error: 'recipient_email is not a valid email address' }, 400);
     }
-    // M7: every link in the email must point at this project's own Storage,
-    // and at a folder of the sender's own company.
-    for (const u of (multi.length ? multi.map((f) => f.url) : (storagePath ? [] : [file_url]))) {
-      if (!ownStorageUrl(u, SUPABASE_URL)) return json({ error: 'That file link isn’t from OpHUB — upload the file and try again.' }, 400);
-      const sp = publicStoragePath(u, SUPABASE_URL);
-      if (sp && !(await storagePathAllowed(admin, caller.org_id, sp.path))) return json({ error: 'That file can’t be emailed from your account.' }, 403);
+    // M7: every file must be in this project's own Storage, in a folder of
+    // the sender's own company.
+    for (const ref of refs) {
+      if (ref.bucket !== 'mc-documents' || !(await pathInCompany(admin, caller.org_id, caller.role, ref.path))) return json({ error: 'That file can’t be emailed from your account.' }, 403);
     }
     // M7: managers can email anyone; everyone else only themselves or a
     // manager in their own company (the TBT "everyone has signed" email).
@@ -293,30 +376,27 @@ Deno.serve(withCors(async (req) => {
     const title = String(doc_title || 'Document');
     const subject = `${title} — ${site.name}`;
 
-    // Attach the file for real. Only files in this project's own storage are
-    // fetched (never an arbitrary address), and only up to 12MB - above
-    // that the email goes with the link button instead.
+    // The link for each file, used wherever it doesn't go as an attachment:
+    // signed with the service role, valid 30 days (works for a private
+    // bucket). A file that can't be signed isn't there to send.
+    const links = await Promise.all(refs.map((ref) => signedStorageLink(admin, SUPABASE_URL, ref.bucket, ref.path, EMAIL_LINK_SECONDS)));
+    if (links.some((l) => !l)) return json({ error: 'Could not find the file to send — try again.' }, 404);
+    const file_url = String(links[0]);
+    multi.forEach((f, i) => { f.url = String(links[i]); }); // the email's links are the signed ones
+
+    // Attach the file for real. Read with the service role (works for a
+    // private bucket too), and only up to 12MB - above that the email goes
+    // with the link button instead.
     const ATTACHMENT_LIMIT_BYTES = 12 * 1024 * 1024;
     let attachmentBase64: string | null = null;
     const attachmentFilename = `${title.replace(/[^a-z0-9.\- ]+/gi, '_')} - ${String(site.name).replace(/[^a-z0-9.\- ]+/gi, '_')}.${ext}`;
     try {
-      const ownStorage = String(file_url).startsWith(`${SUPABASE_URL}/storage/v1/object/public/`);
-      if (storagePath && !multi.length) {
-        // Read with the service role (works for a private bucket too).
-        const { data: blob } = await admin.storage.from(storageBucket).download(storagePath);
-        if (blob && blob.size > 0 && blob.size <= ATTACHMENT_LIMIT_BYTES) attachmentBase64 = encodeBase64(new Uint8Array(await blob.arrayBuffer()));
-      } else if (ownStorage && !multi.length) {
-        const fileRes = await fetch(String(file_url));
-        const len = Number(fileRes.headers.get('content-length') || 0);
-        if (fileRes.ok && (!len || len <= ATTACHMENT_LIMIT_BYTES)) {
-          const buf = new Uint8Array(await fileRes.arrayBuffer());
-          if (buf.byteLength > 0 && buf.byteLength <= ATTACHMENT_LIMIT_BYTES) attachmentBase64 = encodeBase64(buf);
-        } else {
-          try { await fileRes.body?.cancel(); } catch (_e) { /* ignore */ }
-        }
+      if (!multi.length) {
+        const bytes = await readStorageFile(admin, refs[0].bucket, refs[0].path, ATTACHMENT_LIMIT_BYTES);
+        if (bytes) attachmentBase64 = encodeBase64(bytes);
       }
     } catch (_e) {
-      // Could not fetch the file - the email still sends with the link.
+      // Could not read the file - the email still sends with the link.
     }
 
     // Both versions of the email (file attached / link button) use the standard layout.
@@ -341,12 +421,12 @@ Deno.serve(withCors(async (req) => {
       // is ~40MB per email including encoding), else list them as links.
       const TOTAL_LIMIT = 26 * 1024 * 1024;
       let total = 0; const got: { filename: string; content: string }[] = [];
-      for (const f of multi) {
-        if (!f.url.startsWith(`${SUPABASE_URL}/storage/v1/object/public/`)) { got.length = 0; break; }
+      for (const [i, f] of multi.entries()) {
         try {
-          const r = await fetch(f.url);
-          if (!r.ok) { got.length = 0; break; }
-          const buf = new Uint8Array(await r.arrayBuffer());
+          // Read with the service role (works for a private bucket too); null
+          // if it is missing or doesn't fit in what is left of the limit.
+          const buf = await readStorageFile(admin, refs[i].bucket, refs[i].path, TOTAL_LIMIT - total);
+          if (!buf) { got.length = 0; break; }
           total += buf.byteLength;
           if (total > TOTAL_LIMIT) { got.length = 0; break; }
           const nm = /\.(pdf|docx)$/i.test(f.name) ? f.name : f.name + '.' + ext;

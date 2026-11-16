@@ -8,7 +8,7 @@ import { viewDoc } from '@/components/DocViewer';
 import { FinForm } from '@/components/FinForm';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { appSowChoice, deleteApplicationAny, exportApplication, setStatus, type AppSow } from '@/data/finApp';
-import { finInvoke } from '@/data/finance';
+import { fdb, finInvoke } from '@/data/finance';
 import { addPayment, deleteDraft, storePdf, voidInvoice } from '@/data/finInvoice';
 import { openDocLink } from '@/data/hs';
 import { useSites } from '@/data/sites';
@@ -36,7 +36,9 @@ export function useFinRowMenu(invs: Row[] = []) {
 
   const viewPdf = async (inv: Row) => {
     if (!me) return;
-    const p = inv.pdf_path || (await storePdf(me, org, inv, sites.find((s) => s.id === inv.site_id)));
+    // The Sales list leaves out the invoice lines (speed, 16 Nov 2026), so the PDF is built from the whole invoice.
+    const whole = async () => ((await fdb.from('fin_invoices').select('*').eq('id', inv.id).maybeSingle()).data as Row | null);
+    const p = inv.pdf_path || (await (async () => { const w = await whole(); return w ? storePdf(me, org, w, sites.find((s) => s.id === inv.site_id)) : null; })());
     const u = p ? await openDocLink('finance-docs', p) : null;
     if (u) viewDoc(u); else toast('Could not build the PDF.');
   };

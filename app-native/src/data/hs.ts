@@ -18,7 +18,7 @@ export type HsDoc = {
 };
 export type HsSig = { id: string; user_id: string | null; signed_at: string | null; signature_image_path: string | null; issued?: boolean | null; rams_id?: string; coshh_id?: string; layout_id?: string; tbt_id?: string };
 export type Tbt = { id: string; site_id: string; title: string; storage_path: string; created_by: string | null; created_at: string; status: string };
-export type Person = { id: string; name: string; role: string; is_estimator?: boolean | null; finance_only?: boolean | null };
+export type Person = { id: string; name: string; role: string; is_estimator?: boolean | null; finance_only?: boolean | null; org_role_id?: string | null };
 
 /** Everyone in my company I can see (names for signer lists). */
 export function usePeople() {
@@ -27,7 +27,7 @@ export function usePeople() {
     queryKey: ['people', me?.org_id],
     enabled: !!me,
     staleTime: 300000,
-    queryFn: () => cachedQuery(`people:${me?.org_id}`, async () => orThrow(await db.from('profiles').select('id,name,role,finance_enabled,is_estimator,finance_only')) as Person[]),
+    queryFn: () => cachedQuery(`people:${me?.org_id}`, async () => orThrow(await db.from('profiles').select('id,name,role,finance_enabled,is_estimator,finance_only,org_role_id')) as Person[]),
   });
 }
 export const nameOf = (people: Person[] | undefined, id: string | null | undefined) =>

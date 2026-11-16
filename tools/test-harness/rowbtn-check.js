@@ -12,13 +12,17 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.goto('http://localhost:8081/login'); await page.waitForTimeout(4000);
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
-  for (const [u, label, n] of [['/fin/statements', '⬆ Upload Statement', 'statements'], ['/fin/purchases?tab=plant', '+ Plant Hire', 'plant'], ['/fin/purchases?tab=pricebook', '+ Add A Price', 'pricebook'], ['/fin/purchases?tab=pricelists', '📥 Upload Price List', 'pricelists'], ['/fin/purchases?tab=orders', '+ New PO', 'orders']]) {
+  for (const [u, label, n] of [['/fin/statements', '⬆ Upload Statement', 'statements'], ['/fin/purchases?tab=plant', '+ Plant Hire', 'plant'], ['/fin/purchases?tab=orders', '+ New PO', 'orders']]) {
     await page.goto('http://localhost:8081' + u); await page.waitForTimeout(4000);
     const b = page.getByText(label, {exact: true}).first(), tab = page.getByRole('tab', {name: /^Purchase Orders/}).first();
     const bb = await b.boundingBox(), tb = await tab.boundingBox();
     check(!!bb && !!tb && Math.abs((bb.y + bb.height / 2) - (tb.y + tb.height / 2)) < 14, `${n}: ${label} sits in the tab row (${bb && Math.round(bb.y)} vs ${tb && Math.round(tb.y)})`);
     await page.screenshot({path: `shots/job/rowbtn-${n}.png`});
   }
+  // Price Lists became one tab on 14 Nov: a table of suppliers with + Add A Supplier’s Prices above it (prices are added on a supplier's page).
+  await page.goto('http://localhost:8081/fin/purchases?tab=pricelists'); await page.waitForTimeout(4000);
+  check(await page.getByText('+ Add A Supplier’s Prices', {exact: true}).count() >= 1, 'Price Lists: + Add A Supplier’s Prices is there');
+  await page.goto('http://localhost:8081/fin/purchases?tab=orders'); await page.waitForTimeout(4000);
   await page.getByText('+ New PO', {exact: true}).first().click(); await page.waitForTimeout(3000);
   check(new URL(page.url()).pathname === '/fin/po/new' && await page.getByText('Choose the project', {exact: false}).count() >= 1, '+ New PO opens the form straight away, project chosen on it');
   await page.screenshot({path: 'shots/job/rowbtn-newpo.png'});

@@ -143,6 +143,78 @@ const safeFilename = (name: unknown, ext = 'pdf') => {
 };
 // ---- end OpHUB email send guard ----
 
+// ---- OpHUB private file storage (16 Nov 2026) ----
+// The file buckets are being made private. Every file this function sends is
+// named by bucket + path (a storage path, or parsed out of a public or signed
+// Storage link) and is read or signed here with the service role, so it works
+// the same whether the bucket is public or private. The service role can read
+// anything, so a path is only used once it is proved to be in a folder of the
+// caller's own company.
+const EMAIL_LINK_SECONDS = 30 * 24 * 3600; // a link that goes out in an email lasts 30 days
+// bucket + path out of one of this project's own Storage links: the public
+// form (/object/public/...), a signed link (/object/sign/...?token=...) or the
+// signed-in form (/object/authenticated/...). Null for anything else.
+function storageRef(url: unknown, supabaseUrl: string | undefined): { bucket: string; path: string } | null {
+  if (!ownStorageUrl(url, supabaseUrl)) return null;
+  const m = /^\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/(.+)$/.exec(new URL(String(url)).pathname);
+  if (!m) return null;
+  try { return { bucket: decodeURIComponent(m[1]), path: m[2].split('/').map(decodeURIComponent).join('/') }; } catch (_e) { return null; }
+}
+// True only for a path in one of this company's own folders - the same ones
+// the storage rules let a company member read: <company>/..., <word>/<company>/...,
+// <job of this company>/..., <person in this company>/..., or
+// report-pdfs/<report of this company>/... Anything else (another company's
+// file, an old path with no company in it, a path that climbs out of its
+// folder) is refused. A client login never gets a file this way.
+async function pathInCompany(admin: any, orgId: unknown, role: unknown, path: unknown): Promise<boolean> {
+  const p = String(path || '');
+  const org = String(orgId || '').toLowerCase();
+  if (!p || !org || String(role || '') === 'client') return false;
+  if (p.startsWith('/') || p.includes('\\') || /[\u0000-\u001f]/.test(p)) return false;
+  const segs = p.split('/');
+  if (segs.length < 2 || segs.some((seg) => seg === '' || seg === '.' || seg === '..')) return false;
+  const s1 = segs[0].toLowerCase(), s2 = segs[1].toLowerCase();
+  if (s1 === org) return true;
+  if (!UUID_SEG.test(s1) && s2 === org) return true;
+  try {
+    if (UUID_SEG.test(s1)) {
+      const { data: site, error: sErr } = await admin.from('sites').select('org_id').eq('id', s1).maybeSingle();
+      if (sErr) return false;
+      if (site) return String(site.org_id).toLowerCase() === org;
+      const { data: person, error: pErr } = await admin.from('profiles').select('org_id').eq('id', s1).maybeSingle();
+      return !pErr && !!person && String(person.org_id).toLowerCase() === org;
+    }
+    if (s1 === 'report-pdfs' && UUID_SEG.test(s2)) {
+      const { data: rs, error: rErr } = await admin.from('report_submissions').select('org_id').eq('id', s2).maybeSingle();
+      return !rErr && !!rs && String(rs.org_id).toLowerCase() === org;
+    }
+  } catch (_e) { /* refused below */ }
+  return false;
+}
+// The file's bytes, or null if it is missing, empty or bigger than maxBytes.
+// Asks for the size first where it can, so a huge file is never pulled in.
+async function readStorageFile(admin: any, bucket: string, path: string, maxBytes: number): Promise<Uint8Array | null> {
+  try {
+    if (maxBytes <= 0) return null;
+    const store = admin.storage.from(bucket);
+    const size = await store.info(path).then((r: any) => Number(r?.data?.size)).catch(() => NaN);
+    if (size > maxBytes) return null;
+    const { data: blob, error } = await store.download(path);
+    if (error || !blob || !blob.size || blob.size > maxBytes) return null;
+    return new Uint8Array(await blob.arrayBuffer());
+  } catch (_e) { return null; }
+}
+// A signed link to the file, or null if one can't be made (e.g. the file is gone).
+async function signedStorageLink(admin: any, supabaseUrl: string, bucket: string, path: string, seconds: number): Promise<string | null> {
+  try {
+    const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, seconds);
+    if (error || !data?.signedUrl) return null;
+    const u = String(data.signedUrl);
+    return u.startsWith('http') ? u : `${supabaseUrl}/storage/v1${u}`;
+  } catch (_e) { return null; }
+}
+// ---- end OpHUB private file storage ----
+
 // ---- OpHUB standard email layout (identical in every function — do not edit per function) ----
 // One look for every email OpHUB sends: a header band in the company's
 // colour with its logo, a short heading, the content, an optional button,
@@ -196,6 +268,11 @@ function ophubRows(rows: [string, unknown][]): string {
 // fetch from storage fails for some reason — the email still goes out
 // either way, just without a real attachment in that edge case.
 //
+// 16 Nov 2026: the PDF is read and linked with the service role (see "OpHUB
+// private file storage" above), so this works the same whether mc-documents
+// is public or private. Accepts storage_path or a public or signed link; the
+// fallback link is a signed one valid for 30 days.
+//
 // Optional cc_email: the client's "CC me a copy" tick box passes the
 // sender's own address here when checked; skipped if it matches the
 // recipient already.
@@ -219,8 +296,15 @@ Deno.serve(withCors(async (req) => {
     if (!caller) return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     const body = await req.json().catch(() => ({}));
-    const { site_id, recipient_email, sheet_title, file_url, cc_email } = body || {};
-    if (!site_id || !recipient_email || !file_url) {
+    const { site_id, recipient_email, sheet_title, cc_email } = body || {};
+    // 16 Nov 2026 (private storage): the PDF is named by storage_path (with
+    // storage_bucket) or parsed out of a public or signed Storage link, and is
+    // read / signed here with the service role - works whether the bucket is
+    // public or private.
+    const sp = typeof body?.storage_path === 'string' && body.storage_path
+      ? { bucket: String(body?.storage_bucket || 'mc-documents'), path: String(body.storage_path) }
+      : storageRef(body?.file_url, SUPABASE_URL);
+    if (!site_id || !recipient_email || !(body?.file_url || body?.storage_path)) {
       return new Response(JSON.stringify({ error: 'site_id, recipient_email and file_url are required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(recipient_email))) {
@@ -232,11 +316,10 @@ Deno.serve(withCors(async (req) => {
       return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // M7: the PDF (fetched here and used as the fallback link) must be in this
-    // project's own Storage, in a folder of the sender's company - never an
-    // outside address (that was also a server-side fetch of any URL).
-    const sp = publicStoragePath(file_url, SUPABASE_URL);
-    if (!sp || !(await storagePathAllowed(admin, caller.org_id, sp.path))) {
+    // M7: the PDF (read here and used as the fallback link) must be in this
+    // project's own Storage (mc-documents), in a folder of the sender's
+    // company - never an outside address.
+    if (!sp || sp.bucket !== 'mc-documents' || !(await pathInCompany(admin, caller.org_id, caller.role, sp.path))) {
       return new Response(JSON.stringify({ error: 'That file link isn’t from OpHUB — try again from the app.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     // M7: managers can email anyone; everyone else only themselves or a
@@ -269,24 +352,29 @@ Deno.serve(withCors(async (req) => {
     let attachmentBase64: string | null = null;
     let attachmentFilename = `${(sheet_title || 'Priced Sheet').replace(/[^a-z0-9.\- ]+/gi, '_')}.pdf`;
     try {
-      const fileRes = await fetch(file_url);
-      if (fileRes.ok) {
-        const buf = new Uint8Array(await fileRes.arrayBuffer());
-        if (buf.byteLength > 0 && buf.byteLength <= ATTACHMENT_LIMIT_BYTES) {
-          // Chunked conversion avoids blowing the call stack on btoa/String.fromCharCode
-          // for a file of any real size (a single giant spread/apply can crash on
-          // large arrays).
-          let binary = '';
-          const chunkSize = 0x8000;
-          for (let i = 0; i < buf.length; i += chunkSize) {
-            binary += String.fromCharCode(...buf.subarray(i, i + chunkSize));
-          }
-          attachmentBase64 = btoa(binary);
+      // Read with the service role (works for a private bucket too).
+      const buf = await readStorageFile(admin, sp.bucket, sp.path, ATTACHMENT_LIMIT_BYTES);
+      if (buf) {
+        // Chunked conversion avoids blowing the call stack on btoa/String.fromCharCode
+        // for a file of any real size (a single giant spread/apply can crash on
+        // large arrays).
+        let binary = '';
+        const chunkSize = 0x8000;
+        for (let i = 0; i < buf.length; i += chunkSize) {
+          binary += String.fromCharCode(...buf.subarray(i, i + chunkSize));
         }
+        attachmentBase64 = btoa(binary);
       }
     } catch (_e) {
-      // Fetching the file failed — email still sends below, just without a
+      // Reading the file failed — email still sends below, just without a
       // real attachment (the link in the body is the fallback for that case).
+    }
+    // The fallback link: signed with the service role, valid 30 days (works
+    // for a private bucket). Only needed when the PDF isn't attached.
+    let file_url = '';
+    if (!attachmentBase64) {
+      file_url = (await signedStorageLink(admin, SUPABASE_URL, sp.bucket, sp.path, EMAIL_LINK_SECONDS)) || '';
+      if (!file_url) return new Response(JSON.stringify({ error: 'Could not find the PDF to send — try again.' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     const intro = `${caller.name} shared the price sheet "${title}" for ${site.name}. ${attachmentBase64 ? 'The PDF is attached.' : 'Use the button below to view the PDF.'}`;

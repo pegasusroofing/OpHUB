@@ -55,9 +55,10 @@ const fillBox = async (page, label, text) => { const l = page.getByText(label, {
   await page.getByLabel('HR Access', {exact: true}).click(); await page.waitForTimeout(3000);
   // Compact HR Access (15 Nov 2026; its own check: hr15-check.js): grouped by role, a line each opening a pop-up.
   t = await body();
-  check(/Who Can See What/.test(t) && /Company Admins · \d+/.test(t) && /Everyone’s/.test(t), 'HR Access: grouped by role; the company admins see everyone’s');
+  check(/Who Can See What/.test(t) && /\nAdmin\n/.test(t) && /Sees Everyone/.test(t), 'HR Access: grouped under the company’s roles (16 Nov); the company admins see everyone’s');
   await page.getByLabel('What Line Managers See', {exact: true}).click(); await page.waitForTimeout(1200);
-  check(/never/.test(await body()), 'What Line Managers See says what they never see');
+  t = await body();
+  check(/Personal details \(address, date of birth\) stay with HR/.test(t) && /Disciplinary & Grievance/.test(t), 'What Line Managers See: the sensitive parts are choices too (16 Nov); personal details stay with HR');
   await page.getByLabel('Job History: Yes', {exact: true}).last().click();
   await page.waitForTimeout(1500);
   const lm = (db.hr_settings.find((x) => x.org_id === O) || {}).hr_lm_sections || [];

@@ -63,9 +63,10 @@ export function EmployeeRecord({ userId }: { userId: string }) {
   const rec = data?.rec ?? null;
   // Their line manager, or someone HR has allowed to see this folder (Andy, 15 Nov 2026): the parts HR allows.
   const lineMgr = !admin && !self && ((!!rec && rec.line_manager_id === me.id) || reports.some((r) => r.user_id === userId));
-  // What their line manager may see (the HR team chooses; never contracts, pay, right to work, bonus or disciplinary).
+  // What their line manager may see (the HR team chooses; contracts, pay, right to work, disciplinary and bonus only if
+  // HR says Yes, Andy 16 Nov 2026; never the Other folder).
   // The parts are set person by person (HR Access, 15 Nov 2026); the database says which (hr_sections_for).
-  const lmSees = (s: string) => lineMgr && (secsFor ?? acc?.lm_sections ?? []).includes(s) && !['contracts', 'pay', 'rtw', 'conduct', 'bonus', 'other'].includes(s);
+  const lmSees = (s: string) => lineMgr && (secsFor ?? acc?.lm_sections ?? []).includes(s) && !['personal', 'other'].includes(s);
   const lmPerf = lmSees('performance');
   // Changing someone's performance side (goals, notes, appraisals): HR and their real line manager only. Someone HR has
   // only allowed to see the folder reads it (review, 15 Nov 2026; the database enforces it: hr_lm_writes).
@@ -84,7 +85,7 @@ export function EmployeeRecord({ userId }: { userId: string }) {
   const appr = nextAppraisal(rec, data?.appraisals ?? [], months);
   const full = admin || self;
   const tabs = ([['details', 'Details'], ['docs', 'Documents'], ['perf', 'Performance'], ['bonus', 'Bonus'], ['history', 'History']] as [Tab, string][])
-    .filter(([k]) => full || k === 'details' || (k === 'docs' && lmFolders.length > 0) || (k === 'perf' && lmPerf) || (k === 'history' && lmSees('history')));
+    .filter(([k]) => full || k === 'details' || (k === 'docs' && lmFolders.length > 0) || (k === 'perf' && lmPerf) || (k === 'bonus' && lmSees('bonus')) || (k === 'history' && (lmSees('history') || lmSees('pay'))));
 
   // ---------- small parts ----------
   const row = (l: string, v: string | null | undefined) => (
@@ -374,10 +375,10 @@ export function EmployeeRecord({ userId }: { userId: string }) {
         {row('Employment Type', employmentLabel(rec?.employment_type))}
         {row('Start Date', showDate(rec?.start_date))}
         {row('Probation Ends', showDate(rec?.probation_end))}
-        {full && row('Contracted Hours', rec?.contracted_hours)}
+        {(full || lmSees('contracts')) && row('Contracted Hours', rec?.contracted_hours)}
         {row('Line Manager', rec?.line_manager_id ? nameOf(rec.line_manager_id) : null)}
         {!!rec?.end_date && row('Leaving Date', showDate(rec.end_date))}
-        {full && row('Right To Work', rec?.rtw_checked_on ? `Checked ${showDate(rec.rtw_checked_on)}${rec.rtw_document ? ` (${rec.rtw_document})` : ''}${rec.rtw_expiry ? `, expires ${showDate(rec.rtw_expiry)}` : ''}` : null)}
+        {(full || lmSees('rtw')) && row('Right To Work', rec?.rtw_checked_on ? `Checked ${showDate(rec.rtw_checked_on)}${rec.rtw_document ? ` (${rec.rtw_document})` : ''}${rec.rtw_expiry ? `, expires ${showDate(rec.rtw_expiry)}` : ''}` : null)}
       </Card>
       {full && <Card>
         {head('Company Policies', isManager(me) && self ? () => router.push('/pm/hr/policies' as never) : undefined, 'Read And Sign ›')}
@@ -388,7 +389,7 @@ export function EmployeeRecord({ userId }: { userId: string }) {
           </Pressable>
         )) : <Muted>No policies uploaded yet.</Muted>}
       </Card>}
-      {!full && <Muted>Of {first}&apos;s folder you see {[lmPerf ? 'their performance' : '', lmSees('emergency') ? 'emergency contact' : '', ...lmFolders.map((f) => f.l.toLowerCase()), lmSees('history') ? 'job history' : ''].filter(Boolean).join(', ').replace(/, ([^,]*)$/, ' and $1') || 'their employment details only'}. Contracts, pay and the rest are for the HR team.</Muted>}
+      {!full && <Muted>Of {first}&apos;s folder you see {[lmPerf ? 'their performance' : '', lmSees('emergency') ? 'emergency contact' : '', ...lmFolders.map((f) => f.l.toLowerCase()), lmSees('history') ? 'job history' : '', lmSees('pay') ? 'pay reviews' : '', lmSees('bonus') ? 'bonus' : ''].filter(Boolean).join(', ').replace(/, ([^,]*)$/, ' and $1') || 'their employment details only'}. Contracts, pay and the rest are for the HR team.</Muted>}
     </>
   );
   const docsTab = (

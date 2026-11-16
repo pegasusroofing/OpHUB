@@ -35,8 +35,9 @@ const login = async (page) => {
   check('Choice is remembered', /Applied Value · all time/.test(await text()));
   await page.getByText(/^Overdue · /).click(); await page.waitForTimeout(800);
   check('Tap Overdue goes to overdue invoices', param('tab') === 'invoices' && param('f') === 'overdue', page.url().split('?')[1]);
-  await page.getByText(/^Applied, Not Certified/).click(); await page.waitForTimeout(800);
-  check('Tap Applied, Not Certified goes to in-progress applications', param('tab') === 'apps' && param('f') === 'open');
+  // The Sales cards since 14 Nov: Applied Value, Invoiced Value, Overdue (Applied, Not Certified went).
+  await page.getByText(/^Applied Value · /).click(); await page.waitForTimeout(800);
+  check('Tap Applied Value goes to the applications', param('tab') === 'apps' && param('f') === 'all', page.url().split('?')[1]);
 
   // Row ⋯ on invoices.
   await open('/fin/sales?tab=invoices&f=all');

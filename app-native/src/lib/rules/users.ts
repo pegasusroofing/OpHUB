@@ -18,15 +18,19 @@ export function roleActionsFor(me: Person, p: Person, all: Person[]): { options:
     return { options: o('admin', 'finance_controller', 'pm', 'estimator', 'site_manager', 'operative', 'driver', 'client'), canRemove: true };
   }
   if (p.role === 'admin') return { options: null, canRemove: false };
+  // A Finance Controller (a PM with finance_only): only admins change them (bug review, 16 Nov 2026).
+  if (p.finance_only) return { options: null, canRemove: false };
+  // Only company admins make someone a Project Manager or move one to another role (Andy, 16 Nov 2026; the database
+  // refuses it too). A PM can still switch another PM between Project Manager and Estimator (both are the 'pm' role).
   if (p.role === 'pm') {
     if (!iAmFull) return { options: null, canRemove: false };
-    return { options: o('pm', 'estimator', 'operative', 'site_manager'), canRemove: false };
+    return { options: o('pm', 'estimator'), canRemove: false };
   }
   if (p.role === 'site_manager') {
     if (!iAmFull) return { options: null, canRemove: false };
-    return { options: o('site_manager', 'operative', 'pm', 'estimator'), canRemove: false };
+    return { options: o('site_manager', 'operative'), canRemove: false };
   }
-  if (p.role === 'operative') return { options: [...o('operative'), ...(iAmFull ? o('pm', 'estimator', 'site_manager', 'driver') : [])], canRemove: iAmFull };
+  if (p.role === 'operative') return { options: [...o('operative'), ...(iAmFull ? o('site_manager', 'driver') : [])], canRemove: iAmFull };
   if (p.role === 'driver') return { options: [...o('driver'), ...(iAmFull ? o('operative') : [])], canRemove: iAmFull };
   if (p.role === 'client') return { options: null, canRemove: iAmFull };
   return { options: null, canRemove: false };

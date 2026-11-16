@@ -35,16 +35,23 @@ export function appStage(a: App) {
 }
 const emptyDraft = (i: Inv) => i.status === 'draft' && !i.number && (i.lines || []).every((l) => !String(l.description || '').trim() && (l.amount == null || l.amount === ''));
 
+// Every invoice column except the lines, which are about 40% of each row and only the invoice itself needs (speed,
+// 16 Nov 2026). Add a new column here if a list starts using it. The lines of blank-looking drafts are fetched on
+// their own below (to hide old empty drafts); the row menu's PDF fetches the whole invoice.
+const INV_LIST_COLS = 'id,org_id,site_id,number,status,issue_date,due_date,client_po,bill_name,bill_address,bill_email,vat_treatment,vat_rate,net,vat,total,paid,notes,source,source_id,pdf_path,sent_at,sent_to,created_by,created_at,updated_at,xero_id,xero_synced_at,xero_error,rc_vat,xero_post,sub_job_id';
 export function useSales(orgId: string | null | undefined, siteId?: string) {
   return useQuery({
     queryKey: ['finSales', orgId, siteId || ''], enabled: !!orgId,
     queryFn: async () => {
       const f = (q: Parameters<Parameters<typeof selectAll>[2]>[0]) => (siteId ? q.eq('site_id', siteId) : q.eq('org_id', orgId as string));
-      const [invs, apps, jf] = await Promise.all([
-        selectAll<Inv>('fin_invoices', '*', f),
+      const [invs, draftLines, apps, jf] = await Promise.all([
+        selectAll<Inv>('fin_invoices', INV_LIST_COLS, f),
+        selectAll<Pick<Inv, 'id' | 'lines'>>('fin_invoices', 'id,lines', (q) => f(q).eq('status', 'draft').is('number', null)),
         selectAll<App>('fin_applications', 'id,site_id,number,status,valuation_date,due_date,final_date,gross,net_due,cert_date,cert_gross,cert_net,cert_retention,cert_is_payless,invoice_id,submitted_at,created_at', f),
         selectAll<JobFin & { site_id: string }>('job_finance', '*', f),
       ]);
+      const linesOf: Record<string, Inv['lines']> = {}; draftLines.forEach((d) => { linesOf[d.id] = d.lines; });
+      invs.forEach((i) => { if (i.id in linesOf) i.lines = linesOf[i.id]; });
       // Old empty drafts are hidden (not deleted).
       const age = (i: Inv) => Date.now() - Date.parse(i.updated_at || i.created_at || '');
       return { invs: invs.filter((i) => !(emptyDraft(i) && age(i) > 7 * 864e5)).sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))), apps: apps.sort((a, b) => String(b.valuation_date || '').localeCompare(String(a.valuation_date || ''))), jf };

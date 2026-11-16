@@ -22,6 +22,14 @@ test('PMs manage operatives; only admins remove PMs and site managers', () => {
   assert.deepEqual(roleActionsFor(sm, op, []).options?.map((x) => x.value), ['operative']);
 });
 
+test('only admins make or unmake project managers (Andy, 16 Nov 2026)', () => {
+  assert.deepEqual(roleActionsFor(pm, op, []).options?.map((x) => x.value), ['operative', 'site_manager', 'driver']);
+  assert.deepEqual(roleActionsFor(pm, sm, []).options?.map((x) => x.value), ['site_manager', 'operative']);
+  assert.deepEqual(roleActionsFor(pm, { id: 'p2', role: 'pm' }, []).options?.map((x) => x.value), ['pm', 'estimator']);
+  assert.ok(roleActionsFor(admin, op, []).options?.some((x) => x.value === 'pm'));
+  assert.equal(roleActionsFor(pm, { id: 'f', role: 'pm', finance_only: true }, []).options, null);
+});
+
 test('a company admin can set anyone to any role, but not themselves or the last admin', () => {
   const every = ['admin', 'finance_controller', 'pm', 'estimator', 'site_manager', 'operative', 'driver', 'client'];
   for (const role of ['client', 'driver', 'operative', 'site_manager', 'pm']) assert.deepEqual(roleActionsFor(admin, { id: 'x', role }, [admin]).options?.map((x) => x.value), every);

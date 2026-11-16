@@ -1,0 +1,48 @@
+# The automatic check on every push (Andy, 16 Nov 2026: "An auto check on GitHub").
+# Runs in GitHub's own computers, free. If anything fails, the commit gets a red cross on GitHub
+# and GitHub emails the person who pushed. Takes about 3 minutes.
+name: Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app-native/package-lock.json
+
+      - name: Current web app - app.html matches its source files
+        run: python3 tools/build.py --check
+
+      - name: No secrets committed; Finance still on trial
+        run: node tools/ci/guard.js
+
+      - name: New app - install packages
+        working-directory: app-native
+        run: npm ci --no-audit --no-fund
+
+      - name: New app - types
+        working-directory: app-native
+        run: npx tsc --noEmit
+
+      - name: New app - unit tests
+        working-directory: app-native
+        run: npm test

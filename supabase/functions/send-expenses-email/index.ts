@@ -15,6 +15,9 @@ import { encodeBase64 } from 'jsr:@std/encoding@1/base64';
 //   - cc_me can only ever copy in the caller's own account email,
 //   - an entry is only emailed again when a resend is asked for.
 // A file too large to attach (over 15MB) is sent as a link in its own email.
+// 16 Nov 2026: receipts are read with the service role and that link is a
+// signed one valid for 30 days, so this works whether site-photos is public
+// or private.
 const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, pragma',
 };
@@ -82,6 +85,36 @@ async function logEmailSend(admin: any, row: { fn: string; sender_id?: string | 
   } catch (e) { console.warn('edge_email_log: not logged -', e); }
 }
 // ---- end OpHUB email send log ----
+
+// ---- OpHUB private file storage (16 Nov 2026) ----
+// The file buckets are being made private. Each receipt is read here with the
+// service role and any link that goes out is a signed one, so this works the
+// same whether site-photos is public or private. Only paths in this company's
+// own expenses/<company>/ folder are ever used (checked below).
+const EMAIL_LINK_SECONDS = 30 * 24 * 3600; // a link that goes out in an email lasts 30 days
+// The file's bytes, or null if it is missing, empty or bigger than maxBytes.
+// Asks for the size first where it can, so a huge file is never pulled in.
+async function readStorageFile(admin: any, bucket: string, path: string, maxBytes: number): Promise<Uint8Array | null> {
+  try {
+    if (maxBytes <= 0) return null;
+    const store = admin.storage.from(bucket);
+    const size = await store.info(path).then((r: any) => Number(r?.data?.size)).catch(() => NaN);
+    if (size > maxBytes) return null;
+    const { data: blob, error } = await store.download(path);
+    if (error || !blob || !blob.size || blob.size > maxBytes) return null;
+    return new Uint8Array(await blob.arrayBuffer());
+  } catch (_e) { return null; }
+}
+// A signed link to the file, or null if one can't be made (e.g. the file is gone).
+async function signedStorageLink(admin: any, supabaseUrl: string, bucket: string, path: string, seconds: number): Promise<string | null> {
+  try {
+    const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, seconds);
+    if (error || !data?.signedUrl) return null;
+    const u = String(data.signedUrl);
+    return u.startsWith('http') ? u : `${supabaseUrl}/storage/v1${u}`;
+  } catch (_e) { return null; }
+}
+// ---- end OpHUB private file storage ----
 
 // ---- OpHUB standard email layout (identical in every function — do not edit per function) ----
 // One look for every email OpHUB sends: a header band in the company's
@@ -184,7 +217,6 @@ Deno.serve(withCors(async (req) => {
     // "CC me a copy": only ever the caller's own account address.
     const cc = ccMe && callerEmail && callerEmail.toLowerCase() !== to.toLowerCase() ? callerEmail : '';
     const logoUrl = org?.logo_path ? `${SUPABASE_URL}/storage/v1/object/public/org-logos/${org.logo_path}` : null;
-    const prefix = `${SUPABASE_URL}/storage/v1/object/public/site-photos/`;
 
     // Every receipt being sent, in order, numbered 1..N.
     const items: { row: any; path: string }[] = [];
@@ -192,8 +224,8 @@ Deno.serve(withCors(async (req) => {
       const paths: string[] = Array.isArray(r.file_paths) ? r.file_paths : [];
       for (const p of paths) {
         const path = String(p || '');
-        // Only this company's own expense uploads are ever fetched.
-        if (!path.startsWith(`expenses/${caller.org_id}/`) || path.includes('..')) continue;
+        // Only this company's own expense uploads are ever read or linked.
+        if (!path.startsWith(`expenses/${caller.org_id}/`) || path.includes('..') || /[\u0000-\u001f]/.test(path)) continue;
         items.push({ row: r, path });
       }
     }
@@ -214,18 +246,18 @@ Deno.serve(withCors(async (req) => {
       const owner = ownerOf[r.created_by] || caller;
       const ownerName = String(owner.name || caller.name || '');
       const ownerEmail = owner.email && EMAIL_RE.test(owner.email) ? String(owner.email) : callerEmail;
-      const url = prefix + path.split('/').map(encodeURIComponent).join('/');
       const ext = (/\.([a-z0-9]{2,5})$/i.exec(path) || [, 'jpg'])[1];
       const filename = `${job} - receipt ${n} of ${total}`.replace(/[^a-z0-9 .\-]+/gi, '_').slice(0, 80) + `.${ext}`;
       let content: string | null = null;
       try {
-        const res = await fetch(url);
-        const len = Number(res.headers.get('content-length') || 0);
-        if (res.ok && (!len || len <= ATTACH_LIMIT)) {
-          const buf = new Uint8Array(await res.arrayBuffer());
-          if (buf.byteLength > 0 && buf.byteLength <= ATTACH_LIMIT) content = encodeBase64(buf);
-        } else { try { await res.body?.cancel(); } catch (_e) { /* ignore */ } }
+        // Read with the service role (works for a private bucket too).
+        const buf = await readStorageFile(admin, 'site-photos', path, ATTACH_LIMIT);
+        if (buf) content = encodeBase64(buf);
       } catch (_e) { /* falls back to a link */ }
+      // The link, only when the receipt isn't attached: signed, valid 30 days.
+      let url = '';
+      const makeLink = async () => { if (!url) url = (await signedStorageLink(admin, SUPABASE_URL, 'site-photos', path, EMAIL_LINK_SECONDS)) || ''; };
+      if (!content) await makeLink();
 
       const when = new Date(r.created_at).toLocaleString('en-GB', { timeZone: 'Europe/London', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
       const line = (k: string, v: string) => `<tr><td style="padding:6px 14px 6px 0;color:#8A8D93;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;vertical-align:top;white-space:nowrap;">${k}</td><td style="padding:6px 0;font-size:15px;font-weight:700;color:#101114;">${v}</td></tr>`;
@@ -236,7 +268,7 @@ Deno.serve(withCors(async (req) => {
         kicker: job,
         title: `Expense receipt ${n} of ${total}${resend ? ' (sent again)' : ''}`,
         greeting: 'Hi,',
-        intro: withAttachment ? 'The receipt is attached to this email.' : 'The receipt was too large to attach — use the button below.',
+        intro: withAttachment ? 'The receipt is attached to this email.' : url ? 'The receipt was too large to attach — use the button below.' : 'The receipt could not be attached — open OpHUB to see it.',
         bodyHtml: `<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:4px 0 12px;">
           ${line('Job', ophubEsc(job))}
           ${line('Type', ophubEsc(catLabel(r.category)))}
@@ -245,10 +277,10 @@ Deno.serve(withCors(async (req) => {
           ${line('Sent', ophubEsc(when))}
           ${line('File', ophubEsc(filename))}
         </table>`,
-        button: withAttachment ? null : { label: 'Open the receipt', url },
+        button: withAttachment || !url ? null : { label: 'Open the receipt', url },
         note: `One email is sent per receipt; reply to this email to answer ${ownerName} directly.`,
       });
-      const mkText = (withAttachment: boolean) => `Expense receipt ${n} of ${total}${resend ? ' (sent again)' : ''}\n\nJob: ${job}\nType: ${catLabel(r.category)}${r.note ? '\nNote: ' + r.note : ''}\nFrom: ${ownerName}\nSent: ${when}\nFile: ${filename}${withAttachment ? ' (attached)' : '\n' + url}`;
+      const mkText = (withAttachment: boolean) => `Expense receipt ${n} of ${total}${resend ? ' (sent again)' : ''}\n\nJob: ${job}\nType: ${catLabel(r.category)}${r.note ? '\nNote: ' + r.note : ''}\nFrom: ${ownerName}\nSent: ${when}\nFile: ${filename}${withAttachment ? ' (attached)' : url ? '\n' + url : ' (open OpHUB to see it)'}`;
 
       const payload: any = {
         from: ophubFrom(rawFrom, companyName),
@@ -267,7 +299,7 @@ Deno.serve(withCors(async (req) => {
         if (!res.ok && payload.attachments) {
           // The provider refused it with the attachment: send it with a link instead.
           console.error('send with attachment failed', await res.text());
-          delete payload.attachments; payload.html = mkHtml(false); payload.text = mkText(false);
+          delete payload.attachments; await makeLink(); payload.html = mkHtml(false); payload.text = mkText(false);
           res = await sendOne(payload);
         }
         if (res.ok) { ok = true; try { await res.body?.cancel(); } catch (_e) { /* ignore */ } }

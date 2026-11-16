@@ -272,8 +272,20 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
     - an admin's own line opens a pop-up that says why they see everyone's, with nothing to save;
     - choosing the HR folder asks "Is this folder only for HR?" first;
     - on a phone with a poor signal, screens fall back to the saved copy within about 12 seconds, and Projects opens straight away.
+    - (HR Access itself: Andy, 16 Nov: "I want to redesign I don't like it still at all". Redesigned the same day: item 81.)
+81. 16 Nov. To try:
+    - as a PM (either app): Users: the role choice for an operative or site manager no longer offers Project Manager or Estimator; a PM's own choice is Project Manager / Estimator only; as an admin everything is still offered;
+    - Finance › Sales and Purchases: everything shows as before (lists, totals, ⋯ menus, View PDF on an invoice without a saved PDF), just quicker as the lists grow;
+    - after Push origin: github.com › OpHUB › Actions shows "Check" with a green tick (a red cross and an email if something's broken);
+    - Admin › Roles: your list (Admin, Contracts Administrator, Finance Controller, Project Manager, Quantity Surveyor, Document Controller, Contracts Manager, then Estimator, Site Manager, Operative, Delivery Driver, Client as today); + Add A Role; tap one to rename it, change what it uses the app as (only when nobody has it) or remove it (only when nobody has it);
+    - Admin › Users: grouped under your roles; tap someone › Role › pick any role from the list;
+    - HR › Employee Records › HR Access: Who Can See What grouped under your roles, each line saying Sees Everyone, the names they see, or Own Folder Only; tap PM 1 › + Add Someone (Estimator 1) › choose that person's parts › + Add Someone (PM 3) › their parts › Save; the company-admin switches, the HR folder, line managers, appraisals and changes are under Settings.
+
+## To discuss with Andy (16 Nov)
+- What each role should see (Andy, 16 Nov: "Then we can discuss who sees what"). Today each role uses the app as one of the existing levels; the new ones (Contracts Administrator, Quantity Surveyor, Document Controller, Contracts Manager) start as Project Manager.
 
 ## To discuss with Andy
+- ~~HR Access redesign~~: built 16 Nov (item 81).
 - ~~HR documents in OneDrive~~: Andy, 15 Nov 2026: "I want to have hr linked to a specific folder in the OneDrive where access is managed". Built the same day (item 78): OpHUB locks the HR folder to the people HR Access lets in. Left open: anyone who signs in to OneDrive itself as the company Microsoft account OpHUB uses can open the folder there, so keep that password to the HR people.
 - The server copy of the quote rules (quote-tracker) still says "No News" in its monthly export; change it with that function's next update.
 - ~~OneDrive and the full job set-up~~: talked through and built 8 Nov 2026 (item 55).

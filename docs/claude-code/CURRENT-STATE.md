@@ -33,9 +33,9 @@
   - more manager-only field guards, locked signed briefings, `rams_take_numbers`, `fin_inbox_file`, `onedrive_status`, `variation_value_insert_guard`.
 - **SQL file 4 (`sql/4 - OpHUB fixes (27 Oct).sql`): NOT run.** It makes 9 storage buckets private. Run it only after **all** of these, in this order:
   1. ~~Push origin~~ (done: the website has the private-file-ready app).
-  2. Update 6 server functions to sign files instead of building public links: `client-sign`, `send-expenses-email`, `send-price-builder-email`, `send-site-induction-email`, `send-subcontractor-inspection-email`, and `send-document-email` (multi-file).
-  3. Rebuild the phone apps, and make sure everyone has updated.
-  4. Andy pastes SQL file 4 into Supabase › SQL Editor.
+  2. ~~Update 6 server functions~~ (done and live 16 Nov 2026: `client-sign` v5, `send-document-email` v15, `send-expenses-email` v9, `send-price-builder-email` v10, `send-site-induction-email` v12, `send-subcontractor-inspection-email` v11; they download with the service role and send signed links, 30 days in emails, and refuse paths outside the caller's company). Every other function was checked and needs nothing.
+  3. Rebuild the phone apps, and make sure everyone has updated. On 16 Nov three operatives had the old Android app (push tokens; two used it in the last month). Their copy is from September, before private files worked: they need the rebuilt app, or to use the website on their phone, before step 4.
+  4. Andy pastes SQL file 4 into Supabase › SQL Editor (Andy said 16 Nov to do it now, once step 3 is safe). Links in emails sent before late October stop opening; about 70 old files under deleted jobs or people will only open for HR/admins through the app, if at all.
 
   If the native app is close, it's fine to wait and do this at switch-over instead.
 - **SQL file 15:** run 5 Nov (purchase invoices approve themselves).
