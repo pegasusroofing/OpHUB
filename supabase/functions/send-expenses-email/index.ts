@@ -62,6 +62,19 @@ function withCors(handler: (req: Request) => Response | Promise<Response>) {
 }
 // ---- end CORS allow-list ----
 
+// ---- OpHUB storage path check (16 Nov 2026) ----
+// supabase-js puts a storage path into the request address as it is, and
+// fetch then reads %2e%2e as "..", a backslash as "/" and drops tabs and new
+// lines - so a path with any of these could climb out of its folder (and the
+// bucket) with the service key. No stored file has them. Every path from a
+// request, a row or a parsed link passes this before it is used with storage.
+const UNSAFE_STORAGE_PATH = /[%?#\\\u0000-\u001f\u007f]/;
+function storagePathSafe(p: unknown): boolean {
+  if (typeof p !== 'string' || !p || UNSAFE_STORAGE_PATH.test(p)) return false;
+  return !p.split('/').some((seg) => seg === '' || seg === '.' || seg === '..');
+}
+// ---- end OpHUB storage path check ----
+
 // ---- OpHUB email send log (security review M7, 25 Oct 2026) ----
 const lc = (s: unknown) => String(s || '').trim().toLowerCase();
 // Per-user (or per-address) send log + daily limit in public.edge_email_log
@@ -96,7 +109,7 @@ const EMAIL_LINK_SECONDS = 30 * 24 * 3600; // a link that goes out in an email l
 // Asks for the size first where it can, so a huge file is never pulled in.
 async function readStorageFile(admin: any, bucket: string, path: string, maxBytes: number): Promise<Uint8Array | null> {
   try {
-    if (maxBytes <= 0) return null;
+    if (maxBytes <= 0 || !storagePathSafe(path)) return null;
     const store = admin.storage.from(bucket);
     const size = await store.info(path).then((r: any) => Number(r?.data?.size)).catch(() => NaN);
     if (size > maxBytes) return null;
@@ -108,6 +121,7 @@ async function readStorageFile(admin: any, bucket: string, path: string, maxByte
 // A signed link to the file, or null if one can't be made (e.g. the file is gone).
 async function signedStorageLink(admin: any, supabaseUrl: string, bucket: string, path: string, seconds: number): Promise<string | null> {
   try {
+    if (!storagePathSafe(path)) return null;
     const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, seconds);
     if (error || !data?.signedUrl) return null;
     const u = String(data.signedUrl);
@@ -225,7 +239,7 @@ Deno.serve(withCors(async (req) => {
       for (const p of paths) {
         const path = String(p || '');
         // Only this company's own expense uploads are ever read or linked.
-        if (!path.startsWith(`expenses/${caller.org_id}/`) || path.includes('..') || /[\u0000-\u001f]/.test(path)) continue;
+        if (!path.startsWith(`expenses/${caller.org_id}/`) || !storagePathSafe(path)) continue;
         items.push({ row: r, path });
       }
     }

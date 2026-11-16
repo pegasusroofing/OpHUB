@@ -36,6 +36,19 @@ function withCors(handler: (req: Request) => Response | Promise<Response>) {
   };
 }
 
+// ---- OpHUB storage path check (16 Nov 2026) ----
+// supabase-js puts a storage path into the request address as it is, and
+// fetch then reads %2e%2e as "..", a backslash as "/" and drops tabs and new
+// lines - so a path with any of these could climb out of its folder (and the
+// bucket) with the service key. No stored file has them. Every path from a
+// request, a row or a parsed link passes this before it is used with storage.
+const UNSAFE_STORAGE_PATH = /[%?#\\\u0000-\u001f\u007f]/;
+function storagePathSafe(p: unknown): boolean {
+  if (typeof p !== 'string' || !p || UNSAFE_STORAGE_PATH.test(p)) return false;
+  return !p.split('/').some((seg) => seg === '' || seg === '.' || seg === '..');
+}
+// ---- end OpHUB storage path check ----
+
 async function emailSendsSince(admin: any, fn: string, field: 'sender_id' | 'to_email', value: string, minutes: number): Promise<number | null> {
   try {
     const since = new Date(Date.now() - minutes * 60000).toISOString();
@@ -121,7 +134,7 @@ Deno.serve(withCors(async (req) => {
     if (!KIND_LABEL[kind]) return json({ error: 'Unknown document type' }, 400);
     if (!recipients.length) return json({ error: 'Add at least one email address.' }, 400);
     // The main document can be taken off in the app's send pop-up (26 Oct), as long as something is attached.
-    if (storagePath && (!storagePath.startsWith(caller.org_id + '/') || storagePath.includes('..'))) return json({ error: 'Forbidden' }, 403);
+    if (storagePath && (!storagePath.startsWith(caller.org_id + '/') || !storagePathSafe(storagePath))) return json({ error: 'Forbidden' }, 403);
     const extraList = (Array.isArray(body.extra_attachments) ? body.extra_attachments : []).slice(0, 6);
     if (!storagePath && !extraList.length) return json({ error: 'Attach at least one file.' }, 400);
 
@@ -146,7 +159,7 @@ Deno.serve(withCors(async (req) => {
     let totalBytes = buf.length;
     for (const x of extraList) {
       const p = String((x && x.storage_path) || '');
-      if (!p.startsWith(caller.org_id + '/') || p.includes('..')) return json({ error: 'Forbidden' }, 403);
+      if (!p.startsWith(caller.org_id + '/') || !storagePathSafe(p)) return json({ error: 'Forbidden' }, 403);
       const { data: xb, error: xe } = await admin.storage.from('finance-docs').download(p);
       if (xe || !xb) return json({ error: 'Could not find the extra file to attach.' }, 404);
       const xbuf = new Uint8Array(await xb.arrayBuffer());

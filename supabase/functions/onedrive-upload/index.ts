@@ -38,6 +38,19 @@ function withCors(handler: (req: Request) => Response | Promise<Response>) {
 }
 // ---- end CORS allow-list ----
 
+// ---- OpHUB storage path check (16 Nov 2026) ----
+// supabase-js puts a storage path into the request address as it is, and
+// fetch then reads %2e%2e as "..", a backslash as "/" and drops tabs and new
+// lines - so a path with any of these could climb out of its folder (and the
+// bucket) with the service key. No stored file has them. Every path from a
+// request, a row or a parsed link passes this before it is used with storage.
+const UNSAFE_STORAGE_PATH = /[%?#\\\u0000-\u001f\u007f]/;
+function storagePathSafe(p: unknown): boolean {
+  if (typeof p !== 'string' || !p || UNSAFE_STORAGE_PATH.test(p)) return false;
+  return !p.split('/').some((seg) => seg === '' || seg === '.' || seg === '..');
+}
+// ---- end OpHUB storage path check ----
+
 function b64urlDecode(str: string): string {
   str = str.replace(/-/g, '+').replace(/_/g, '/');
   while (str.length % 4) str += '=';
@@ -313,7 +326,7 @@ Deno.serve(withCors(async (req) => {
     // the data a site phone has to push per photo. Kept (not removed).
     let bytes: Uint8Array;
     if (photo_path) {
-      if (typeof photo_path !== 'string' || photo_path.includes('..')) {
+      if (typeof photo_path !== 'string' || !storagePathSafe(photo_path)) {
         return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       const photoSiteId = photo_path.split('/')[0];
@@ -326,7 +339,7 @@ Deno.serve(withCors(async (req) => {
       bytes = new Uint8Array(await blob.arrayBuffer());
     } else if (storage_path) {
       const prefix = `onedrive-tmp/${callerProfile.org_id}/`;
-      if (typeof storage_path !== 'string' || !storage_path.startsWith(prefix) || storage_path.includes('..')) {
+      if (typeof storage_path !== 'string' || !storage_path.startsWith(prefix) || !storagePathSafe(storage_path)) {
         return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       const { data: blob, error: dlErr } = await admin.storage.from('mc-documents').download(storage_path);

@@ -94,6 +94,18 @@ function ophubRows(rows: [string, unknown][]): string {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NO_EMAIL_KINDS = ['operative_checked_in'];
 const MAX_ATTACH_BYTES = 20 * 1024 * 1024;
+// ---- OpHUB storage path check (16 Nov 2026) ----
+// supabase-js puts a storage path into the request address as it is, and
+// fetch then reads %2e%2e as "..", a backslash as "/" and drops tabs and new
+// lines - so a path with any of these could climb out of its folder (and the
+// bucket) with the service key. No stored file has them. Every path from a
+// request, a row or a parsed link passes this before it is used with storage.
+const UNSAFE_STORAGE_PATH = /[%?#\\\u0000-\u001f\u007f]/;
+function storagePathSafe(p: unknown): boolean {
+  if (typeof p !== 'string' || !p || UNSAFE_STORAGE_PATH.test(p)) return false;
+  return !p.split('/').some((seg) => seg === '' || seg === '.' || seg === '..');
+}
+// ---- end OpHUB storage path check ----
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -218,7 +230,7 @@ Deno.serve(async (req) => {
             const detailRows: [string, unknown][] = (Array.isArray(details.rows) ? details.rows : []).filter((r: unknown) => Array.isArray(r) && r[1] != null && String(r[1]) !== '').slice(0, 20).map((r: unknown[]) => [String(r[0]), String(r[1])]);
             const attachments: { filename: string; content: string; content_id?: string }[] = [];
             let photoHtml = '', leftOut = 0, attachBytes = 0;
-            const fileOk = (f: { bucket?: unknown; path?: unknown }) => siteId && siteRow?.org_id === orgId && ['site-photos', 'mc-documents'].includes(String(f?.bucket)) && typeof f?.path === 'string' && f.path.startsWith(`${siteId}/`) && !f.path.includes('..');
+            const fileOk = (f: { bucket?: unknown; path?: unknown }) => siteId && siteRow?.org_id === orgId && ['site-photos', 'mc-documents'].includes(String(f?.bucket)) && typeof f?.path === 'string' && f.path.startsWith(`${siteId}/`) && storagePathSafe(f.path);
             const fetchFile = async (f: { bucket: string; path: string }) => {
               const { data: blob } = await admin.storage.from(f.bucket).download(f.path);
               if (!blob) return null;

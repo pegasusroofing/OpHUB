@@ -21,6 +21,18 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PAGE = 'https://operativehub.co.uk/quote.html';
 const esc = (s: unknown) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const lc = (s: unknown) => String(s || '').trim().toLowerCase();
+// ---- OpHUB storage path check (16 Nov 2026) ----
+// supabase-js puts a storage path into the request address as it is, and
+// fetch then reads %2e%2e as "..", a backslash as "/" and drops tabs and new
+// lines - so a path with any of these could climb out of its folder (and the
+// bucket) with the service key. No stored file has them. Every path from a
+// request, a row or a parsed link passes this before it is used with storage.
+const UNSAFE_STORAGE_PATH = /[%?#\\\u0000-\u001f\u007f]/;
+function storagePathSafe(p: unknown): boolean {
+  if (typeof p !== 'string' || !p || UNSAFE_STORAGE_PATH.test(p)) return false;
+  return !p.split('/').some((seg) => seg === '' || seg === '.' || seg === '..');
+}
+// ---- end OpHUB storage path check ----
 function fromOf(rawFrom: string | undefined | null, company: string): string {
   const m = /<([^>]+)>/.exec(rawFrom || '');
   const address = (m ? m[1] : rawFrom || 'reports@ophub.app').trim();
@@ -96,7 +108,7 @@ Deno.serve(async (req) => {
     const cc: string[] = (Array.isArray(body.cc) ? body.cc : []).map((r: unknown) => String(r).trim()).filter((r: string) => EMAIL_RE.test(r)).slice(0, 5);
     if (!recipients.length) return reply(req, { error: 'Add at least one email address.' }, 400);
     const storagePath = String(body.storage_path || '');
-    if (!storagePath.startsWith(caller.org_id + '/') || storagePath.includes('..')) return reply(req, { error: 'Forbidden' }, 403);
+    if (!storagePath.startsWith(caller.org_id + '/') || !storagePathSafe(storagePath)) return reply(req, { error: 'Forbidden' }, 403);
     const filename = String(body.filename || 'Quote.pdf').replace(/[\r\n"]/g, '').slice(0, 120);
     const sent = await sendsSince(admin, caller.id, 24 * 60);
     if (sent != null && sent >= 100) return reply(req, { error: 'You’ve reached today’s limit of 100 finance emails — try again tomorrow.' }, 429);

@@ -38,6 +38,19 @@ function withCors(handler: (req: Request) => Response | Promise<Response>) {
 }
 // ---- end CORS allow-list ----
 
+// ---- OpHUB storage path check (16 Nov 2026) ----
+// supabase-js puts a storage path into the request address as it is, and
+// fetch then reads %2e%2e as "..", a backslash as "/" and drops tabs and new
+// lines - so a path with any of these could climb out of its folder (and the
+// bucket) with the service key. No stored file has them. Every path from a
+// request, a row or a parsed link passes this before it is used with storage.
+const UNSAFE_STORAGE_PATH = /[%?#\\\u0000-\u001f\u007f]/;
+function storagePathSafe(p: unknown): boolean {
+  if (typeof p !== 'string' || !p || UNSAFE_STORAGE_PATH.test(p)) return false;
+  return !p.split('/').some((seg) => seg === '' || seg === '.' || seg === '..');
+}
+// ---- end OpHUB storage path check ----
+
 // ---- OpHUB email send guard (security review M7, 25 Oct 2026) ----
 // Same block in every send-* function that takes a caller-chosen recipient
 // or link. See /home/claude/edge/REPORT.md.
@@ -85,7 +98,7 @@ const UUID_SEG = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
 // coshh-exports/<org>/..., report-pdfs/<submission>/...
 async function storagePathAllowed(admin: any, orgId: string, path: unknown): Promise<boolean> {
   const p = String(path || '');
-  if (!p || p.startsWith('/') || p.includes('\\') || p.split('/').some((seg) => seg === '..' || seg === '.')) return false;
+  if (!storagePathSafe(p)) return false;
   const segs = p.split('/');
   const ids = segs.slice(0, 2).filter((seg) => UUID_SEG.test(seg));
   if (!ids.length) return true;

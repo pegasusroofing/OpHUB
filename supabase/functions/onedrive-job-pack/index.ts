@@ -122,6 +122,19 @@ const cleanPath = (p: unknown) => String(p ?? '').split('/').map(seg).filter(Boo
 const enc = (p: string) => p.split('/').filter(Boolean).map(encodeURIComponent).join('/');
 const uidOf = (t: string) => { try { return JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(t.split('.')[1].length / 4) * 4, '='))).sub || null; } catch { return null; } };
 
+// ---- OpHUB storage path check (16 Nov 2026) ----
+// supabase-js puts a storage path into the request address as it is, and
+// fetch then reads %2e%2e as "..", a backslash as "/" and drops tabs and new
+// lines - so a path with any of these could climb out of its folder (and the
+// bucket) with the service key. No stored file has them. Every path from a
+// request, a row or a parsed link passes this before it is used with storage.
+const UNSAFE_STORAGE_PATH = /[%?#\\\u0000-\u001f\u007f]/;
+function storagePathSafe(p: unknown): boolean {
+  if (typeof p !== 'string' || !p || UNSAFE_STORAGE_PATH.test(p)) return false;
+  return !p.split('/').some((seg) => seg === '' || seg === '.' || seg === '..');
+}
+// ---- end OpHUB storage path check ----
+
 async function tokenFor(admin: any, conn: any) {
   if (new Date(conn.expires_at).getTime() > Date.now() + 60000) return conn.access_token;
   const res = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
@@ -259,7 +272,7 @@ Deno.serve(async (req) => {
       let bytes: Uint8Array;
       const file = body.photo_path ? { bucket: 'site-photos', path: body.photo_path } : body.file;
       if (file) {
-        if (!BUCKETS.includes(String(file.bucket)) || typeof file.path !== 'string' || !file.path.startsWith(`${site.id}/`) || file.path.includes('..')) return reply(req, { error: 'Forbidden' }, 403);
+        if (!BUCKETS.includes(String(file.bucket)) || typeof file.path !== 'string' || !file.path.startsWith(`${site.id}/`) || !storagePathSafe(file.path)) return reply(req, { error: 'Forbidden' }, 403);
         const { data: blob, error } = await admin.storage.from(file.bucket).download(file.path);
         if (error || !blob) return reply(req, { error: 'Could not read the file.' }, 400);
         bytes = new Uint8Array(await blob.arrayBuffer());

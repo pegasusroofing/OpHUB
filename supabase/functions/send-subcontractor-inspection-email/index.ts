@@ -39,6 +39,19 @@ function withCors(handler: (req: Request) => Response | Promise<Response>) {
 }
 // ---- end CORS allow-list ----
 
+// ---- OpHUB storage path check (16 Nov 2026) ----
+// supabase-js puts a storage path into the request address as it is, and
+// fetch then reads %2e%2e as "..", a backslash as "/" and drops tabs and new
+// lines - so a path with any of these could climb out of its folder (and the
+// bucket) with the service key. No stored file has them. Every path from a
+// request, a row or a parsed link passes this before it is used with storage.
+const UNSAFE_STORAGE_PATH = /[%?#\\\u0000-\u001f\u007f]/;
+function storagePathSafe(p: unknown): boolean {
+  if (typeof p !== 'string' || !p || UNSAFE_STORAGE_PATH.test(p)) return false;
+  return !p.split('/').some((seg) => seg === '' || seg === '.' || seg === '..');
+}
+// ---- end OpHUB storage path check ----
+
 // ---- OpHUB email send guard (security review M7, 25 Oct 2026) ----
 // Same block in every send-* function that takes a caller-chosen recipient
 // or link. See /home/claude/edge/REPORT.md.
@@ -86,7 +99,7 @@ const UUID_SEG = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
 // coshh-exports/<org>/..., report-pdfs/<submission>/...
 async function storagePathAllowed(admin: any, orgId: string, path: unknown): Promise<boolean> {
   const p = String(path || '');
-  if (!p || p.startsWith('/') || p.includes('\\') || p.split('/').some((seg) => seg === '..' || seg === '.')) return false;
+  if (!storagePathSafe(p)) return false;
   const segs = p.split('/');
   const ids = segs.slice(0, 2).filter((seg) => UUID_SEG.test(seg));
   if (!ids.length) return true;
@@ -159,7 +172,10 @@ function storageRef(url: unknown, supabaseUrl: string | undefined): { bucket: st
   if (!ownStorageUrl(url, supabaseUrl)) return null;
   const m = /^\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/(.+)$/.exec(new URL(String(url)).pathname);
   if (!m) return null;
-  try { return { bucket: decodeURIComponent(m[1]), path: m[2].split('/').map(decodeURIComponent).join('/') }; } catch (_e) { return null; }
+  try {
+    const ref = { bucket: decodeURIComponent(m[1]), path: m[2].split('/').map(decodeURIComponent).join('/') };
+    return storagePathSafe(ref.path) && !ref.bucket.includes('/') && storagePathSafe(ref.bucket) ? ref : null; // checked after decoding
+  } catch (_e) { return null; }
 }
 // True only for a path in one of this company's own folders - the same ones
 // the storage rules let a company member read: <company>/..., <word>/<company>/...,
@@ -171,7 +187,7 @@ async function pathInCompany(admin: any, orgId: unknown, role: unknown, path: un
   const p = String(path || '');
   const org = String(orgId || '').toLowerCase();
   if (!p || !org || String(role || '') === 'client') return false;
-  if (p.startsWith('/') || p.includes('\\') || /[\u0000-\u001f]/.test(p)) return false;
+  if (!storagePathSafe(p)) return false;
   const segs = p.split('/');
   if (segs.length < 2 || segs.some((seg) => seg === '' || seg === '.' || seg === '..')) return false;
   const s1 = segs[0].toLowerCase(), s2 = segs[1].toLowerCase();
@@ -196,7 +212,7 @@ async function pathInCompany(admin: any, orgId: unknown, role: unknown, path: un
 // Asks for the size first where it can, so a huge file is never pulled in.
 async function readStorageFile(admin: any, bucket: string, path: string, maxBytes: number): Promise<Uint8Array | null> {
   try {
-    if (maxBytes <= 0) return null;
+    if (maxBytes <= 0 || !storagePathSafe(path)) return null;
     const store = admin.storage.from(bucket);
     const size = await store.info(path).then((r: any) => Number(r?.data?.size)).catch(() => NaN);
     if (size > maxBytes) return null;
@@ -208,6 +224,7 @@ async function readStorageFile(admin: any, bucket: string, path: string, maxByte
 // A signed link to the file, or null if one can't be made (e.g. the file is gone).
 async function signedStorageLink(admin: any, supabaseUrl: string, bucket: string, path: string, seconds: number): Promise<string | null> {
   try {
+    if (!storagePathSafe(path)) return null;
     const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, seconds);
     if (error || !data?.signedUrl) return null;
     const u = String(data.signedUrl);
@@ -260,14 +277,11 @@ function ophubRows(rows: [string, unknown][]): string {
 
 const MAX_ATTACH_BYTES = 15 * 1024 * 1024;
 const SIGNED_LINK_SECONDS = 30 * 24 * 60 * 60;
-// Characters no path written by the app contains. A path sent by the caller
-// with any of them is refused; a path out of an old-style link just isn't
-// attached (it stays a link, as it always was).
-const UNSAFE_PATH_CHARS = /[%?#\u0000-\u001f]/;
 // The file as base64, or null if it is too big or can't be fetched. Asks for
 // the size first where it can, so a huge file is never pulled into memory.
 async function fetchAttachment(admin: any, bucket: string, path: string, maxBytes: number): Promise<string | null> {
   try {
+    if (!storagePathSafe(path)) return null;
     const store = admin.storage.from(bucket);
     const size = await store.info(path).then((r: any) => Number(r?.data?.size)).catch(() => NaN);
     if (size > maxBytes) return null;
@@ -327,7 +341,7 @@ Deno.serve(withCors(async (req) => {
     // file and file_url is ignored, so the two can't point at different things.
     // 16 Nov 2026 (private storage): file_url may be a public or a signed link.
     const sp = storage_path ? { bucket: String(storage_bucket || 'mc-documents'), path: String(storage_path) } : storageRef(file_url, SUPABASE_URL);
-    if (!sp || sp.bucket !== 'mc-documents' || !sp.path.startsWith(`${site.id}/subcontractor-inspections/`) || (storage_path && UNSAFE_PATH_CHARS.test(sp.path)) || !(await storagePathAllowed(admin, caller.org_id, sp.path))) {
+    if (!sp || sp.bucket !== 'mc-documents' || !sp.path.startsWith(`${site.id}/subcontractor-inspections/`) || !storagePathSafe(sp.path) || !(await storagePathAllowed(admin, caller.org_id, sp.path))) {
       return new Response(JSON.stringify({ error: 'That file link isn’t from OpHUB — try again from the app.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     const sentToday = await emailSendsSince(admin, 'send-subcontractor-inspection-email', 'sender_id', caller.id, 24 * 60);
@@ -394,7 +408,7 @@ Deno.serve(withCors(async (req) => {
       });
     };
 
-    const content = UNSAFE_PATH_CHARS.test(sp.path) ? null : await fetchAttachment(admin, sp.bucket, sp.path, MAX_ATTACH_BYTES);
+    const content = !storagePathSafe(sp.path) ? null : await fetchAttachment(admin, sp.bucket, sp.path, MAX_ATTACH_BYTES);
     let attached = !!content;
     let emailRes: Response | null = null;
     if (content) {

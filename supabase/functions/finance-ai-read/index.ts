@@ -15,6 +15,19 @@ const MODEL = Deno.env.get('ANTHROPIC_MODEL') || 'claude-opus-5-5';
 // logged in ai_usage_log (a failed read still counts: it was still paid for).
 const DAILY = 150;
 
+// ---- OpHUB storage path check (16 Nov 2026) ----
+// supabase-js puts a storage path into the request address as it is, and
+// fetch then reads %2e%2e as "..", a backslash as "/" and drops tabs and new
+// lines - so a path with any of these could climb out of its folder (and the
+// bucket) with the service key. No stored file has them. Every path from a
+// request, a row or a parsed link passes this before it is used with storage.
+const UNSAFE_STORAGE_PATH = /[%?#\\\u0000-\u001f\u007f]/;
+function storagePathSafe(p: unknown): boolean {
+  if (typeof p !== 'string' || !p || UNSAFE_STORAGE_PATH.test(p)) return false;
+  return !p.split('/').some((seg) => seg === '' || seg === '.' || seg === '..');
+}
+// ---- end OpHUB storage path check ----
+
 const SCHEMA = {
   type: 'object',
   properties: {
@@ -63,7 +76,7 @@ Deno.serve(async (req) => {
     const content: any[] = [];
     if (body.path) {
       const path = String(body.path);
-      if (!path.startsWith(me.org_id + '/') || path.includes('..')) return json({ error: 'Forbidden' }, 403);
+      if (!path.startsWith(me.org_id + '/') || !storagePathSafe(path)) return json({ error: 'Forbidden' }, 403);
       const { data: blob, error } = await admin.storage.from('finance-docs').download(path);
       if (error || !blob) return json({ error: 'File not found' }, 404);
       const buf = new Uint8Array(await blob.arrayBuffer());

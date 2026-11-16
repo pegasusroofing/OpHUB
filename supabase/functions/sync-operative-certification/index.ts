@@ -97,6 +97,19 @@ export const HR_TRY_AGAIN = 'OneDrive didn’t answer about the HR folder, so th
 export class HrLockUnknown extends Error { constructor() { super(HR_TRY_AGAIN); this.name = 'HrLockUnknown'; } }
 // ---- end HR folder lock ----
 
+// ---- OpHUB storage path check (16 Nov 2026) ----
+// supabase-js puts a storage path into the request address as it is, and
+// fetch then reads %2e%2e as "..", a backslash as "/" and drops tabs and new
+// lines - so a path with any of these could climb out of its folder (and the
+// bucket) with the service key. No stored file has them. Every path from a
+// request, a row or a parsed link passes this before it is used with storage.
+const UNSAFE_STORAGE_PATH = /[%?#\\\u0000-\u001f\u007f]/;
+function storagePathSafe(p: unknown): boolean {
+  if (typeof p !== 'string' || !p || UNSAFE_STORAGE_PATH.test(p)) return false;
+  return !p.split('/').some((seg) => seg === '' || seg === '.' || seg === '..');
+}
+// ---- end OpHUB storage path check ----
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, pragma',
@@ -238,6 +251,7 @@ Deno.serve(async (req) => {
       const { data: toPush } = await admin.from('operative_certifications').select('*').in('id', explicitCertIds).eq(ownerCol, ownerId).eq('source', 'upload').is('item_id', null);
       for (const row of toPush || []) {
         try {
+          if (!storagePathSafe(row.storage_path)) continue;
           const dlRes = await admin.storage.from('certifications').download(row.storage_path);
           if (dlRes.error || !dlRes.data) continue;
           const buf = new Uint8Array(await dlRes.data.arrayBuffer());
