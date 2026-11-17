@@ -188,7 +188,8 @@ You only see Finance if it's switched on for you (Admin › Users › **Finance*
 
 **What it's for:** applying for payment, then recording the client's certificate.
 
-1. Click **Sales**, then **Applications & Certificates**, then **+ New Application**. Or use **+ New ▾** on the job.
+1. Click **Sales**, then **Applications & Certificates**, then **+ New Application**. Type a few letters of the job in the **Project** box at the top and click it. Or use **+ New ▾** on the job.
+   A job with no Bill of Quantities starts with one line, **Contract Works**, at its contract value. It isn't sent to the operatives' schedule.
 2. Fill in each line's % (or £) this time. **Bulk Edit ▾** has **Set All To 100%**.
 3. Add **+ Variation Line** or **+ Add Day Work** if needed.
 4. Click **Apply For Payment**. It locks.

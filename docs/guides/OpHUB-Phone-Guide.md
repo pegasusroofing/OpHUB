@@ -123,7 +123,8 @@ You only see Finance if it's switched on for you (Admin › Users › **Finance*
 
 1. Tap **Sales**, then the tab you want.
 2. Tap a row to open it. Use the ▾ under the amount to change which ones show. On **Applications & Certificates**, the **Type** column says **App** or **Cert** (then **No.**); its ▾ shows **Applications**, **Certificates** or **All**.
-3. On an invoice, tap **+ Record payment** when the client pays.
+3. **+ New Application** opens a page with a **Project** box at the top: type a few letters of the job and tap it. A job with no Bill of Quantities starts with one line, **Contract Works**, at its contract value.
+4. On an invoice, tap **+ Record payment** when the client pays.
 
 **What This Does In Projects:** an application can use the site team's Schedule of Works progress (**Use site progress**). Variations the client approved in Projects go onto the next application.
 

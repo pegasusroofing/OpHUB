@@ -47,13 +47,24 @@ const loadRegisters = (siteId: string) => Promise.all([
 
 export async function newApplication(me: Profile, siteId: string): Promise<{ id?: string; error?: string }> {
   await syncSiteVariationValues(siteId).catch(() => 0); // 9219zzb: PM's variation values first
-  const [st, jfR, pos, items, apps, vars, fvars, fdays] = await Promise.all([
+  const [st, jfR, pos, boq, apps, vars, fvars, fdays] = await Promise.all([
     loadSettings(me.org_id), rows(fdb.from('job_finance').select('*').eq('site_id', siteId)), rows(fdb.from('client_pos').select('po_number').eq('site_id', siteId).order('is_primary', { ascending: false }).order('created_at')),
     rows(fdb.from('fin_contract_items').select('*').eq('site_id', siteId).order('position')), rows(fdb.from('fin_applications').select('*').eq('site_id', siteId).order('number', { ascending: false })),
     rows(fdb.from('variations').select('*').eq('site_id', siteId).eq('approval_status', 'approved').order('created_at')), rows(fdb.from('fin_variations').select('*').eq('site_id', siteId).eq('status', 'agreed').order('seq')),
     rows(fdb.from('fin_dayworks').select('*').eq('site_id', siteId).eq('status', 'approved').order('seq')),
   ]);
-  if (!items.filter(isItem).length) return { error: 'Set up the Bill of Quantities first.' };
+  let items = boq;
+  // No Bill of Quantities: the application starts with one line, Contract Works, at the job's contract value, kept as
+  // the job's BoQ so every application after it adds up (Andy, 17 Nov 2026: "Can we have it relaxed for afp's ... but
+  // doesn't auto issue to the operatives screens"). Finance only: the BoQ reaches the operatives' schedule only when
+  // someone presses Send To The Operatives' Schedule on the BoQ page. With no contract value either, the BoQ is needed.
+  if (!items.filter(isItem).length) {
+    const cv = Number(jfR[0]?.contract_value || 0);
+    if (!(cv > 0)) return { error: 'Set up the Bill of Quantities first, or give the job a contract value.' };
+    const ins = await fdb.from('fin_contract_items').insert({ org_id: me.org_id, site_id: siteId, position: 0, kind: 'item', ref: '1', description: 'Contract Works', qty: 1, unit: 'item', rate: cv, value: cv } as never).select('*').single();
+    if (ins.error || !ins.data) return { error: 'Could not start it. Try again.' };
+    items = [ins.data as Row];
+  }
   const jf = jfR[0] || {}, last = apps.find((a) => a.status !== 'void');
   const lastPct: Row = {}; (last?.lines || []).forEach((l: Row) => { if (isItem(l)) lastPct[l.item_id] = l.pct; });
   const val = appDateFor(jf, st, today().slice(0, 7)) || today();

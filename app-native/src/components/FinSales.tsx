@@ -137,6 +137,8 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   const live = data.invs.filter((i) => i.status !== 'void');
   const stage = (a: App) => appStage(a).k;
   const newFor = async (what: 'invoice' | 'application') => {
+    // A new application chooses its job in a Project box at the top of its own page, not a big pop-up list (Andy, 17 Nov 2026).
+    if (what === 'application' && !siteId) { router.push('/fin/newapp' as never); return; }
     const sid = siteId || (await pickJob(what === 'invoice' ? 'New invoice' : 'New application', sites.filter((s) => s.status !== 'closed')));
     if (sid) router.push(`/fin/job/${sid}/${what}/new` as never);
   };
