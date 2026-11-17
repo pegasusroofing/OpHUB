@@ -211,7 +211,8 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
         ) : list.length ? (
           <PhoneTable key="invoices" label="Invoices" rows={list} keyOf={(i) => i.id} onRow={(i) => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)}
             cols={[
-              { l: 'Invoice', w: 74, main: (i) => i.number || 'Draft', sub: (i) => (i.issue_date ? fdate(i.issue_date) : 'Not issued'), sort: (i) => String(i.issue_date || '') },
+              { l: 'Invoice', w: 88, main: (i) => i.number || 'Draft', // wider (Andy, 17 Nov 2026: "slightly wider please")
+                sub: (i) => (i.issue_date ? fdate(i.issue_date) : 'Not issued'), sort: (i) => String(i.issue_date || '') },
               { l: siteId ? 'Client' : 'Project', main: (i) => (siteId ? billTo(i) || '—' : jobTag(site(i.site_id))), sub: (i) => (siteId ? '' : billTo(i)), find: (i) => `${jobTag(site(i.site_id))} ${billTo(i)} ${i.bill_address || ''}` },
               { l: 'Gross', w: 84, right: true, bold: true, bigFirst: true, main: (i) => money(i.total), sub: (i) => (invOverdue(i) ? 'Overdue' : INV_STATUS[i.status] || i.status), tone: (i) => (invOverdue(i) ? '#C0392B' : undefined), sort: (i) => Number(i.total || 0),
                 choose: { opts: [['', 'All'], ['outstanding', 'Owed'], ['overdue', 'Overdue'], ['draft', 'Drafts'], ['paid', 'Paid']], test: (i, v) => (F[v] ? F[v](i) : true), start: f0 === 'all' ? '' : f0 || 'outstanding' } },
@@ -274,11 +275,12 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
 }
 
 /** Sales headline figures, each with its own date range (9219h): applied value, invoiced value, overdue, applied but not certified. */
-/** Sub-tab counts: certificates still to invoice (9219 toInvoice). */
+/** Sub-tab counts: the applications still outstanding, sent and waiting for the client's certificate (Andy, 17 Nov 2026:
+ *  "can this just be for applications outstanding"; it counted certificates still to invoice). */
 export function useSalesBadges(): Record<string, number> | undefined {
   const { me } = useAuth();
   const { data } = useSales(me?.org_id);
-  return data ? { apps: data.apps.filter((a) => appStage(a).k === 'certified').length } : undefined;
+  return data ? { apps: data.apps.filter((a) => appStage(a).k === 'submitted').length } : undefined;
 }
 export function SalesStats() {
   const { me } = useAuth();

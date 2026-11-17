@@ -47,6 +47,10 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(look.centred < 2, `phone: the number is centred above its date (off by ${look.centred}px)`);
   const w = await page.evaluate(() => { const b = document.querySelector('[aria-label="Search No."]'); return b ? Math.round(b.getBoundingClientRect().width) : 0; });
   check(w >= 60, `phone: No. a little wider (${w}px, was 52)`);
+  // The tab's number: applications outstanding (sent, waiting for the certificate), not certificates to invoice
+  // (Andy, 17 Nov 2026). The seed has one waiting (No. 3) and two certified.
+  const badge = await page.evaluate(() => [...document.querySelectorAll('div[dir="auto"]')].filter((e) => e.textContent.trim() === 'Applications & Certificates' && e.getBoundingClientRect().width > 0).map((t) => t.parentElement.innerText.replace(/\s+/g, ' ').trim()).find((x) => /^Applications & Certificates \d+$/.test(x)) || '');
+  check(badge === 'Applications & Certificates 1', `phone: the tab's number counts applications outstanding (${badge})`);
   let r = await rows();
   check(r.length === 3 && r.filter((x) => x.startsWith('Cert ')).length === 2 && r.some((x) => x.startsWith('App 3')), `phone: each row says App or Cert (${r.join(' | ')})`);
   await page.screenshot({path: path.join(SHOTS, 'apps-phone.png')});
@@ -67,6 +71,17 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByText('All', {exact: true}).filter({visible: true}).first().click(); await page.waitForTimeout(1000);
   check((await rows()).length === 3, 'phone: All again');
   check(await page.evaluate(() => [...document.querySelectorAll('div')].filter((d) => /^Applications$|^Certificates$/.test(d.innerText || '') && d.getBoundingClientRect().height > 30 && d.getBoundingClientRect().width > 300).length) === 0, 'phone: no new bar added');
+
+  // ---- Phone: Invoices' Invoice column a little wider (Andy, 17 Nov 2026: "slightly wider please") ----
+  await page.goto(B + '/fin/sales?tab=invoices&f=all'); await page.waitForTimeout(5000);
+  const inv = await page.evaluate(() => {
+    const b = [...document.querySelectorAll('[aria-label="Search Invoice"]')].find((e) => e.getBoundingClientRect().width > 0);
+    const t = [...document.querySelectorAll('[aria-label="Invoices"]')].find((e) => e.getBoundingClientRect().width > 0);
+    const cut = t ? [...t.querySelectorAll('div[dir="auto"]')].filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent).slice(0, 3) : ['no table'];
+    return {w: b ? Math.round(b.getBoundingClientRect().width) : 0, cut};
+  });
+  check(inv.w >= 88, `phone Invoices: the Invoice column wider (${inv.w}px, was 74)`);
+  await page.screenshot({path: path.join(SHOTS, 'invoices-phone.png')});
 
   // ---- Phone: Projects' Value Of Works bar ----
   await page.goto(B + '/fin/jobs'); await page.waitForTimeout(5000);
