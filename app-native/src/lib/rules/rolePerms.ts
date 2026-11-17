@@ -6,10 +6,11 @@
 export type Part = 'every_job' | 'create_projects' | 'prices' | 'fin_view' | 'fin_edit' | 'quotes' | 'sow' | 'snags'
   | 'hs_signoff' | 'orders' | 'docs' | 'team' | 'people' | 'reports' | 'notify';
 
-/** The parts in the board's order, with the names Andy chose. */
+/** The parts in the board's order, with the names Andy chose. Andy, 17 Nov 2026: quotes and the price builder are separate: 
+ *  Quotes is the Quotes page (tender tracker); the price builder (the job's Price Sheets) has always come with See Prices. */
 export const PARTS: [Part, string][] = [
-  ['every_job', 'Every Job'], ['create_projects', 'Create Projects'], ['prices', 'See Prices'],
-  ['fin_view', 'Finance – View'], ['fin_edit', 'Finance – Edit'], ['quotes', 'Quotes And Price Builder'],
+  ['every_job', 'Every Job'], ['create_projects', 'Create Projects'], ['prices', 'See Prices And Price Builder'],
+  ['fin_view', 'Finance – View'], ['fin_edit', 'Finance – Edit'], ['quotes', 'Quotes'],
   ['sow', 'Schedule Of Works'], ['snags', 'Snags And Variations'], ['hs_signoff', 'Sign Off H&S'],
   ['orders', 'Raise Orders'], ['docs', 'Drawings And Documents'], ['team', 'Team And Calendar'],
   ['people', 'Manage People'], ['reports', 'Reports'], ['notify', 'Notifications And Emails'],

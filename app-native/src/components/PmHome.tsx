@@ -26,12 +26,11 @@ import { heading } from '@/lib/fonts';
 import { greeting, siteStatusKey } from '@/lib/rules/checkin';
 import { isQuoted } from '@/lib/rules/quotes';
 import { seesHomeFinance } from '@/lib/homeTiles';
-import { roleLabel } from '@/lib/roles';
 import { can } from '@/lib/rules/rolePerms';
 import { base, space, useDesk, useTheme } from '@/theme/theme';
 
 export function PmHome() {
-  const { me, org, signOut } = useAuth();
+  const { me, org } = useAuth();
   const t = useTheme();
   const desk = useDesk();
   const { data: sites } = useSites();
@@ -148,12 +147,13 @@ export function PmHome() {
       <TileGrid cols={desk ? 4 : 2}>
         {seesHomeFinance(me, org) && <Tile plain ic="pound" tint="" title="OpHUB Finance" sub="Money in & out" onPress={go('/fin')} />}
         {can(me, 'quotes') && <Tile plain ic="reports" tint="" title="Quotes" sub="Tender tracker" onPress={go('/pm/quotes')} />}
-        {/* Deliveries is under Dashboard (Andy, 11 Nov 2026); deliveries to schedule still show under Today and as the badge here. */}
-        <Tile plain ic="chart" tint="" title="Dashboards" sub={dlvN ? `${dlvN} deliver${dlvN === 1 ? 'y' : 'ies'} to schedule` : 'Company, operatives & deliveries'} badge={dlvN || undefined} onPress={go('/pm/dashboards')} />
+        {/* Deliveries is under Dashboard (Andy, 11 Nov 2026); deliveries to schedule still show under Today and as the badge here.
+            On a phone no Dashboards or HR tile: they're in the ☰ menu (Andy, 17 Nov 2026). */}
+        {desk && <Tile plain ic="chart" tint="" title="Dashboards" sub={dlvN ? `${dlvN} deliver${dlvN === 1 ? 'y' : 'ies'} to schedule` : 'Company, operatives & deliveries'} badge={dlvN || undefined} onPress={go('/pm/dashboards')} />}
         {can(me, 'reports') && <Tile plain ic="reports" tint="" title="Reports & Surveys" sub={open.length ? `${open.length} in progress` : 'All projects'} onPress={go('/pm/reports')} />}
-        {/* On a laptop no HR tile: it's in the bar on the left (Andy, 14 Nov 2026: "just 4 tiles remain"). The phone
-            keeps HR and Admin, so its two columns stay even. */}
-        {(!desk || !seesHomeFinance(me, org)) && <Tile plain ic="users" tint="" title="HR" sub="Holidays, policies & handbook" onPress={go('/pm/hr')} />}
+        {/* On a laptop no HR tile when Finance is there: it's in the bar on the left (Andy, 14 Nov 2026: "just 4 tiles
+            remain"). The phone keeps Admin. */}
+        {desk && !seesHomeFinance(me, org) && <Tile plain ic="users" tint="" title="HR" sub="Holidays, policies & handbook" onPress={go('/pm/hr')} />}
         {!desk && <Tile plain ic="gear" tint="" title="Admin" sub="Team, libraries, settings" onPress={go('/pm/admin')} />}
       </TileGrid>
       {mine.length > 0 && (
@@ -173,18 +173,8 @@ export function PmHome() {
           ))}
         </>
       )}
-      {/* On a laptop the name, role and Sign out are at the bottom of the bar on the left, so not here too (Andy, 14 Nov 2026). */}
-      {!desk && (
-        <>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 22 }}>
-            <Text style={{ fontSize: 11, color: base.slateLight, fontStyle: 'italic' }}>{me?.name}</Text>
-            <Text style={{ fontSize: 11, color: base.slateLight, fontStyle: 'italic' }}>{roleLabel(me)}</Text>
-          </View>
-          <Pressable onPress={signOut} style={{ alignSelf: 'center', marginTop: 10 }}>
-            <Text style={{ color: base.warn, textDecorationLine: 'underline', fontSize: 11, fontStyle: 'italic' }}>Sign out</Text>
-          </Pressable>
-        </>
-      )}
+      {/* No name, role or Sign out here: they're at the foot of the bar on the left (laptop) and the ☰ menu (phone)
+          (Andy, 14 and 17 Nov 2026). */}
     </Screen>
   );
 }

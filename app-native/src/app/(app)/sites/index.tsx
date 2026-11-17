@@ -22,7 +22,7 @@ import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { siteStatusKey } from '@/lib/rules/checkin';
-import { canCreateProjects, isFullManager, roleLabel } from '@/lib/roles';
+import { canCreateProjects, isFullManager } from '@/lib/roles';
 import { useOnboarding } from '@/data/onboarding';
 import type { Site } from '@/lib/types';
 import { heading } from '@/lib/fonts';
@@ -31,7 +31,7 @@ import { base, page, useDesk, useTheme } from '@/theme/theme';
 const match = (s: Site, q: string) => !q || [s.name, s.address, s.postcode, s.job_number, s.client_name].filter(Boolean).join(' ').toLowerCase().includes(q);
 
 export default function Sites() {
-  const { me, signOut } = useAuth();
+  const { me } = useAuth();
   const t = useTheme();
   const desk = useDesk();
   const toast = useToast();
@@ -109,14 +109,7 @@ export default function Sites() {
               </Pressable>
             )}
             {mine.length ? grid(mine, (x) => <ProjectCard s={x} pmName={pmName(x.responsible_pm_id)} />) : <Empty>{query ? 'No projects match.' : 'No active sites.'}</Empty>}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 20 }}>
-              <Muted>{me?.name}</Muted>
-              <Text numberOfLines={1} style={{ flex: 1, textAlign: 'center', color: base.slate, fontStyle: 'italic', fontSize: 12 }}>{me?.email}</Text>
-              <Muted>{roleLabel(me)}</Muted>
-            </View>
-            <Pressable onPress={() => void signOut()} style={{ alignSelf: 'center', marginTop: 8 }}>
-              <Text style={{ color: base.warn, textDecorationLine: 'underline' }}>Sign out</Text>
-            </Pressable>
+            {/* No name, role or Sign out at the foot: they're in the ☰ menu and the bar on the left (Andy, 17 Nov 2026). */}
           </View>
         )}
       </ScrollView>
