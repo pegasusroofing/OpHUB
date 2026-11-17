@@ -824,9 +824,9 @@ Report templates are built in **Admin › Libraries › Report Templates**.
 
 1. Click **Admin**, then **People**, then **Roles**.
 2. Click a role to rename it or change **Uses The App As**. Click **+ Add A Role** to add one. A new role starts the same as Project Manager.
-3. Scroll to **What Each Role Can Do**. Each role is a column of parts.
-4. Click a part, then click a role to add it. Or drag a part into a role, or from one role to another.
-5. Click ✕ to take a part out. Each change saves straight away.
+3. Scroll to **What Each Role Can Do** and choose a role from **Role ▾**. Only that role shows.
+4. **Options** on the left are the parts it hasn't got. **In This Role** on the right are the parts it has.
+5. Click a part with **→** to add it to the role, or one with **←** to take it out. You can also drag a part across. Each change saves straight away.
 
 The parts: **Every Job**, **Create Projects**, **See Prices**, **Finance – View**, **Finance – Edit**, **Quotes And Price Builder**, **Schedule Of Works**, **Snags And Variations**, **Sign Off H&S**, **Raise Orders**, **Drawings And Documents**, **Team And Calendar**, **Manage People**, **Reports** and **Notifications And Emails**. Admins can always do everything.
 

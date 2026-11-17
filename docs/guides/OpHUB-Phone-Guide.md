@@ -777,8 +777,9 @@ Use **👁 Preview RA** and **👁 Preview MS** to check before you issue.
 
 1. Open **Admin › People › Roles**.
 2. Tap a role to rename it or change **Uses The App As**. Tap **+ Add A Role** for a new one.
-3. Scroll to **What Each Role Can Do**. Each role has a column of parts.
-4. Tap a part, then tap a role to add it. Tap ✕ to take it out. It saves straight away.
+3. Scroll to **What Each Role Can Do** and choose a role from **Role ▾**. Only that role shows.
+4. **Options** on the left are the parts it hasn't got. **In This Role** on the right are the parts it has.
+5. Tap a part with **→** to add it, or one with **←** to take it out. It saves straight away.
 
 The parts are: **Every Job**, **Create Projects**, **See Prices**, **Finance – View**, **Finance – Edit**, **Quotes And Price Builder**, **Schedule Of Works**, **Snags And Variations**, **Sign Off H&S**, **Raise Orders**, **Drawings And Documents**, **Team And Calendar**, **Manage People**, **Reports** and **Notifications And Emails**.
 
