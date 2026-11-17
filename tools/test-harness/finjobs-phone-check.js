@@ -33,8 +33,8 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(await page.getByRole('button', {name: 'Filter', exact: true}).count() === 0 && await page.getByRole('button', {name: 'Sort', exact: true}).count() === 0 && await page.locator('input[placeholder="Search Projects"]').count() === 0, 'no Filter, Sort or search bar');
   check(await page.getByRole('button', {name: /^Live \d+$/}).count() === 1 && await page.getByRole('button', {name: /^All \d+$/}).count() === 1, 'Live / Upcoming / Closed / All above the table');
   const foot = await page.evaluate(() => { const f = document.querySelector('[aria-label="Value of works"]'); const [a, b] = f ? [...f.children] : []; const s = (e) => e && {x: e.getBoundingClientRect().x, size: getComputedStyle(e).fontSize, col: getComputedStyle(e).color}; return {w: f && f.getBoundingClientRect().width, a: s(a), b: s(b)}; });
-  check(foot.a && foot.b && foot.a.x < 40 && foot.b.x > foot.w / 2, 'bottom bar: the count on the left, the value of works on the right');
-  check(foot.b && foot.b.size === '11.5px' && foot.b.col === 'rgb(91, 100, 114)', 'and small and grey (' + (foot.b && foot.b.size + ' ' + foot.b.col) + ')');
+  // No bottom bar since 17 Nov 2026 ("In fact remove the footer in projects in finance").
+  check(!foot.w && !/Value Of Works/.test(await page.evaluate(() => document.body.innerText)), 'no Value Of Works bar at the foot');
   const tabs = await page.getByText('Purchases', {exact: true}).first().boundingBox();
   check(tabs && tabs.x + tabs.width < 390, 'the Purchases tab is on the screen');
 

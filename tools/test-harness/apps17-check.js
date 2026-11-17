@@ -83,10 +83,10 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(inv.w >= 88, `phone Invoices: the Invoice column wider (${inv.w}px, was 74)`);
   await page.screenshot({path: path.join(SHOTS, 'invoices-phone.png')});
 
-  // ---- Phone: Projects' Value Of Works bar ----
+  // ---- Phone: no Value Of Works bar on Projects (Andy, 17 Nov 2026: "In fact remove the footer in projects in finance") ----
   await page.goto(B + '/fin/jobs'); await page.waitForTimeout(5000);
   const foot = await page.evaluate(() => { const f = document.querySelector('[aria-label="Value of works"]'); if (!f) return null; const h = f.parentElement, r = f.getBoundingClientRect(); return {bottom: Math.round(r.bottom), vh: innerHeight, holderPad: getComputedStyle(h).paddingBottom, holderBg: getComputedStyle(h).backgroundColor}; });
-  check(!!foot && foot.bottom <= foot.vh && foot.holderBg === 'rgb(255, 255, 255)', `phone Projects: the Value Of Works bar is fully on screen, in a white holder that pads it above the iPhone's bar (${JSON.stringify(foot)})`);
+  check(foot === null && !/Value Of Works/.test(await page.evaluate(() => document.body.innerText)), 'phone Projects: no Value Of Works bar at the foot');
   await page.screenshot({path: path.join(SHOTS, 'projects-phone.png')});
 
   // ---- Laptop ----

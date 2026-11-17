@@ -1,8 +1,8 @@
-// Finance › Projects' Value Of Works bar on an iPhone (Andy, 17 Nov 2026): first "the footer bar sits below screen"
-// (under the home line), then "This bar is too big needs reducing slightly". The test browser is made to report an
-// iPhone's 34px home-line space; the bar must clear the line (its words at least 20px up from the bottom of the
-// screen) and be no taller than about 46px all in (it was about 66px with the full 34px added).
-// node footbar17-check.js
+// Finance › Projects on an iPhone (Andy, 17 Nov 2026): first "the footer bar sits below screen", then "This bar is too
+// big needs reducing slightly", then "In fact remove the footer in projects in finance". So no Value Of Works bar; the
+// list runs to the bottom and its last project scrolls fully into view. The test browser reports an iPhone's 34px
+// home-line space. (Other Finance pages' foot bars, such as Reports' Export, still sit above the home line, using only
+// as much of that space as clears it.) node footbar17-check.js
 const {chromium, makeContext} = require('./harness');
 const path = require('path');
 const fs = require('fs');
@@ -23,15 +23,11 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.goto(B + '/login'); await page.waitForTimeout(5000);
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(6000);
-  await page.goto(B + '/fin/jobs'); await page.waitForTimeout(5000);
-  const m = await page.evaluate(() => {
-    const f = document.querySelector('[aria-label="Value of works"]'); if (!f) return null;
-    const h = f.parentElement.getBoundingClientRect(), words = [...f.querySelectorAll('div[dir="auto"]')].map((e) => e.getBoundingClientRect());
-    return {holder: Math.round(h.height), holderBottom: Math.round(h.bottom), vh: innerHeight, wordsUp: Math.round(innerHeight - Math.max(...words.map((w) => w.bottom))), pad: getComputedStyle(f.parentElement).paddingBottom};
-  });
-  check(!!m && m.holderBottom === m.vh, `the bar sits on the bottom of the screen (${JSON.stringify(m)})`);
-  check(!!m && m.wordsUp >= 20, `its words clear the iPhone's home line (${m && m.wordsUp}px up)`);
-  check(!!m && m.holder <= 48, `the bar is shorter: ${m && m.holder}px all in (was about 66)`);
+  await page.goto(B + '/fin/jobs?st=all'); await page.waitForTimeout(5000);
+  check(await page.locator('[aria-label="Value of works"]').count() === 0 && !/Value Of Works/.test(await page.evaluate(() => document.body.innerText)), 'no Value Of Works bar at the foot');
+  await page.mouse.move(195, 600); await page.mouse.wheel(0, 4000); await page.waitForTimeout(800);
+  const last = await page.evaluate(() => { const rows = [...document.querySelectorAll('[role="button"]')].filter((b) => /^J\d+|^SBX-/.test((b.innerText || '').trim()) && b.getBoundingClientRect().width > 300); const r = rows.length ? rows[rows.length - 1].getBoundingClientRect() : null; return r ? {bottom: Math.round(r.bottom), vh: innerHeight} : null; });
+  check(!!last && last.bottom <= last.vh, `the last project scrolls fully into view (${JSON.stringify(last)})`);
   await page.screenshot({path: path.join(SHOTS, 'projects-iphone.png')});
   check(!errs.length, `no page errors ${errs.slice(0, 2).join(' | ')}`);
   await browser.close();

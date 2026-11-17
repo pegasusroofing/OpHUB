@@ -93,7 +93,9 @@ export default function FinJobs() {
   // + New Project sits at the end of the Finance tab row on a laptop (Andy, 5 Nov 2026); full width above the table on a phone.
   // The phone's bottom bar: the count on the left, the value of works on the right, small and grey (Andy, 7 Nov 2026).
   return (
-    <FinPage title="Projects" section="jobs" subRight={desk ? newBtn : undefined} foot={!desk && data && phoneRows.length ? <View accessibilityLabel="Value of works" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 8 }}><Text style={{ fontSize: 11.5, color: base.slate }}>{tallyText(phoneRows)}</Text><Text style={{ fontSize: 11.5, fontWeight: '500', color: base.slate }}>Value Of Works {money(valueOf(phoneRows), 0)}</Text></View> : undefined}>
+    // No Value Of Works bar at the foot on a phone (Andy, 17 Nov 2026: "In fact remove the footer in projects in finance").
+    // The laptop keeps its total row inside the table.
+    <FinPage title="Projects" section="jobs" subRight={desk ? newBtn : undefined}>
       {!desk && <>
         {!!newBtn && <View style={{ marginBottom: 10 }}><Button title="+ New Project" onPress={() => router.push('/fin/newjob' as never)} /></View>}
         <View style={{ flexDirection: 'row', backgroundColor: '#EEF0F2', borderRadius: 10, padding: 3, gap: 2, marginBottom: 10 }}>
