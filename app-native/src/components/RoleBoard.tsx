@@ -80,9 +80,12 @@ function List({ side, title, parts, roleName, empty, onMove, onTake }: { side: S
   );
 }
 
-export function RoleBoard({ roles, onSave }: { roles: OrgRole[]; onSave: (role: OrgRole, perms: Part[]) => Promise<string | null> }) {
+// pick / onPick: the role on show, when the screen keeps it (Admin › Roles shares it with Your Roles).
+export function RoleBoard({ roles, onSave, pick: shared, onPick }: { roles: OrgRole[]; onSave: (role: OrgRole, perms: Part[]) => Promise<string | null>; pick?: string | null; onPick?: (id: string) => void }) {
   const board = roles.filter((r) => BOARD_LEVELS.includes(r.access));
-  const [pick, setPick] = useState<string | null>(null);
+  const [own, setOwn] = useState<string | null>(null);
+  const pick = shared !== undefined ? shared : own;
+  const setPick = onPick ?? setOwn;
   const [mine, setMine] = useState<Record<string, Part[]>>({}); // changes not read back yet
   const desk = useDesk();
   const role = board.find((r) => r.id === pick) ?? board[0];

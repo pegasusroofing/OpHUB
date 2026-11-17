@@ -1,6 +1,7 @@
 // Roles (Andy, 16 Nov 2026: "a selection of roles? Admin, Contracts administrator, Finance controller, Project manager,
 // Quantity surveyor, Document controller, Contracts manager, Operative ... a set list that the admin can see, but also add
-// and remove"). Admin Centre › Roles lists them with what each uses the app as and how many people have it; + Add A Role;
+// and remove"). Admin Centre › Roles: choose one from the Your Roles drop-down for a brief (what it uses the app as, who
+// has it; Andy, 17 Nov 2026: "a lot more compact ... a drop down that then gives a brief"); Edit Role, + Add A Role;
 // a role nobody has can be removed, one people have can't change level. Users is grouped under the roles, and a company
 // admin gives someone any role. The real rules are proven in SQL (docs/claude-code/sql/org-roles-16nov.sql).
 // node roles16-check.js
@@ -26,9 +27,25 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
 
   await page.goto(B + '/pm/admin/roles'); await page.waitForTimeout(4000);
   let t = await body();
-  check(['Admin', 'Contracts Administrator', 'Finance Controller', 'Project Manager', 'Quantity Surveyor', 'Document Controller', 'Contracts Manager', 'Operative'].every((n) => t.includes(n)), 'Andy’s roles are listed');
-  check(/Uses The App As Project Manager/.test(t) && /Nobody Yet/.test(t) && /\d+ People?/.test(t), 'each says what it uses the app as and how many have it');
+  const yours = () => body().then((x) => x.slice(x.indexOf('Your Roles'), x.indexOf('What Each Role Can Do')));
+  t = await yours();
+  check(/\nAdmin\n▾\nUses The App As Company Admin/.test(t) && !/Contracts Administrator/.test(t), `Your Roles shows one role at a time, Admin first (${t.replace(/\n/g, ' | ').slice(0, 220)})`);
+  const pickRole = async (n) => {
+    await page.getByLabel('Your Roles', {exact: true}).click(); await page.waitForTimeout(600);
+    await page.getByText(n, {exact: true}).last().click(); await page.waitForTimeout(800);
+  };
+  await page.getByLabel('Your Roles', {exact: true}).click(); await page.waitForTimeout(600);
+  t = await body();
+  const menu = t.slice(t.lastIndexOf('Your Roles'));
+  check(['Admin', 'Contracts Administrator', 'Finance Controller', 'Project Manager', 'Quantity Surveyor', 'Document Controller', 'Contracts Manager', 'Operative'].every((n) => menu.includes(n)), 'Andy’s roles are in the drop-down');
+  await page.screenshot({path: path.join(SHOTS, 'roles-dropdown.png')});
+  await page.getByText('Project Manager', {exact: true}).last().click(); await page.waitForTimeout(800);
+  t = await yours();
+  check(/Uses The App As Project Manager/.test(t) && /\d+ (Person|People): \w/.test(t) && /Can Use (Every Part|\d+ Of 15 Parts)/.test(t), `the brief: what it uses the app as, who has it, its parts (${t.replace(/\n/g, ' | ').slice(0, 160)})`);
+  check(/\nRole\nProject Manager\n/.test(await body()), 'the same role opens in What Each Role Can Do');
   await page.screenshot({path: path.join(SHOTS, 'roles-laptop.png'), fullPage: true});
+  await pickRole('Quantity Surveyor');
+  check(/Nobody Yet/.test(await yours()), 'a role nobody has says Nobody Yet');
 
   // + Add A Role: Site Supervisor, uses the app as a Site Manager.
   await page.getByText('+ Add A Role', {exact: true}).click(); await page.waitForTimeout(800);
@@ -41,12 +58,14 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(!!ss && ss.access === 'site_manager' && db.org_roles.length === 13, `added (the starting list saved first): ${db.org_roles.length} roles`);
 
   // A role nobody has can be removed.
-  await page.getByLabel(/^Quantity Surveyor: 0 people/).click(); await page.waitForTimeout(800);
+  t = await yours();
+  check(/\nSite Supervisor\n/.test(t) && /Uses The App As Site Manager/.test(t), 'the role just added is the one on show');
+  await pickRole('Quantity Surveyor'); await page.getByText('Edit Role', {exact: true}).click(); await page.waitForTimeout(800);
   await page.getByText('Remove This Role', {exact: true}).click(); await page.waitForTimeout(800);
   await page.getByText('Yes, Remove', {exact: true}).last().click(); await page.waitForTimeout(2500);
   check(!db.org_roles.some((r) => r.name === 'Quantity Surveyor'), 'Quantity Surveyor removed');
   // One people have: no Remove, and its level is fixed.
-  await page.getByLabel(/^Project Manager: [1-9]/).click(); await page.waitForTimeout(800);
+  await pickRole('Project Manager'); await page.getByText('Edit Role', {exact: true}).click(); await page.waitForTimeout(800);
   t = await body();
   check(!/Remove This Role/.test(t) && /Move them to another role to change this/.test(t), 'a role people have: no Remove, level fixed');
   await page.getByLabel('Close', {exact: true}).last().click(); await page.waitForTimeout(500);
