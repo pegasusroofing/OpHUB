@@ -6,6 +6,9 @@
   var KEY = 'ophub-offline-db';
   var real = window.fetch.bind(window);
   if (/[?&]reset-demo/.test(location.search)) { try { localStorage.removeItem(KEY); localStorage.removeItem('ophub-native-session'); } catch (e) { /* private mode */ } }
+  // A demo made since this phone kept its copy: start again from the new one (Andy, 17 Nov 2026: his phone still had
+  // the demo from its first day, so newer screens had nothing to show).
+  try { var VKEY = 'ophub-offline-db-v', wantV = window.__OPHUB_DEMO_V || ''; if (wantV && localStorage.getItem(VKEY) !== wantV) { localStorage.removeItem(KEY); localStorage.setItem(VKEY, wantV); } } catch (e) { /* private mode */ }
   var db;
   try { db = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { db = null; }
   if (!db) db = JSON.parse(JSON.stringify(window.__OPHUB_DEMO_DB || {}));

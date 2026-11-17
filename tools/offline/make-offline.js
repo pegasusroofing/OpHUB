@@ -62,7 +62,10 @@ db.repair_rates = (db.repair_rates || []).concat([
 // ---- files the demo needs ----
 const OFF = path.join(APP, 'offline'); fs.mkdirSync(OFF, {recursive: true});
 fs.copyFileSync(path.join(__dirname, 'fakedb.js'), path.join(OFF, 'fakedb.js'));
-fs.writeFileSync(path.join(OFF, 'demo-db.js'), '// The pretend company for the offline demo (made by tools/offline/make-offline.js).\nwindow.__OPHUB_DEMO_DB = ' + JSON.stringify(db) + ';\n');
+// The demo's version: a phone holding the demo from before it changed starts again from the new one (Andy, 17 Nov 2026:
+// "its nothing like the new beta"; his phone had kept the demo from its first day). Only when the demo itself changes.
+const demoV = require('crypto').createHash('md5').update(JSON.stringify(db)).digest('hex').slice(0, 12);
+fs.writeFileSync(path.join(OFF, 'demo-db.js'), '// The pretend company for the offline demo (made by tools/offline/make-offline.js).\nwindow.__OPHUB_DEMO_V = ' + JSON.stringify(demoV) + ';\nwindow.__OPHUB_DEMO_DB = ' + JSON.stringify(db) + ';\n');
 fs.copyFileSync(path.join(H, 'shots', 'samples', 'site-photo.jpg'), path.join(OFF, 'photo.jpg'));
 fs.copyFileSync(path.join(H, 'shots', 'samples', 'sample.pdf'), path.join(OFF, 'sample.pdf'));
 fs.writeFileSync(path.join(OFF, 'ok.json'), '{"ok":true}');
@@ -98,7 +101,18 @@ fs.writeFileSync(path.join(APP, 'sw.js'), `// Keeps the offline demo on the phon
 const V = ${JSON.stringify(ver)};
 const FILES = ${JSON.stringify(keep)};
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(V).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())); });
-self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== V).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
+// An update (an older copy was kept): any open page reloads onto it (17 Nov 2026).
+self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => { const old = ks.filter((k) => k !== V); return Promise.all(old.map((k) => caches.delete(k))).then(() => self.clients.claim()).then(() => old.length && self.clients.matchAll({type: 'window'}).then((cs) => cs.forEach((c) => c.navigate && c.navigate(c.url).catch(() => 0)))); })); });
+// With signal, the page and the demo's own files (index.html, /offline/..., the manifest) come from the internet first, so
+// the phone always opens the newest demo (Andy, 17 Nov 2026: "make the offline like the beta so i can review on flight");
+// with none, what was kept. The app's other files have their version in their names, so a kept copy is always right.
+const fresh = (p) => !/^\\/(_expo|assets)\\//.test(p);
+function fromNet(p) {
+  return new Promise((ok, no) => {
+    const t = setTimeout(() => no(new Error('slow')), 3500);
+    fetch(p, {cache: 'no-store'}).then((r) => { clearTimeout(t); if (!r.ok) return no(new Error(String(r.status))); const c = r.clone(); caches.open(V).then((k) => k.put(p, c)); ok(r); }, (err) => { clearTimeout(t); no(err); });
+  });
+}
 self.addEventListener('fetch', (e) => {
   const u = new URL(e.request.url);
   // Pictures and files the page loads straight from Supabase (a logo, a photo): the demo's own copies, never the internet.
@@ -110,7 +124,8 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || u.origin !== location.origin) return;
   // Any page of the app is the one index.html (the app finds its own screen).
   const want = e.request.mode === 'navigate' ? '/index.html' : u.pathname;
-  e.respondWith(caches.match(want, {ignoreSearch: true}).then((hit) => hit || fetch(e.request)));
+  if (fresh(want)) { e.respondWith(fromNet(want).catch(() => caches.match(want, {ignoreSearch: true})).then((r) => r || fetch(e.request))); return; }
+  e.respondWith(caches.match(want, {ignoreSearch: true}).then((hit) => hit || fetch(e.request).then((r) => { if (r.ok) { const c = r.clone(); caches.open(V).then((k) => k.put(want, c)); } return r; })));
 });
 `);
 const mb = files.reduce((t, f) => t + fs.statSync(path.join(APP, f)).size, 0) / 1048576;
