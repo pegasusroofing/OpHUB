@@ -9,6 +9,7 @@ import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
 import { isManager } from './roles';
+import { can } from './rules/rolePerms';
 import { supabase } from './supabase';
 import type { Profile } from './types';
 
@@ -18,7 +19,7 @@ let tokenListening = false;
 export async function registerPush(me: Profile | null): Promise<void> {
   try {
     if (!me || Platform.OS === 'web' || !Device.isDevice) return;
-    if (me?.is_estimator) return; // estimators get no notifications
+    if (me?.is_estimator || !can(me, 'notify')) return; // estimators, and roles without Notifications (Admin › Roles), get none
     let perm = await Notifications.getPermissionsAsync();
     if (perm.status !== 'granted') perm = await Notifications.requestPermissionsAsync();
     if (perm.status !== 'granted') return;

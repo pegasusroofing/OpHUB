@@ -1,4 +1,5 @@
 // Role rules, ported from the current web app (100-state.js, 185-pm-home.js, 900-finance.js).
+import { can } from './rules/rolePerms';
 import type { Organization, Profile } from './types';
 
 export const isManager = (u: Profile | null) => !!u && ['pm', 'admin', 'site_manager'].includes(u.role);
@@ -15,7 +16,9 @@ export const deviceLockApplies = (u: Profile | null) => !!u && !['pm', 'admin', 
 export function finHasAccess(u: Profile | null, org: Organization | null): boolean {
   return !!u && u.finance_enabled === true && !(org && org.has_pm === false && org.has_finance === false);
 }
-export const isFinanceUser = (u: Profile | null, org: Organization | null) => finHasAccess(u, org) && u?.finance_hidden !== true;
+export const isFinanceUser = (u: Profile | null, org: Organization | null) => finHasAccess(u, org) && u?.finance_hidden !== true && can(u, 'fin_view');
+/** + New Project (Projects, Finance, the phone's Add): PMs and admins whose role has Create Projects (Admin › Roles). */
+export const canCreateProjects = (u: Profile | null) => isFullManager(u) && can(u, 'create_projects');
 export const isFinanceOnlyOrg = (org: Organization | null) => !!org && org.has_pm === false;
 
 export type HomeKind = 'superadmin' | 'finance' | 'manager' | 'operative' | 'driver' | 'client' | 'subcontractor' | 'other';

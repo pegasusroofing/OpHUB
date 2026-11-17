@@ -25,6 +25,7 @@ import { siteStatusKey } from '@/lib/rules/checkin';
 import { BOXES, isOpen, operativeJobs, type RJob } from '@/lib/rules/repairStages';
 import { overallPct } from '@/lib/rules/sow';
 import { isFinanceUser, isManager } from '@/lib/roles';
+import { can } from '@/lib/rules/rolePerms';
 import { base, page, space, useDesk, useTheme } from '@/theme/theme';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -155,22 +156,23 @@ export default function SiteHome() {
     { key: 'hs', ic: 'shield', title: 'Health & Safety', sub: 'RAMS · COSHH · TBT', onPress: go('hs') },
     { key: 'snag', ic: 'wrench', title: 'Snagging', sub: h ? `${snags} open` : '…', onPress: go('snagging/list') },
   ] : [
-    { key: 'sow', ic: 'clipboard', title: 'Schedule of Works', sub: sowSub, onPress: go('schedule') },
+    // A manager's rows follow what their role can do (Admin › Roles, 17 Nov 2026).
+    ...(!mgr || can(me, 'sow') ? [{ key: 'sow', ic: 'clipboard', title: 'Schedule of Works', sub: sowSub, onPress: go('schedule') }] : []),
     ...(site.acting_as_main_contractor ? [{ key: 'mc', ic: 'building', title: 'Main Contractor', sub: `${mcAreas} area${mcAreas === 1 ? '' : 's'}`, onPress: go('mc') }] : []),
     { key: 'hs', ic: 'shield', title: 'Health & Safety', sub: h ? `${h.pendingRams} to sign` : '…', badge: mgr ? (h?.hsGap ? '!' : undefined) : h?.pendingRams || undefined, onPress: go('hs') },
-    { key: 'dwg', ic: 'layers', title: "Drawings, Spec's & Programme", sub: 'View & upload', onPress: go('drawings') },
-    ...((me?.role === 'pm' || me?.role === 'admin') && (site as { onedrive_folder_id?: string | null }).onedrive_folder_id ? [{ key: 'docs', ic: 'cloud', title: 'Documents', sub: 'The job’s OneDrive folder', onPress: go('documents') }] : []),
+    ...(!mgr || can(me, 'docs') ? [{ key: 'dwg', ic: 'layers', title: "Drawings, Spec's & Programme", sub: 'View & upload', onPress: go('drawings') }] : []),
+    ...((me?.role === 'pm' || me?.role === 'admin') && can(me, 'docs') && (site as { onedrive_folder_id?: string | null }).onedrive_folder_id ? [{ key: 'docs', ic: 'cloud', title: 'Documents', sub: 'The job’s OneDrive folder', onPress: go('documents') }] : []),
     { key: 'mat', ic: 'box', title: 'Materials', sub: h ? `${h.pendingMaterials} pending` : '…', onPress: go('materials') },
     // Subcontract Orders is labour, not materials: its own row (Andy, 11 Nov 2026).
     // Only when the job is on a price (Admin › Price) or already has orders; otherwise it's raised from Materials (Andy, 13 Nov 2026).
-    ...(mgr && (site.price_enabled || (subOrders?.length ?? 0) > 0) ? [{ key: 'subco', ic: 'users', title: 'Subcontract Orders', sub: subOrders?.length ? `${subOrders.length} order${subOrders.length === 1 ? '' : 's'}` : 'Orders to subcontractors', onPress: go('materials/subcontracts') }] : []),
-    { key: 'rep', ic: 'reports', title: mgr ? 'Inspections & Reports' : 'Snagging & Variations', sub: h ? `${snags} open` : '…', badge: snags || undefined, onPress: go('snagging') },
-    ...(h?.canSeePrice ? [{ key: 'price', ic: 'pound', title: 'Price', sub: h.priceWages ? `${h.priceWages} wage${h.priceWages > 1 ? 's' : ''} to book` : h.priceVars ? `${h.priceVars} variation${h.priceVars > 1 ? 's' : ''} pending` : 'Restricted access', badge: h.priceVars + h.priceWages || undefined, onPress: go('price') }] : []),
+    ...(mgr && can(me, 'prices') && (site.price_enabled || (subOrders?.length ?? 0) > 0) ? [{ key: 'subco', ic: 'users', title: 'Subcontract Orders', sub: subOrders?.length ? `${subOrders.length} order${subOrders.length === 1 ? '' : 's'}` : 'Orders to subcontractors', onPress: go('materials/subcontracts') }] : []),
+    ...(!mgr || can(me, 'snags') || can(me, 'reports') ? [{ key: 'rep', ic: 'reports', title: mgr ? 'Inspections & Reports' : 'Snagging & Variations', sub: h ? `${snags} open` : '…', badge: snags || undefined, onPress: go('snagging') }] : []),
+    ...(h?.canSeePrice && can(me, 'prices') ? [{ key: 'price', ic: 'pound', title: 'Price', sub: h.priceWages ? `${h.priceWages} wage${h.priceWages > 1 ? 's' : ''} to book` : h.priceVars ? `${h.priceVars} variation${h.priceVars > 1 ? 's' : ''} pending` : 'Restricted access', badge: h.priceVars + h.priceWages || undefined, onPress: go('price') }] : []),
     ...(mgr && siteStatusKey(site) === 'closed' ? [{ key: 'ho', ic: 'book', title: 'Handover', sub: 'O&M manual · data sheets · guarantees', onPress: go('handover') }]
       : mgr && desk ? [{ key: 'todo', ic: 'check', title: 'To Do List', sub: h ? (h.openTodos ? `${h.openTodos} open` : 'Nothing outstanding') : '…', onPress: go('todos') }] : []),
   ];
   // Calendar sits second to last, whatever comes before it.
-  if (!client) rows.splice(Math.max(0, rows.length - 1), 0, { key: 'cal', ic: 'calendar', title: 'Calendar', sub: 'Key dates', onPress: go('calendar') });
+  if (!client && (!mgr || can(me, 'team'))) rows.splice(Math.max(0, rows.length - 1), 0, { key: 'cal', ic: 'calendar', title: 'Calendar', sub: 'Key dates', onPress: go('calendar') });
   // No HUB or To Do rows on a phone: the HUB (bottom bar) has the messages and to-dos (Andy, 13 Nov 2026).
 
   // 330: a client gets a minimal, view-only home: no job bar, money or stats, just the rows.

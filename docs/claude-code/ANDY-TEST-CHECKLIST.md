@@ -280,9 +280,13 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
     - Admin › Roles: your list (Admin, Contracts Administrator, Finance Controller, Project Manager, Quantity Surveyor, Document Controller, Contracts Manager, then Estimator, Site Manager, Operative, Delivery Driver, Client as today); + Add A Role; tap one to rename it, change what it uses the app as (only when nobody has it) or remove it (only when nobody has it);
     - Admin › Users: grouped under your roles; tap someone › Role › pick any role from the list;
     - HR › Employee Records › HR Access: Who Can See What grouped under your roles, each line saying Sees Everyone, the names they see, or Own Folder Only; tap PM 1 › + Add Someone (Estimator 1) › choose that person's parts › + Add Someone (PM 3) › their parts › Save; the company-admin switches, the HR folder, line managers, appraisals and changes are under Settings.
+82. 17 Nov. To try:
+    - Admin › Roles › What Each Role Can Do: your choices from the board, one column per office role; tap a box along the top, then tap a role to add it (or drag it in on a laptop); ✕ takes it out; it saves straight away;
+    - as an Estimator (Jo, Kirsty or Woody): Admin › Users is gone (no Manage People); everything else as before;
+    - give a test PM a role without Quotes, Team And Calendar or Create Projects: Quotes, Calendar, On Site Now, the Next 5 Days and + New Project disappear for them (after they reopen the app).
 
 ## To discuss with Andy (16 Nov)
-- What each role should see (Andy, 16 Nov: "Then we can discuss who sees what"). Today each role uses the app as one of the existing levels; the new ones (Contracts Administrator, Quantity Surveyor, Document Controller, Contracts Manager) start as Project Manager.
+- ~~What each role should see~~: Andy chose on the board, 17 Nov; built into Admin › Roles (item 82). Still to do (stage 2): Every Job (only their own jobs), Finance – View without Edit (Finance read-only), Sign Off H&S buttons, Raise Orders buttons, Notifications And Emails for emails, a Finance Controller's Projects side, Site Managers making projects, and the database locks.
 
 ## To discuss with Andy
 - ~~HR Access redesign~~: built 16 Nov (item 81).

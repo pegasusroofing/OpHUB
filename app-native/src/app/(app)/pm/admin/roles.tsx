@@ -1,18 +1,20 @@
 // Admin Centre › People › Roles (Andy, 16 Nov 2026: "a selection of roles ... a set list that the admin can see, but
 // also add and remove"). The company's roles in order; each says what it uses the app as (OpHUB's level, which is
 // what decides what they can see and do) and how many people have it. Tap one to rename it, change its level (only
-// when nobody has it) or remove it; + Add A Role at the foot. Company admins only; the database enforces the same.
+// when nobody has it) or remove it; + Add A Role at the foot. Below, What Each Role Can Do: the board (17 Nov 2026).
+// Company admins only; the database enforces the same.
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { Pop } from '@/components/Pop';
+import { RoleBoard } from '@/components/RoleBoard';
 import { SelectBox } from '@/components/SelectBox';
 import { confirmAsk, showAlert } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import { useTeam } from '@/data/admin';
-import { addOrgRole, removeOrgRole, saveOrgRole, useOrgRoles } from '@/data/orgRoles';
+import { addOrgRole, removeOrgRole, saveOrgRole, saveRolePerms, useOrgRoles } from '@/data/orgRoles';
 import { useAuth } from '@/lib/auth';
 import { ACCESS_LABEL, ACCESS_ORDER, holders, type OrgRole } from '@/lib/rules/orgRoles';
 import { base, page, radius, space } from '@/theme/theme';
@@ -67,7 +69,7 @@ export default function Roles() {
   const count = (r: OrgRole) => holders(r, team, roles).length;
   const cur = pop && pop !== 'new' ? pop : null;
   return (
-    <ScrollView contentContainerStyle={page(720)}>
+    <ScrollView contentContainerStyle={page(1000)}>
       <Stack.Screen options={{ title: 'Roles' }} />
       <Card>
         <Text style={{ fontSize: 15, fontWeight: '600', color: base.ink, marginBottom: 4 }}>Your Roles</Text>
@@ -88,6 +90,12 @@ export default function Roles() {
         })}
         <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 10 }}><Button title="+ Add A Role" onPress={() => setPop('new')} /></View>
       </Card>
+      {!isLoading && (
+        <Card>
+          <Text style={{ fontSize: 15, fontWeight: '600', color: base.ink, marginBottom: 4 }}>What Each Role Can Do</Text>
+          <RoleBoard roles={roles} onSave={async (r, perms) => { const e = await saveRolePerms(org, roles, r, perms); if (!e) void qc.invalidateQueries({ queryKey: ['orgRoles'] }); return e; }} />
+        </Card>
+      )}
       {pop && (
         <RolePop key={cur?.id ?? 'new'} role={cur} n={cur ? count(cur) : 0} onClose={() => setPop(null)}
           onSave={async (name, access) => { const e = cur ? await saveOrgRole(org, roles, cur, { name, access }) : await addOrgRole(org, roles, name, access); if (!e) done(); else reread(); return e; }}

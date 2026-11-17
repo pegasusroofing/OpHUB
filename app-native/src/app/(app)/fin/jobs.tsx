@@ -22,7 +22,7 @@ import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { byJobNoDesc, fdate, invOutstandingNet, invOverdue, money, today, type FinInv } from '@/lib/rules/finance';
 import { DATE_RANGES, dateRange, valueTest } from '@/lib/rules/finFilters';
-import { isFullManager } from '@/lib/roles';
+import { canCreateProjects } from '@/lib/roles';
 import type { Site } from '@/lib/types';
 import { base, useDesk, useTheme } from '@/theme/theme';
 
@@ -86,7 +86,7 @@ export default function FinJobs() {
   ];
   const find = usePhoneFind(pcols, shown, !desk);
   const phoneRows = find.shown;
-  const newBtn = me && isFullManager(me) ? <Button small title="+ New Project" onPress={() => router.push('/fin/newjob' as never)} /> : undefined;
+  const newBtn = me && canCreateProjects(me) ? <Button small title="+ New Project" onPress={() => router.push('/fin/newjob' as never)} /> : undefined;
   // + New Project sits at the end of the Finance tab row on a laptop (Andy, 5 Nov 2026); full width above the table on a phone.
   // The phone's bottom bar: the count on the left, the value of works on the right, small and grey (Andy, 7 Nov 2026).
   return (

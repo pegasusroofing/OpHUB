@@ -7,7 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { OphIcon } from '@/components/OphIcon';
 import { useAuth } from '@/lib/auth';
-import { isFullManager, isManager } from '@/lib/roles';
+import { canCreateProjects, isFullManager, isManager } from '@/lib/roles';
+import { can } from '@/lib/rules/rolePerms';
 import { base, useTheme } from '@/theme/theme';
 
 type Item = { k: string; icon: string; label: string; href: string; emph?: boolean; branded?: boolean; badge?: number; on?: boolean };
@@ -39,9 +40,9 @@ export function PhoneBar({ hubCount, inboxCount, outstanding }: { hubCount?: num
     items = [
       { k: 'home', icon: 'home', label: 'Home', href: '/home', on: path === '/home' },
       { k: 'deliveries', icon: 'truck', label: 'Deliveries', href: '/pm/deliveries', on: path.startsWith('/pm/deliver') },
-      { k: 'add', icon: 'plus', label: 'Add', href: '/sites/new', emph: true, branded: true, on: path === '/sites/new' },
+      ...(canCreateProjects(me) ? [{ k: 'add', icon: 'plus', label: 'Add', href: '/sites/new', emph: true, branded: true, on: path === '/sites/new' }] : []),
       { k: 'hub', icon: 'bell', label: 'HUB', href: '/pm/hub', badge: hubCount, on: path === '/pm/hub' },
-      { k: 'calendar', icon: 'calendar', label: 'Calendar', href: '/pm/calendar', on: path === '/pm/calendar' },
+      ...(can(me, 'team') ? [{ k: 'calendar', icon: 'calendar', label: 'Calendar', href: '/pm/calendar', on: path === '/pm/calendar' }] : []),
     ];
   } else if (path === '/sites') {
     // 130 homeBottomBar for everyone else: Outstanding · Inbox (not for clients) · My Dashboard · Settings.

@@ -6,7 +6,8 @@
 import { shownRole } from './users.ts';
 
 export type Access = 'admin' | 'pm' | 'estimator' | 'finance_controller' | 'site_manager' | 'operative' | 'driver' | 'client';
-export type OrgRole = { id: string; name: string; access: string; is_default: boolean; position: number };
+/** perms: what the role can do (lib/rules/rolePerms); null, everything its level allows. */
+export type OrgRole = { id: string; name: string; access: string; is_default: boolean; position: number; perms?: string[] | null };
 export type RolePerson = { id: string; role: string; is_estimator?: boolean | null; finance_only?: boolean | null; org_role_id?: string | null };
 
 /** What each level means, in the words the Roles screen uses. */

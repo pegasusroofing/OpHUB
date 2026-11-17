@@ -27,6 +27,7 @@ import { greeting, siteStatusKey } from '@/lib/rules/checkin';
 import { isQuoted } from '@/lib/rules/quotes';
 import { seesHomeFinance } from '@/lib/homeTiles';
 import { roleLabel } from '@/lib/roles';
+import { can } from '@/lib/rules/rolePerms';
 import { base, space, useDesk, useTheme } from '@/theme/theme';
 
 export function PmHome() {
@@ -47,7 +48,7 @@ export function PmHome() {
   const both = !!org?.has_finance && org?.has_pm !== false;
   // Who sees the money on Home is the company admin's choice (Admin › Company › Home Page; Andy, 14 Nov 2026).
   const showMoney = both && seesHomeFinance(me, org);
-  const showQuotes = both && (me?.role === 'pm' || me?.role === 'admin');
+  const showQuotes = both && (me?.role === 'pm' || me?.role === 'admin') && can(me, 'quotes');
   const { data: finOv } = useFinOverview(showMoney ? me ?? null : null, sites);
   const { data: quotes } = useQuotes(showQuotes ? me?.org_id : null);
   const toPrice = (quotes ?? []).filter((x) => !isQuoted(x)).length;
@@ -142,14 +143,14 @@ export function PmHome() {
         </>
       )}
       {/* The next five working days (Andy, 11 Nov 2026): tap a day to add to it. */}
-      <HomeWeek sites={sites} />
+      {can(me, 'team') && <HomeWeek sites={sites} />}
       {/* Yard & Plant is under Deliveries now, not a tile (Andy, 5 Nov 2026). No Calendar tile: the Next 5 Days row above opens it (Andy, 11 Nov 2026). */}
       <TileGrid cols={desk ? 4 : 2}>
         {seesHomeFinance(me, org) && <Tile plain ic="pound" tint="" title="OpHUB Finance" sub="Money in & out" onPress={go('/fin')} />}
-        <Tile plain ic="reports" tint="" title="Quotes" sub="Tender tracker" onPress={go('/pm/quotes')} />
+        {can(me, 'quotes') && <Tile plain ic="reports" tint="" title="Quotes" sub="Tender tracker" onPress={go('/pm/quotes')} />}
         {/* Deliveries is under Dashboard (Andy, 11 Nov 2026); deliveries to schedule still show under Today and as the badge here. */}
         <Tile plain ic="chart" tint="" title="Dashboards" sub={dlvN ? `${dlvN} deliver${dlvN === 1 ? 'y' : 'ies'} to schedule` : 'Company, operatives & deliveries'} badge={dlvN || undefined} onPress={go('/pm/dashboards')} />
-        <Tile plain ic="reports" tint="" title="Reports & Surveys" sub={open.length ? `${open.length} in progress` : 'All projects'} onPress={go('/pm/reports')} />
+        {can(me, 'reports') && <Tile plain ic="reports" tint="" title="Reports & Surveys" sub={open.length ? `${open.length} in progress` : 'All projects'} onPress={go('/pm/reports')} />}
         {/* On a laptop no HR tile: it's in the bar on the left (Andy, 14 Nov 2026: "just 4 tiles remain"). The phone
             keeps HR and Admin, so its two columns stay even. */}
         {(!desk || !seesHomeFinance(me, org)) && <Tile plain ic="users" tint="" title="HR" sub="Holidays, policies & handbook" onPress={go('/pm/hr')} />}

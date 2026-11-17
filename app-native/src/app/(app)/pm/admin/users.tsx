@@ -12,6 +12,7 @@ import { removeMember, setPhone, setSubform, toggleFinance, useTeam, type TeamMe
 import { setPersonRole, useOrgRoles } from '@/data/orgRoles';
 import { useAuth } from '@/lib/auth';
 import { isFinanceUser, isFullManager, isManager } from '@/lib/roles';
+import { can } from '@/lib/rules/rolePerms';
 import { supabase } from '@/lib/supabase';
 import { ACCESS_ORDER, accessOf, groupByRole, roleChoices, roleName, roleOf } from '@/lib/rules/orgRoles';
 import { roleActionsFor } from '@/lib/rules/users';
@@ -29,6 +30,7 @@ export default function Users() {
   const swatch = (role: string) => (role === 'admin' ? th.brand2 || base.ink : role === 'pm' || role === 'driver' ? th.brand1 : role === 'site_manager' ? '#6B6F78' : '#4B4F58');
   const swatchText = (role: string) => (role === 'pm' || role === 'driver' ? th.brand1Text : '#fff');
   if (!me) return null;
+  if (!can(me, 'people')) return <Muted style={{ padding: space.l }}>Your role doesn’t manage people. Ask your admin (Admin › Roles).</Muted>;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['team'] }); void qc.invalidateQueries({ queryKey: ['people'] }); };
   const iAmAdmin = me.role === 'admin';

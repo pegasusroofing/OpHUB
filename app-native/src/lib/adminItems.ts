@@ -2,6 +2,7 @@
 // what it's called, who sees it, and its screen in the new app (null = still
 // in the current app for now).
 import { isFinanceUser, isFullManager, isManager } from '@/lib/roles';
+import { can } from '@/lib/rules/rolePerms';
 import type { Organization, Profile } from '@/lib/types';
 
 export type AdminPage = 'people' | 'libraries' | 'company';
@@ -15,7 +16,7 @@ export type AdminItem = { key: string; page: AdminPage; group: string; icon: str
 const admin = (me: Profile) => me.role === 'admin';
 export const ADMIN_ITEMS: AdminItem[] = [
   { key: 'invites', page: 'people', group: 'Team', icon: '✉️', label: 'Invites', sub: 'Invite links and pending invites', kw: 'invite link join', route: '/pm/admin/invites', show: isManager },
-  { key: 'users', page: 'people', group: 'Team', icon: '👥', label: 'Users', sub: 'Roles, passwords, removing people', kw: 'user role admin pm estimator operative driver', route: '/pm/admin/users', show: isManager },
+  { key: 'users', page: 'people', group: 'Team', icon: '👥', label: 'Users', sub: 'Roles, passwords, removing people', kw: 'user role admin pm estimator operative driver', route: '/pm/admin/users', show: (u) => isManager(u) && can(u, 'people') },
   { key: 'roles', page: 'people', group: 'Team', icon: '🏷', label: 'Roles', sub: 'Your list of roles and what each one uses', kw: 'role roles job title contracts administrator quantity surveyor document controller contracts manager', route: '/pm/admin/roles', show: admin },
   { key: 'devicelocks', page: 'people', group: 'Team', icon: '📱', label: 'Device Locks', sub: 'One phone = one person', kw: 'device phone lock approve', route: '/pm/admin/devicelocks', show: isFullManager },
   { key: 'checkinlogs', page: 'people', group: 'Logs', icon: '📍', label: 'Check-In Logs', sub: 'Operatives and PM logins by site', kw: 'check in out log site attendance', route: '/pm/admin/checkinlogs', show: isManager },

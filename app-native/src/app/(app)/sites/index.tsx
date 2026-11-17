@@ -22,7 +22,7 @@ import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { siteStatusKey } from '@/lib/rules/checkin';
-import { isFullManager, roleLabel } from '@/lib/roles';
+import { canCreateProjects, isFullManager, roleLabel } from '@/lib/roles';
 import { useOnboarding } from '@/data/onboarding';
 import type { Site } from '@/lib/types';
 import { heading } from '@/lib/fonts';
@@ -171,7 +171,7 @@ export default function Sites() {
         }, 'show')}
         <View style={{ flex: 1 }} />
         {/* Filled, before the PM filter, as 180 renderSites. */}
-        {desk && <Pressable onPress={() => router.push('/sites/new' as never)} accessibilityLabel="Add a new project" style={{ height: 38, paddingHorizontal: 16, borderRadius: 999, backgroundColor: t.brand1, justifyContent: 'center', marginRight: 4 }}>
+        {desk && canCreateProjects(me) && <Pressable onPress={() => router.push('/sites/new' as never)} accessibilityLabel="Add a new project" style={{ height: 38, paddingHorizontal: 16, borderRadius: 999, backgroundColor: t.brand1, justifyContent: 'center', marginRight: 4 }}>
           <Text style={[heading(700), { fontSize: 13.5, color: t.brand1Text }]}>+ New Project</Text>
         </Pressable>}
         {pms.length > 0 && chip(!!pmIds.length, pmIds.length ? (pmIds.length === 1 ? pmName(pmIds[0]) : `${pmIds.length} selected`) : 'PM ▼', async () => {

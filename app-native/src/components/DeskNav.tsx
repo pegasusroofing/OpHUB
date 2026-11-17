@@ -13,6 +13,7 @@ import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { brand } from '@/lib/fonts';
 import { homeKind, isFinanceUser, isFullManager, isManager, roleLabel } from '@/lib/roles';
+import { can } from '@/lib/rules/rolePerms';
 import { base, useTheme } from '@/theme/theme';
 import { closeSideMenu } from '@/lib/sideMenuBus';
 
@@ -41,21 +42,21 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
     : mgr ? [
       ...(isFullManager(me) ? [{ k: 'home', ic: 'home', lbl: 'Home', go: '/home' }] : []),
       { k: 'sites', ic: 'projects', lbl: 'Projects', go: '/sites', sec: 'Work', kids: [
-        ...(isFullManager(me) ? [{ k: 'onsite', ic: 'users', lbl: 'On Site Now', go: '/onsite' }] : []),
+        ...(isFullManager(me) && can(me, 'team') ? [{ k: 'onsite', ic: 'users', lbl: 'On Site Now', go: '/onsite' }] : []),
         ...(isManager(me) ? [{ k: 'pm/sitemap', ic: 'pin', lbl: 'Sites Map', go: '/pm/sitemap' }] : []),
-        ...(isFullManager(me) ? [{ k: 'pm/reports', ic: 'reports', lbl: 'Reports & Surveys', go: '/pm/reports' }] : []),
+        ...(isFullManager(me) && can(me, 'reports') ? [{ k: 'pm/reports', ic: 'reports', lbl: 'Reports & Surveys', go: '/pm/reports' }] : []),
       ] },
-      ...(isFullManager(me) ? [{ k: 'pm/quotes', ic: 'reports', lbl: 'Quotes', go: '/pm/quotes', sec: 'Work' }] : []),
+      ...(isFullManager(me) && can(me, 'quotes') ? [{ k: 'pm/quotes', ic: 'reports', lbl: 'Quotes', go: '/pm/quotes', sec: 'Work' }] : []),
       // Deliveries opens out like Projects: the delivery schedule, and the yard and plant register (Andy, 5 Nov 2026; it was under Projects).
       { k: 'pm/deliveries', ic: 'truck', lbl: 'Deliveries', go: '/pm/deliveries', sec: 'Work', kids: [
         { k: 'pm/deliveries', ic: 'truck', lbl: 'Delivery Schedule', go: '/pm/deliveries' },
         ...(isManager(me) ? [{ k: 'pm/yard', ic: 'tools', lbl: 'Yard & Plant', go: '/pm/yard' }] : []),
       ] },
-      { k: 'pm/calendar', ic: 'calendar', lbl: 'Calendar', go: '/pm/calendar', sec: 'Work' },
+      ...(can(me, 'team') ? [{ k: 'pm/calendar', ic: 'calendar', lbl: 'Calendar', go: '/pm/calendar', sec: 'Work' }] : []),
       { k: 'pm/hub', ic: 'bell', lbl: 'Hub', go: '/pm/hub', badge: hubN, sec: 'Team' },
       { k: 'pm/dashboard', ic: 'chart', lbl: 'Dashboards', go: '/pm/dashboard', sec: 'Team', kids: [
         { k: 'pm/dashboard', ic: 'chart', lbl: 'Company', go: '/pm/dashboard' },
-        { k: 'pm/operatives', ic: 'admin', lbl: 'Operatives', go: '/pm/operatives' },
+        ...(can(me, 'team') ? [{ k: 'pm/operatives', ic: 'admin', lbl: 'Operatives', go: '/pm/operatives' }] : []),
         { k: 'pm/hr', ic: 'users', lbl: 'HR', go: '/pm/hr' },
       ] },
       ...(isFinanceUser(me, org) ? [{ k: 'fin', ic: 'pound', lbl: 'Finance', go: '/fin', sec: 'Office' }] : []),
@@ -105,11 +106,11 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
   };
   const sub = siteId && kind !== 'finance' ? [
     { k: '', ic: 'home', lbl: 'Project Home', go: `/sites/${siteId}` },
-    { k: 'schedule', ic: 'clipboard', lbl: 'Schedule of Works', go: `/sites/${siteId}/schedule` },
+    ...(!mgr || can(me, 'sow') ? [{ k: 'schedule', ic: 'clipboard', lbl: 'Schedule of Works', go: `/sites/${siteId}/schedule` }] : []),
     { k: 'hs', ic: 'shield', lbl: 'Health & Safety', go: `/sites/${siteId}/hs` },
     { k: 'checkin', ic: 'pin', lbl: 'Check In', go: `/sites/${siteId}/checkin` },
     { k: 'messages', ic: 'chat', lbl: 'Inbox', go: `/sites/${siteId}/messages` },
-    ...(site?.price_enabled && mgr ? [{ k: 'price', ic: 'pound', lbl: 'Price', go: `/sites/${siteId}/price` }] : []),
+    ...(site?.price_enabled && mgr && can(me, 'prices') ? [{ k: 'price', ic: 'pound', lbl: 'Price', go: `/sites/${siteId}/price` }] : []),
     ...(isFinanceUser(me, org) ? [{ k: 'fin', ic: 'chart', lbl: 'Finance', go: `/fin/job/${siteId}` }] : []),
     ...(mgr ? [{ k: 'admin', ic: 'gear', lbl: 'Project Settings', go: `/sites/${siteId}/admin` }] : []),
   ] : [];

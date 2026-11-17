@@ -94,6 +94,8 @@
         var admins = (db.profiles || []).filter(function (x) { return x.role === 'admin'; }).map(function (x) { return { id: x.id, name: x.name, role: x.role, why: ['admin'] }; });
         return json({ set_up: false, team_admins: true, team_pms: false, named: [], people: admins, set_up_at: null, set_up_by: null, log: [] });
       }
+      // Roles (17 Nov 2026): the demo company keeps no list of what each role can do, so every role can do everything.
+      if (fn === 'my_role_perms') return json(null);
       return json(/check_device_lock|check_and_lock_device/.test(fn) ? { ok: true } : []);
     }
     if (p.indexOf('/rest/v1/') === 0) {

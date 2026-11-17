@@ -26,6 +26,8 @@ export type Profile = {
   finance_enabled: boolean;
   finance_hidden: boolean;
   see_costs: boolean;
+  /** What their role can do (Admin › Roles; read with my_role_perms when signing in). Null: everything. App-only. */
+  perms?: string[] | null;
 };
 
 export type Organization = {
