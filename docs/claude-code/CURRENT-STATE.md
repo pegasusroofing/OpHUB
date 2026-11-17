@@ -223,6 +223,7 @@ Every LOW item in `PARITY-AUDIT.md` is now done, already done, or not needed; on
 
 ## Still open (carry into the native app, or fix in the old one if urgent)
 - **Finance go-live switches:** the trial stubs, and POs for every PM order (proposals P01, P02; map links L28, L51, L52, L59, L73). Finance stays in **TRIAL** until Andy says otherwise.
+  - **Query To PM during the trial (decided 17 Nov, Andy: "No, keep it"):** it keeps messaging the PM (and so emailing them through the messages trigger), as the old app does. It is an in-house message, not something sent from Finance to the outside, so don't block it or raise it again.
 - **18 "Missing" Projects↔Finance links:** see `context/finance-projects-map-v3.md` and `context/proposals.md`.
 - **Messages to one person:** check the database lets people read messages sent only to them (PB-07).
 - **Company filter in the database:** check-ins, incidents and drawings have no company column; the app filters them (CORE-L2).
