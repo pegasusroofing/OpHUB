@@ -103,10 +103,10 @@ You only see Finance if it's switched on for you (Admin › Users › **Finance*
 1. Click **Finance**. You land on **Overview**.
 2. Read the six figures: **Live Contract Value** (with the number of live jobs under it), **Still To Invoice**, **Owed To You**, **Overdue**, **Due Out To Suppliers** and **Retention Held By Clients**.
 3. Click a figure to open the list behind it.
-4. To change what a figure shows, click its **⋯** and choose. If that one is already on another tile, the two swap. Your choice is kept for you on the laptop and the phone. **Back To The Standard Tiles** puts them back.
+4. Each figure's **⋯** changes what it covers. The tiles stay in their places. Contract Value and Still To Invoice: **Live**, **Upcoming**, **Closed** or **All Jobs**, **By Start Date** or **By Client**. Owed To You: **Due In The Next 30** or **60 Days**, **By Due Date** or **By Client**. Overdue: **Over 30**, **60** or **90 Days Late**, or **By Client**. Due Out To Suppliers: **Due In The Next 30** or **60 Days**, **Past Their Due Date**, **By Due Date** or **By Supplier**. Retention: **Live** or **Closed Jobs**, or **By Client**. The tile's name says what it's showing. Your choices are kept for you on the laptop and the phone.
 5. Work down **Needs Attention**. Click a line to go straight to where it's dealt with.
 
-**Due Out To Suppliers** is what you owe suppliers (materials, plant, scaffold, skips) on invoices you've approved but not paid, including VAT. It's the same as **To Pay Suppliers** on Purchases. Invoices still being checked show under it. Subcontractors and labour aren't in it.
+**Due Out To Suppliers** is what you owe suppliers (materials, plant, scaffold, skips) on invoices not paid yet, including VAT, whether approved or not. The note under it says how much still **Needs Approval**. Subcontractors and labour aren't in it.
 
 **What This Does In Projects:** finance users see a money strip on each project's home page in Projects: costs to date, invoiced and profit margin.
 
@@ -471,7 +471,7 @@ The laptop is the best place for set-up work: new jobs, RAMS, orders and Admin.
 1. Click your company name at the top of the menu to go Home.
 2. Four figures: **Live projects**, **On site now** (or **Due In**), **To do** (or **Quotes To Price**) and **Notifications**.
 3. A **Needs you** card shows invoices and wages the office has sent you to book.
-4. The sites map sits beside **Today**. Below are the next five working days: click an item to open it, or the **+** at the foot of a day to add to it.
+4. The sites map sits beside **Today**. Below are the next five working days: click the second dot under them for the five after. Click an item to open it, or the **+** at the foot of a day to add to it.
 5. Tiles: **OpHUB Finance**, **Quotes**, **Dashboards** and **Reports & Surveys**.
 
 ![PM Home](shots/laptop/pm-home.jpg)

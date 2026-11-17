@@ -96,7 +96,8 @@ Finance is mainly a laptop job. The laptop guide covers every tab in full. Finan
 2. Inside a job, tap ☰ and then **Finance** under **THIS PROJECT**. It opens that job's Finance page.
 3. Swipe the tab row sideways: **Overview**, **Projects**, **Sales**, **Purchases**, **Subcontractors & Labour**, **Reports**, **Directory**, **Settings**.
 4. On **Overview**, tap any figure to open the list behind it. **Needs Attention** lists what's waiting.
-5. To change what a figure shows, tap its **⋯** and choose. If that one is already on another tile, the two swap. **Due Out To Suppliers** is what you owe suppliers on approved invoices not paid yet, including VAT.
+5. Each figure's **⋯** changes what it covers: for example **Closed Jobs** or **By Client** on Contract Value, or **Due In The Next 30 Days** on Owed To You. The tiles stay in their places, and the tile's name says what it's showing.
+6. **Due Out To Suppliers** is what you owe suppliers on invoices not paid yet, including VAT. The note under it says how much still **Needs Approval**.
 
 You only see Finance if it's switched on for you (Admin › Users › **Finance**). If your role can look but not change, Finance shows **View Only**.
 
@@ -426,7 +427,7 @@ PMs use the phone on site and the laptop in the office. Everything below works o
 1. The top shows **Live projects**, **On site now** (or **Due In**), **To do** (or **Quotes To Price**) and **Notifications**. Tap one to open it.
 2. A **Needs you** card shows invoices and wages the office has sent you to book.
 3. Tap the red **Live projects** card for your jobs.
-4. Below are **Today** and the next five working days. Tap an item to open it, or tap the **+** at the foot of a day to add to it.
+4. Below are **Today** and the next five working days. Swipe them sideways for the five after. Tap an item to open it, or tap the **+** at the foot of a day to add to it.
 5. Tiles: **OpHUB Finance** (if you have it), **Quotes**, **Reports & Surveys** and **Admin**. **Dashboards**, **HR**, your name and **Sign out** are in the ☰ menu.
 
 ![PM Home](shots/phone/pm-home.jpg)

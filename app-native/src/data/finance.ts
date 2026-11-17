@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { addDays, appOverdueFor, FIN_DEFAULTS, finBlocked, FIN_TRIAL_MSG, INV_OPEN, invOutstandingNet, invOverdue, jobTag, plantCost, retentionAlerts, retentionStillHeld, today, type FinApp, type FinInv, type FinSettings, type JobFin } from '@/lib/rules/finance';
 import { siteStatusKey } from '@/lib/rules/checkin';
-import { paidOnStatements, supplierDueOut } from '@/lib/rules/finTiles';
+import { paidOnStatements, unpaidSupplierInvoices, type InvRow, type JobRow } from '@/lib/rules/finTiles';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
 
@@ -110,24 +110,31 @@ export function useFinOverview(me: Profile | null, sites: Site[] | undefined) {
       // Work on live jobs not billed yet: each job's contract value less what's been invoiced on it, never below nothing.
       const toInvoice = live.reduce((t, s) => t + Math.max(0, Number(jfBy[s.id]?.contract_value || 0) - (invsBy[s.id] || []).reduce((n, i) => n + Number(i.net || 0), 0)), 0);
       const owed = invs.reduce((t, i) => t + invOutstandingNet(i), 0);
-      const retHeld = S.reduce((t, s) => t + still(s), 0);
-      return { liveValue, liveCount: live.length, toInvoice, owed, overdue, retHeld, todo };
+      const retBy: Record<string, number> = {}; S.forEach((s) => { retBy[s.id] = still(s); });
+      const retHeld = S.reduce((t, s) => t + retBy[s.id], 0);
+      // Each job and each sales invoice, plainly, for the Overview tiles' ⋯ views (Andy, 17 Nov 2026).
+      const clientOf: Record<string, string | null> = {}; S.forEach((s) => { clientOf[s.id] = s.client_name || null; });
+      const jobs: JobRow[] = S.map((s) => ({ id: s.id, status: finStatus(s), start: s.start_date || (s.created_at ? String(s.created_at).slice(0, 10) : null), client: s.client_name || null,
+        value: Number(jfBy[s.id]?.contract_value || 0), invoiced: (invsBy[s.id] || []).reduce((n, i) => n + Number(i.net || 0), 0), ret: retBy[s.id] }));
+      const invRows: InvRow[] = invs.map((i) => ({ out: invOutstandingNet(i), due: i.due_date || null, overdue: invOverdue(i), client: clientOf[i.site_id as string] ?? null }));
+      return { liveValue, liveCount: live.length, toInvoice, owed, overdue, retHeld, todo, jobs, invRows };
     },
   });
 }
 
-/** Finance › Overview's Due Out To Suppliers (Andy, 17 Nov 2026): supplier invoices not paid yet, by hand or on a
- *  statement. Only the Overview reads it, so Home's numbers don't wait for it. Under 'finOverview', so every Finance
+/** Finance › Overview's Due Out To Suppliers (Andy, 17 Nov 2026): the supplier invoices not paid yet (by hand or on a
+ *  statement), approved or still to approve, for the tile and its ⋯ views. Only the Overview reads it, so Home's
+ *  numbers don't wait for it. Under 'finOverview', so every Finance
  *  save that refreshes the Overview refreshes this too. */
 export function useDueOut(orgId: string | null | undefined) {
   return useQuery({
     queryKey: ['finOverview', 'dueOut', orgId], enabled: !!orgId, staleTime: 60000,
     queryFn: async () => {
       const [pinvs, stmts] = await Promise.all([
-        selectAll<{ id: string; status: string; total: number | null; paid_on: string | null; sub_job_id: string | null }>('purchase_invoices', 'id,status,total,paid_on,sub_job_id', (q) => q.eq('org_id', orgId as string).in('status', ['approved', 'to_approve', 'query']).is('paid_on', null)),
+        selectAll<{ id: string; status: string; total: number | null; paid_on: string | null; sub_job_id: string | null; due_date: string | null; supplier_name: string | null }>('purchase_invoices', 'id,status,total,paid_on,sub_job_id,due_date,supplier_name', (q) => q.eq('org_id', orgId as string).in('status', ['approved', 'to_approve', 'query']).is('paid_on', null)),
         selectAll<{ status: string | null; statement_date: string | null; reconciled_at: string | null; lines: unknown }>('fin_statements', 'id,status,statement_date,reconciled_at,lines', (q) => q.eq('org_id', orgId as string)),
       ]);
-      return supplierDueOut(pinvs, paidOnStatements(stmts));
+      return unpaidSupplierInvoices(pinvs, paidOnStatements(stmts));
     },
   });
 }

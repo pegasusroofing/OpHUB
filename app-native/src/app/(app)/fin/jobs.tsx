@@ -7,7 +7,7 @@
 // client, PO and postcode; Value takes ">50k"), Live / Upcoming / Closed / All in a strip above, + New Project full width.
 // The Filter / Sort buttons and the search bar went.
 import { useQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
@@ -54,8 +54,11 @@ export default function FinJobs() {
   const { data: sitesRaw } = useSites();
   const { data: people = [] } = usePeople();
   const { data } = useJobsData(me?.org_id);
-  // A phone shows Live, Upcoming, Closed or All from the strip above the table (it was in the Filter).
-  const [stat, setStat] = useState<'live' | 'upcoming' | 'closed' | 'all'>('live');
+  // A phone shows Live, Upcoming, Closed or All from the strip above the table (it was in the Filter). It opens on Live,
+  // or on what an Overview tile was showing (?st=closed …; 17 Nov 2026).
+  const { st: st0 } = useLocalSearchParams<{ st?: string }>();
+  const startSt = (['live', 'upcoming', 'closed', 'all'] as const).find((x) => x === st0) ?? 'live';
+  const [stat, setStat] = useState<'live' | 'upcoming' | 'closed' | 'all'>(startSt);
   const [custom, setCustom] = useState<{ from?: string; to?: string }>({});
   const sites = ((sitesRaw || []) as SiteX[]).slice().sort(byJobNoDesc);
   const cliOf = (s: SiteX) => data?.jfBy[s.id]?.billing_name || s.client_name || '';
@@ -104,7 +107,7 @@ export default function FinJobs() {
         </View>
       </>}
       {!data ? <Muted>Loading…</Muted> : desk && shown.length ? (
-        <FinTable colsKey="jobs" onPick={pickStart} rows={shown} keyOf={(s) => s.id} onRow={(s) => router.push(`/fin/job/${s.id}` as never)} defaultSort={{ k: 'name', dir: 'asc' }} startFilter={{ st: ['Live'] }}
+        <FinTable colsKey="jobs" onPick={pickStart} rows={shown} keyOf={(s) => s.id} onRow={(s) => router.push(`/fin/job/${s.id}` as never)} defaultSort={{ k: 'name', dir: 'asc' }} startFilter={startSt === 'all' ? {} : { st: [startSt[0].toUpperCase() + startSt.slice(1)] }}
           cols={[
             { k: 'no', l: 'Job No', lock: true, min: 90, flex: 0.8, sort: (s) => s.job_number || '', render: (s) => <Text style={{ fontSize: 11, fontWeight: '600', color: t.brand1, borderWidth: 1.5, borderColor: t.brand1, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10, overflow: 'hidden' }}>{s.job_number || '—'}</Text> },
             { k: 'name', l: 'Project', lock: true, flex: 2.7, min: 230, render: (s) => <Cell bold>{s.name}</Cell> },
