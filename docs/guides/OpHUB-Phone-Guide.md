@@ -425,7 +425,7 @@ PMs use the phone on site and the laptop in the office. Everything below works o
 1. The top shows **Live projects**, **On site now** (or **Due In**), **To do** (or **Quotes To Price**) and **Notifications**. Tap one to open it.
 2. A **Needs you** card shows invoices and wages the office has sent you to book.
 3. Tap the red **Live projects** card for your jobs.
-4. Below are **Today** and the next five working days. Tap a day to add to it.
+4. Below are **Today** and the next five working days. Tap an item to open it, or tap the **+** at the foot of a day to add to it.
 5. Tiles: **OpHUB Finance** (if you have it), **Quotes**, **Reports & Surveys** and **Admin**. **Dashboards**, **HR**, your name and **Sign out** are in the ☰ menu.
 
 ![PM Home](shots/phone/pm-home.jpg)

@@ -26,7 +26,8 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(6000);
 
   // Home: five working days; a day opens Add To Calendar on that day.
-  const days = page.locator('[aria-label$="Tap to add."] >> visible=true');
+  // Each day's + adds to it (the items in a day open themselves since 17 Nov 2026).
+  const days = page.locator('[aria-label^="+ Add to "] >> visible=true');
   check(await days.count() === 5, `home shows five days (${await days.count()})`);
   await days.nth(1).click(); await page.waitForTimeout(3000);
   const u = new URL(page.url());

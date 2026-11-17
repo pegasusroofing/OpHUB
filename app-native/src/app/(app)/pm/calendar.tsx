@@ -51,18 +51,31 @@ export default function AllCalendar() {
   const { data: pms } = usePmList();
   const { data: people } = usePeople();
   const today = localISODate(new Date());
+  // From the home page's five days: ?date=… opens on that day; &add=1 with Add To Calendar open; &open=… with that item
+  // open (Andy, 11 and 17 Nov 2026).
+  const params = useLocalSearchParams<{ date?: string; add?: string; open?: string }>();
+  const startDay = /^\d{4}-\d{2}-\d{2}$/.test(String(params.date || '')) ? String(params.date) : null;
   const [view, setView] = useState<CalView>('month');
-  const [month, setMonth] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
-  const [sel, setSel] = useState(today);
+  const [month, setMonth] = useState(() => { const d = startDay ? new Date(`${startDay}T00:00:00`) : new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
+  const [sel, setSel] = useState(startDay ?? today);
   const [pmF, setPmF] = useState<string[]>([]);
   const [siteF, setSiteF] = useState<string[]>([]);
   const [driver, setDriver] = useState(false);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(() => (startDay && params.open ? String(params.open) : null));
   // + Add To Calendar (Andy, 11 Nov 2026): as on a project's calendar, choosing the project here, and people can be tagged.
-  // From a day on the home page's five days (?date=…&add=1): that day, with Add To Calendar open.
-  const params = useLocalSearchParams<{ date?: string; add?: string }>();
-  const startDay = /^\d{4}-\d{2}-\d{2}$/.test(String(params.date || '')) ? String(params.date) : null;
   const [adding, setAdding] = useState<{ site: string; title: string; date: string; tagged: string[] } | null>(() => (startDay && params.add ? { site: '', title: '', date: startDay, tagged: [] } : null));
+  // If the page is still open underneath and Home sends another day or item, follow it.
+  const navKey = `${startDay ?? ''}|${params.open ?? ''}|${params.add ?? ''}`;
+  const [seenKey, setSeenKey] = useState(navKey);
+  if (navKey !== seenKey) {
+    setSeenKey(navKey);
+    if (startDay) {
+      const d = new Date(`${startDay}T00:00:00`);
+      setView('month'); setMonth({ y: d.getFullYear(), m: d.getMonth() }); setSel(startDay);
+      setOpenId(params.open ? String(params.open) : null);
+      if (params.add) setAdding({ site: '', title: '', date: startDay, tagged: [] });
+    }
+  }
   const [saving, setSaving] = useState(false);
   const toast = useToast();
   const qc = useQueryClient();

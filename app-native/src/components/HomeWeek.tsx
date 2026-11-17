@@ -1,6 +1,9 @@
 // Home: the next five working days as a little calendar (Andy, 11 Nov 2026). Each day shows what's on the project
 // calendars; tap a day to add something to it (and tag people), or the Calendar button for the full calendar. Bigger
-// heading and day text, and Calendar as a proper button (Andy, 11 Nov 2026).
+// heading and day text, and Calendar as a proper button (Andy, 11 Nov 2026). Andy, 17 Nov 2026 ("I'm clicking them but
+// it's asking to add again. In the iPhone I can click the items in there as well as add"): like the iPhone's calendar,
+// tapping an item opens it (the calendar on that day with it open; an application opens its job), "+N More" opens
+// that day, and the rest of the box, or the + at its foot, adds to that day.
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
@@ -39,11 +42,17 @@ export function HomeWeek({ sites }: { sites: Site[] | undefined }) {
         apps ? appDateLines(null, days[0], days[4]) : Promise.resolve([]),
       ]);
       const job = (id: string) => { const x = (sites ?? []).find((y) => y.id === id); return x ? x.job_number || x.name : ''; };
-      return [...((ev.data as { id: string; site_id: string; title: string; event_date: string }[] | null) ?? []),
-        ...ap.map((a) => ({ id: a.id, site_id: a.site_id, title: `${a.title.startsWith('💷 Application sent') ? '💷 Applied' : '💷 Application'} ${job(a.site_id)}`.trim(), event_date: a.event_date }))];
+      return [...((ev.data as { id: string; site_id: string; title: string; event_date: string }[] | null) ?? []).map((e) => ({ ...e, app: false })),
+        ...ap.map((a) => ({ id: a.id, site_id: a.site_id, title: `${a.title.startsWith('💷 Application sent') ? '💷 Applied' : '💷 Application'} ${job(a.site_id)}`.trim(), event_date: a.event_date, app: true }))];
     },
   });
   const on = (d: string) => events.filter((e) => e.event_date === d && ids.has(e.site_id));
+  const add = (d: string) => router.push({ pathname: '/pm/calendar', params: { date: d, add: '1' } } as never);
+  const dayOf = (d: string) => router.push({ pathname: '/pm/calendar', params: { date: d } } as never);
+  // An application goes where the full calendar sends it: Finance users to the job in Finance, others to the job's calendar.
+  const openItem = (e: (typeof events)[number]) => router.push((e.app
+    ? (isFinanceUser(me, org) ? `/fin/job/${e.site_id}` : `/sites/${e.site_id}/calendar`)
+    : { pathname: '/pm/calendar', params: { date: e.event_date, open: e.id } }) as never);
   // The heading and the Calendar button are the same height (Andy, 15 Nov 2026: "I want the calendar button to be the
   // same height as the next 5 days").
   const rowH = desk ? 26 : 25;
@@ -64,15 +73,33 @@ export function HomeWeek({ sites }: { sites: Site[] | undefined }) {
       <View style={{ flexDirection: 'row', gap: 6 }}>
         {days.map((d) => {
           const list = on(d), dt = new Date(`${d}T00:00:00`), isToday = d === today;
+          const long = dt.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+          const padX = desk ? 12 : 4;
+          // Side by side, not one inside another (a button can't hold buttons): the day's name and the space at the foot
+          // (with its +) add to the day; each item, and "+N More", is its own button between them.
           return (
-            <Pressable key={d} accessibilityRole="button" accessibilityLabel={`${dt.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}: ${list.length} on. Tap to add.`}
-              onPress={() => router.push({ pathname: '/pm/calendar', params: { date: d, add: '1' } } as never)}
-              style={{ flex: 1, minWidth: 0, minHeight: 92, backgroundColor: base.card, borderWidth: isToday ? 1.5 : 1, borderColor: isToday ? t.brand1 : base.cardLine, borderRadius: 10, paddingVertical: desk ? 8 : 6, paddingHorizontal: desk ? 18 : 6 }}>
-              <Text numberOfLines={1} style={{ fontSize: desk ? 14.5 : 13.5, fontWeight: '700', color: isToday ? t.brand1 : base.slate }}>{dt.toLocaleDateString('en-GB', { weekday: 'short' })} {dt.getDate()}</Text>
-              {list.slice(0, 2).map((e) => <Text key={e.id} numberOfLines={2} style={{ fontSize: desk ? 13 : 12, color: base.ink, marginTop: 3 }}>{e.title}</Text>)}
-              {list.length > 2 && <Text style={{ fontSize: 11.5, fontWeight: '600', color: base.slate, marginTop: 2 }}>+{list.length - 2} More</Text>}
-              {!list.length && <Text style={{ fontSize: 18, color: base.slateLight, marginTop: 6, textAlign: 'center' }}>+</Text>}
-            </Pressable>
+            <View key={d} style={{ flex: 1, minWidth: 0, minHeight: 92, backgroundColor: base.card, borderWidth: isToday ? 1.5 : 1, borderColor: isToday ? t.brand1 : base.cardLine, borderRadius: 10, overflow: 'hidden' }}>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Add to ${long}`} onPress={() => add(d)} style={{ paddingTop: desk ? 8 : 6, paddingHorizontal: padX + (desk ? 6 : 2) }}>
+                <Text numberOfLines={1} style={{ fontSize: desk ? 14.5 : 13.5, fontWeight: '700', color: isToday ? t.brand1 : base.slate }}>{dt.toLocaleDateString('en-GB', { weekday: 'short' })} {dt.getDate()}</Text>
+              </Pressable>
+              {/* Each item its own button, on a light grey block so it reads as something to tap. */}
+              {list.slice(0, 2).map((e) => (
+                <Pressable key={e.id} accessibilityRole="button" accessibilityLabel={`Open ${e.title}`} onPress={() => openItem(e)}
+                  style={({ pressed }) => ({ marginTop: 4, marginHorizontal: padX, borderRadius: 6, paddingVertical: 3, paddingHorizontal: desk ? 6 : 3, backgroundColor: pressed ? '#E4E7EC' : '#F1F2F4' })}>
+                  <Text numberOfLines={2} style={{ fontSize: desk ? 13 : 12, color: base.ink }}>{e.title}</Text>
+                </Pressable>
+              ))}
+              {list.length > 2 && (
+                <Pressable accessibilityRole="button" accessibilityLabel={`See all ${list.length} on ${long}`} onPress={() => dayOf(d)} style={{ paddingTop: 3, paddingHorizontal: padX + (desk ? 6 : 2) }}>
+                  <Text style={{ fontSize: 11.5, fontWeight: '600', color: base.slate }}>+{list.length - 2} More</Text>
+                </Pressable>
+              )}
+              {/* The rest of the box, with a + at its foot on every day, so there's always somewhere obvious to add. */}
+              <Pressable accessibilityRole="button" accessibilityLabel={`+ Add to ${long}`} onPress={() => add(d)}
+                style={{ flex: 1, minHeight: 28, justifyContent: 'flex-end', paddingBottom: desk ? 6 : 4 }}>
+                <Text style={{ fontSize: 18, lineHeight: 20, color: base.slateLight, textAlign: 'center' }}>+</Text>
+              </Pressable>
+            </View>
           );
         })}
       </View>

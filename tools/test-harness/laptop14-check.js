@@ -80,7 +80,7 @@ const VP = {viewport: {width: 1300, height: 900}};
     const T = (e) => { if (!e) return -1; const r = document.createRange(); r.selectNodeContents(e); return Math.round(r.getBoundingClientRect().left); };
     const tile = [...document.querySelectorAll('[role="button"], a, div')].find((d) => /^\d+\s*Live projects$/i.test((d.innerText || '').trim()) && d.getBoundingClientRect().width < 400);
     const tr = tile ? tile.getBoundingClientRect() : null;
-    const day = leaf(/^(Mon|Tue|Wed|Thu|Fri) \d+$/); const dayBox = day && day.closest('[role="button"]');
+    const day = leaf(/^(Mon|Tue|Wed|Thu|Fri) \d+$/); const dayBox = day && day.closest('[role="button"]')?.parentElement; // the box (its name is a button inside it since 17 Nov 2026)
     const cal = document.querySelector('[aria-label="Open the calendar"]'); const lg = [...document.querySelectorAll('[aria-label$=" logo"]')].find((e) => e.getBoundingClientRect().width > 0);
     const notif = [...document.querySelectorAll('[role="button"], div')].find((d) => /^\d+\s*Notifications$/i.test((d.innerText || '').trim()) && d.getBoundingClientRect().width < 400);
     return { tileL: tr ? Math.round(tr.left) : -1, date: T(leaf(/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday) \d+ /)), hi: T(leaf(/^Good (morning|afternoon|evening)/)), next: T(leaf(/^Next 5 Days$/)), tileText: T(leaf(/^Live projects$/)), dayL: dayBox ? Math.round(dayBox.getBoundingClientRect().left) : -1,

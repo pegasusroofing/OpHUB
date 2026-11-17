@@ -23,7 +23,8 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(txt === 'Calendar', `it reads "Calendar" with no "›" typed in (${txt})`);
   check(await btn.locator('svg').count() === 2, 'it has the calendar icon and an arrow');
   const st = await btn.evaluate((el) => { const s = getComputedStyle(el); return {r: s.borderTopLeftRadius, h: el.getBoundingClientRect().height}; });
-  check(st.r === '10px', `square-ish corners like the day boxes (${st.r})`);
+  // 8px since 15 Nov 2026, when it was made the same height as the Next 5 Days heading.
+  check(st.r === '8px', `square-ish corners (${st.r})`);
   // Still beside "Next 5 Days", on the right.
   const head = await page.getByText('Next 5 Days', {exact: true}).first().boundingBox();
   const b = await btn.boundingBox();

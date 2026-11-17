@@ -468,7 +468,7 @@ The laptop is the best place for set-up work: new jobs, RAMS, orders and Admin.
 1. Click your company name at the top of the menu to go Home.
 2. Four figures: **Live projects**, **On site now** (or **Due In**), **To do** (or **Quotes To Price**) and **Notifications**.
 3. A **Needs you** card shows invoices and wages the office has sent you to book.
-4. The sites map sits beside **Today**. Below are the next five working days.
+4. The sites map sits beside **Today**. Below are the next five working days: click an item to open it, or the **+** at the foot of a day to add to it.
 5. Tiles: **OpHUB Finance**, **Quotes**, **Dashboards** and **Reports & Surveys**.
 
 ![PM Home](shots/laptop/pm-home.jpg)
