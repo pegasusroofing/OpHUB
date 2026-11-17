@@ -24,16 +24,18 @@ const menuText = (page) => page.evaluate(() => [...document.querySelectorAll('di
     const at = (x) => m.indexOf(x);
     if (role === 'operative') check(at('WORK') < 0 && at('TEAM') < 0 && at('OFFICE') < 0 && at('OPHUB') < 0, `${name}: no headings (a short menu), no OPHUB line`);
     else {
-      check(at('WORK') > at('Home') && at('Projects') > at('WORK') && at('Calendar') > at('Projects') && at('TEAM') > at('Calendar') && at('Hub') > at('TEAM') && at('Dashboards') > at('Hub') && (fin ? at('OFFICE') > at('Dashboards') : at('OFFICE') < 0) && at('Admin') > at('Dashboards'), `${name}: Home, then WORK (Projects … Calendar), TEAM (Hub, Dashboards), OFFICE only with Finance, Admin at the bottom (Andy, 14 Nov 2026) [${m.slice(0, 22).join(' | ')}]`);
-      check(fin ? at('Finance') > at('OFFICE') && at('OpHUB Finance') < 0 : at('Finance') < 0, fin ? `${name}: Finance under Office (not "OpHUB Finance")` : `${name}: no Finance (Admin alone under Office)`);
+      check(at('WORK') > at('Home') && at('Projects') > at('WORK') && at('Calendar') > at('Projects') && at('TEAM') > at('Calendar') && at('Hub') > at('TEAM') && at('Dashboards') > at('Hub') && at('OFFICE') > at('Dashboards') && at('Admin') > at('OFFICE'), `${name}: Home, then WORK (Projects … Calendar), TEAM (Hub, Dashboards), OFFICE, Admin at the bottom (Andy, 14 and 17 Nov 2026) [${m.slice(0, 22).join(' | ')}]`);
+      check(fin ? at('Finance') > at('OFFICE') && at('OpHUB Finance') < 0 : at('Finance') < 0, fin ? `${name}: Finance under Office (not "OpHUB Finance")` : `${name}: no Finance`);
+      // HR on its own under Office, below Finance (Andy, 17 Nov 2026: "can you move hr to below the finance").
+      check(at('HR') > at('OFFICE') && (!fin || at('HR') > at('Finance')) && at('HR') < at('Admin'), `${name}: HR under Office${fin ? ', below Finance' : ''}`);
       check(at('OPHUB') < 0 && m.filter((x) => x === '▾').length >= 3, `${name}: no OPHUB line; ▾ beside the items that open`);
       await page.getByLabel('Show Projects pages').click(); await page.waitForTimeout(500);
       const m2 = await menuText(page);
       check(m2.includes('▴') && m2.includes('Sites Map'), `${name}: ▾ opens the list underneath (▴ when open)`);
-      // Clicking Dashboards itself opens its list (Company, Operatives, HR), not straight to Company (Andy, 9 Nov 2026).
+      // Clicking Dashboards itself opens its list (Company, Operatives), not straight to Company (Andy, 9 Nov 2026).
       await page.locator('text="Dashboards" >> visible=true').first().click(); await page.waitForTimeout(800);
       const m4 = await menuText(page);
-      check(new URL(page.url()).pathname === '/home' && m4.includes('Company') && m4.includes('Operatives') && m4.includes('HR'), `${name}: clicking Dashboard shows Company, Operatives and HR (stays on ${new URL(page.url()).pathname})`);
+      check(new URL(page.url()).pathname === '/home' && m4.includes('Company') && m4.includes('Operatives') && m4.indexOf('HR') > m4.indexOf('OFFICE'), `${name}: clicking Dashboard shows Company and Operatives (HR is under Office) (stays on ${new URL(page.url()).pathname})`);
       await page.locator('text="Operatives" >> visible=true').first().click(); await page.waitForTimeout(2500);
       check(new URL(page.url()).pathname === '/pm/operatives', `${name}: Operatives opens its dashboard`);
       await page.locator('text="Deliveries" >> visible=true').first().click(); await page.waitForTimeout(800);

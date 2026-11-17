@@ -57,9 +57,10 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
       { k: 'pm/dashboard', ic: 'chart', lbl: 'Dashboards', go: '/pm/dashboard', sec: 'Team', kids: [
         { k: 'pm/dashboard', ic: 'chart', lbl: 'Company', go: '/pm/dashboard' },
         ...(can(me, 'team') ? [{ k: 'pm/operatives', ic: 'admin', lbl: 'Operatives', go: '/pm/operatives' }] : []),
-        { k: 'pm/hr', ic: 'users', lbl: 'HR', go: '/pm/hr' },
       ] },
       ...(isFinanceUser(me, org) ? [{ k: 'fin', ic: 'pound', lbl: 'Finance', go: '/fin', sec: 'Office' }] : []),
+      // HR on its own below Finance (Andy, 17 Nov 2026; it was under Dashboards).
+      { k: 'pm/hr', ic: 'users', lbl: 'HR', go: '/pm/hr', sec: 'Office' },
       // On a phone your own Settings are under your name at the foot of the menu (one gear only: Admin; Andy, 15 Nov 2026).
     ]
     : [
