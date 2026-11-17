@@ -1,7 +1,8 @@
 // Admin Centre › People › Roles (Andy, 16 Nov 2026: "a selection of roles ... a set list that the admin can see, but
 // also add and remove"). The company's roles in order; each says what it uses the app as (OpHUB's level, which is
 // what decides what they can see and do) and how many people have it. Tap one to rename it, change its level (only
-// when nobody has it) or remove it; + Add A Role at the foot. Below, What Each Role Can Do: the board (17 Nov 2026).
+// when nobody has it) or remove it; + Add A Role at the foot. Below, What Each Role Can Do: one role at a time, chosen
+// from a drop-down, with the parts it can have on the left and the parts it has on the right (17 Nov 2026).
 // Company admins only; the database enforces the same.
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';

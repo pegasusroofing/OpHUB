@@ -1,27 +1,32 @@
-// What Each Role Can Do (Admin › Roles; Andy, 17 Nov 2026: "I also want this board built into the app ... make it a
-// little more compact but I like it"). One column per office role holding the parts it can use, and the parts along
-// the top. Tap a part then tap a role to add it, ✕ to take it out; on a computer a part can also be dragged into a
-// role, or from one role to another. Each change saves straight away. Rules: lib/rules/rolePerms.
+// What Each Role Can Do (Admin › Roles). Andy, 17 Nov 2026: first a board with every office role as a column; then
+// "change it to a vertical drop down ... make the role drop down choose so only one role visible at a time to amend
+// ... remove options from the left hand side ... they already have in the right hand side". So: choose one role from
+// the Role ▾ drop-down. On the left, Options: the parts it hasn't got; on the right, In This Role: the parts it has.
+// Tap a part to move it across (→ adds it, ← takes it out); on a computer it can be dragged across too. Each change
+// saves straight away. Rules: lib/rules/rolePerms.
 import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 
+import { SelectBox } from '@/components/SelectBox';
 import { showAlert } from '@/components/toast';
 import { Muted } from '@/components/ui';
-import { BOARD_LEVELS, PARTS, partsOf, withPart, type Part } from '@/lib/rules/rolePerms';
-import type { OrgRole } from '@/lib/rules/orgRoles';
+import { ACCESS_LABEL, type OrgRole } from '@/lib/rules/orgRoles';
+import { ALL_PARTS, BOARD_LEVELS, partLabel, partsOf, withPart, type Part } from '@/lib/rules/rolePerms';
 import { base, radius, useDesk } from '@/theme/theme';
 
-type Drag = { part: Part; from: string | null };
+type Side = 'options' | 'role';
+type Drag = { part: Part; from: Side };
 let dragging: Drag | null = null; // the web drag in progress (dataTransfer can't be read until the drop)
+const web = Platform.OS === 'web';
 
-/** On the web: makes a part draggable, and a role column a place to drop it. Nothing on a phone app. */
+/** On the web: makes a part draggable, and a list a place to drop it. Nothing on a phone app. */
 function useWebDnD(opts: { drag?: Drag; drop?: (d: Drag) => void; onHot?: (on: boolean) => void }) {
   const ref = useRef<ComponentRef<typeof View>>(null);
   const o = useRef(opts);
   useEffect(() => { o.current = opts; });
   useEffect(() => {
     const el = ref.current as unknown as HTMLElement | null;
-    if (Platform.OS !== 'web' || !el?.addEventListener) return;
+    if (!web || !el?.addEventListener) return;
     const offs: (() => void)[] = [];
     const on = <K extends keyof HTMLElementEventMap>(k: K, f: (e: HTMLElementEventMap[K]) => void) => { el.addEventListener(k, f); offs.push(() => el.removeEventListener(k, f)); };
     if (o.current.drag) {
@@ -39,55 +44,49 @@ function useWebDnD(opts: { drag?: Drag; drop?: (d: Drag) => void; onHot?: (on: b
   return ref;
 }
 
-function Chip({ part, label, from, picked, onPress, onRemove }: { part: Part; label: string; from: string | null; picked?: boolean; onPress?: () => void; onRemove?: () => void }) {
-  const ref = useWebDnD({ drag: { part, from } });
-  const look = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, paddingVertical: 3, paddingHorizontal: 7, borderRadius: radius.input, backgroundColor: base.card,
-    borderWidth: picked ? 1.5 : 1, borderStyle: from ? 'solid' as const : 'dashed' as const, borderColor: picked ? base.blue : base.line, ...(Platform.OS === 'web' ? { cursor: 'grab' } as object : {}) };
-  const inner = (
-    <>
-      <Text numberOfLines={2} style={{ flexShrink: 1, fontSize: 12, color: picked ? base.blue : base.ink, fontWeight: picked ? '600' : '400' }}>{label}</Text>
-      {!!onRemove && (
-        <Pressable onPress={onRemove} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Take ${label} out`} style={{ marginLeft: 'auto' }}>
-          <Text style={{ fontSize: 12, color: base.slate }}>✕</Text>
-        </Pressable>
-      )}
-    </>
-  );
-  // A part in a role isn't a button itself (✕ is), so a tap on it reaches the role (adding the picked part).
+const arrow = { fontSize: 15, color: base.slate, fontWeight: '600' as const };
+
+/** One part. In Options it reads "Part →" (tap to add it); in the role, "← Part" (tap to take it out). */
+function Tile({ part, side, roleName, onMove }: { part: Part; side: Side; roleName: string; onMove: () => void }) {
+  const ref = useWebDnD({ drag: { part, from: side } });
+  const label = partLabel(part);
+  const adding = side === 'options';
   return (
     <View ref={ref}>
-      {onPress ? <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${picked ? 'Unpick' : 'Pick'} ${label}`} style={look}>{inner}</Pressable> : <View style={look}>{inner}</View>}
+      <Pressable onPress={onMove} accessibilityRole="button" accessibilityLabel={adding ? `Add ${label} to ${roleName}` : `Take ${label} out of ${roleName}`}
+        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36, paddingVertical: 5, paddingHorizontal: 9, borderRadius: radius.input,
+          borderWidth: 1, borderColor: base.line, backgroundColor: pressed ? '#F0F1F4' : base.card, ...(web ? { cursor: 'pointer' } as object : {}) })}>
+        {!adding && <Text style={arrow}>←</Text>}
+        <Text numberOfLines={2} style={{ flex: 1, fontSize: 12.5, color: base.ink }}>{label}</Text>
+        {adding && <Text style={arrow}>→</Text>}
+      </Pressable>
     </View>
   );
 }
 
-function Column({ role, parts, picked, width, onAdd, onRemove, onMoveIn }: { role: OrgRole; parts: Part[]; picked: Part | null; width: string; onAdd: () => void; onRemove: (p: Part) => void; onMoveIn: (d: Drag) => void }) {
+// onMove: a tap on one of its parts sends it to the other list; onTake: a part dragged in from the other list comes here.
+function List({ side, title, parts, roleName, empty, onMove, onTake }: { side: Side; title: string; parts: Part[]; roleName: string; empty: string; onMove: (p: Part) => void; onTake: (p: Part) => void }) {
   const [hot, setHot] = useState(false);
-  const ref = useWebDnD({ drop: onMoveIn, onHot: setHot });
-  const wants = !!picked && !parts.includes(picked);
+  const ref = useWebDnD({ drop: (d) => { if (d.from !== side) onTake(d.part); }, onHot: setHot });
   return (
-    <View ref={ref} style={{ width: width as never }}>
-      {/* Not a button itself (it holds the ✕ buttons): a tap anywhere on it, other than a ✕, adds the picked part. */}
-      <View onStartShouldSetResponder={() => wants} onResponderRelease={() => { if (wants) onAdd(); }} accessibilityLabel={wants ? `Add to ${role.name}` : undefined}
-        style={{ flex: 1, borderWidth: wants || hot ? 1.5 : 1, borderColor: wants || hot ? base.blue : base.cardLine, borderRadius: 12, backgroundColor: '#F7F8FA', padding: 8, gap: 4, ...(wants && Platform.OS === 'web' ? { cursor: 'pointer' } as object : {}) }}>
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 2 }}>
-          <Text numberOfLines={2} style={{ flex: 1, fontSize: 13, fontWeight: '600', color: base.ink }}>{role.name}</Text>
-          <Text style={{ fontSize: 12, color: wants ? base.blue : base.slate, fontWeight: wants ? '600' : '400' }}>{wants ? '+ Add Here' : parts.length}</Text>
-        </View>
-        {parts.length ? parts.map((p) => <Chip key={p} part={p} from={role.id} label={PARTS.find(([k]) => k === p)?.[1] ?? p} onRemove={() => onRemove(p)} />)
-          : <Muted style={{ fontSize: 12 }}>Nothing Yet</Muted>}
-        {/* What a level can't do whatever the board says (the database's rules for it). */}
-        {role.access === 'site_manager' && <Muted style={{ fontSize: 11.5, marginTop: 2 }}>Site Managers only see the jobs they&apos;re put on and can&apos;t make projects. For more, use a role that uses the app as Project Manager.</Muted>}
+    <View ref={ref} style={{ flex: 1, minWidth: 0, borderWidth: hot ? 1.5 : 1, borderColor: hot ? base.blue : base.cardLine, borderRadius: 12, backgroundColor: '#F7F8FA', padding: 8, gap: 5 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 1 }}>
+        <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: base.ink }}>{title}</Text>
+        <Text style={{ fontSize: 12, color: base.slate }}>{parts.length}</Text>
       </View>
+      {parts.length ? parts.map((p) => <Tile key={p} part={p} side={side} roleName={roleName} onMove={() => onMove(p)} />)
+        : <Muted style={{ fontSize: 12, paddingVertical: 4 }}>{empty}</Muted>}
     </View>
   );
 }
 
 export function RoleBoard({ roles, onSave }: { roles: OrgRole[]; onSave: (role: OrgRole, perms: Part[]) => Promise<string | null> }) {
   const board = roles.filter((r) => BOARD_LEVELS.includes(r.access));
+  const [pick, setPick] = useState<string | null>(null);
   const [mine, setMine] = useState<Record<string, Part[]>>({}); // changes not read back yet
-  const [picked, setPicked] = useState<Part | null>(null);
   const desk = useDesk();
+  const role = board.find((r) => r.id === pick) ?? board[0];
+  if (!role) return <Muted>No office roles yet. Add one above.</Muted>;
   const partsFor = (r: OrgRole) => mine[r.id] ?? partsOf(r.perms);
   const save = async (r: OrgRole, next: Part[]) => {
     const before = partsFor(r);
@@ -95,26 +94,20 @@ export function RoleBoard({ roles, onSave }: { roles: OrgRole[]; onSave: (role: 
     const err = await onSave(r, next);
     if (err) { setMine((m) => ({ ...m, [r.id]: before })); showAlert(err); }
   };
-  const moveIn = (to: OrgRole) => (d: Drag) => {
-    if (d.from === to.id) return;
-    void save(to, withPart(partsFor(to), d.part, true));
-    const from = board.find((r) => r.id === d.from);
-    if (from) void save(from, withPart(partsFor(from), d.part, false));
-  };
+  const has = partsFor(role);
+  const options = ALL_PARTS.filter((p) => !has.includes(p));
+  const move = (on: boolean) => (p: Part) => void save(role, withPart(has, p, on));
   return (
-    <View>
-      <Muted style={{ marginBottom: 6 }}>Tap A Box, Then Tap A Role To Add It{Platform.OS === 'web' && desk ? ', Or Drag It In' : ''}. Tap ✕ To Take It Out. Admins Can Do Everything.</Muted>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
-        {PARTS.map(([k, l]) => <Chip key={k} part={k} label={l} from={null} picked={picked === k} onPress={() => setPicked(picked === k ? null : k)} />)}
+    <View style={{ maxWidth: desk ? 640 : undefined }}>
+      <Muted style={{ marginBottom: 8 }}>Choose A Role, Then Tap A Part To Move It Across{web && desk ? ' (Or Drag It)' : ''}. → Adds It To The Role, ← Takes It Out. Admins Can Do Everything.</Muted>
+      <SelectBox label="Role" title="Choose A Role" value={role.id} options={board.map((r) => [r.id, r.name] as [string, string])} onChange={setPick} style={{ marginBottom: 4 }} />
+      <Muted style={{ marginBottom: 10 }}>Uses The App As {ACCESS_LABEL[role.access as keyof typeof ACCESS_LABEL] ?? role.access}</Muted>
+      <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
+        <List side="options" title="Options" parts={options} roleName={role.name} empty="It Has Everything" onMove={move(true)} onTake={move(false)} />
+        <List side="role" title="In This Role" parts={has} roleName={role.name} empty="Nothing Yet" onMove={move(false)} onTake={move(true)} />
       </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {board.map((r) => (
-          <Column key={r.id} role={r} parts={partsFor(r)} picked={picked} width={desk ? '23.8%' : '48.5%'}
-            onAdd={() => { if (picked) void save(r, withPart(partsFor(r), picked, true)); }}
-            onRemove={(p) => void save(r, withPart(partsFor(r), p, false))}
-            onMoveIn={moveIn(r)} />
-        ))}
-      </View>
+      {/* What a level can't do whatever the lists say (the database's rules for it). */}
+      {role.access === 'site_manager' && <Muted style={{ fontSize: 12, marginTop: 8 }}>Site Managers only see the jobs they&apos;re put on and can&apos;t make projects. For more, use a role that uses the app as Project Manager.</Muted>}
     </View>
   );
 }

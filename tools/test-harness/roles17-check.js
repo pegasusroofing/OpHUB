@@ -1,7 +1,7 @@
-// What Each Role Can Do (Andy, 17 Nov 2026: "I also want this board built into the app ... make it a little more
-// compact"). Admin › Roles has the board: the office roles as columns holding their parts, the parts along the top.
-// Tap a part then a role to add it, ✕ to take it out, or drag it in on a computer; each change saves to
-// org_roles.perms. Then someone whose role lacks Quotes, Calendar and Create Projects doesn't see them.
+// What Each Role Can Do (Andy, 17 Nov 2026). Admin › Roles: choose one office role from the Role ▾ drop-down; on the
+// left, Options (the parts it hasn't got), on the right, In This Role (the parts it has). Tap a part to move it across
+// (→ adds, ← takes out), or drag it across on a computer; each change saves to org_roles.perms. Then someone whose
+// role lacks Quotes, Calendar and Create Projects doesn't see them.
 // node roles17-check.js
 const {chromium, makeContext} = require('./harness');
 const path = require('path');
@@ -39,35 +39,68 @@ async function signIn(page) {
 
   await page.goto(B + '/pm/admin/roles'); await page.waitForTimeout(4000);
   let t = await body();
-  const board = t.slice(t.indexOf('What Each Role Can Do'));
+  const lists = () => body().then((x) => {
+    const s = x.slice(x.indexOf('What Each Role Can Do'));
+    const o = s.indexOf('\nOptions\n'), r = s.indexOf('\nIn This Role\n');
+    return {all: s, options: s.slice(o, r), role: s.slice(r)};
+  });
   check(t.includes('What Each Role Can Do'), 'the board is on Admin › Roles');
-  check(['Contracts Administrator', 'Finance Controller', 'Project Manager', 'Document Controller', 'Estimator', 'Site Manager'].every((n) => board.includes(n)), 'one column for each office role');
-  check(!/\nAdmin\n|\nOperative\n|\nDelivery Driver\n/.test(board), 'no Admin, Operative or Driver column');
-  check(/Document Controller\n2\n/.test(board), 'a column shows how many parts it has');
+  let L = await lists();
+  check(/Role\nContracts Administrator\n/.test(L.all), 'the Role ▾ drop-down starts on the first office role (Contracts Administrator)');
+  check(/Options\n1\nFinance – Edit\n/.test(L.options) && !/Every Job/.test(L.options), 'Options lists only what the role hasn’t got (Finance – Edit)');
+  check(/In This Role\n14\n/.test(L.role) && /Every Job/.test(L.role) && !/Finance – Edit/.test(L.role), 'In This Role lists its 14 parts');
+  check(!/Document Controller|Estimator|Finance Controller/.test(L.all.slice(L.all.indexOf('\nRole\n'))), 'only one role on show at a time');
   await page.getByText('What Each Role Can Do', {exact: true}).evaluate((e) => e.scrollIntoView({block: 'start'})); await page.waitForTimeout(400); await page.screenshot({path: path.join(SHOTS, 'board-laptop.png')});
 
-  // Tap Finance – Edit, then tap Contracts Administrator: added and saved.
-  await page.getByLabel('Pick Finance – Edit', {exact: true}).click(); await page.waitForTimeout(400);
-  await page.getByText('What Each Role Can Do', {exact: true}).evaluate((e) => e.scrollIntoView({block: 'start'})); await page.waitForTimeout(300);
-  await page.screenshot({path: path.join(SHOTS, 'board-picked.png')});
-  await page.getByLabel('Add to Contracts Administrator', {exact: true}).click(); await page.waitForTimeout(1500);
+  // The drop-down lists the office roles only.
+  await page.getByLabel('Role', {exact: true}).click(); await page.waitForTimeout(600);
+  t = await body();
+  const menu = t.slice(t.lastIndexOf('Choose A Role'));
+  check(['Contracts Administrator', 'Finance Controller', 'Project Manager', 'Document Controller', 'Estimator', 'Site Manager'].every((n) => menu.includes(n)), 'the drop-down has each office role');
+  check(!/\nAdmin\n|\nOperative\n|\nDelivery Driver\n/.test(menu), 'no Admin, Operative or Driver in it');
+  await page.screenshot({path: path.join(SHOTS, 'board-dropdown.png')});
+  await page.getByText('✓ Contracts Administrator', {exact: true}).click(); await page.waitForTimeout(500);
+
+  // → moves Finance – Edit into Contracts Administrator, and it leaves Options.
+  await page.getByLabel('Add Finance – Edit to Contracts Administrator', {exact: true}).click(); await page.waitForTimeout(1500);
   const ca = () => db.org_roles.find((r) => r.id === 'r2').perms;
-  check(ca().includes('fin_edit') && ca().length === PM.length + 1 && ca().indexOf('fin_edit') === 4, `tap then tap: added, saved in the board's order (${ca().length} parts)`);
-  // ✕ takes it out again (the first Finance – Edit on the board is Contracts Administrator's).
-  await page.getByLabel('Take Finance – Edit out', {exact: true}).first().click(); await page.waitForTimeout(1500);
-  check(!ca().includes('fin_edit'), 'the ✕ takes it out and saves');
+  check(ca().includes('fin_edit') && ca().length === PM.length + 1 && ca().indexOf('fin_edit') === 4, `→ adds it, saved in the board's order (${ca().length} parts)`);
+  L = await lists();
+  check(/It Has Everything/.test(L.options) && /Finance – Edit/.test(L.role), 'it moves across: Options now says It Has Everything');
+  // ← takes it out again.
+  await page.getByLabel('Take Finance – Edit out of Contracts Administrator', {exact: true}).click(); await page.waitForTimeout(1500);
+  check(!ca().includes('fin_edit'), '← takes it out and saves');
+  L = await lists();
+  check(/Finance – Edit/.test(L.options) && !/Finance – Edit/.test(L.role), 'and it goes back to Options');
   // Untouched roles stay as they were; an unset role (Estimator) still means everything.
   check(db.org_roles.find((r) => r.id === 'r6').perms === null, 'other roles untouched');
 
-  // Drag Reports from the top row into Document Controller.
-  await page.getByLabel('Pick Reports', {exact: true}).dragTo(page.getByText('Document Controller', {exact: true}).last()); await page.waitForTimeout(1500);
+  // Choose Document Controller: its own lists only.
+  await page.getByLabel('Role', {exact: true}).click(); await page.waitForTimeout(600);
+  await page.getByText('Document Controller', {exact: true}).last().click(); await page.waitForTimeout(800);
+  L = await lists();
+  check(/Role\nDocument Controller\n/.test(L.all) && /In This Role\n2\n/.test(L.role) && /Options\n13\n/.test(L.options), 'Document Controller chosen: 2 in the role, 13 options');
+  // Drag Reports across into the role.
+  await page.getByLabel('Add Reports to Document Controller', {exact: true}).dragTo(page.getByText('In This Role', {exact: true})); await page.waitForTimeout(1500);
   const dc = db.org_roles.find((r) => r.id === 'r5').perms;
-  check(dc.includes('reports') && dc.length === 3, `dragged in on a computer: ${dc.join(', ')}`);
+  check(dc.includes('reports') && dc.length === 3, `dragged across on a computer: ${dc.join(', ')}`);
+  // Site Manager shows what its level can't do.
+  await page.getByLabel('Role', {exact: true}).click(); await page.waitForTimeout(600);
+  await page.getByText('Site Manager', {exact: true}).last().click(); await page.waitForTimeout(800);
+  check(/Site Managers only see the jobs they.re put on/.test(await body()), 'Site Manager: the note about its level');
 
-  // Phone: two columns, nothing off the side.
+  // Phone: the two lists side by side, nothing off the side.
   await page.setViewportSize({width: 390, height: 844}); await page.goto(B + '/pm/admin/roles'); await page.waitForTimeout(3500);
   await page.getByText('What Each Role Can Do', {exact: true}).evaluate((e) => e.scrollIntoView({block: 'start'})); await page.waitForTimeout(400); await page.screenshot({path: path.join(SHOTS, 'board-phone.png')});
   check(!(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2)), 'phone: nothing runs off the side');
+  const side = await page.evaluate(() => {
+    const at = (s) => [...document.querySelectorAll('div')].find((e) => e.textContent === s)?.getBoundingClientRect();
+    const o = at('Options'), r = at('In This Role');
+    return o && r ? Math.abs(o.top - r.top) < 4 && r.left > o.right : false;
+  });
+  check(side, 'phone: Options and In This Role sit side by side');
+  await page.getByLabel('Add Finance – Edit to Contracts Administrator', {exact: true}).click(); await page.waitForTimeout(1500);
+  check(ca().includes('fin_edit'), 'phone: a tap moves it across');
 
   // A PM whose role has no Quotes, Calendar or Create Projects.
   const b2 = await makeContext(browser, 'pm', [], {viewport: {width: 1300, height: 900}});
