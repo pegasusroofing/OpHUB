@@ -48,7 +48,8 @@ const long = (ds) => new Date(`${ds}T00:00:00`).toLocaleDateString('en-GB', {wee
       const box = e.parentElement.getBoundingClientRect(), r = e.getBoundingClientRect();
       return e.textContent.trim() === '+' && Math.abs(r.bottom - box.bottom) < 3;
     }));
-    check(plus.length === 5 && plus.every(Boolean), `${name}: a + at the foot of all five days (${plus.join(',')})`);
+    // Ten days since 17 Nov 2026 (the second five a swipe away).
+    check(plus.length === 10 && plus.every(Boolean), `${name}: a + at the foot of every day (${plus.join(',')})`);
     check(await page.evaluate(() => [...document.querySelectorAll('[aria-label^="Open "], [aria-label^="Add to "], [aria-label^="+ Add to "], [aria-label^="See all "]')]
       .filter((e) => e.parentElement.closest('button, [role="button"]')).length) === 0, `${name}: no button inside another`);
     await page.evaluate(() => { const h = [...document.querySelectorAll('div[dir="auto"]')].find((e) => e.textContent.trim() === 'Next 5 Days' && e.getBoundingClientRect().width > 0); h.scrollIntoView({block: 'start'}); window.scrollBy(0, -12); });

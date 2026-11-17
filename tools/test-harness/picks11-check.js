@@ -28,7 +28,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   // Home: five working days; a day opens Add To Calendar on that day.
   // Each day's + adds to it (the items in a day open themselves since 17 Nov 2026).
   const days = page.locator('[aria-label^="+ Add to "] >> visible=true');
-  check(await days.count() === 5, `home shows five days (${await days.count()})`);
+  check(await days.count() === 10, `home shows five days, and five more a swipe away (${await days.count()})`);
   await days.nth(1).click(); await page.waitForTimeout(3000);
   const u = new URL(page.url());
   check(u.pathname === '/pm/calendar' && /^\d{4}-\d{2}-\d{2}$/.test(u.searchParams.get('date') || ''), 'a day opens the calendar for that day');
