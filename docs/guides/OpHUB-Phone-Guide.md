@@ -426,7 +426,7 @@ PMs use the phone on site and the laptop in the office. Everything below works o
 2. A **Needs you** card shows invoices and wages the office has sent you to book.
 3. Tap the red **Live projects** card for your jobs.
 4. Below are **Today** and the next five working days. Tap a day to add to it.
-5. Tiles: **OpHUB Finance** (if you have it), **Quotes**, **Dashboards**, **Reports & Surveys**, **HR** and **Admin**.
+5. Tiles: **OpHUB Finance** (if you have it), **Quotes**, **Reports & Surveys** and **Admin**. **Dashboards**, **HR**, your name and **Sign out** are in the ☰ menu.
 
 ![PM Home](shots/phone/pm-home.jpg)
 
@@ -750,7 +750,7 @@ Use **👁 Preview RA** and **👁 Preview MS** to check before you issue.
 
 **What it's for:** the big picture across the company.
 
-1. Tap the **Dashboards** tile on Home.
+1. Tap ☰, then **Dashboards**.
 2. Choose **Company Dashboard**, **Operative Dashboard** or **Deliveries**.
 3. Tap a number to see the jobs behind it.
 
@@ -776,12 +776,14 @@ Use **👁 Preview RA** and **👁 Preview MS** to check before you issue.
 **What it's for:** deciding what each office role can use. Company admins only.
 
 1. Open **Admin › People › Roles**.
-2. Tap a role to rename it or change **Uses The App As**. Tap **+ Add A Role** for a new one.
-3. Scroll to **What Each Role Can Do** and choose a role from **Role ▾**. Only that role shows.
+2. Under **Your Roles**, choose a role from the drop-down ▾ for a short brief: what it uses the app as and who has it. Tap **Edit Role** to rename it or change **Uses The App As**. Tap **+ Add A Role** for a new one.
+3. Scroll to **What Each Role Can Do**. The role you chose opens there; change it with **Role ▾**. Only that role shows.
 4. **Options** on the left are the parts it hasn't got. **In This Role** on the right are the parts it has.
 5. Tap a part with **→** to add it, or one with **←** to take it out. It saves straight away.
 
-The parts are: **Every Job**, **Create Projects**, **See Prices**, **Finance – View**, **Finance – Edit**, **Quotes And Price Builder**, **Schedule Of Works**, **Snags And Variations**, **Sign Off H&S**, **Raise Orders**, **Drawings And Documents**, **Team And Calendar**, **Manage People**, **Reports** and **Notifications And Emails**.
+The parts are: **Every Job**, **Create Projects**, **See Prices And Price Builder**, **Finance – View**, **Finance – Edit**, **Quotes**, **Schedule Of Works**, **Snags And Variations**, **Sign Off H&S**, **Raise Orders**, **Drawings And Documents**, **Team And Calendar**, **Manage People**, **Reports** and **Notifications And Emails**.
+
+**See Prices And Price Builder** shows a job's **Price** tile (each price, what's been booked against it and what's left), its **Price Sheets** for subcontractors (the price builder) and its **Subcontractors** tile. **Quotes** is the **Quotes** page, the tender tracker. Money in Finance follows **Finance – View** instead.
 
 **What This Does In Finance:** without **Finance – Edit**, Finance shows **View Only**. Without **Raise Orders**, **+ New** has no purchase or subcontractor orders.
 

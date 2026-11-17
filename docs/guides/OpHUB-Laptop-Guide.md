@@ -76,8 +76,8 @@ On a laptop, the menu sits down the left-hand side. It's always there.
 2. **Search** (or press **Ctrl K**) finds reports, drawings, materials, to-dos and snags.
 3. **Managers' menu**, under three headings:
    - **WORK:** **Projects** (▾ opens **On Site Now**, **Sites Map**, **Reports & Surveys**), **Quotes**, **Deliveries** (▾ **Delivery Schedule**, **Yard & Plant**) and **Calendar**.
-   - **TEAM:** **Hub** and **Dashboards** (▾ **Company**, **Operatives**, **HR**).
-   - **OFFICE:** **Finance**.
+   - **TEAM:** **Hub** and **Dashboards** (▾ **Company**, **Operatives**).
+   - **OFFICE:** **Finance**, then **HR**.
 4. **Operatives' menu:** **Home**, **My projects**, **Inbox**, **My Dashboard** and **Settings**.
 5. **THIS PROJECT** appears when you're inside a job: **Project Home**, **Schedule of Works**, **Health & Safety**, **Check In**, **Inbox**, and for managers **Price**, **Finance** and **Project Settings**.
 6. **Admin** is at the bottom, above your name and **Sign out**.
@@ -823,12 +823,14 @@ Report templates are built in **Admin › Libraries › Report Templates**.
 **What it's for:** deciding what each office role can use. Company admins only.
 
 1. Click **Admin**, then **People**, then **Roles**.
-2. Click a role to rename it or change **Uses The App As**. Click **+ Add A Role** to add one. A new role starts the same as Project Manager.
-3. Scroll to **What Each Role Can Do** and choose a role from **Role ▾**. Only that role shows.
+2. Under **Your Roles**, choose a role from the drop-down ▾. A short brief shows what it uses the app as and who has it. Click **Edit Role** to rename it or change **Uses The App As**. Click **+ Add A Role** to add one. A new role starts the same as Project Manager.
+3. Scroll to **What Each Role Can Do**. The role you chose opens there; change it with **Role ▾**. Only that role shows.
 4. **Options** on the left are the parts it hasn't got. **In This Role** on the right are the parts it has.
 5. Click a part with **→** to add it to the role, or one with **←** to take it out. You can also drag a part across. Each change saves straight away.
 
-The parts: **Every Job**, **Create Projects**, **See Prices**, **Finance – View**, **Finance – Edit**, **Quotes And Price Builder**, **Schedule Of Works**, **Snags And Variations**, **Sign Off H&S**, **Raise Orders**, **Drawings And Documents**, **Team And Calendar**, **Manage People**, **Reports** and **Notifications And Emails**. Admins can always do everything.
+The parts: **Every Job**, **Create Projects**, **See Prices And Price Builder**, **Finance – View**, **Finance – Edit**, **Quotes**, **Schedule Of Works**, **Snags And Variations**, **Sign Off H&S**, **Raise Orders**, **Drawings And Documents**, **Team And Calendar**, **Manage People**, **Reports** and **Notifications And Emails**. Admins can always do everything.
+
+**See Prices And Price Builder** shows a job's **Price** tile (each price, what's been booked against it and what's left), its **Price Sheets** for subcontractors (the price builder) and its **Subcontractors** tile. **Quotes** is the **Quotes** page, the tender tracker. Money in Finance follows **Finance – View** instead.
 
 **What This Does In Finance:** **Finance – View** lets a role see Finance. Without **Finance – Edit**, it shows **View Only**. Without **Raise Orders**, **+ New ▾** has no purchase or subcontractor orders.
 
