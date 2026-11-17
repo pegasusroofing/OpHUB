@@ -36,9 +36,17 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   // ---- Phone ----
   await page.goto(B + '/fin/sales?tab=apps&f=all'); await page.waitForTimeout(5000);
   const heads = await page.evaluate(() => { const t = [...document.querySelectorAll('[aria-label="Applications"]')].find((e) => e.getBoundingClientRect().width > 0); return t ? t.innerText.split('\n').slice(0, 6).join(' | ') : ''; });
-  check(/^TYPE/i.test(heads) && /NUMBER/i.test(heads) && !/\bAPP\b \|/.test(heads.split('|')[0]), `phone: Type, then Number (was App) (${heads})`);
-  const w = await page.evaluate(() => { const b = document.querySelector('[aria-label="Search Number"]'); return b ? Math.round(b.getBoundingClientRect().width) : 0; });
-  check(w >= 60, `phone: Number a little wider (${w}px, was 52)`);
+  check(/^TYPE \| NO\. \| PROJECT \| AMOUNT/i.test(heads), `phone: Type, then No. (was App; Andy chose No. over Number) (${heads})`);
+  const look = await page.evaluate(() => {
+    const leaves = [...document.querySelectorAll('div[dir="auto"]')].filter((e) => e.getBoundingClientRect().width > 0);
+    const hs = leaves.filter((e) => /^(TYPE|NO\.|PROJECT|AMOUNT)$/.test(e.textContent.trim()));
+    const no = leaves.find((e) => e.textContent.trim() === '3'), col = no && no.parentElement.getBoundingClientRect(), nb = no && no.getBoundingClientRect();
+    return {lines: hs.map((h) => getComputedStyle(h).textDecorationLine), centred: col && nb ? Math.round(Math.abs((nb.left + nb.right) / 2 - (col.left + col.right) / 2)) : 99};
+  });
+  check(look.lines.length === 4 && look.lines.every((x) => x === 'underline'), `phone: every heading underlined, Type too (${look.lines.join(',')})`);
+  check(look.centred < 2, `phone: the number is centred above its date (off by ${look.centred}px)`);
+  const w = await page.evaluate(() => { const b = document.querySelector('[aria-label="Search No."]'); return b ? Math.round(b.getBoundingClientRect().width) : 0; });
+  check(w >= 60, `phone: No. a little wider (${w}px, was 52)`);
   let r = await rows();
   check(r.length === 3 && r.filter((x) => x.startsWith('Cert ')).length === 2 && r.some((x) => x.startsWith('App 3')), `phone: each row says App or Cert (${r.join(' | ')})`);
   await page.screenshot({path: path.join(SHOTS, 'apps-phone.png')});
@@ -70,7 +78,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.setViewportSize({width: 1300, height: 900});
   await page.goto(B + '/fin/sales?tab=apps&f=all'); await page.waitForTimeout(5000);
   const lt = await page.evaluate(() => document.body.innerText);
-  check(/\nType\b/i.test(lt) && /\nNumber\b/i.test(lt) && /Certificate\n/.test(lt) && /Application\n/.test(lt), 'laptop: Type (Application / Certificate) and Number columns');
+  check(/\nType\b/i.test(lt) && /\nNo\./i.test(lt) && /Certificate\n/.test(lt) && /Application\n/.test(lt), 'laptop: Type (Application / Certificate) and No. columns');
   await page.screenshot({path: path.join(SHOTS, 'apps-laptop.png'), clip: {x: 0, y: 0, width: 1300, height: 560}});
 
   check(!errs.length, `no page errors ${errs.slice(0, 2).join(' | ')}`);

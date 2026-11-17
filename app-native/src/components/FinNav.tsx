@@ -223,8 +223,9 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide, to
       )}
     </ScrollView>
     {/* The bar at the foot (Projects' Value Of Works, Reports' Export) sits above the iPhone's bottom bar, not under it
-        (Andy, 17 Nov 2026). */}
-    {!!foot && <View style={{ backgroundColor: base.card, paddingBottom: insets.bottom }}>{foot}</View>}
+        (Andy, 17 Nov 2026). Only as much of the iPhone's space as clears its home line, so the bar isn't too tall
+        ("This bar is too big needs reducing slightly"): the words sit just above the line, not a full 34px above it. */}
+    {!!foot && <View style={{ backgroundColor: base.card, paddingBottom: Math.max(0, insets.bottom - 20) }}>{foot}</View>}
     </View>
   );
 }
