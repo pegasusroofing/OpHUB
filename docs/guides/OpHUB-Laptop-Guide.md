@@ -195,6 +195,8 @@ You only see Finance if it's switched on for you (Admin › Users › **Finance*
 5. When the client certifies, open **Client's Certificate**. Use **Certified As Applied**, or type their figures. Tick **This Is A Pay-Less Notice** if it is one.
 6. Click **Save Certificate**, then **Raise Invoice**.
 
+In the list, the **Type** column says **Application** or **Certificate**. Its drop-down under the heading shows just one kind.
+
 **What This Does In Projects:** each line shows the site's progress (for example "Site 40%"). Click **Use site progress** to fill lines from the Schedule of Works. Application dates show on the Projects calendars as **💷 Application due**. Emailing an application is off during the trial.
 
 ![Applications & Certificates](shots/laptop/fin-applications.jpg)

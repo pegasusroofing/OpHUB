@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { chooseAction } from '@/components/toast';
 import { FinMode, Muted } from '@/components/ui';
@@ -191,6 +192,7 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide, to
   const slot = <View ref={slotRef as never} style={{ flexDirection: 'row', gap: 8 }} />;
   // Team only for Finance-only companies, which have no Admin Centre; everyone else switches Finance on in Admin › Users.
   const subs = (FIN_SUBS[section] || []).filter(([k]) => !(section === 'settings' && k === 'team' && org?.has_pm !== false));
+  const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={[page(wide ? 1200 : 900), { paddingTop: 0 }]} keyboardShouldPersistTaps="handled">
@@ -220,7 +222,9 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide, to
         </>
       )}
     </ScrollView>
-    {foot}
+    {/* The bar at the foot (Projects' Value Of Works, Reports' Export) sits above the iPhone's bottom bar, not under it
+        (Andy, 17 Nov 2026). */}
+    {!!foot && <View style={{ backgroundColor: base.card, paddingBottom: insets.bottom }}>{foot}</View>}
     </View>
   );
 }

@@ -143,6 +143,9 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   if (tab === 'apps') {
     const F: Record<string, (a: App) => boolean> = { open: (a) => ['draft', 'submitted'].includes(stage(a)), certified: (a) => stage(a) === 'certified', invoiced: (a) => stage(a) === 'invoiced', all: (a) => stage(a) !== 'void' };
     const first = ['open', 'certified', 'invoiced'].find((k) => data.apps.filter(F[k]).length);
+    // What it is (Andy, 17 Nov 2026: "a column before number for what it is? App or cert?"): a certificate once it's
+    // certified or invoiced; the ▾ under its heading shows Applications, Certificates or All, so no extra bar.
+    const isCert = (a: App) => a.cert_net != null || !!a.invoice_id;
     const sel: { status: string[]; mon: string[]; job: string[] } = { status: [], mon: bare && deskMon ? [deskMon] : [], job: [] };
     const aMonth = (a: App) => monthOf(a.valuation_date);
     const sorter: Record<string, (x: App, y: App) => number> = { new: (x, y) => String(y.valuation_date || '').localeCompare(String(x.valuation_date || '')), old: (x, y) => String(x.valuation_date || '').localeCompare(String(y.valuation_date || '')), big: (x, y) => Number(y.cert_net ?? y.net_due ?? 0) - Number(x.cert_net ?? x.net_due ?? 0), job: (x, y) => jobTag(site(x.site_id)).localeCompare(jobTag(site(y.site_id))) };
@@ -156,7 +159,8 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
           <FinTable rows={list} keyOf={(a) => a.id} onMenu={(a) => void rowMenu.appMenu(a, stage(a))} onRow={(a) => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)}
             cols={[
               ...(siteId ? [] : [{ k: 'p', l: 'Project', flex: 1.8, min: 180, render: (a: App) => <Cell bold>{jobTag(site(a.site_id))}</Cell> }]),
-              { k: 'n', l: 'Application', render: (a: App) => <Cell>{a.cert_net != null || a.invoice_id ? 'Certificate' : 'Application'} {a.number}</Cell> },
+              { k: 'w', l: 'Type', flex: 0.8, min: 104, noSort: true, choices: ['Application', 'Certificate'], render: (a: App) => <Cell>{isCert(a) ? 'Certificate' : 'Application'}</Cell> },
+              { k: 'n', l: 'Number', flex: 0.6, min: 74, sort: (a: App) => Number(a.number) || 0, render: (a: App) => <Cell>{a.number}</Cell> },
               { k: 'd', l: 'Date', date: (a: App) => a.valuation_date, sort: (a: App) => String(a.valuation_date || ''), render: (a: App) => <Cell>{fdate(a.valuation_date)}</Cell> },
               { k: 'ap', l: 'Applied (Net)', total: (l: App[]) => money(l.reduce((t, a) => t + Number(a.net_due || 0), 0)), render: (a: App) => <Cell>{money(a.net_due)}</Cell> },
               { k: 'ce', l: 'Certified (Net)', total: (l: App[]) => money(l.reduce((t, a) => t + Number(a.cert_net || 0), 0)), render: (a: App) => { const short = a.cert_net != null ? round2(Number(a.cert_net) - Number(a.net_due || 0)) : 0; return <View style={{ alignItems: 'center' }}><Cell>{a.cert_net != null ? money(a.cert_net) : '—'}</Cell>{short < -0.009 ? <Text style={{ fontSize: 11, color: '#C0392B' }}>{money(-short)} short</Text> : null}</View>; } },
@@ -167,7 +171,9 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
         ) : list.length ? (
           <PhoneTable key="apps" label="Applications" rows={list} keyOf={(a) => a.id} onRow={(a) => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)}
             cols={[
-              { l: 'App', w: 52, main: (a) => `${a.number}`, sub: (a) => fdate(a.valuation_date), sort: (a) => Number(a.number) || 0 },
+              { l: 'Type', w: 42, main: (a) => (isCert(a) ? 'Cert' : 'App'), noSort: true,
+                choose: { opts: [['app', 'Applications', 'App'], ['cert', 'Certificates', 'Cert'], ['', 'All']], test: (a, v) => (v === 'cert' ? isCert(a) : v === 'app' ? !isCert(a) : true) } },
+              { l: 'Number', w: 74, main: (a) => `${a.number}`, sub: (a) => fdate(a.valuation_date), sort: (a) => Number(a.number) || 0, find: (a) => `${a.number}` },
               { l: siteId ? 'Stage' : 'Project', main: (a) => (siteId ? appStage(a).l : jobTag(site(a.site_id))), sub: (a) => (siteId ? '' : appStage(a).l), find: (a) => `${jobTag(site(a.site_id))} ${site(a.site_id)?.client_name || ''} ${appStage(a).l}` },
               { l: 'Amount', w: 88, right: true, headCenter: true, bold: true, bigFirst: true, main: (a) => money(a.cert_net ?? a.net_due), sub: (a) => (a.cert_net != null ? 'Certified' : 'Applied'), sort: (a) => Number(a.cert_net ?? a.net_due ?? 0),
                 choose: { opts: [['', 'All'], ['open', 'In Progress'], ['certified', 'Certified'], ['invoiced', 'Invoiced']], test: (a, v) => (F[v] ? F[v](a) : true), start: f0 === 'all' ? '' : f0 || first || '' } },

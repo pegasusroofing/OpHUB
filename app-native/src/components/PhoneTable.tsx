@@ -14,7 +14,8 @@ import { nextSort, sortRows, type FinSort } from '@/lib/rules/finTable';
 import { base } from '@/theme/theme';
 
 /** A ▾ choice under a heading: [value, label] (the '' value is "everything"), the test for each, and where it starts. */
-export type PChoose<T> = { opts: [string, string][]; test: (r: T, v: string) => boolean; start?: string };
+/** opts: [value, words in the list, short words for the box (optional)]. */
+export type PChoose<T> = { opts: ([string, string] | [string, string, string])[]; test: (r: T, v: string) => boolean; start?: string };
 // k: the column's key (the heading if not given). center: the column's writing is centred. sort: what it sorts by (else
 // the words shown). find: the words its search box looks through (else what's shown, both lines). match: the box's own
 // test (Value ">50k"). ph: the box's grey word (else the heading). choose: a ▾ choice instead of a box. noFind: no box.
@@ -95,7 +96,7 @@ export function PhoneFindRow<T>({ cols, find, pad = 10, leadW = 0 }: { cols: PCo
         const frame = { height: 25, borderWidth: 1, borderRadius: 6, backgroundColor: '#fff' };
         if (c.noFind) return <View key={k} style={boxOf(c)} />;
         if (c.choose) {
-          const ch = c.choose, v = find.pick[k] || '', label = ch.opts.find(([x]) => x === v)?.[1] || 'All';
+          const ch = c.choose, v = find.pick[k] || '', o = ch.opts.find(([x]) => x === v), label = (o?.[2] ?? o?.[1]) || 'All';
           return (
             <Pressable key={k} accessibilityRole="button" accessibilityLabel={`Search ${c.l}`} onPress={async () => {
               const got = await chooseAction(c.l, ch.opts.map(([x, l]) => ({ key: x || '*', label: `${x === v ? '✓ ' : ''}${l}` })));
