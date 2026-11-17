@@ -1,0 +1,807 @@
+[
+  {
+    "name": "nav-bottom-bar",
+    "device": "phone",
+    "role": "operative",
+    "route": "/sites/<project>",
+    "what": "Jake on the Studley Rd job page; the bottom bar (Home, SOW, Check In, Inbox, Settings) in view."
+  },
+  {
+    "name": "nav-side-menu",
+    "device": "phone",
+    "role": "pm",
+    "route": "/home",
+    "what": "Tap the three lines at the top left so the menu slides in over Home."
+  },
+  {
+    "name": "fin-overview",
+    "device": "phone",
+    "role": "admin",
+    "route": "/fin",
+    "what": "Finance Overview: the trial line, the six figure tiles and Needs Attention."
+  },
+  {
+    "name": "fin-projects",
+    "device": "phone",
+    "role": "admin",
+    "route": "/fin/jobs",
+    "what": "Finance Projects: + New Project, the Live / Upcoming / Closed / All strip and the jobs table."
+  },
+  {
+    "name": "fin-sales",
+    "device": "phone",
+    "role": "admin",
+    "route": "/fin/sales?tab=invoices",
+    "what": "Sales on the Invoices tab, with the figures at the top and the invoice list."
+  },
+  {
+    "name": "fin-purchases",
+    "device": "phone",
+    "role": "admin",
+    "route": "/fin/purchases?tab=invoices",
+    "what": "Purchase Invoices with the Received / With A PM / Needs Checking / Approved / All choices."
+  },
+  {
+    "name": "fin-subs",
+    "device": "phone",
+    "role": "admin",
+    "route": "/fin/subs?tab=orders",
+    "what": "Subcontractors & Labour on the Subcontractor POs tab."
+  },
+  {
+    "name": "fin-reports",
+    "device": "phone",
+    "role": "admin",
+    "route": "/fin/reports",
+    "what": "Reports: the list of reports; tap Company overview to show it as cards."
+  },
+  {
+    "name": "op-login",
+    "device": "phone",
+    "role": "operative",
+    "route": "/login",
+    "what": "The sign-in page while signed out: Email, Password, the Remember tick and Sign In."
+  },
+  {
+    "name": "op-home",
+    "device": "phone",
+    "role": "operative",
+    "route": "/home",
+    "what": "Jake's Home: Live jobs, Upcoming, Messages & tasks, the red My projects card and the tiles."
+  },
+  {
+    "name": "op-project-home",
+    "device": "phone",
+    "role": "operative",
+    "route": "/sites/<project>",
+    "what": "Top of the Studley Rd page: the info box, the red Check In / Out button and the area rows."
+  },
+  {
+    "name": "op-checkin",
+    "device": "phone",
+    "role": "operative",
+    "route": "/sites/<project>/checkin",
+    "what": "Check In / Out: the Status card (Not checked in) and the Check In button."
+  },
+  {
+    "name": "op-sow",
+    "device": "phone",
+    "role": "operative",
+    "route": "/sites/<project>/schedule",
+    "what": "Schedule of Works: overall progress, the filter, and a task with + 📷 and To Commence / In Progress / Complete."
+  },
+  {
+    "name": "op-coshh",
+    "device": "phone",
+    "role": "operative",
+    "route": "/sites/<project>/hs/coshh",
+    "what": "COSHH for an operative: the Paint sheet with its ✍ Tap to sign box. (The demo job has no RAMS, so COSHH shows the same signing.)"
+  },
+  {
+    "name": "op-tbt",
+    "device": "phone",
+    "role": "operative",
+    "route": "/sites/<project>/hs/tbt",
+    "what": "Toolbox Talks list with the live Ladders talk."
+  },
+  {
+    "name": "op-mc",
+    "device": "phone",
+    "role": "operative",
+    "route": "/sites/<project>/mc",
+    "what": "Main Contractor for an operative: the Site Inductions and Permits To Work tiles. (The demo has no permit for Jake to sign.)"
+  },
+  {
+    "name": "op-havs",
+    "device": "phone",
+    "role": "operative",
+    "route": "/sites/<project>/hs/havspuwer",
+    "what": "Tools, HAVS & PUWER: the tiles (HAVS, PUWER Tool Inspection, My Tools)."
+  },
+  {
+    "name": "op-ppe",
+    "device": "phone",
+    "role": "operative",
+    "route": "/sites/<project>/ppe",
+    "what": "PPE: My Current PPE, Awaiting Your Signature and + Request PPE."
+  },
+  {
+    "name": "op-incident",
+    "device": "phone",
+    "role": "operative",
+    "route": "/sites/<project>/hs/incidents/new",
+    "what": "New Report form for an accident / incident / near miss: the top questions and Date of incident."
+  },
+  {
+    "name": "op-snags",
+    "device": "phone",
+    "role": "operative",
+    "route": "/sites/<project>/snagging/list",
+    "what": "Snagging list with the Cracked tile snag and + Add Snag."
+  },
+  {
+    "name": "op-variations",
+    "device": "phone",
+    "role": "operative",
+    "route": "/sites/<project>/snagging/variations",
+    "what": "Scroll to the Raise a variation card: photo box, Description and Submit Variation."
+  },
+  {
+    "name": "op-materials",
+    "device": "phone",
+    "role": "operative",
+    "route": "/sites/<project>/materials",
+    "what": "Operative Materials: Your collection list, Coming to site, Your requests and + Request Materials."
+  },
+  {
+    "name": "op-request",
+    "device": "phone",
+    "role": "operative",
+    "route": "/sites/<project>/materials/requests?add=1",
+    "what": "The request form open: item, qty, Required by and Request."
+  },
+  {
+    "name": "op-drawings",
+    "device": "phone",
+    "role": "operative",
+    "route": "/sites/<project>/drawings",
+    "what": "Drawings, Spec's & Programme: the Drawings folder; tap it to show Roof plan.pdf."
+  },
+  {
+    "name": "op-inbox",
+    "device": "phone",
+    "role": "operative",
+    "route": "/inbox",
+    "what": "Messages & tasks with the To sign / do, Messages and Company Chat tabs."
+  },
+  {
+    "name": "op-expenses",
+    "device": "phone",
+    "role": "operative",
+    "route": "/sites/<project>/expenses",
+    "what": "Expenses: Take photo / Photos / PDF, Job name / address and the send button."
+  },
+  {
+    "name": "op-dashboard",
+    "device": "phone",
+    "role": "operative",
+    "route": "/dashboard",
+    "what": "My Dashboard: outstanding items, Certifications and My Tools."
+  },
+  {
+    "name": "op-account",
+    "device": "phone",
+    "role": "operative",
+    "route": "/account",
+    "what": "Settings: Your Account, Phone Number, My Employee Record and Sign Out."
+  },
+  {
+    "name": "pm-home",
+    "device": "phone",
+    "role": "pm",
+    "route": "/home",
+    "what": "Paula's Home: the four figures, the red Live projects card and the tiles."
+  },
+  {
+    "name": "pm-new-project",
+    "device": "phone",
+    "role": "pm",
+    "route": "/sites/new",
+    "what": "Add a Project form: Site name, Address, Client and the ticks."
+  },
+  {
+    "name": "pm-geofence",
+    "device": "phone",
+    "role": "pm",
+    "route": "/sites/<project>/checkin",
+    "what": "Scroll to Site Geofence and tap Set Site Location so the pop-up shows both ways to set it."
+  },
+  {
+    "name": "pm-team",
+    "device": "phone",
+    "role": "pm",
+    "route": "/sites/<project>/admin",
+    "what": "Open 👥 Team, then Assign Operatives to Project, so the names show."
+  },
+  {
+    "name": "pm-project-settings",
+    "device": "phone",
+    "role": "pm",
+    "route": "/sites/<project>/admin",
+    "what": "Settings & Admin with its sections closed: Site set up, Team, Job Status, Price."
+  },
+  {
+    "name": "pm-client",
+    "device": "phone",
+    "role": "pm",
+    "route": "/sites/<project>/client",
+    "what": "Client Info for Bellway Homes, with the client PO card and + Add Client PO."
+  },
+  {
+    "name": "pm-sow",
+    "device": "phone",
+    "role": "pm",
+    "route": "/sites/<project>/schedule",
+    "what": "Tap + Section ▾ to show Add Section, Import schedule and Add Variation."
+  },
+  {
+    "name": "pm-rams-new",
+    "device": "phone",
+    "role": "pm",
+    "route": "/sites/<project>/hs/rams/new",
+    "what": "Create RAMS: the RAMS name box and Start From A Template."
+  },
+  {
+    "name": "pm-coshh",
+    "device": "phone",
+    "role": "pm",
+    "route": "/sites/<project>/hs/coshh",
+    "what": "COSHH list; tap Create COSHH to show Add From Library / Create COSHH / Upload COSHH Assessment."
+  },
+  {
+    "name": "pm-tbt",
+    "device": "phone",
+    "role": "pm",
+    "route": "/sites/<project>/hs/tbt",
+    "what": "Toolbox Talks for a manager: the tabs and the live Ladders talk with who is still to sign. (The demo has no daily briefings.)"
+  },
+  {
+    "name": "pm-permits",
+    "device": "phone",
+    "role": "pm",
+    "route": "/sites/<project>/mc/permits",
+    "what": "Tap + Issue Permit so the Issue a permit form shows."
+  },
+  {
+    "name": "pm-ppe",
+    "device": "phone",
+    "role": "pm",
+    "route": "/sites/<project>/ppe",
+    "what": "Manager PPE page: the Gloves request with Fulfil, and + Issue PPE."
+  },
+  {
+    "name": "pm-order",
+    "device": "phone",
+    "role": "pm",
+    "route": "/sites/<project>/materials/requests",
+    "what": "On the Slates request tap 🚚 Order from Merchant to show the order form."
+  },
+  {
+    "name": "pm-plant",
+    "device": "phone",
+    "role": "pm",
+    "route": "/sites/<project>/plant",
+    "what": "Plant for the job: what is on hire, + Plant On Hire and Off Hire. (The demo job has no supplier POs, so Material PO's would be empty.)"
+  },
+  {
+    "name": "pm-subcontracts",
+    "device": "phone",
+    "role": "pm",
+    "route": "/sites/<project>/materials/subcontracts",
+    "what": "Subcontract Orders with + New Subcontract Order."
+  },
+  {
+    "name": "pm-deliveries",
+    "device": "phone",
+    "role": "pm",
+    "route": "/pm/deliveries",
+    "what": "Delivery Schedule for today: To schedule, the drops and + Add Delivery."
+  },
+  {
+    "name": "pm-drawings",
+    "device": "phone",
+    "role": "pm",
+    "route": "/sites/<project>/drawings",
+    "what": "Tap the + to show Add Folder and Upload a file."
+  },
+  {
+    "name": "pm-calendar",
+    "device": "phone",
+    "role": "pm",
+    "route": "/pm/calendar",
+    "what": "All-projects Calendar, month view."
+  },
+  {
+    "name": "pm-hub",
+    "device": "phone",
+    "role": "pm",
+    "route": "/pm/hub",
+    "what": "The HUB with the To Do, Projects, Finance, Company Chat and All tabs."
+  },
+  {
+    "name": "pm-reports",
+    "device": "phone",
+    "role": "pm",
+    "route": "/pm/reports",
+    "what": "Reports & surveys with the Start a report button and the list."
+  },
+  {
+    "name": "pm-inspections",
+    "device": "phone",
+    "role": "pm",
+    "route": "/sites/<project>/snagging",
+    "what": "Inspections & Reports: Snagging, Variations, Day Works and Reports tiles."
+  },
+  {
+    "name": "pm-variations",
+    "device": "phone",
+    "role": "pm",
+    "route": "/sites/<project>/snagging/variations",
+    "what": "Open a live variation to show Approve / Decline / Modify Then Approve; if there are none, the list."
+  },
+  {
+    "name": "pm-price",
+    "device": "phone",
+    "role": "admin",
+    "route": "/sites/<project>/price",
+    "what": "Price page: the Price Sheets row, + Add price and the price tiles."
+  },
+  {
+    "name": "pm-handover",
+    "device": "phone",
+    "role": "pm",
+    "route": "/sites/<project>/handover",
+    "what": "Handover: Practical Completion with Set, and + New O&M Manual."
+  },
+  {
+    "name": "pm-quotes",
+    "device": "phone",
+    "role": "pm",
+    "route": "/pm/quotes",
+    "what": "Quotes tracker: tiles, Live / Quoted / All and + New Enquiry."
+  },
+  {
+    "name": "pm-dashboards",
+    "device": "phone",
+    "role": "pm",
+    "route": "/pm/dashboards",
+    "what": "Dashboards choice: Company Dashboard, Operative Dashboard, Deliveries."
+  },
+  {
+    "name": "pm-admin-users",
+    "device": "phone",
+    "role": "admin",
+    "route": "/pm/admin/users",
+    "what": "Users grouped by role, with the Finance switch on each office person."
+  },
+  {
+    "name": "pm-admin-roles",
+    "device": "phone",
+    "role": "admin",
+    "route": "/pm/admin/roles",
+    "what": "Scroll to What Each Role Can Do so the parts and role columns show."
+  },
+  {
+    "name": "nav-left-menu",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/sites/<project>",
+    "what": "Studley Rd job page with the left-hand menu: WORK, TEAM, OFFICE, THIS PROJECT and Admin."
+  },
+  {
+    "name": "fin-overview",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/fin",
+    "what": "Finance Overview: tabs, the trial line, six figures and Needs Attention."
+  },
+  {
+    "name": "fin-projects",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/fin/jobs",
+    "what": "Finance Projects table with + New Project at the end of the tab row."
+  },
+  {
+    "name": "fin-job",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/fin/job/<project>",
+    "what": "Studley Rd's Finance Overview tab, with the job's tabs and + New ▾."
+  },
+  {
+    "name": "fin-job-admin",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/fin/job/<project>?tab=setup",
+    "what": "Project Admin tab: Project, Project Financials and client POs."
+  },
+  {
+    "name": "fin-new-project",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/fin/newjob",
+    "what": "New project: the Finance trial note and Go to Projects (or the form, if not blocked)."
+  },
+  {
+    "name": "fin-boq",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/fin/job/<project>/boq",
+    "what": "Bill Of Quantities; click Import / Export so its menu shows Send to the operatives' schedule."
+  },
+  {
+    "name": "fin-variations",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/fin/job/<project>/variations",
+    "what": "Finance Variations register with + Variation and the status filters."
+  },
+  {
+    "name": "fin-applications",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/fin/sales?tab=apps",
+    "what": "Sales on Applications & Certificates, with + New Application."
+  },
+  {
+    "name": "fin-invoices",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/fin/sales?tab=invoices",
+    "what": "Sales on Invoices, with + New Invoice and the list."
+  },
+  {
+    "name": "fin-purchase-invoices",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/fin/purchases?tab=invoices",
+    "what": "Purchase Invoices with the five choices, Add Invoices and the table."
+  },
+  {
+    "name": "fin-new-po",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/fin/po/new?site=<project>",
+    "what": "New purchase order form for Studley Rd: Supplier, lines and Raise PO."
+  },
+  {
+    "name": "fin-statements",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/fin/statements",
+    "what": "Statements list with ⬆ Upload Statement."
+  },
+  {
+    "name": "fin-yard",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/fin/yard",
+    "what": "Yard stock list with + New Item, ⬇ Book In, ⬆ Book Out and Stock Take."
+  },
+  {
+    "name": "fin-sub-pos",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/fin/subs?tab=orders",
+    "what": "Subcontractor POs with + Subcontractor PO."
+  },
+  {
+    "name": "fin-labour",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/fin/subs?tab=opinv",
+    "what": "Operative Invoices with + Operative invoice."
+  },
+  {
+    "name": "fin-reports",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/fin/reports",
+    "what": "Reports; click Cost value reconciliation (CVR) to show its table."
+  },
+  {
+    "name": "fin-directory",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/fin/directory?kind=client",
+    "what": "Directory on Clients, with the Clients / Estimating / Suppliers / Labour (CIS) tabs."
+  },
+  {
+    "name": "fin-settings",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/fin/settings",
+    "what": "Finance Settings: numbering and defaults, with the Settings / Cost Codes / Templates tabs."
+  },
+  {
+    "name": "op-login",
+    "device": "laptop",
+    "role": "operative",
+    "route": "/login",
+    "what": "The sign-in page while signed out."
+  },
+  {
+    "name": "op-project-home",
+    "device": "laptop",
+    "role": "operative",
+    "route": "/sites/<project>",
+    "what": "Jake's Studley Rd page: info bar, Check In / Out and the two columns of areas."
+  },
+  {
+    "name": "op-checkin",
+    "device": "laptop",
+    "role": "operative",
+    "route": "/sites/<project>/checkin",
+    "what": "Check In / Out: Status and the Check In button."
+  },
+  {
+    "name": "op-sow",
+    "device": "laptop",
+    "role": "operative",
+    "route": "/sites/<project>/schedule",
+    "what": "Schedule of Works with a task and its status buttons."
+  },
+  {
+    "name": "op-hs",
+    "device": "laptop",
+    "role": "operative",
+    "route": "/sites/<project>/hs",
+    "what": "Health & Safety tiles: RAMS, COSHH, TBT, Daily Briefings, Tools HAVS & PUWER, PPE, Accident / Incident."
+  },
+  {
+    "name": "op-havs",
+    "device": "laptop",
+    "role": "operative",
+    "route": "/sites/<project>/hs/havspuwer",
+    "what": "Tools, HAVS & PUWER tiles: My Tools, HAVS and PUWER Tool Inspection (HAVS shown to operatives on this job)."
+  },
+  {
+    "name": "op-snags",
+    "device": "laptop",
+    "role": "operative",
+    "route": "/sites/<project>/snagging",
+    "what": "Snagging & Variations: the Snagging and Variations tiles."
+  },
+  {
+    "name": "op-materials",
+    "device": "laptop",
+    "role": "operative",
+    "route": "/sites/<project>/materials",
+    "what": "Operative Materials with + Request Materials."
+  },
+  {
+    "name": "op-drawings",
+    "device": "laptop",
+    "role": "operative",
+    "route": "/sites/<project>/drawings",
+    "what": "Drawings, Spec's & Programme: the Drawings folder."
+  },
+  {
+    "name": "op-inbox",
+    "device": "laptop",
+    "role": "operative",
+    "route": "/inbox",
+    "what": "Inbox with the To sign / do, Messages and Company Chat tabs."
+  },
+  {
+    "name": "op-expenses",
+    "device": "laptop",
+    "role": "operative",
+    "route": "/sites/<project>/expenses",
+    "what": "Expenses page with the receipt buttons and Job name / address."
+  },
+  {
+    "name": "op-dashboard",
+    "device": "laptop",
+    "role": "operative",
+    "route": "/dashboard",
+    "what": "My Dashboard: outstanding items, Certifications and My Tools."
+  },
+  {
+    "name": "pm-home",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/home",
+    "what": "Paula's Home: four figures, Live projects, the map beside Today, and the tiles."
+  },
+  {
+    "name": "pm-new-project",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/sites/new",
+    "what": "Add a Project form."
+  },
+  {
+    "name": "pm-geofence",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/sites/<project>/checkin",
+    "what": "Click Set Site Location, then Input GPS Co-Ordinates, so the Latitude and Longitude boxes show."
+  },
+  {
+    "name": "pm-team",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/sites/<project>/admin",
+    "what": "Open 👥 Team, then Assign Operatives to Project."
+  },
+  {
+    "name": "pm-project-settings",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/sites/<project>/admin",
+    "what": "Settings & Admin; open Site set up so its parts show."
+  },
+  {
+    "name": "pm-client",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/sites/<project>/client",
+    "what": "Client Info for Bellway Homes with + Add Client PO."
+  },
+  {
+    "name": "pm-sow",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/sites/<project>/schedule",
+    "what": "Schedule of Works with + Add Task and + Section ▾; open a task ⋯ menu."
+  },
+  {
+    "name": "pm-rams-new",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/sites/<project>/hs/rams/new",
+    "what": "Create RAMS: name, Start From A Template, Or Copy Another Job's RAMS and Create RAMS."
+  },
+  {
+    "name": "pm-coshh",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/sites/<project>/hs/coshh/new",
+    "what": "Create COSHH: Upload Data Sheet and Enter Manually."
+  },
+  {
+    "name": "pm-tbt",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/sites/<project>/hs/tbt",
+    "what": "Toolbox Talks for a manager: the tabs and Upload / Write A Toolbox Talk."
+  },
+  {
+    "name": "pm-mc",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/sites/<project>/mc",
+    "what": "Main Contractor tiles: Construction Phase Plan to Programme."
+  },
+  {
+    "name": "pm-ppe",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/sites/<project>/ppe",
+    "what": "Manager PPE page with Fulfil and + Issue PPE."
+  },
+  {
+    "name": "pm-requests",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/sites/<project>/materials/requests",
+    "what": "Material Requests; on the Slates request click 🚚 Order from Merchant to show the form."
+  },
+  {
+    "name": "pm-plant",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/sites/<project>/plant",
+    "what": "Plant for the job: what is on hire, + Plant On Hire and Off Hire. (The demo job has no supplier POs, so Material PO's would be empty.)"
+  },
+  {
+    "name": "pm-subcontracts",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/sites/<project>/materials/subcontracts",
+    "what": "Subcontract Orders; click + New Subcontract Order to show the form."
+  },
+  {
+    "name": "pm-deliveries",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/pm/deliveries",
+    "what": "Delivery Schedule for today with To schedule and + Add Delivery."
+  },
+  {
+    "name": "pm-drawings",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/sites/<project>/drawings",
+    "what": "Drawings, Spec's & Programme for a manager; click + to show its menu."
+  },
+  {
+    "name": "pm-calendar",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/pm/calendar",
+    "what": "All-projects Calendar month view, with the chosen day beside it."
+  },
+  {
+    "name": "pm-hub",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/pm/hub",
+    "what": "The HUB: tabs, filters and + Add A To Do."
+  },
+  {
+    "name": "pm-reports",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/pm/reports",
+    "what": "Reports & surveys with Start a report and the filters."
+  },
+  {
+    "name": "pm-inspections",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/sites/<project>/snagging",
+    "what": "Inspections & Reports tiles: Snagging, Variations, Day Works, Reports."
+  },
+  {
+    "name": "pm-variations",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/sites/<project>/snagging/variations",
+    "what": "Open a live variation to show its manager buttons and Client ▾; if none, the list."
+  },
+  {
+    "name": "pm-price",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/sites/<project>/price",
+    "what": "Price page: Price Sheets, + Add price, ⋮ Manage and the price tiles."
+  },
+  {
+    "name": "pm-handover",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/sites/<project>/handover",
+    "what": "Handover: O&M manual, Practical Completion, data sheets and guarantees."
+  },
+  {
+    "name": "pm-quotes",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/pm/quotes",
+    "what": "Quotes tracker table with + New Enquiry."
+  },
+  {
+    "name": "pm-dashboard",
+    "device": "laptop",
+    "role": "pm",
+    "route": "/pm/dashboard",
+    "what": "Company Dashboard with its figures."
+  },
+  {
+    "name": "pm-admin-users",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/pm/admin/users",
+    "what": "Users grouped by role, with the Finance switches."
+  },
+  {
+    "name": "pm-admin-roles",
+    "device": "laptop",
+    "role": "admin",
+    "route": "/pm/admin/roles",
+    "what": "Roles list, then What Each Role Can Do below it."
+  }
+]
