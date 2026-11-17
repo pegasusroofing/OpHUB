@@ -13,7 +13,7 @@ import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { issueBriefing, signBriefing, useBriefing } from '@/data/briefings';
 import { nameOf, usePeople } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
-import { isManager } from '@/lib/roles';
+import { canSignOffHs } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
 export default function BriefingView() {
@@ -28,7 +28,8 @@ export default function BriefingView() {
   if (isLoading || !sub) return <Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Briefing not found.'}</Muted>;
   const sigs = data?.sigs ?? [];
   const mine = sigs.find((s) => s.user_id === me.id);
-  const mgr = isManager(me);
+  // Issue and Edit need Sign Off H&S (Admin › Roles); anyone can still tap to sign their own.
+  const signOff = canSignOffHs(me);
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['briefing', subId] }); void qc.invalidateQueries({ queryKey: ['briefings'] }); };
 
   return (
@@ -41,7 +42,7 @@ export default function BriefingView() {
       <Card>
         <SectionTitle>Signing</SectionTitle>
         <Muted style={{ marginBottom: 10 }}>{sub.issued_at ? `Issued for signing ${new Date(sub.issued_at).toLocaleString('en-GB')} — every operative in the app can sign it. Signing is optional, so this can be exported at any time.` : 'Not issued for signing yet. Issuing signs it for you, then the operatives tap to sign.'}</Muted>
-        {mgr && !sub.issued_at && sub.status === 'completed' && (
+        {signOff && !sub.issued_at && sub.status === 'completed' && (
           <Button title="Issue For Signing" onPress={async () => {
             if (!(await confirmAsk('Issue this briefing for signing? It is signed for you now, then every operative in the app can tap to sign it. Signing is optional; it can still be exported at any time.', 'Issue', 'No', true))) return;
             const r = await issueBriefing(me, sub.id);
@@ -67,7 +68,7 @@ export default function BriefingView() {
           </View>
         ))}
       </Card>
-      {mgr && !sigs.length && <Button kind="ghost" title="Edit Briefing" onPress={() => router.push(`/sites/${id}/hs/briefings/fill/${sub.id}` as never)} />}
+      {signOff && !sigs.length && <Button kind="ghost" title="Edit Briefing" onPress={() => router.push(`/sites/${id}/hs/briefings/fill/${sub.id}` as never)} />}
       {/* 430 renderReportView: Export PDF for everyone (Email Report is managers only, inside). */}
       <ReportPdfActions sub={sub as never} fromBriefing />
     </ScrollView>

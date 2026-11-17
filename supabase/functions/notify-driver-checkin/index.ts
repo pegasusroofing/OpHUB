@@ -159,7 +159,7 @@ Deno.serve(withCors(async (req) => {
 
     const isIn = last.type === 'in';
     const recipientRoles = isIn ? ['pm', 'admin'] : ['admin'];
-    const { data: recipients } = await admin.from('profiles').select('id, name, email').eq('org_id', driver.org_id).in('role', recipientRoles).neq('id', driver.id).eq('is_estimator', false); // estimators receive no notifications
+    const { data: recipients } = await admin.from('profiles').select('id, name, email').eq('org_id', driver.org_id).in('role', recipientRoles).neq('id', driver.id).eq('notify_off', false); // estimators, and roles without Notifications And Emails (Admin › Roles), receive none
     if (!recipients || !recipients.length) return json({ ok: true, notified: 0 });
     // Logged before anything is sent, so a second call straight after is turned away.
     await logEmailSend(admin, { fn: 'notify-driver-checkin', sender_id: driver.id, org_id: driver.org_id, to: recipients.map((r: any) => r.email).filter(Boolean), subject: `Driver ${last.type === 'in' ? 'checked in' : 'checked out'} - check-in ${last.id}` });

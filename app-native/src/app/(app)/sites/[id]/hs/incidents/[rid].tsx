@@ -13,7 +13,7 @@ import { useSite } from '@/data/sites';
 import { buildIncidentPdf, emailIncidentPdf } from '@/lib/pdfLazy';
 import { deliverPdf } from '@/lib/fileOut';
 import { useAuth } from '@/lib/auth';
-import { isManager } from '@/lib/roles';
+import { canSignOffHs } from '@/lib/roles';
 import { base, page, space } from '@/theme/theme';
 
 const cap = (s: unknown) => (s ? String(s).charAt(0).toUpperCase() + String(s).slice(1) : '');
@@ -84,7 +84,7 @@ export default function IncidentView() {
         <Muted style={{ marginTop: 10 }}>Signed by {nameOf(people, r.created_by)} · {when(r.signed_at)}</Muted>
         {!!r.signature_image_path && <StorageImage bucket="signatures" path={r.signature_image_path} style={{ height: 28, width: 120, resizeMode: 'contain', marginTop: 4 }} />}
       </Card>
-      {isManager(me) && <Button kind="ghost" title="Delete Report" onPress={async () => {
+      {canSignOffHs(me) && <Button kind="ghost" title="Delete Report" onPress={async () => {
         if (await confirmAsk('Delete this report? This cannot be undone.', 'Delete') && await deleteIncident(me, r)) { toast('Report deleted'); void qc.invalidateQueries({ queryKey: ['incidents', id] }); router.back(); }
       }} />}
       {!!site && (

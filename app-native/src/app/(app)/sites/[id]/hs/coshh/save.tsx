@@ -10,7 +10,7 @@ import { useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
 import { saveSiteDocToLibrary, useFolderView } from '@/data/coshhLib';
 import { useAuth } from '@/lib/auth';
-import { isManager } from '@/lib/roles';
+import { canSignOffHs, isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
 export default function CoshhSave() {
@@ -23,6 +23,7 @@ export default function CoshhSave() {
   const { data, isLoading } = useFolderView(me?.org_id, folderId);
   if (!me) return null;
   if (!isManager(me) || !path) return <Muted style={{ padding: space.l }}>Nothing to save.</Muted>;
+  if (!canSignOffHs(me)) return <Muted style={{ padding: space.l }}>Your role can view H&S but not sign it off. Ask your admin (Admin › Roles).</Muted>;
   const cur = data?.current ?? null;
   return (
     <ScrollView contentContainerStyle={page(720)}>

@@ -238,7 +238,7 @@ Deno.serve(withCors(async (req) => {
     }
     const sentToday = await emailSendsSince(admin, 'notify-price-sheet-issued', 'sender_id', userData.user.id, 24 * 60);
     if (sentToday != null && sentToday >= 200) return new Response(JSON.stringify({ error: 'You’ve reached today’s limit of 200 emails — try again tomorrow.' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    const { data: targets } = await admin.from('profiles').select('id, org_id, name, email').in('id', wanted).eq('is_estimator', false); // estimators receive no notifications
+    const { data: targets } = await admin.from('profiles').select('id, org_id, name, email').in('id', wanted).eq('notify_off', false); // estimators, and roles without Notifications And Emails (Admin › Roles), receive none
     const validTargets = (targets || []).filter((t) => t.org_id === caller.org_id);
     if (!validTargets.length) {
       return new Response(JSON.stringify({ ok: true, emailed: 0, reason: 'no valid recipients' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

@@ -8,8 +8,8 @@ import { Button, Empty, Muted } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { deleteIncident, useIncidents } from '@/data/incidents';
 import { useAuth } from '@/lib/auth';
-import { isManager } from '@/lib/roles';
-import { base, page, radius, space } from '@/theme/theme';
+import { canSignOffHs } from '@/lib/roles';
+import { base, page, radius } from '@/theme/theme';
 
 const chip = (t: string, bad?: boolean) => <Text key={t} style={{ fontSize: 11, fontWeight: '600', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, overflow: 'hidden', backgroundColor: bad ? '#FDECEA' : base.paper, color: bad ? base.red : base.slate }}>{t}</Text>;
 
@@ -37,7 +37,7 @@ export default function Incidents() {
               {!r.injury_occurred && !r.damage_occurred && !r.riddor_reportable && chip('Near miss')}
             </View>
           </View>
-          {isManager(me) && <Pressable hitSlop={8} onPress={async () => {
+          {canSignOffHs(me) && <Pressable hitSlop={8} onPress={async () => {
             if (await confirmAsk('Delete this report? This cannot be undone.', 'Delete') && await deleteIncident(me, r)) { toast('Report deleted'); void qc.invalidateQueries({ queryKey: ['incidents', id] }); }
           }}><Text style={{ color: base.red }}>🗑</Text></Pressable>}
         </Pressable>

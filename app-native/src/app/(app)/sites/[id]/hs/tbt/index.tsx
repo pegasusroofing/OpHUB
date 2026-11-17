@@ -21,7 +21,7 @@ import { deleteTbt, similarTbts, syncTbtBank, tbtDue, uploadTbt, writeTbt } from
 import { buildSignedTbtPdf, PDFDocument } from '@/lib/pdfLazy';
 import { useAuth } from '@/lib/auth';
 import { deliverPdf, emailPdf, exportFilename, emailPdfsSeparately } from '@/lib/fileOut';
-import { isManager } from '@/lib/roles';
+import { canSignOffHs, isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { base, page, radius, space, live } from '@/theme/theme';
 import { tbtEvery, tbtEveryLabel } from '@/lib/rules/tbt';
@@ -37,6 +37,8 @@ export default function Tbts() {
   const { data: talks, isLoading } = useTbts(site);
   const { data: people } = usePeople();
   const mgr = !!me && isManager(me);
+  // Sign Off H&S (Admin › Roles): without it a manager sees every talk but can't add, sync, issue or delete them.
+  const signOff = canSignOffHs(me);
   const [tab, setTab] = useState<'bank' | 'live' | 'completed' | null>(null);
   const [title, setTitle] = useState('');
   const [upOpen, setUpOpen] = useState(false);
@@ -99,7 +101,7 @@ export default function Tbts() {
             </Pressable>
           ))}
           <View style={{ flex: 1 }} />
-          {cur === 'bank' && <Pressable accessibilityRole="button" accessibilityLabel="More" hitSlop={8} disabled={busy} onPress={async () => {
+          {cur === 'bank' && signOff && <Pressable accessibilityRole="button" accessibilityLabel="More" hitSlop={8} disabled={busy} onPress={async () => {
             const k = await chooseAction('TBT Library', [{ key: 'sync', label: '🔄 Sync From The Admin Centre Library' }]);
             if (k === 'sync') { setBusy(true); toast(await syncTbtBank(me, id)); setBusy(false); refresh(); }
           }} style={{ paddingHorizontal: 6, height: 30, justifyContent: 'center' }}><Text style={{ fontSize: 18, lineHeight: 20, color: base.slate }}>⋮</Text></Pressable>}
@@ -112,7 +114,7 @@ export default function Tbts() {
           <Pressable key={t.id} onPress={() => (mgr && cur === 'completed' && sel.size ? setSel((x) => { const n = new Set(x); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); return n; }) : router.push(`/sites/${site.id}/hs/tbt/${t.id}`))} onLongPress={mgr && cur === 'completed' ? () => setSel((x) => new Set(x).add(t.id)) : undefined}>
             <Card>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                {mgr && t.status === 'live' && (
+                {signOff && t.status === 'live' && (
                   <Pressable hitSlop={8} accessibilityLabel={`Delete ${t.title}`} onPress={async () => {
                     const n = signed.length;
                     if (!(await confirmAsk(n ? `Delete this toolbox talk? ${n} ${n === 1 ? 'person has' : 'people have'} already signed it — their signatures will be deleted too. This cannot be undone.` : 'Delete this toolbox talk and all its signatures? This cannot be undone.', 'Delete'))) return;
@@ -134,7 +136,7 @@ export default function Tbts() {
         );
       }) : <Empty>No {mgr ? `${cur === 'bank' ? 'library' : cur} ` : ''}toolbox talks{mgr ? '' : ' yet'}.</Empty>}
 
-      {mgr && cur === 'bank' && (
+      {signOff && cur === 'bank' && (
         <>
           <Toggle title="Write A Toolbox Talk" open={writeOpen} onPress={() => setWriteOpen(!writeOpen)} />
           {writeOpen && <Card>

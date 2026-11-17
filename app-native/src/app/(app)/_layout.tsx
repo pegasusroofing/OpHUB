@@ -20,7 +20,7 @@ import { PolicyGate } from '@/components/PolicyGate';
 import { useHsPolicy } from '@/data/hsPolicy';
 import { useAuth } from '@/lib/auth';
 import { usePushTaps } from '@/lib/push';
-import { isFinanceController, isFullManager, isManager, homeKind, isFinanceOnlyOrg, isFinanceUser } from '@/lib/roles';
+import { financeOnlyPerson, isFullManager, isManager, homeKind, isFinanceUser } from '@/lib/roles';
 import { recordFin, recordPath } from '@/lib/navBack';
 import { preloadPdfKit } from '@/lib/pdfLazy';
 import { setOneDriveSaver } from '@/lib/oneDriveSave';
@@ -47,7 +47,7 @@ export default function AppLayout() {
   const path = usePathname();
   // Operatives, subcontractor logins and clients: no general bar at all; the old app's bar only on Projects and on a job (Andy, 5 Nov 2026).
   const opBar = !!me && ['operative', 'subcontractor', 'client'].includes(homeKind(me, org));
-  const projBar = usesPhoneBar(path.replace(/\/$/, ''), isFullManager(me) && !isFinanceController(me) && !isFinanceOnlyOrg(org), opBar);
+  const projBar = usesPhoneBar(path.replace(/\/$/, ''), isFullManager(me) && !financeOnlyPerson(me, org), opBar);
   // The HUB count shows on a job's bar too (Andy, 11 Nov 2026: a manager's fourth button there is the HUB now).
   const hubN = useHubBadge(siteMgr || (projBar && isFullManager(me)) ? me : null, org, allSites, path); // Projects, Finance and the Company Chat (7 Nov 2026)
   const opChat = useChatUnread(me && !isManager(me) && me.role !== 'client' ? me : null);
@@ -95,7 +95,7 @@ export default function AppLayout() {
   useEffect(() => { if (needsSetup && path !== '/pm/admin/branding') router.replace('/pm/admin/branding' as never); }, [needsSetup, path]);
   if (policy.data?.pending && policy.data.doc && path !== '/signature' && !me?._support) return <PolicyGate doc={policy.data.doc} />;
   // A Finance-only company (908 finOnlyRoute) or a Finance Controller: just the Finance app; someone without Finance is told who switches it on.
-  if (me && org && (isFinanceOnlyOrg(org) || isFinanceController(me)) && me.role !== 'superadmin') {
+  if (me && org && financeOnlyPerson(me, org) && me.role !== 'superadmin') {
     if (!isFinanceUser(me, org)) return <FinNoAccess />;
     // 160 company setup (logo) comes first, else the two redirects bounce off each other.
     if (!(needsSetup && path === '/pm/admin/branding') && !/^\/(fin|account|signature|home)(\/|$)/.test(path)) return <Redirect href={'/fin' as never} />;

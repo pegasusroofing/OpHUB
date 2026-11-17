@@ -23,7 +23,7 @@ import { PDFDocument } from '@/lib/pdfLazy';
 import type { PdfSub } from '@/lib/reportPdf';
 import { supabase } from '@/lib/supabase';
 import { REPORT_STATUS_LABEL, weekKeyOf, weekLabelOf } from '@/lib/rules/reports';
-import { isFullManager, isManager } from '@/lib/roles';
+import { canSignOffHs, isFullManager, isManager } from '@/lib/roles';
 import { base, page, radius } from '@/theme/theme';
 
 export default function Briefings() {
@@ -39,6 +39,8 @@ export default function Briefings() {
   const [sel, setSel] = useState<Set<string>>(new Set());
   if (!me) return null;
   const mgr = isManager(me);
+  // Sign Off H&S (Admin › Roles): without it a manager reads every briefing but can't start or fill one in.
+  const signOff = canSignOffHs(me);
   const current = weekKeyOf(new Date());
   const weeks: Record<string, Submission[]> = {};
   (data?.subs ?? []).forEach((s) => { (weeks[weekKeyOf(new Date(s.submitted_at))] ||= []).push(s); });
@@ -103,7 +105,7 @@ export default function Briefings() {
           <Pressable onPress={() => setSel(new Set())}><Text style={{ color: base.slate }}>Clear</Text></Pressable>
         </View>
       )}
-      {mgr && site && (
+      {signOff && site && (
         <>
           <Button busy={busy} disabled={data?.hasTemplate === false} title="+ New Briefing" onPress={async () => {
             setBusy(true);
@@ -129,7 +131,7 @@ export default function Briefings() {
               const mine = sigs.find((x) => x.user_id === me.id);
               const needsMe = !!s.issued_at && s.status === 'completed' && !mine;
               const go = s.status === 'completed' ? () => router.push(`/sites/${id}/hs/briefings/${s.id}`)
-                : mgr ? () => router.push(`/sites/${id}/hs/briefings/fill/${s.id}` as never) : undefined;
+                : mgr ? () => router.push(`/sites/${id}/hs/briefings/${signOff ? 'fill/' : ''}${s.id}` as never) : undefined;
               return (
                 <View key={s.id} style={{ marginTop: 8 }}>
                   <Row title={`${s.template_name} · ${REPORT_STATUS_LABEL[s.status] || s.status}`}

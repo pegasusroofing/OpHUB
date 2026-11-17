@@ -19,11 +19,11 @@ import { buildSignedTbtPdf } from '@/lib/pdfLazy';
 import { useSites } from '@/data/sites';
 import { deliverPdf, emailPdf } from '@/lib/fileOut';
 import { completeTbt, deleteTbt, issueTbt, issueTbtCompanyWide, remindTbt, renameTbt, replaceTbtFile } from '@/data/tbtManager';
-import { isManager } from '@/lib/roles';
+import { canSignOffHs, isManager } from '@/lib/roles';
 import { openDocLink, signTbt, usePeople, useTbt } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { signers } from '@/lib/rules/hs';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius } from '@/theme/theme';
 
 export default function TbtView() {
   const { id, tbt } = useLocalSearchParams<{ id: string; tbt: string }>();
@@ -36,10 +36,13 @@ export default function TbtView() {
   const { data: sites } = useSites();
   if (!me) return null;
   const mgr = isManager(me);
+  // Sign Off H&S (Admin › Roles): without it a manager can export, email and remind, but not issue, complete, change or delete.
+  const signOff = canSignOffHs(me);
   const site = (sites ?? []).find((s) => s.id === id);
   const talk = data?.talk;
   const mine = data?.sigs.find((s) => s.user_id === me.id);
   const live = talk?.status === 'live';
+  const anySigs = !!(data?.sigs ?? []).length;
   const opIds = new Set((people ?? []).filter((p) => p.role === 'operative').map((p) => p.id));
   const { signed, waiting } = signers(data?.roster ?? [], (data?.sigs ?? []).filter((s) => opIds.has(s.user_id || '')));
 
@@ -57,13 +60,13 @@ export default function TbtView() {
   const menu = async () => {
     if (!talk) return;
     const k = await chooseAction(talk.title, [
-      ...(talk.status !== 'live' && talk.status !== 'completed' ? [{ key: 'issue', label: '✍ Issue for Signing' }] : []),
-      ...(talk.status === 'bank' ? [{ key: 'wide', label: '📢 Issue company-wide' }] : []),
-      ...(talk.status === 'live' ? [{ key: 'remind', label: '🔔 Ask Outstanding to Sign' }, { key: 'complete', label: '✓ Mark as Completed' }] : []),
-      ...((data?.sigs ?? []).length ? [{ key: 'pdf', label: '📄 Export signed PDF' }, { key: 'email', label: '✉ Email signed PDF' }] : []),
+      ...(signOff && talk.status !== 'live' && talk.status !== 'completed' ? [{ key: 'issue', label: '✍ Issue for Signing' }] : []),
+      ...(signOff && talk.status === 'bank' ? [{ key: 'wide', label: '📢 Issue company-wide' }] : []),
+      ...(talk.status === 'live' ? [{ key: 'remind', label: '🔔 Ask Outstanding to Sign' }, ...(signOff ? [{ key: 'complete', label: '✓ Mark as Completed' }] : [])] : []),
+      ...(anySigs ? [{ key: 'pdf', label: '📄 Export signed PDF' }, { key: 'email', label: '✉ Email signed PDF' }] : []),
       // 710: once anyone has signed, the title and file are locked; a signed talk can only be deleted while live.
-      ...(!(data?.sigs ?? []).length ? [{ key: 'rename', label: '✏️ Rename' }, { key: 'replace', label: '🔁 Replace file' }] : []),
-      ...(!(data?.sigs ?? []).length || talk.status === 'live' ? [{ key: 'del', label: '🗑 Delete', danger: true }] : []),
+      ...(signOff && !anySigs ? [{ key: 'rename', label: '✏️ Rename' }, { key: 'replace', label: '🔁 Replace file' }] : []),
+      ...(signOff && (!anySigs || talk.status === 'live') ? [{ key: 'del', label: '🗑 Delete', danger: true }] : []),
     ]);
     if ((k === 'pdf' || k === 'email') && site) {
       let to: EmailTo | null = null;
@@ -105,10 +108,10 @@ export default function TbtView() {
             <Text numberOfLines={2} style={{ flex: 1, fontSize: 15, fontWeight: '600', color: '#111827' }}>{talk.title}</Text>
             <TbtStatusTag status={talk.status} />
             <Pressable onPress={async () => { const u = await openDocLink('rams-docs', talk.storage_path); if (u) viewDoc(u); else toast('Could not open the document.'); }} hitSlop={6} style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 7, paddingHorizontal: 10, height: 26, justifyContent: 'center' }}><Text style={{ color: '#111827', fontSize: 12.5, fontWeight: '500' }}>View</Text></Pressable>
-            {mgr && <Pressable hitSlop={8} disabled={busy} onPress={() => void menu()} style={{ height: 26, justifyContent: 'center' }}><Text style={{ fontSize: 18, lineHeight: 20, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>}
+            {mgr && (signOff || live || anySigs) && <Pressable hitSlop={8} disabled={busy} onPress={() => void menu()} style={{ height: 26, justifyContent: 'center' }}><Text style={{ fontSize: 18, lineHeight: 20, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>}
           </View>
           <Text style={{ fontSize: 12.5, color: '#6b7280', marginTop: 6 }}>{talk.created_at ? `Added ${new Date(talk.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}</Text>
-          {mgr && talk.status === 'bank' && <Button busy={busy} title="✍ Issue for Signing" onPress={async () => { setBusy(true); const r = await issueTbt(me, id, talk); setBusy(false); toast(r.msg); refresh(); if (r.id && r.id !== talk.id) router.replace(`/sites/${id}/hs/tbt/${r.id}`); }} />}
+          {signOff && talk.status === 'bank' && <Button busy={busy} title="✍ Issue for Signing" onPress={async () => { setBusy(true); const r = await issueTbt(me, id, talk); setBusy(false); toast(r.msg); refresh(); if (r.id && r.id !== talk.id) router.replace(`/sites/${id}/hs/tbt/${r.id}`); }} />}
           {me.role === 'client' ? (
             // 710:333 client view: who has signed and the signed PDF, no sign box.
             <View style={{ marginTop: 10 }}>

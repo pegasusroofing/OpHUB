@@ -14,7 +14,7 @@ import { startLoler, useLoler, usePlantItems, type PlantItem } from '@/data/repo
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { REPORT_STATUS_LABEL } from '@/lib/rules/reports';
-import { isManager } from '@/lib/roles';
+import { canSignOffHs } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
 export default function Loler() {
@@ -30,7 +30,8 @@ export default function Loler() {
   const { data: plant } = usePlantItems(me?.org_id, picker === 'plant');
   const { data: people } = usePeople();
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
-  const mgr = isManager(me);
+  // Starting and filling in an inspection needs Sign Off H&S (Admin › Roles); without it a manager opens them read-only.
+  const signOff = canSignOffHs(me);
   const t = data?.template ?? null;
 
   const start = async (item: PlantItem | null, manual: string | null) => {
@@ -45,8 +46,8 @@ export default function Loler() {
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'LOLER Inspections' }} />
-      {mgr && <Button title={picker ? 'Cancel' : '+ New LOLER Inspection'} onPress={() => setPicker(picker ? null : 'start')} />}
-      {mgr && picker && (
+      {signOff && <Button title={picker ? 'Cancel' : '+ New LOLER Inspection'} onPress={() => setPicker(picker ? null : 'start')} />}
+      {signOff && picker && (
         <Card>
           {!t ? <Empty>No LOLER Inspection template yet — ask an Admin to set one up via Report Templates.</Empty> : picker === 'start' ? (
             <>
@@ -71,7 +72,7 @@ export default function Loler() {
         </Card>
       )}
       {isLoading ? <Muted>Loading…</Muted> : data?.subs.length ? data.subs.map((s) => (
-        <Pressable key={s.id} onPress={() => router.push(`/sites/${id}/hs/loler/${mgr && s.status === 'in_progress' ? 'fill' : 'view'}/${s.id}` as never)}
+        <Pressable key={s.id} onPress={() => router.push(`/sites/${id}/hs/loler/${signOff && s.status === 'in_progress' ? 'fill' : 'view'}/${s.id}` as never)}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginTop: 8, backgroundColor: base.card }}>
           <View style={{ flex: 1 }}>
             <Text style={{ fontWeight: '600', color: base.ink }}>{String(s.answers?.loler_make_model || s.template_name)}</Text>

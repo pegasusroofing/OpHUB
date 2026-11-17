@@ -29,7 +29,7 @@ import { deliverPdf, emailPdf, emailPdfsSeparately, fetchBytes, showPdf } from '
 import { publicUrl } from '@/lib/privateFiles';
 import { useAuth } from '@/lib/auth';
 import { resignDue, signers } from '@/lib/rules/hs';
-import { isFullManager, isManager } from '@/lib/roles';
+import { canSignOffHs, isFullManager, isManager } from '@/lib/roles';
 import type { Site } from '@/lib/types';
 import { base, radius, useDesk } from '@/theme/theme';
 
@@ -126,6 +126,8 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
   const desk = useDesk();
   if (!me) return null;
   const manager = canManage ?? isManager(me);
+  // Sign Off H&S (Admin › Roles): without it a manager sees RAMS / COSHH read-only. Site layouts and a subcontractor's own admin are unchanged.
+  const signOff = manager && (kind === 'layout' || !isManager(me) || canSignOffHs(me));
   const client = me.role === 'client';
   if (isLoading || !data) return <Muted>Loading…</Muted>;
 
@@ -217,7 +219,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
       <Text style={{ flex: 1, color: '#fff', fontWeight: '600', fontSize: 13.5 }}>{sel.size} Selected</Text>
       <Pressable accessibilityRole="button" disabled={busy} onPress={async () => { setBusy(true); toast('Building signed PDF…'); try { const b = await pack(ordered(sel)); if (b && !(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); } finally { setBusy(false); } }} style={{ paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: '#fff', fontWeight: '500' }}>📄 Export</Text></Pressable>
       <Pressable accessibilityRole="button" disabled={busy} onPress={() => void emailIds(ordered(sel))} style={{ paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: '#fff', fontWeight: '500' }}>✉ Email</Text></Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel="Delete selected" disabled={busy} onPress={() => void delSelected()} style={{ paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ fontSize: 16 }}>🗑</Text></Pressable>
+      {signOff && <Pressable accessibilityRole="button" accessibilityLabel="Delete selected" disabled={busy} onPress={() => void delSelected()} style={{ paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ fontSize: 16 }}>🗑</Text></Pressable>}
     </View>
   </Portal>) : null;
   return (
@@ -244,7 +246,8 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
         const { signed, waiting } = signers(data.roster, sigs);
         const issued = sigs.filter((s) => s.issued);
         const due = resignDue(r, site);
-        const canTap = !client && !(manager && (issued.length || mine)) && !(kind !== 'rams' && manager);
+        // A manager's tap marks a RAMS as issued, so it needs Sign Off H&S.
+        const canTap = !client && !(manager && (issued.length || mine)) && !(kind !== 'rams' && manager) && (!manager || signOff);
         return (
           <Card key={r.id} style={{ paddingVertical: 12, paddingHorizontal: 14 }}>
             {/* View and the menu sit to the right, centred on the title and the line under it (Andy, 3 Nov 2026). */}
@@ -268,7 +271,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
               <StatusPill text={issued.length ? `Issued ${d(issued[0].signed_at)}` : kind === 'coshh' && r.uploaded_at && !data.roster.length ? `Issued ${d(r.uploaded_at)}` : data.roster.length ? `${signed.length} of ${data.roster.length} Signed` : 'Not Issued'} tone={issued.length || (kind === 'coshh' && !data.roster.length) || (data.roster.length && !waiting.length) ? 'ok' : waiting.length ? 'warn' : 'grey'} />
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Pressable onPress={() => view(r)} hitSlop={6} style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 7, paddingHorizontal: 10, height: 26, justifyContent: 'center' }}><Text style={{ color: '#111827', fontSize: 12.5, fontWeight: '500' }}>View</Text></Pressable>
-              {manager && (
+              {signOff && (
                 <Pressable hitSlop={8} onPress={async () => {
                   const k = await chooseAction(r.name, [...(kind === 'rams' && !companyId && isFullManager(me) ? [{ key: 'revise', label: '✏️ Revise RAMS' }] : []), // Export and Email live in the row under the list (Andy, 3 Nov 2026).
                     ...(kind === 'layout' && sigsFor(r.id).length ? [{ key: 'pdf', label: '📄 Export signed PDF' }] : []), ...(kind === 'rams' ? [{ key: 'multi', label: `${multiOn(r) ? '☑' : '☐'} Multi-page sign required` }, ...(multiOn(r) ? [{ key: 'boxes', label: '✍ Signature boxes' }, { key: 'testfill', label: '🧪 Test fill the boxes' }] : [])] : []), ...(kind === 'coshh' ? [{ key: 'replace', label: '🔁 Replace file (resets signatures)' }, { key: 'tolib', label: '📚 Save to COSHH Library' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
@@ -347,7 +350,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
         );
       }) : <Empty>No {label} uploaded.</Empty>}
 
-      {data.docs.length > 0 && !client && !(manager && (kind !== 'rams' || !toSign.length)) && (
+      {data.docs.length > 0 && !client && !(manager && (!signOff || kind !== 'rams' || !toSign.length)) && (
         <Button busy={busy} disabled={!toSign.length} onPress={() => sign(toSign.map((x) => x.id))}
           title={manager
             ? (toSign.length ? `Mark All RAMS as Issued (${toSign.length})` : 'All RAMS documents marked as issued')
@@ -363,7 +366,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
               <Muted>Uploaded {r.uploaded_at ? new Date(r.uploaded_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''} · superseded{r.superseded_by ? ` by "${nameById[r.superseded_by] || 'a newer version'}"` : ''}</Muted>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                 <Pressable onPress={() => view(r)} style={{ flex: 1 }}><Text style={{ color: base.blue }}>View document ↗</Text></Pressable>
-                {manager && <Pressable hitSlop={8} accessibilityLabel="Delete superseded version" onPress={async () => {
+                {signOff && <Pressable hitSlop={8} accessibilityLabel="Delete superseded version" onPress={async () => {
                   if (!(await confirmAsk(`Delete the superseded "${r.name}" and its signatures? The current version isn't affected. This cannot be undone.`, 'Delete'))) return;
                   if (await deleteHsDoc(me, kind, site.id, r)) void qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); else toast('Could not delete — try again.');
                 }}><Text style={{ fontSize: 16, color: base.red }}>🗑</Text></Pressable>}

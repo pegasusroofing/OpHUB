@@ -9,7 +9,7 @@ import { Button, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { useIsLoler, useSubmission } from '@/data/reports';
 import { useAuth } from '@/lib/auth';
-import { isManager } from '@/lib/roles';
+import { canSignOffHs } from '@/lib/roles';
 import { page, space } from '@/theme/theme';
 
 export default function LolerView() {
@@ -27,7 +27,7 @@ export default function LolerView() {
       <SectionTitle>{String(sub.answers?.loler_make_model || sub.template_name)}</SectionTitle>
       <Muted>Submitted {sub.submitted_at ? new Date(sub.submitted_at).toLocaleString('en-GB') : 'in progress'} by {nameOf(people, sub.submitted_by)}</Muted>
       <ReportAnswers sections={sub.sections || []} answers={sub.answers || {}} nameOf={(u) => nameOf(people, u)} />
-      {isManager(me) && <Button kind="ghost" title="Edit Report" onPress={() => router.push(`/sites/${id}/hs/loler/fill/${sub.id}` as never)} />}
+      {canSignOffHs(me) && <Button kind="ghost" title="Edit Report" onPress={() => router.push(`/sites/${id}/hs/loler/fill/${sub.id}` as never)} />}
       <ReportPdfActions sub={sub as never} />
     </ScrollView>
   );

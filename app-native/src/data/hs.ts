@@ -236,9 +236,9 @@ async function emailCompletedTbt(talk: Tbt): Promise<void> {
     const built = await buildSignedTbtPdf(talk.id, site);
     if (typeof built === 'string') return;
     const s = site as Site & { responsible_pm_id?: string | null; org_id?: string | null };
-    const people = ((await db.from('profiles').select('id,email,role,is_estimator').eq('org_id', s.org_id as string)).data as { id: string; email: string | null; role: string; is_estimator: boolean | null }[] | null) ?? [];
+    const people = ((await db.from('profiles').select('id,email,role,is_estimator,notify_off').eq('org_id', s.org_id as string)).data as { id: string; email: string | null; role: string; is_estimator: boolean | null; notify_off?: boolean | null }[] | null) ?? [];
     const pm = s.responsible_pm_id ? people.find((p) => p.id === s.responsible_pm_id && p.email) : null;
-    const to = pm ? [pm.email as string] : people.filter((p) => (p.role === 'pm' || p.role === 'admin') && p.email && !(p.role === 'pm' && p.is_estimator)).map((p) => p.email as string);
+    const to = pm ? [pm.email as string] : people.filter((p) => (p.role === 'pm' || p.role === 'admin') && p.email && !(p.role === 'pm' && p.is_estimator) && !p.notify_off).map((p) => p.email as string);
     for (const email of to.slice(0, 6)) await emailPdf(built.bytes, built.filename, `${site.id}/tbt-exports`, { site_id: site.id, recipient_email: email, doc_title: `${talk.title || 'Toolbox Talk'} — completed, signed by all operatives` });
   } catch { /* best effort */ }
 }

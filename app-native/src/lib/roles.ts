@@ -28,12 +28,19 @@ export const canEditFinance = (u: Profile | null) => can(u, 'fin_edit');
 export const canRaiseOrders = (u: Profile | null) => isManager(u) && can(u, 'orders');
 export const isFinanceOnlyOrg = (org: Organization | null) => !!org && org.has_pm === false;
 
+/** Whether the role's list has any of the Projects side's parts (none kept: no, as before the list). */
+const PROJECT_PARTS = ['every_job', 'sow', 'snags', 'hs_signoff', 'orders', 'docs', 'team', 'quotes'];
+const hasProjectParts = (u: Profile) => Array.isArray(u.perms) && u.perms.some((p) => PROJECT_PARTS.includes(p));
+/** Kept to the Finance app: a Finance-only company, or a Finance Controller whose role has no Projects parts. */
+export const financeOnlyPerson = (u: Profile | null, org: Organization | null) => isFinanceOnlyOrg(org) || (!!u && isFinanceController(u) && !hasProjectParts(u));
+
 export type HomeKind = 'superadmin' | 'finance' | 'manager' | 'operative' | 'driver' | 'client' | 'subcontractor' | 'other';
 
 export function homeKind(u: Profile | null, org: Organization | null): HomeKind {
   if (!u) return 'other';
   if (u.role === 'superadmin') return 'superadmin';
-  if (isFinanceOnlyOrg(org) || isFinanceController(u)) return 'finance';
+  // A Finance Controller whose role also has Projects parts (Admin › Roles, 17 Nov 2026) gets the Projects side too.
+  if (financeOnlyPerson(u, org)) return 'finance';
   if (isManager(u)) return 'manager';
   if (u.role === 'operative') return 'operative';
   if (u.role === 'driver') return 'driver';

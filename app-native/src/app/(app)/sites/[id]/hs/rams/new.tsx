@@ -16,7 +16,7 @@ import { useSite, useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { starterRows } from '@/lib/rules/ramsStarter';
 import { supabase } from '@/lib/supabase';
-import { isCompanyAdmin, isFullManager } from '@/lib/roles';
+import { canSignOffHs, isCompanyAdmin, isFullManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
@@ -43,6 +43,7 @@ export default function RamsNew() {
   const [busy, setBusy] = useState(false);
   if (!me) return null;
   if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
+  if (!canSignOffHs(me)) return <Muted style={{ padding: space.l }}>Your role can view H&S but not sign it off. Ask your admin (Admin › Roles).</Muted>;
   const name = title ?? `${site ? `${site.name} — ` : ''}Roof Renewal`;
   const templates = lib.filter((i) => i.kind === 'template');
   const siteName = (sid: string) => sites.find((s) => s.id === sid)?.name || 'Another job';

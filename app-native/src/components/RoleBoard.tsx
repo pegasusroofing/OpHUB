@@ -76,6 +76,8 @@ function Column({ role, parts, picked, width, onAdd, onRemove, onMoveIn }: { rol
         </View>
         {parts.length ? parts.map((p) => <Chip key={p} part={p} from={role.id} label={PARTS.find(([k]) => k === p)?.[1] ?? p} onRemove={() => onRemove(p)} />)
           : <Muted style={{ fontSize: 12 }}>Nothing Yet</Muted>}
+        {/* What a level can't do whatever the board says (the database's rules for it). */}
+        {role.access === 'site_manager' && <Muted style={{ fontSize: 11.5, marginTop: 2 }}>Site Managers only see the jobs they&apos;re put on and can&apos;t make projects. For more, use a role that uses the app as Project Manager.</Muted>}
       </View>
     </View>
   );

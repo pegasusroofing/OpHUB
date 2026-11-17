@@ -217,7 +217,7 @@ Deno.serve(async (req) => {
     }
 
     const pmIds = Object.keys(dueByPm);
-    const { data: pmProfiles } = pmIds.length ? await admin.from('profiles').select('id, name, email').in('id', pmIds).eq('is_estimator', false) : { data: [] as any[] }; // estimators receive no notifications
+    const { data: pmProfiles } = pmIds.length ? await admin.from('profiles').select('id, name, email').in('id', pmIds).eq('notify_off', false) : { data: [] as any[] }; // estimators, and roles without Notifications And Emails (Admin › Roles), receive none
     const pmProfileById: Record<string, any> = {}; (pmProfiles || []).forEach((p) => { pmProfileById[p.id] = p; });
 
     let pmEmailed = 0;

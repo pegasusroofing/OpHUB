@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
     await admin.from('vehicle_service_status').update({ last_miles: miles, baseline_miles: baseline, updated_at: new Date().toISOString(), ...(due ? { last_reminder_miles: miles } : {}) }).eq('org_id', driver.org_id).eq('vehicle_reg', reg);
     if (!due) return json({ ok: true, since });
 
-    const { data: recipients } = await admin.from('profiles').select('id, name, email').eq('org_id', driver.org_id).in('role', ['pm', 'admin']).eq('is_estimator', false);
+    const { data: recipients } = await admin.from('profiles').select('id, name, email').eq('org_id', driver.org_id).in('role', ['pm', 'admin']).eq('notify_off', false);
     const { data: org } = await admin.from('organizations').select('name, logo_path, color_primary').eq('id', driver.org_id).maybeSingle();
     const logoUrl = org?.logo_path ? `${SUPABASE_URL}/storage/v1/object/public/org-logos/${org.logo_path}` : null;
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');

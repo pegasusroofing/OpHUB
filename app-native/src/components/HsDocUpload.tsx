@@ -16,7 +16,7 @@ import { DOC_LABEL, nameOf, useHsDocs, usePeople, type DocKind } from '@/data/hs
 import { emailHsPdf, outstanding, outstandingByDoc, RAMS_DOC_TYPES, sendSignReminder, uploadHsDoc } from '@/data/hsManager';
 import { boxesOf, layoutSummary, useSignTemplates } from '@/data/signTemplates';
 import { useAuth } from '@/lib/auth';
-import { isFullManager } from '@/lib/roles';
+import { canSignOffHs, isFullManager, isManager } from '@/lib/roles';
 import { deliverPdf } from '@/lib/fileOut';
 import { exportTableExcel } from '@/lib/tableExcel';
 import { exportTablePdf } from '@/lib/pdfLazy';
@@ -45,6 +45,8 @@ export function HsDocUpload({ kind, site, companyId = null, create, createLabel,
   const tpls = tplsAll.filter((t) => boxesOf(t.layout).length);
   if (!me) return null;
   const label = DOC_LABEL[kind];
+  // Sign Off H&S (Admin › Roles): without it a manager can still export and email, but not create or upload RAMS / COSHH.
+  const signOff = kind === 'layout' || !isManager(me) || canSignOffHs(me);
   // Who is still to sign, as a table (document, person, role) for the export and the email.
   const table = (ids?: string[]) => {
     const rows = data ? outstandingByDoc(kind, data.roster, data.docs.filter((x) => !ids || ids.includes(x.id)), data.sigs) : [];
@@ -109,7 +111,7 @@ export function HsDocUpload({ kind, site, companyId = null, create, createLabel,
           }}
           onClose={() => setMailing(null)} />
       )}
-      {options ? (
+      {!signOff ? null : options ? (
         <View style={{ marginTop: 8 }}><Button title={createLabel || `Create ${label}`} onPress={async () => {
           const k = await chooseAction(createLabel || `Create ${label}`, [...options.map((o, i) => ({ key: String(i), label: o.label })), { key: 'up', label: `Upload ${label} Assessment` }]);
           if (k === 'up') { setOpen(true); setMaking(false); } else if (k != null && options[Number(k)]) options[Number(k)].go();
@@ -129,7 +131,7 @@ export function HsDocUpload({ kind, site, companyId = null, create, createLabel,
           )}
         </>
       ) : <Toggle title={`Upload ${label}`} open={open} onPress={() => setOpen(!open)} />}
-      {open && (!!options || !create || wrap || !data?.docs.length) && (
+      {open && signOff && (!!options || !create || wrap || !data?.docs.length) && (
         <Card>
           <TextInput value={name} onChangeText={setName} placeholder={`${label} name`} style={box} />
           {kind === 'rams' && !companyId && (

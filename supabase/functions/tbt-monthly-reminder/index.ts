@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
     if (!recipientIds.length) {
       return new Response(JSON.stringify({ ok: true, checked, emailed: 0 }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    const { data: profiles } = await admin.from('profiles').select('id, name, email').in('id', recipientIds).eq('is_estimator', false); // estimators receive no notifications
+    const { data: profiles } = await admin.from('profiles').select('id, name, email').in('id', recipientIds).eq('notify_off', false); // estimators, and roles without Notifications And Emails (Admin › Roles), receive none
     const profileById: Record<string, any> = {};
     (profiles || []).forEach((p) => { profileById[p.id] = p; });
 

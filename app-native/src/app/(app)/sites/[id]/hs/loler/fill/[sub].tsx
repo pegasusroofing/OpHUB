@@ -7,7 +7,7 @@ import { ReportFill } from '@/components/ReportFill';
 import { Muted } from '@/components/ui';
 import { useIsLoler, useSubmission } from '@/data/reports';
 import { useAuth } from '@/lib/auth';
-import { isManager } from '@/lib/roles';
+import { canSignOffHs } from '@/lib/roles';
 import { page, space } from '@/theme/theme';
 
 export default function LolerFill() {
@@ -15,9 +15,9 @@ export default function LolerFill() {
   const { me } = useAuth();
   const { data, isLoading } = useSubmission(subId);
   const sub = data?.sub;
-  // Only this job's submissions open here.
+  // Only this job's submissions open here, and only for managers with Sign Off H&S (Admin › Roles); others get the read-only view.
   const { data: isLoler } = useIsLoler(sub?.template_id as string | null | undefined);
-  const locked = !!sub && (!me || !isManager(me) || sub.site_id !== id || isLoler === false);
+  const locked = !!sub && (!me || !canSignOffHs(me) || sub.site_id !== id || isLoler === false);
   useEffect(() => { if (locked && sub) router.replace(`/sites/${id}/hs/loler/view/${sub.id}` as never); }, [locked, sub, id]);
   if (!me) return null;
   if (isLoading || !sub) return <Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Inspection not found.'}</Muted>;

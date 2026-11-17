@@ -10,7 +10,7 @@ import { showAlert, useToast } from '@/components/toast';
 import { Button, Check, Empty, Muted } from '@/components/ui';
 import { folderFileIds, importToSite, useFolderView } from '@/data/coshhLib';
 import { useAuth } from '@/lib/auth';
-import { isManager } from '@/lib/roles';
+import { canSignOffHs, isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
 export default function CoshhPick() {
@@ -24,6 +24,7 @@ export default function CoshhPick() {
   const { data, isLoading } = useFolderView(me?.org_id, folderId);
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!canSignOffHs(me)) return <Muted style={{ padding: space.l }}>Your role can view H&S but not sign it off. Ask your admin (Admin › Roles).</Muted>;
   const cur = data?.current ?? null;
   return (
     <ScrollView contentContainerStyle={page(720)}>

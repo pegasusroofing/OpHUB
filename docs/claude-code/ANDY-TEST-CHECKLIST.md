@@ -284,9 +284,17 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
     - Admin › Roles › What Each Role Can Do: your choices from the board, one column per office role; tap a box along the top, then tap a role to add it (or drag it in on a laptop); ✕ takes it out; it saves straight away;
     - as an Estimator (Jo, Kirsty or Woody): Admin › Users is gone (no Manage People); everything else as before;
     - give a test PM a role without Quotes, Team And Calendar or Create Projects: Quotes, Calendar, On Site Now, the Next 5 Days and + New Project disappear for them (after they reopen the app).
+83. 17 Nov, stage 2 of the role switches. To try (give a test login the role first):
+    - a role without Every Job sees only the jobs they run, made or are put on (Projects, the map, Finance's project picker);
+    - a role with Finance – View but not Edit: Finance opens look-only ("View Only"; no + New, no editing, sending or approving);
+    - a role without Sign Off H&S: H&S opens, but no publishing, building or replacing RAMS / COSHH, no issuing permits, toolbox talks or briefings;
+    - a role without Raise Orders: no ordering in Materials, no + New PO, no subcontract orders;
+    - a role without Notifications And Emails gets no phone notifications or automatic emails, and isn't offered in "Email this to…";
+    - a Finance Controller whose role has Projects parts gets the Projects side as well as Finance;
+    - Estimators can no longer change other people's accounts (Manage People is off for them), in either app.
 
 ## To discuss with Andy (16 Nov)
-- ~~What each role should see~~: Andy chose on the board, 17 Nov; built into Admin › Roles (item 82). Still to do (stage 2): Every Job (only their own jobs), Finance – View without Edit (Finance read-only), Sign Off H&S buttons, Raise Orders buttons, Notifications And Emails for emails, a Finance Controller's Projects side, Site Managers making projects, and the database locks.
+- ~~What each role should see~~: Andy chose on the board, 17 Nov; built into Admin › Roles (item 82). Stage 2 built 17 Nov (item 83). Site Managers still only see the jobs they're put on and can't make projects (their level).
 
 ## To discuss with Andy
 - ~~HR Access redesign~~: built 16 Nov (item 81).

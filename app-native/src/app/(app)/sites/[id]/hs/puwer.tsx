@@ -8,11 +8,10 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { promptText, showAlert, useToast } from '@/components/toast';
+import { confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { PuwerPdfButtons } from '@/components/PuwerPdfButtons';
 import { PuwerRoster } from '@/components/PuwerRoster';
-import { confirmAsk } from '@/components/toast';
 import { addTool } from '@/data/myTools';
 import { nameOf, usePeople } from '@/data/hs';
 import { deletePuwer, savePuwer, usePuwer } from '@/data/puwer';
@@ -20,8 +19,8 @@ import { useAuth } from '@/lib/auth';
 import { localISODate } from '@/lib/rules/driver';
 import { weekDates, weekLabel } from '@/lib/rules/havs';
 import { PUWER_QUESTIONS, toolPasses, UNTICK_WARNING, type PuwerKey, type PuwerTool } from '@/lib/rules/puwer';
-import { isManager } from '@/lib/roles';
-import { base, page, radius, space } from '@/theme/theme';
+import { canSignOffHs, isManager } from '@/lib/roles';
+import { base, page, radius } from '@/theme/theme';
 
 export default function Puwer() {
   const { id, user } = useLocalSearchParams<{ id: string; user?: string }>();
@@ -37,16 +36,21 @@ export default function Puwer() {
   const [comments, setComments] = useState('');
   const [retry, setRetry] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Start from what's saved for the week shown.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (data) { setTools(data.tools); setComments(data.comments); setRetry(false); } }, [data]);
   if (!me) return null;
   const mgr = isManager(me);
-  if (mgr && !user) return <PuwerRoster siteId={id} offset={offset} setOffset={setOffset} />;
+  // Sign Off H&S (Admin › Roles): without it a manager gets the roster read-only (no inspecting for others, no closing the week).
+  const signOff = canSignOffHs(me);
+  if (mgr && !user) return <PuwerRoster siteId={id} offset={offset} setOffset={setOffset} readOnly={!signOff} />;
   // 680 isClientView: a client sees who's done this week's inspection and can export them, nothing to fill in.
   if (me.role === 'client') return <PuwerRoster siteId={id} offset={offset} setOffset={setOffset} readOnly />;
   const who = user ?? me.id;
   const whoName = who === me.id ? me.name : nameOf(people, who);
   // 680 #255: a saved inspection is locked for everyone (managers can still export, email or delete it).
-  const locked = !!data?.inspectionId && !retry;
+  // A manager without Sign Off H&S can't fill one in for someone else either.
+  const locked = (mgr && !signOff && who !== me.id) || (!!data?.inspectionId && !retry);
 
   const toggle = (i: number, k: PuwerKey) => {
     const next = tools.map((t, j) => (j === i ? { ...t, [k]: !t[k] } : t));
@@ -83,7 +87,7 @@ export default function Puwer() {
       {isLoading || !data ? <Muted>Loading…</Muted> : (
         <>
           <Card>
-            <SectionTitle>{whoName}'s Registered Tools</SectionTitle>
+            <SectionTitle>{whoName}&apos;s Registered Tools</SectionTitle>
             {tools.length ? <Muted>{tools.length} tool{tools.length === 1 ? '' : 's'} pulled through from My Tools: {tools.map((t) => t.name).join(', ')}</Muted> : null}
           </Card>
           {!tools.length ? (
@@ -111,8 +115,8 @@ export default function Puwer() {
               style={{ minHeight: 70, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, backgroundColor: base.card, color: base.ink }} />
           ) : !!comments && <Card><Text style={{ color: base.ink }}>{comments}</Text></Card>}
           {!locked && tools.length > 0 && <Button busy={busy} title="Save Inspection" onPress={save} />}
-          {locked && <Muted style={{ marginTop: 10 }}>Saved for this week.</Muted>}
-          {mgr && !!data?.inspectionId && <Button kind="ghost" title="Delete Inspection" onPress={async () => {
+          {locked && !!data?.inspectionId && <Muted style={{ marginTop: 10 }}>Saved for this week.</Muted>}
+          {mgr && signOff && !!data?.inspectionId && <Button kind="ghost" title="Delete Inspection" onPress={async () => {
             if (!(await confirmAsk('Delete this PUWER inspection? This cannot be undone.', 'Delete'))) return;
             if (await deletePuwer(me, id, data.inspectionId as string, whoName)) { toast('Inspection deleted'); void qc.invalidateQueries({ queryKey: ['puwer', id] }); void qc.invalidateQueries({ queryKey: ['puwerRoster', id] }); }
           }} />}

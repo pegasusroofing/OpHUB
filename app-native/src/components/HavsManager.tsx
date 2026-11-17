@@ -14,6 +14,7 @@ import { Button, Card, Check, Empty, Muted, Toggle } from '@/components/ui';
 import {
   addHavsEntryFor, addHavsTool, closeHavsWeek, deleteHavsEntry, editHavsEntry, reopenHavsWeek, setSiteHavsTool, useHavsCompleted, useHavsManagerWeek, type HavsOp, type HavsTool,
 } from '@/data/havs';
+import { canSignOffHs } from '@/lib/roles';
 import { usePeople } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { useFlushOnLeave } from '@/lib/useFlushOnLeave';
@@ -35,7 +36,10 @@ export function HavsManager({ site }: { site: Site }) {
   const [offset, setOffset] = useState(0);
   const days = weekDates(offset);
   const from = localISODate(days[0]), to = localISODate(days[4]);
-  const { data, isLoading } = useHavsManagerWeek(site, from, to, tab === 'week');
+  // Without Sign Off H&S (Admin › Roles) the week is shown as if closed: no minutes, tools, closing or reopening.
+  const signOff = canSignOffHs(me);
+  const { data: week, isLoading } = useHavsManagerWeek(site, from, to, tab === 'week');
+  const data = week && !signOff ? { ...week, locked: true } : week;
   const { data: completed } = useHavsCompleted(site.id, tab === 'done');
   const [open, setOpen] = useState<Record<number, boolean>>({});
   const drafts = useRef<Record<string, string>>({});
@@ -104,7 +108,7 @@ export function HavsManager({ site }: { site: Site }) {
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === `${r.id}p`} title="Export" onPress={() => void pdf('pdf', d, `${r.id}p`)} /></View>
               <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === `${r.id}e`} title="Email" onPress={() => void pdf('email', d, `${r.id}e`)} /></View>
-              <View style={{ flex: 1 }}><Button kind="ghost" title="Reopen" onPress={async () => { if (await reopenHavsWeek(r.id)) { toast('Week reopened'); refresh(); } else toast('Could not reopen — try again.'); }} /></View>
+              {signOff && <View style={{ flex: 1 }}><Button kind="ghost" title="Reopen" onPress={async () => { if (await reopenHavsWeek(r.id)) { toast('Week reopened'); refresh(); } else toast('Could not reopen — try again.'); }} /></View>}
             </View>
           </Card>
         );
@@ -122,16 +126,16 @@ export function HavsManager({ site }: { site: Site }) {
                 <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 6 }}>Tools On This Site ({tools.length})</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                   {data.allTools.map((t) => { const on = tools.some((x) => x.id === t.id); return (
-                    <FinChip key={t.id} on={on} label={`${titleCaseWords(t.name)} · ${t.vibration_magnitude}`} onPress={async () => { if (await setSiteHavsTool(site.id, t.id, !on)) refresh(); else toast('Could not save — try again.'); }} />
+                    <FinChip key={t.id} on={on} label={`${titleCaseWords(t.name)} · ${t.vibration_magnitude}`} onPress={async () => { if (!signOff) return; if (await setSiteHavsTool(site.id, t.id, !on)) refresh(); else toast('Could not save — try again.'); }} />
                   ); })}
                 </View>
-                <Muted style={{ marginTop: 6 }}>Tap a tool to add it to, or take it off, this site (m/s²).</Muted>
-                <Button kind="ghost" title="+ New tool" onPress={async () => {
+                {signOff && <Muted style={{ marginTop: 6 }}>Tap a tool to add it to, or take it off, this site (m/s²).</Muted>}
+                {signOff && <Button kind="ghost" title="+ New tool" onPress={async () => {
                   const name = titleCaseWords(((await promptText('Tool name', '')) || '').trim()); if (!name) return;
                   const mag = parseFloat(((await promptText('Vibration magnitude (m/s²)', '')) || '').replace(',', '.'));
                   if (!isFinite(mag) || mag <= 0) { toast('Enter a magnitude greater than 0.'); return; }
                   if (await addHavsTool(me, site.id, name, mag)) { toast('Tool added to the HAVS register and this site'); refresh(); } else toast('Could not save — try again.');
-                }} />
+                }} />}
               </Card>
               {!data.ops.length && <Muted style={{ marginBottom: 8 }}>No operatives are assigned to this job yet.</Muted>}
               {tools.length > 0 && days.map((d, di) => {
@@ -216,7 +220,7 @@ export function HavsManager({ site }: { site: Site }) {
               )}
               {data.locked ? (
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <View style={{ flex: 1 }}><Button kind="ghost" title="Reopen This Week" onPress={async () => { if (data.completion && (await reopenHavsWeek(data.completion.id))) { toast('Week reopened'); refresh(); } }} /></View>
+                  {signOff && <View style={{ flex: 1 }}><Button kind="ghost" title="Reopen This Week" onPress={async () => { if (data.completion && (await reopenHavsWeek(data.completion.id))) { toast('Week reopened'); refresh(); } }} /></View>}
                   {offset < 0 && <View style={{ flex: 1 }}><Button title="Move To Next Week" onPress={() => setOffset(offset + 1)} /></View>}
                 </View>
               ) : (

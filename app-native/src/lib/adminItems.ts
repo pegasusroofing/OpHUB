@@ -15,7 +15,7 @@ export const ADMIN_PAGES: Record<AdminPage, { label: string; sub: string; icon: 
 export type AdminItem = { key: string; page: AdminPage; group: string; icon: string; label: string; sub: string; kw: string; route: string | null; show: (me: Profile, org: Organization | null) => boolean };
 const admin = (me: Profile) => me.role === 'admin';
 export const ADMIN_ITEMS: AdminItem[] = [
-  { key: 'invites', page: 'people', group: 'Team', icon: '✉️', label: 'Invites', sub: 'Invite links and pending invites', kw: 'invite link join', route: '/pm/admin/invites', show: isManager },
+  { key: 'invites', page: 'people', group: 'Team', icon: '✉️', label: 'Invites', sub: 'Invite links and pending invites', kw: 'invite link join', route: '/pm/admin/invites', show: (u) => isManager(u) && can(u, 'people') },
   { key: 'users', page: 'people', group: 'Team', icon: '👥', label: 'Users', sub: 'Roles, passwords, removing people', kw: 'user role admin pm estimator operative driver', route: '/pm/admin/users', show: (u) => isManager(u) && can(u, 'people') },
   { key: 'roles', page: 'people', group: 'Team', icon: '🏷', label: 'Roles', sub: 'Your list of roles and what each one uses', kw: 'role roles job title contracts administrator quantity surveyor document controller contracts manager', route: '/pm/admin/roles', show: admin },
   { key: 'devicelocks', page: 'people', group: 'Team', icon: '📱', label: 'Device Locks', sub: 'One phone = one person', kw: 'device phone lock approve', route: '/pm/admin/devicelocks', show: isFullManager },

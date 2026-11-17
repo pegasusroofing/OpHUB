@@ -237,7 +237,7 @@ Deno.serve(withCors(async (req) => {
     const brand = (org?.color_primary) || '#4E8FD1';
     const logoUrl = org?.logo_path ? `${SUPABASE_URL}/storage/v1/object/public/org-logos/${org.logo_path}` : 'https://operativehub.co.uk/assets/ophub-mark.png';
 
-    const { data: admins } = await admin.from('profiles').select('id, name, email').eq('org_id', newUser.org_id).in('role', ['pm', 'admin']).eq('is_estimator', false).neq('id', newUser.id); // estimators receive no notifications
+    const { data: admins } = await admin.from('profiles').select('id, name, email').eq('org_id', newUser.org_id).in('role', ['pm', 'admin']).eq('notify_off', false).neq('id', newUser.id); // estimators, and roles without Notifications And Emails (Admin › Roles), receive none
     if (!admins || !admins.length) {
       return new Response(JSON.stringify({ ok: true, notified: 0 }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }

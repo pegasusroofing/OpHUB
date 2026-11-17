@@ -51,7 +51,7 @@ export function SowExport({ site, left }: { site: Site; tab: SowTab; left?: stri
   };
   const email = async () => {
     // 500 openScheduleEmailPrompt: tick PMs / admins (you're ticked), or add any address; CC the client.
-    const pick = (people ?? []).filter((p) => (p.role === 'pm' || p.role === 'admin') && p.email && !(p.role === 'pm' && p.is_estimator)).map((p) => ({ name: p.name || p.email as string, email: p.email as string }));
+    const pick = (people ?? []).filter((p) => (p.role === 'pm' || p.role === 'admin') && p.email && !(p.role === 'pm' && p.is_estimator) && !p.notify_off).map((p) => ({ name: p.name || p.email as string, email: p.email as string }));
     const r = await promptEmail('Email Schedule of Works Report', { pick, ticked: me.email && pick.some((p) => p.email === me.email) ? [me.email] : [], clientEmail: site.client_email });
     if (!r) return;
     const list = r.to.split(',');

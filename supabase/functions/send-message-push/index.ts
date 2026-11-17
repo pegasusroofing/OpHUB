@@ -207,7 +207,7 @@ Deno.serve(async (req) => {
         const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
         if (RESEND_API_KEY) {
           const [{ data: people }, { data: org }, { data: siteRow }, { data: sender }] = await Promise.all([
-            admin.from('profiles').select('id, name, email').in('id', recipientIds).eq('org_id', orgId).in('role', ['pm', 'admin']).eq('is_estimator', false), // estimators receive no notifications
+            admin.from('profiles').select('id, name, email').in('id', recipientIds).eq('org_id', orgId).in('role', ['pm', 'admin']).eq('notify_off', false), // estimators, and roles without Notifications And Emails (Admin › Roles), receive none
             admin.from('organizations').select('name, logo_path, color_primary').eq('id', orgId).maybeSingle(),
             siteId ? admin.from('sites').select('name, org_id').eq('id', siteId).maybeSingle() : Promise.resolve({ data: null }),
             senderId ? admin.from('profiles').select('name').eq('id', senderId).maybeSingle() : Promise.resolve({ data: null }),

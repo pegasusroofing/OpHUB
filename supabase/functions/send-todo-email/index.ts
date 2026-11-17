@@ -233,7 +233,7 @@ Deno.serve(withCors(async (req) => {
     // Only ever send to project managers/admins in the caller's own org —
     // recipient_ids from the client is just a pick-list, never trusted as-is.
     const { data: recipientProfiles } = await admin.from('profiles').select('id, name, email')
-      .eq('org_id', caller.org_id).in('role', ['pm', 'admin']).in('id', recipient_ids.filter((v: unknown) => typeof v === 'string').slice(0, 50)).eq('is_estimator', false); // estimators receive no notifications
+      .eq('org_id', caller.org_id).in('role', ['pm', 'admin']).in('id', recipient_ids.filter((v: unknown) => typeof v === 'string').slice(0, 50)).eq('notify_off', false); // estimators, and roles without Notifications And Emails (Admin › Roles), receive none
     const recipients = (recipientProfiles || []).filter((p) => p.email);
     if (!recipients.length) {
       return new Response(JSON.stringify({ error: 'None of the selected recipients have a usable email address.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

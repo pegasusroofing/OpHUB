@@ -13,7 +13,7 @@ import { Button, Muted } from '@/components/ui';
 import { boxesOf, layoutSummary, ramsPartner, saveAsTemplate, saveDocBoxes, signersOf, useSignTemplates } from '@/data/signTemplates';
 import { whoLabel } from '@/lib/rules/signBoxes';
 import { useAuth } from '@/lib/auth';
-import { isManager } from '@/lib/roles';
+import { canSignOffHs, isManager } from '@/lib/roles';
 import type { SignLayout } from '@/lib/signedPdf';
 import { supabase } from '@/lib/supabase';
 import { page, space } from '@/theme/theme';
@@ -31,6 +31,7 @@ export default function DocBoxes() {
   const { data: src, isLoading: srcLoading } = useQuery({ queryKey: ['ramsDocBoxesFrom', from], enabled: !!from, gcTime: 0, staleTime: 0, queryFn: async () => (await db.from('rams_docs').select('id,name,doc_type,sign_layout').eq('id', from as string).maybeSingle()).data as { id: string; name: string; doc_type: string | null; sign_layout: SignLayout } | null });
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!canSignOffHs(me)) return <Muted style={{ padding: space.l }}>Your role can view H&S but not sign it off. Ask your admin (Admin › Roles).</Muted>;
   if (isLoading || (!!from && srcLoading)) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!d) return <Muted style={{ padding: space.l }}>Document not found.</Muted>;
   const usable = tpls.filter((t) => boxesOf(t.layout).length);

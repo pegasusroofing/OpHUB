@@ -154,12 +154,12 @@ Deno.serve(withCors(async (req) => {
     if (!site || site.org_id !== caller.org_id) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    const { data: target } = await admin.from('profiles').select('id, org_id, name, email, is_estimator').eq('id', user_id).maybeSingle();
+    const { data: target } = await admin.from('profiles').select('id, org_id, name, email, is_estimator, notify_off').eq('id', user_id).maybeSingle();
     if (!target || target.org_id !== caller.org_id) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     // Estimators receive no automatic notifications (push or email).
-    if (target.is_estimator) {
+    if (target.is_estimator || target.notify_off) { // roles without Notifications And Emails (Admin › Roles) too
       return new Response(JSON.stringify({ ok: true, skipped: 'estimator' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 

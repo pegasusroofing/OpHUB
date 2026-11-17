@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
         if (!site?.org_id) { await admin.from('site_calendar_events').update({ reminder_sent: true }).eq('id', ev.id); continue; }
         const [{ data: org }, { data: recipients }] = await Promise.all([
           admin.from('organizations').select('name, logo_path, color_primary').eq('id', site.org_id).maybeSingle(),
-          admin.from('profiles').select('id, email, name').in('id', recipientIds).eq('org_id', site.org_id).eq('is_estimator', false),
+          admin.from('profiles').select('id, email, name').in('id', recipientIds).eq('org_id', site.org_id).eq('notify_off', false),
         ]);
         const emails = (recipients || []).map((r) => r.email).filter(Boolean);
         if (!emails.length) { await admin.from('site_calendar_events').update({ reminder_sent: true }).eq('id', ev.id); continue; }
