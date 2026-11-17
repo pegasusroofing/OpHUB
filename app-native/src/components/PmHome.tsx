@@ -3,7 +3,7 @@
 // (2 across on a phone, 4 on a laptop), "Pick up where you left off", and name / role / Sign out.
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { AdminGuide } from '@/components/AdminGuide';
 import { HomePrompts } from '@/components/HomePrompts';
@@ -189,7 +189,11 @@ function TodayBar({ rows, go, first }: { rows: TodayRow[]; go: (p: string) => ()
   return (
     <View style={{ marginBottom: space.m }} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
       <Text style={{ fontWeight: '700', color: base.ink, fontSize: 16, marginBottom: 8 }}>Today</Text>
-      <ScrollView horizontal testID="today-bar" showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+      {/* It stops on a tile's edge after a swipe, so it always lines up with the tiles below (Andy, 17 Nov 2026: "the
+          spacing between the weather and who's on site ... looks out of align"). Web: snap to each tile; phone app: every
+          tile and gap. */}
+      <ScrollView horizontal testID="today-bar" showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}
+        {...(Platform.OS === 'web' ? { pagingEnabled: true } : { snapToInterval: tw + 10, decelerationRate: 'fast' as const, snapToAlignment: 'start' as const })}>
         {first?.(tw)}
         {rows.map((r, k) => (
           <Pressable key={k} onPress={go(r.go)} accessibilityRole="button" style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 10, width: tw, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 12, paddingVertical: 9, paddingHorizontal: 12 }, pressed && { opacity: 0.85 }]}>

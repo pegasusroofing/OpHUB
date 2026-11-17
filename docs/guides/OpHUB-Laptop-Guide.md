@@ -101,9 +101,12 @@ You only see Finance if it's switched on for you (Admin › Users › **Finance*
 **What it's for:** the company's money at a glance.
 
 1. Click **Finance**. You land on **Overview**.
-2. Read the six figures: **Live Contract Value**, **Total Live Jobs**, **Still To Invoice**, **Owed To You**, **Overdue** and **Retention Held By Clients**.
+2. Read the six figures: **Live Contract Value** (with the number of live jobs under it), **Still To Invoice**, **Owed To You**, **Overdue**, **Due Out To Suppliers** and **Retention Held By Clients**.
 3. Click a figure to open the list behind it.
-4. Work down **Needs Attention**. Click a line to go straight to where it's dealt with.
+4. To change what a figure shows, click its **⋯** and choose. If that one is already on another tile, the two swap. Your choice is kept for you on the laptop and the phone. **Back To The Standard Tiles** puts them back.
+5. Work down **Needs Attention**. Click a line to go straight to where it's dealt with.
+
+**Due Out To Suppliers** is what you owe suppliers (materials, plant, scaffold, skips) on invoices you've approved but not paid, including VAT. It's the same as **To Pay Suppliers** on Purchases. Invoices still being checked show under it. Subcontractors and labour aren't in it.
 
 **What This Does In Projects:** finance users see a money strip on each project's home page in Projects: costs to date, invoiced and profit margin.
 

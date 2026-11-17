@@ -225,15 +225,18 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide, to
   );
 }
 const STAT_TONE = { blue: ['#f3f7ff', '#dbe6ff', '#1d4ed8'], green: ['#f1fbf5', '#d3f0de', '#15803d'], red: ['#fff5f4', '#fbdcd9', '#c81e1e'], amber: ['#fffaf0', '#f8e7c2', '#b45309'] } as const;
-export function FinStat({ v, label, hot, onPress, tone, onMenu, basis = 160, sub }: { v: string; label: string; hot?: boolean; onPress?: () => void; tone?: keyof typeof STAT_TONE; onMenu?: () => void; basis?: number | `${number}%`; sub?: string | null }) {
+export function FinStat({ v, label, hot, onPress, tone, onMenu, menuLabel, basis = 160, sub }: { v: string; label: string; hot?: boolean; onPress?: () => void; tone?: keyof typeof STAT_TONE; onMenu?: () => void; menuLabel?: string; basis?: number | `${number}%`; sub?: string | null }) {
   const c = tone ? STAT_TONE[tone] : null;
+  // The ⋯ sits over the tile's corner beside it, not inside it: a button can't hold another button (17 Nov 2026).
   return (
-    <Pressable onPress={onPress} style={{ flexGrow: 1, flexBasis: basis, backgroundColor: c ? c[0] : base.card, borderRadius: 10, borderWidth: 1, borderColor: c ? c[1] : '#e5e7eb', paddingVertical: 16, paddingHorizontal: 18, gap: 4 }}>
-      {onMenu ? <Pressable onPress={onMenu} hitSlop={8} accessibilityLabel={`Change dates: ${label}`} style={{ position: 'absolute', top: 6, right: 8, paddingHorizontal: 6, paddingVertical: 2, zIndex: 1 }}><Text style={{ fontSize: 16, fontWeight: '600', color: base.slate }}>⋯</Text></Pressable> : null}
-      <Text style={[{ fontWeight: '600' as const }, { fontSize: 22, color: c ? c[2] : hot ? '#C0392B' : base.ink }]}>{v}</Text>
-      <Text style={{ fontSize: 12.5, color: '#6b7280', fontWeight: '500' }}>{label}</Text>
-      {sub ? <Text numberOfLines={1} style={{ fontSize: 11.5, color: '#8A9099', marginTop: -2 }}>{sub}</Text> : null}
-    </Pressable>
+    <View style={{ flexGrow: 1, flexBasis: basis }}>
+      <Pressable onPress={onPress} accessibilityRole="button" style={{ flexGrow: 1, backgroundColor: c ? c[0] : base.card, borderRadius: 10, borderWidth: 1, borderColor: c ? c[1] : '#e5e7eb', paddingVertical: 16, paddingHorizontal: 18, paddingRight: onMenu ? 26 : 18, gap: 4 }}>
+        <Text style={[{ fontWeight: '600' as const }, { fontSize: 22, color: c ? c[2] : hot ? '#C0392B' : base.ink }]}>{v}</Text>
+        <Text style={{ fontSize: 12.5, color: '#6b7280', fontWeight: '500' }}>{label}</Text>
+        {sub ? <Text numberOfLines={1} style={{ fontSize: 11.5, color: '#8A9099', marginTop: -2 }}>{sub}</Text> : null}
+      </Pressable>
+      {onMenu ? <Pressable onPress={onMenu} hitSlop={8} accessibilityRole="button" accessibilityLabel={menuLabel ?? `Change dates: ${label}`} style={{ position: 'absolute', top: 6, right: 8, paddingHorizontal: 6, paddingVertical: 2 }}><Text style={{ fontSize: 16, fontWeight: '600', color: base.slate }}>⋯</Text></Pressable> : null}
+    </View>
   );
 }
 export function FinRow({ left, title, sub, right, onPress, tone, children, onMenu, compact }: { left?: string; title: string; sub?: string; right?: string; onPress?: () => void; tone?: string; children?: ReactNode; onMenu?: () => void; compact?: boolean }) {

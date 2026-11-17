@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { addDays, appOverdueFor, FIN_DEFAULTS, finBlocked, FIN_TRIAL_MSG, INV_OPEN, invOutstandingNet, invOverdue, jobTag, plantCost, retentionAlerts, retentionStillHeld, today, type FinApp, type FinInv, type FinSettings, type JobFin } from '@/lib/rules/finance';
 import { siteStatusKey } from '@/lib/rules/checkin';
+import { paidOnStatements, supplierDueOut } from '@/lib/rules/finTiles';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
 
@@ -111,6 +112,22 @@ export function useFinOverview(me: Profile | null, sites: Site[] | undefined) {
       const owed = invs.reduce((t, i) => t + invOutstandingNet(i), 0);
       const retHeld = S.reduce((t, s) => t + still(s), 0);
       return { liveValue, liveCount: live.length, toInvoice, owed, overdue, retHeld, todo };
+    },
+  });
+}
+
+/** Finance › Overview's Due Out To Suppliers (Andy, 17 Nov 2026): supplier invoices not paid yet, by hand or on a
+ *  statement. Only the Overview reads it, so Home's numbers don't wait for it. Under 'finOverview', so every Finance
+ *  save that refreshes the Overview refreshes this too. */
+export function useDueOut(orgId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['finOverview', 'dueOut', orgId], enabled: !!orgId, staleTime: 60000,
+    queryFn: async () => {
+      const [pinvs, stmts] = await Promise.all([
+        selectAll<{ id: string; status: string; total: number | null; paid_on: string | null; sub_job_id: string | null }>('purchase_invoices', 'id,status,total,paid_on,sub_job_id', (q) => q.eq('org_id', orgId as string).in('status', ['approved', 'to_approve', 'query']).is('paid_on', null)),
+        selectAll<{ status: string | null; statement_date: string | null; reconciled_at: string | null; lines: unknown }>('fin_statements', 'id,status,statement_date,reconciled_at,lines', (q) => q.eq('org_id', orgId as string)),
+      ]);
+      return supplierDueOut(pinvs, paidOnStatements(stmts));
     },
   });
 }

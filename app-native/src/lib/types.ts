@@ -20,6 +20,8 @@ export type Profile = {
   phone: string | null;
   is_estimator: boolean;
   finance_only?: boolean;
+  /** Finance › Overview's six tiles, in order, as this person chose them with each tile's ⋯ (17 Nov 2026); empty: the standard six. */
+  fin_home_tiles?: string[] | null;
   view_as_org_id: string | null;
   /** Platform owner inside a company as its admin (support mode); the real company id is kept here. */
   _support?: boolean; _realOrgId?: string | null;

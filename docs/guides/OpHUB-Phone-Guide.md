@@ -96,6 +96,7 @@ Finance is mainly a laptop job. The laptop guide covers every tab in full. Finan
 2. Inside a job, tap ☰ and then **Finance** under **THIS PROJECT**. It opens that job's Finance page.
 3. Swipe the tab row sideways: **Overview**, **Projects**, **Sales**, **Purchases**, **Subcontractors & Labour**, **Reports**, **Directory**, **Settings**.
 4. On **Overview**, tap any figure to open the list behind it. **Needs Attention** lists what's waiting.
+5. To change what a figure shows, tap its **⋯** and choose. If that one is already on another tile, the two swap. **Due Out To Suppliers** is what you owe suppliers on approved invoices not paid yet, including VAT.
 
 You only see Finance if it's switched on for you (Admin › Users › **Finance**). If your role can look but not change, Finance shows **View Only**.
 

@@ -34,6 +34,7 @@ import { setPendingAct } from '@/lib/pendingAct';
 import { COST_CATS, PI_STATUS, poInvoiced } from '@/lib/rules/finBook';
 import { fdate, FIN_TRIAL_MSG, finBlocked, jobTag, money, plantCost, round2, today, vatList } from '@/lib/rules/finance';
 import { monthLabel, monthOf, monthsIn, valueTest } from '@/lib/rules/finFilters';
+import { paidOnStatements } from '@/lib/rules/finTiles';
 import { base, radius, useDesk } from '@/theme/theme';
 
 type Row = Record<string, any>;
@@ -114,9 +115,9 @@ export function usePurchases(orgId: string | null | undefined, siteId?: string) 
         selectAll<Row>('fin_statements', 'id,status,statement_date,reconciled_at,lines', (q) => q.eq('org_id', orgId as string)),
       ]);
       // Paid when the supplier's statement it is on has been reconciled (Andy, 5 Nov 2026): no need to mark each one paid.
-      const onStmt: Record<string, string> = {};
-      // A line counts once it's allocated (ticked on the statement), or the whole statement is reconciled.
-      stmts.forEach((st) => ((st.lines as Row[] | null) || []).forEach((l) => { if (l.match && !l.ignore && !String(l.match).startsWith('in:') && (l.allocated || st.status === 'reconciled')) onStmt[l.match] = String(st.statement_date || String(st.reconciled_at || '').slice(0, 10)); }));
+      // A line counts once it's allocated (ticked on the statement), or the whole statement is reconciled. The same rule
+      // works out Finance › Overview's Due Out To Suppliers (17 Nov 2026).
+      const onStmt = paidOnStatements(stmts as never);
       pinvs.forEach((p) => { if (!p.paid_on && onStmt[p.id]) p.stmt_paid = onStmt[p.id]; });
       return { pinvs: pinvs.sort((a, b) => String(b.invoice_date || '').localeCompare(String(a.invoice_date || ''))), pos: pos.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))), inbox, hires, suppliers };
     },
