@@ -10,7 +10,7 @@ import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import { createInvite, emailInvite, joinLink, setRole, toggleFinance, useTeam } from '@/data/admin';
 import { useAuth } from '@/lib/auth';
-import { isFinanceUser, isManager } from '@/lib/roles';
+import { canEditFinance, isFinanceUser, isManager } from '@/lib/roles';
 import { base, radius } from '@/theme/theme';
 
 const roleWord = (r: string) => (r === 'admin' ? 'Admin' : r === 'pm' ? 'Manager' : 'Member');
@@ -49,7 +49,8 @@ export default function FinTeam() {
           </View>
         ))}
       </Card>
-      {isManager(me) && (
+      {/* Inviting is a change: Finance – Edit only (Admin › Roles). */}
+      {isManager(me) && canEditFinance(me) && (
         <Card>
           <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 6 }}>Invite someone</Text>
           {invite ? (

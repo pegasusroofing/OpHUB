@@ -19,6 +19,7 @@ import { Button, Empty, Muted, SectionTitle } from '@/components/ui';
 import { fdb, selectAll } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { fdate, money } from '@/lib/rules/finance';
 import { base, useDesk } from '@/theme/theme';
 
@@ -51,13 +52,15 @@ export function PriceLists({ sup }: { sup?: string }) {
   const { me } = useAuth();
   const { data } = usePriceLists(me?.org_id);
   if (!me || !data) return <Muted>Loading…</Muted>;
-  return sup ? <SupplierPrices name={sup} data={data} /> : <Suppliers data={data} />;
+  // Without Finance – Edit (Admin › Roles) the prices are shown, not changed.
+  const canEdit = canEditFinance(me);
+  return sup ? <SupplierPrices name={sup} data={data} canEdit={canEdit} /> : <Suppliers data={data} canEdit={canEdit} />;
 }
 
 const open = (name: string) => router.push({ pathname: '/fin/purchases', params: { tab: 'prices', sup: name } } as never);
 
 /** Every supplier with prices: how many items, how many uploaded lists, when last updated. */
-function Suppliers({ data }: { data: { lists: Row[]; items: Row[]; book: PB[]; sups: Row[] } }) {
+function Suppliers({ data, canEdit }: { data: { lists: Row[]; items: Row[]; book: PB[]; sups: Row[] }; canEdit: boolean }) {
   const desk = useDesk();
   const listBy: Record<string, Row> = {}; data.lists.forEach((l) => { listBy[l.id] = l; });
   const by: Record<string, { name: string; key: string; items: number; lists: number; date: string }> = {};
@@ -81,7 +84,7 @@ function Suppliers({ data }: { data: { lists: Row[]; items: Row[]; book: PB[]; s
   return (
     <View>
       <Muted style={{ marginBottom: 8 }}>Each supplier’s prices: their price lists, and prices picked up from their quotes and invoices. New POs from the Materials tile are priced from here until the real price comes in. Tap a supplier to see their prices.</Muted>
-      <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 10 }}><Button grow title="+ Add A Supplier’s Prices" onPress={() => void addSupplier()} /></View>
+      {canEdit && <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 10 }}><Button grow title="+ Add A Supplier’s Prices" onPress={() => void addSupplier()} /></View>}
       {rows.length && desk ? (
         <FinTable rows={rows} keyOf={(r) => r.name} onRow={(r) => open(r.key ? r.name : NO_SUPPLIER)} defaultSort={{ k: 's', dir: 'asc' } as never}
           cols={[
@@ -104,7 +107,7 @@ function Suppliers({ data }: { data: { lists: Row[]; items: Row[]; book: PB[]; s
 }
 
 /** One supplier's page: their name, Upload / Add A Price, their uploaded lists, then every price as one table. */
-function SupplierPrices({ name, data }: { name: string; data: { lists: Row[]; items: Row[]; book: PB[]; sups: Row[] } }) {
+function SupplierPrices({ name, data, canEdit }: { name: string; data: { lists: Row[]; items: Row[]; book: PB[]; sups: Row[] }; canEdit: boolean }) {
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -131,10 +134,9 @@ function SupplierPrices({ name, data }: { name: string; data: { lists: Row[]; it
   };
   const listMenu = async (l: Row) => {
     const act = await chooseAction(qLabel(l), [
-      { key: 'edit', label: '✎ Edit This List' },
+      ...(canEdit ? [{ key: 'edit', label: '✎ Edit This List' }] : []),
       ...(l.file_path ? [{ key: 'file', label: `📄 View ${l.file_name || 'The File'}` }] : []),
-      { key: 'dup', label: '⧉ Duplicate For Next Year' },
-      { key: 'rm', label: 'Remove' },
+      ...(canEdit ? [{ key: 'dup', label: '⧉ Duplicate For Next Year' }, { key: 'rm', label: 'Remove' }] : []),
     ]);
     if (act === 'edit') setEditList(l.id);
     if (act === 'file') { const u = await openDocLink('finance-docs', l.file_path); if (u) viewDoc(u, l.file_name || ''); else toast('Could not open the file.'); }
@@ -156,10 +158,10 @@ function SupplierPrices({ name, data }: { name: string; data: { lists: Row[]; it
   return (
     <View>
       <Text accessibilityRole="header" style={{ fontSize: 20, fontWeight: '700', color: base.ink, marginBottom: 10 }}>{shownName}</Text>
-      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
+      {canEdit && <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
         <Button grow oneLine busy={!!busy} title={busy || '📥 Upload Price List'} onPress={() => (none ? toast('Choose the supplier first: + Add A Supplier’s Prices.') : void upload())} />
         <Button grow oneLine kind="ghost" title="+ Add A Price" onPress={() => (none ? toast('Choose the supplier first: + Add A Supplier’s Prices.') : setPrice('new'))} />
-      </View>
+      </View>}
       {editList && <PriceListEdit qid={editList} onClose={(saved) => { setEditList(null); if (saved) refresh(); }} />}
       {price && <PriceForm cur={price === 'new' ? null : price} supplier={name} onClose={() => setPrice(null)} />}
       {lists.length > 0 && (
@@ -185,7 +187,7 @@ function SupplierPrices({ name, data }: { name: string; data: { lists: Row[]; it
       )}
       <SectionTitle>Prices</SectionTitle>
       {prices.length && desk ? (
-        <FinTable rows={prices} keyOf={(p) => p.id} onRow={(p) => (p.pb ? setPrice(p.pb) : p.list ? setEditList(p.list) : undefined)}
+        <FinTable rows={prices} keyOf={(p) => p.id} onRow={canEdit ? (p) => (p.pb ? setPrice(p.pb) : p.list ? setEditList(p.list) : undefined) : undefined}
           cols={[
             { k: 'i', l: 'Item', flex: 2.4, min: 200, sort: (p) => p.desc.toLowerCase(), text: (p) => p.desc, render: (p) => <Cell bold>{p.desc}</Cell> },
             { k: 'c', l: 'Code', text: (p) => p.code, render: (p) => <Cell>{p.code || '—'}</Cell> },
@@ -196,7 +198,7 @@ function SupplierPrices({ name, data }: { name: string; data: { lists: Row[]; it
           ]}
           footLabel={(shown) => `${shown.length} Price${shown.length === 1 ? '' : 's'}`} />
       ) : prices.length ? (
-        <PhoneTable label="Prices" rows={prices} keyOf={(p) => p.id} onRow={(p) => (p.pb ? setPrice(p.pb) : p.list ? setEditList(p.list) : undefined)}
+        <PhoneTable label="Prices" rows={prices} keyOf={(p) => p.id} onRow={canEdit ? (p) => (p.pb ? setPrice(p.pb) : p.list ? setEditList(p.list) : undefined) : undefined}
           cols={[
             { k: 'i', l: 'Item', lines: 2, main: (p) => p.desc, sub: (p) => p.code, find: (p) => `${p.desc} ${p.code}`, sort: (p) => p.desc.toLowerCase() },
             { k: 'u', l: 'Unit', w: 50, center: true, main: (p) => p.unit || '—' },

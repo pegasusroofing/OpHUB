@@ -8,10 +8,10 @@
 -- the database loop (infinite recursion) on every jobs list. That version was live for about a minute at 01:47 and only
 -- the test that found it was affected; this one replaced it at once.
 create or replace function public.role_sees_site(p_site uuid, p_pm uuid, p_by uuid) returns boolean
-language sql stable security definer set search_path = public as $
+language sql stable security definer set search_path = public as $$
   select public.role_can('every_job') or p_pm = auth.uid() or p_by = auth.uid()
     or exists (select 1 from public.site_assignments sa where sa.site_id = p_site and sa.user_id = auth.uid());
-$;
+$$;
 revoke execute on function public.role_sees_site(uuid, uuid, uuid) from public, anon;
 grant execute on function public.role_sees_site(uuid, uuid, uuid) to authenticated;
 create policy "role: own jobs unless every job" on public.sites as restrictive for select to authenticated
@@ -85,3 +85,66 @@ create trigger zz_role_hs_signoff before insert or update on public.permits for 
 -- Not locked in the database, on purpose: Finance – Edit, Raise Orders and See Prices. Their tables are also written by
 -- things those roles are allowed (a PM's variations and orders from Projects reach Finance's tables), so a lock would
 -- break allowed work. The screens enforce them.
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- Applied 17 Nov 2026 after the security review of the above (all additive, or replacing functions made today):
+-- Manage People also covers removing people, invites and unlocking phones; only an admin can change the level of someone
+-- given a named role (a level change used to reset their role to the level's main one); the H&S lock lets the database's
+-- own clear-outs through (deleting a person or a replaced RAMS); push_tokens_skip_quiet only judges your own phone; another
+-- company asking profile_notify_off about you gets no answer; becoming quiet switches off phones already registered.
+create policy "role: manage people (remove)" on public.profiles as restrictive for delete to authenticated using ((select public.role_can('people')));
+create policy "role: manage people (invite)" on public.invites as restrictive for insert to authenticated with check ((select public.role_can('people')));
+create policy "role: manage people (phones)" on public.device_locks as restrictive for delete to authenticated using ((select public.role_can('people')));
+
+create or replace function public.guard_named_role_level() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null or new.id = auth.uid() or public.is_admin() or public.is_superadmin() then return new; end if;
+  if old.org_role_id is not null and exists (select 1 from public.org_roles r where r.id = old.org_role_id and not r.is_default)
+     and (new.role, coalesce(new.is_estimator, false), coalesce(new.finance_only, false))
+         is distinct from (old.role, coalesce(old.is_estimator, false), coalesce(old.finance_only, false)) then
+    raise exception 'Only an admin can change the level of someone the admin has given a role.' using errcode = '42501';
+  end if;
+  return new;
+end $$;
+create trigger zzz0_guard_named_role_level before update on public.profiles
+for each row execute function public.guard_named_role_level();
+
+create or replace function public.guard_role_hs_signoff() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if pg_trigger_depth() > 1 or auth.uid() is null or not public.is_pm() or public.role_can('hs_signoff') then return new; end if;
+  raise exception 'Your role can view H&S but not sign it off. Ask your admin (Admin › Roles).' using errcode = '42501';
+end $$;
+
+create or replace function public.push_tokens_skip_quiet() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is not null and new.user_id is distinct from auth.uid() then return new; end if;
+  if exists (select 1 from public.profiles p where p.id = new.user_id and p.notify_off) then return null; end if;
+  return new;
+end $$;
+
+create or replace function public.profile_notify_off(p_org uuid, p_role text, p_est boolean, p_fin_only boolean, p_role_id uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select case when pg_trigger_depth() = 0 and auth.uid() is not null and p_org is distinct from public.my_org_id() then null else
+    coalesce(p_est, false) or (p_role not in ('admin', 'superadmin') and coalesce((
+      select not ('notify' = any(r.perms)) from public.org_roles r
+      where r.org_id = p_org and r.access = public.profile_access(p_role, p_est, p_fin_only)
+        and (r.id = p_role_id or r.is_default) and r.perms is not null
+      order by (r.id = p_role_id) desc limit 1), false)) end;
+$$;
+
+create or replace function public.profiles_notify_off_sync() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  new.notify_off := coalesce(public.profile_notify_off(new.org_id, new.role, new.is_estimator, new.finance_only, new.org_role_id), false);
+  if tg_op = 'UPDATE' and new.notify_off and not coalesce(old.notify_off, false) then
+    update public.push_tokens set token = 'disabled:' || token, updated_at = now()
+      where user_id = new.id and token not like 'disabled:%';
+  end if;
+  return new;
+end $$;
+-- Not locked in the database: toolbox talks (making a project copies the company's talks in, and a manager's own
+-- signature can close a talk), so Sign Off H&S for TBTs is in the screens only. Two further fixes change functions the
+-- current app uses, so they wait for Andy: sql/role-switches-for-andy-17nov.sql.

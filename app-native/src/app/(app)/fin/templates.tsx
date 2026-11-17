@@ -12,6 +12,7 @@ import { useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { deleteTemplate, saveTemplate, TPL_FIELDS, TPL_KINDS, TPL_STANDARD, uploadTemplateLogo, useTemplates, type Tpl, type TplKind } from '@/data/finTemplates';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { base } from '@/theme/theme';
 
 export default function FinTemplates() {
@@ -19,18 +20,20 @@ export default function FinTemplates() {
   const { data: list = [] } = useTemplates(me?.org_id);
   const [edit, setEdit] = useState<Partial<Tpl> | null>(null);
   if (!me) return null;
+  // Without Finance – Edit (Admin › Roles) the templates are shown, not changed.
+  const canEdit = canEditFinance(me);
   const startNew = (kind: TplKind) => setEdit({ kind, name: '', subject: TPL_STANDARD[kind].subject, body: TPL_STANDARD[kind].body, is_default: !list.some((t) => t.kind === kind && t.is_default), show_logo: true, logos: [] });
   return (
     <FinPage title="Templates" section="settings" sub="templates" onSub={(k) => { if (k !== 'templates') finSettingsGo(k); }}>
       <Muted style={{ marginBottom: 10 }}>The wording of the emails Finance sends. The default for each kind is picked first when you send; you can still choose another or change the words before sending. Fill-ins: {TPL_FIELDS}</Muted>
-      <View style={{ alignSelf: 'flex-start', marginBottom: 8 }}><Button title="+ New Template" onPress={() => startNew('application')} /></View>
+      {canEdit && <View style={{ alignSelf: 'flex-start', marginBottom: 8 }}><Button title="+ New Template" onPress={() => startNew('application')} /></View>}
       {TPL_KINDS.map(([k, l]) => {
         const mine = list.filter((t) => t.kind === k);
         return (
           <View key={k}>
             <SectionTitle>{l}</SectionTitle>
-            {mine.length ? mine.map((t) => <FinRow compact key={t.id} title={t.name} sub={t.subject || ''} right={t.is_default ? 'Default' : ''} tone={base.blue} onPress={() => setEdit(t)} />)
-              : <Card><Muted>Using the standard wording.</Muted><Pressable onPress={() => startNew(k)}><Text style={{ color: base.blue, fontWeight: '500', marginTop: 6 }}>+ Make your own</Text></Pressable></Card>}
+            {mine.length ? mine.map((t) => <FinRow compact key={t.id} title={t.name} sub={t.subject || ''} right={t.is_default ? 'Default' : ''} tone={base.blue} onPress={canEdit ? () => setEdit(t) : undefined} />)
+              : <Card><Muted>Using the standard wording.</Muted>{canEdit && <Pressable onPress={() => startNew(k)}><Text style={{ color: base.blue, fontWeight: '500', marginTop: 6 }}>+ Make your own</Text></Pressable>}</Card>}
           </View>
         );
       })}

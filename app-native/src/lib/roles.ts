@@ -25,7 +25,7 @@ export const canSignOffHs = (u: Profile | null) => isManager(u) && can(u, 'hs_si
 /** Finance – Edit (Admin › Roles): without it Finance is look-only (no new, edit, delete, send or approve). */
 export const canEditFinance = (u: Profile | null) => can(u, 'fin_edit');
 /** Raise Orders (Admin › Roles): material orders, purchase orders and subcontract orders. */
-export const canRaiseOrders = (u: Profile | null) => isManager(u) && can(u, 'orders');
+export const canRaiseOrders = (u: Profile | null) => (isManager(u) || u?.role === 'superadmin') && can(u, 'orders');
 export const isFinanceOnlyOrg = (org: Organization | null) => !!org && org.has_pm === false;
 
 /** Whether the role's list has any of the Projects side's parts (none kept: no, as before the list). */

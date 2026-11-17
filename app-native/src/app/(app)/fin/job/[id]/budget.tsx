@@ -11,6 +11,7 @@ import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { fdb } from '@/data/finance';
 import { useBook } from '@/data/finBook';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { COST_CATS, forecast, pctTxt } from '@/lib/rules/finBook';
 import { money, num, round2 } from '@/lib/rules/finance';
 import { base, page, radius, space, useDesk } from '@/theme/theme';
@@ -33,6 +34,8 @@ export default function FinBudget() {
   const [split, setSplit] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(SPLIT).map(([k, n]) => [k, String(n)])));
   if (!data || !me) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const fc = forecast(data.book, id, data.settings);
+  // Without Finance – Edit (Admin › Roles) the budget is shown, not changed.
+  const canEdit = canEditFinance(me);
   const vals = v || Object.fromEntries(fc.cats.map((k) => [k, { budget: fc.budget[k] != null ? String(fc.budget[k]) : '', tc: fc.tcSet[k] ? String(fc.toComplete[k]) : '' }]));
   const set = (k: string, f: 'budget' | 'tc', x: string) => setV({ ...vals, [k]: { ...vals[k], [f]: x } });
   // Worked out from what's typed, so the summary moves as you go.
@@ -82,7 +85,7 @@ export default function FinBudget() {
           {budgetNow === null ? 'No budget yet — set one below (or from a target margin) to see if the job is on track.' : over > 0.5 ? `Forecast to go ${money(over, 0)} over budget` : `Forecast to finish ${money(Math.abs(over), 0)} under budget`}
         </Text>
       </Card>
-      <Card>
+      {canEdit && <Card>
         <Text onPress={() => setTgtOpen(!tgtOpen)} style={{ fontWeight: '600', color: base.ink }}>{tgtOpen ? '▼' : '▶'} Set budgets from a target margin</Text>
         <Muted>Type the margin you want; it works out what you can spend and splits it across the headings.</Muted>
         {tgtOpen && (() => {
@@ -115,7 +118,7 @@ export default function FinBudget() {
             </View>
           );
         })()}
-      </Card>
+      </Card>}
       {desk ? (
         <Card>
           <Text style={{ fontSize: 16, fontWeight: '600', color: base.ink }}>Cost By Heading</Text>
@@ -135,10 +138,10 @@ export default function FinBudget() {
                   return (
                     <View key={k} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
                       {C(0, T(COST_CATS[k]), true)}
-                      {C(1, <TextInput value={vals[k].budget} onChangeText={(x) => set(k, 'budget', x)} keyboardType="decimal-pad" placeholder="£0.00" accessibilityLabel={`${COST_CATS[k]} budget`} style={[box, { width: '100%', textAlign: 'right' }]} />)}
+                      {C(1, <TextInput editable={canEdit} value={vals[k].budget} onChangeText={(x) => set(k, 'budget', x)} keyboardType="decimal-pad" placeholder="£0.00" accessibilityLabel={`${COST_CATS[k]} budget`} style={[box, { width: '100%', textAlign: 'right' }]} />)}
                       {C(2, <Pressable onPress={() => router.push(`/fin/job/${id}/costs?type=${k}` as never)} accessibilityRole="link"><Text style={{ fontSize: 13, color: base.blue, textDecorationLine: 'underline' }}>{money(fc.actual[k])}</Text></Pressable>)}
                       {C(3, T(money(fc.committed[k])))}
-                      {C(4, <TextInput value={vals[k].tc} onChangeText={(x) => set(k, 'tc', x)} keyboardType="decimal-pad" placeholder={money(fc.toComplete[k] || 0)} accessibilityLabel={`${COST_CATS[k]} to complete`} style={[box, { width: '100%', textAlign: 'right' }]} />)}
+                      {C(4, <TextInput editable={canEdit} value={vals[k].tc} onChangeText={(x) => set(k, 'tc', x)} keyboardType="decimal-pad" placeholder={money(fc.toComplete[k] || 0)} accessibilityLabel={`${COST_CATS[k]} to complete`} style={[box, { width: '100%', textAlign: 'right' }]} />)}
                       {C(5, T(money(final)))}
                       {C(6, diff === null ? T(<>—</>, false, base.slate) : T(<>{diff > 0.5 ? 'over' : 'under'} {money(Math.abs(diff))}</>, false, diff > 0.5 ? base.red : '#1E7A43'))}
                       {C(7, <View style={{ width: '100%', height: 6, borderRadius: 3, backgroundColor: '#EEF0F2', overflow: 'hidden' }}><View style={{ width: `${used}%`, height: 6, backgroundColor: diff !== null && diff > 0.5 ? base.red : '#14161C' }} /></View>)}
@@ -162,8 +165,8 @@ export default function FinBudget() {
             <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 6 }}>{COST_CATS[k]}</Text>
             {!!b && <View accessibilityLabel={`${COST_CATS[k]} ${Math.round(usedPh)}% of budget used`} style={{ width: '100%', height: 6, borderRadius: 3, backgroundColor: '#EEF0F2', overflow: 'hidden', marginBottom: 8 }}><View style={{ width: `${usedPh}%`, height: 6, backgroundColor: diff !== null && diff > 0.5 ? base.red : '#14161C' }} /></View>}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-              <View><Muted>Budget £</Muted><TextInput value={vals[k].budget} onChangeText={(x) => set(k, 'budget', x)} keyboardType="decimal-pad" placeholder="£0.00" style={box} /></View>
-              <View><Muted>To complete £</Muted><TextInput value={vals[k].tc} onChangeText={(x) => set(k, 'tc', x)} keyboardType="decimal-pad" placeholder={money(fc.toComplete[k] || 0)} style={box} /></View>
+              <View><Muted>Budget £</Muted><TextInput editable={canEdit} value={vals[k].budget} onChangeText={(x) => set(k, 'budget', x)} keyboardType="decimal-pad" placeholder="£0.00" style={box} /></View>
+              <View><Muted>To complete £</Muted><TextInput editable={canEdit} value={vals[k].tc} onChangeText={(x) => set(k, 'tc', x)} keyboardType="decimal-pad" placeholder={money(fc.toComplete[k] || 0)} style={box} /></View>
               <View style={{ flex: 1, minWidth: 200 }}><Muted>Spent {money(fc.actual[k], 0)} · ordered {money(fc.committed[k], 0)}</Muted><Text style={{ fontWeight: '600', color: base.ink }}>Expected final {money(final)}</Text>{diff !== null && <Muted style={{ color: diff > 0.5 ? base.red : base.slate, fontWeight: '500' }}>{diff > 0.5 ? 'over' : 'under'} {money(Math.abs(diff))}</Muted>}</View>
             </View>
           </Card>
@@ -186,13 +189,13 @@ export default function FinBudget() {
         {/* The starting point the job is measured against (911 finSetOriginal). */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
           <Muted style={{ flex: 1 }}>{fc.jf.original_value == null ? 'Save today’s value and budget as the starting point, so you can see how the job moves.' : `Starting point saved${fc.jf.original_at ? ` ${new Date(fc.jf.original_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}: value ${money(fc.jf.original_value, 0)}${fc.jf.original_cost != null ? ` · budget ${money(fc.jf.original_cost, 0)}` : ''}.`}</Muted>
-          <Button kind="ghost" title={fc.jf.original_value == null ? 'Save starting point' : 'Update to today’s figures'} onPress={async () => {
+          {canEdit && <Button kind="ghost" title={fc.jf.original_value == null ? 'Save starting point' : 'Update to today’s figures'} onPress={async () => {
             if (!(await confirmAsk(`Set the original to today’s figures?\n\nValue ${money(fc.ffa)} · budget ${fc.budgetTotal != null ? money(fc.budgetTotal) : 'none'}`, 'Set'))) return;
             const r = await fdb.from('job_finance').upsert({ site_id: id, org_id: me.org_id, original_value: fc.ffa, original_cost: fc.budgetTotal, original_at: new Date().toISOString(), updated_at: new Date().toISOString(), updated_by: me.id } as never, { onConflict: 'site_id' });
             toast(r.error ? 'Could not save — try again.' : 'Original set'); void qc.invalidateQueries({ queryKey: ['finBook'] });
-          }} />
+          }} />}
         </View></Card>
-      <Button busy={busy} title="Save budget & forecast" onPress={async () => {
+      {canEdit && <Button busy={busy} title="Save budget & forecast" onPress={async () => {
         const rows = [];
         for (const k of fc.cats) {
           const b = num(vals[k].budget), t = num(vals[k].tc);
@@ -208,7 +211,7 @@ export default function FinBudget() {
           if (fc.jf.original_cost == null && tot) await fdb.from('job_finance').upsert({ site_id: id, org_id: me.org_id, original_cost: tot, original_value: fc.jf.original_value != null ? fc.jf.original_value : fc.jf.contract_value ?? null, original_at: new Date().toISOString() } as never, { onConflict: 'site_id' });
           toast('Budget & forecast saved'); setV(null); void qc.invalidateQueries({ queryKey: ['finBook'] });
         } finally { setBusy(false); }
-      }} />
+      }} />}
     </ScrollView>
   );
 }

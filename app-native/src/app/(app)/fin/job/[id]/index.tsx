@@ -31,7 +31,7 @@ import { siteStatusKey } from '@/lib/rules/checkin';
 import { plainGet, plainSet } from '@/lib/kv';
 import { forecast, marginOn, pctTxt, type MarginBasis } from '@/lib/rules/finBook';
 import { appOverdueFor, plantCost, today, appDateFor, FIN_VAT_LABEL, fdate, invOutstanding, invOutstandingNet, invOverdue, money, num, retentionAlerts, retentionDates, retentionHeld, retHalfAmt, type FinApp, type FinInv } from '@/lib/rules/finance';
-import { isFinanceController, isFinanceOnlyOrg, isFinanceUser, isFullManager } from '@/lib/roles';
+import { canEditFinance, isFinanceController, isFinanceOnlyOrg, isFinanceUser, isFullManager } from '@/lib/roles';
 import { base, page, space, useTheme } from '@/theme/theme';
 
 type Row = Record<string, any>;
@@ -60,7 +60,8 @@ export default function FinJob() {
   const qcJob = useQueryClient();
   const finOnly = isFinanceOnlyOrg(org);
   useEffect(() => {
-    if (!me || !id || finOnly || !isFinanceUser(me, org)) return;
+    // Bringing them in is a change: only for someone with Finance – Edit (Admin › Roles).
+    if (!me || !id || finOnly || !isFinanceUser(me, org) || !canEditFinance(me)) return;
     void importSiteVariations(me, id).then((r) => { if (r.added) void qcJob.invalidateQueries({ queryKey: ['finBook'] }); });
   }, [me, org, id, finOnly, qcJob]);
   if (!me) return null;
@@ -91,6 +92,8 @@ export default function FinJob() {
 function Overview({ id, fc, settings, invs, apps, book, askFinancials }: { id: string; fc: ReturnType<typeof forecast>; settings: Row; invs: FinInv[]; apps: FinApp[]; book: Row; askFinancials?: boolean }) {
   const qcOv = useQueryClient();
   const { me } = useAuth();
+  // Without Finance – Edit (Admin › Roles) the overview is look-only: no Getting Started steps or set-up form.
+  const canEdit = canEditFinance(me);
   // A new project is asked for its financials (Andy, 1 Nov 2026): a pop-up on creating it, and this prompt until they're saved or
   // someone says they're fine. Not on a job that's already invoicing (9219zi).
   const [finOpen, setFinOpen] = useState(!!askFinancials);
@@ -155,7 +158,7 @@ function Overview({ id, fc, settings, invs, apps, book, askFinancials }: { id: s
   const ghost = (l: string, p: string) => <Pressable key={l} onPress={() => router.push(p as never)} style={{ borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#DFE3EA' }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: base.ink }}>{l}</Text></Pressable>;
   return (
     <View>
-      {!!steps.length && (
+      {!!steps.length && canEdit && (
         <View style={{ backgroundColor: '#fffaf0', borderWidth: 1, borderColor: '#f8e7c2', borderRadius: 10, padding: 12, marginBottom: 10 }}>
           <Text style={{ fontWeight: '600', color: '#111827' }}>Getting Started</Text>
           {steps.map((st, i) => (
@@ -171,7 +174,7 @@ function Overview({ id, fc, settings, invs, apps, book, askFinancials }: { id: s
           ))}
         </View>
       )}
-      {finOpen && <Setup formOnly id={id} site={site as Row | undefined} jf={fc.jf} cpos={((book.cpos as Row[]) || []).filter((p) => p.site_id === id)} settings={settings} appsN={apps.filter((a) => a.status !== 'void').length} boqN={fc.schedItemsN} onDone={() => setFinOpen(false)} />}
+      {finOpen && canEdit && <Setup formOnly id={id} site={site as Row | undefined} jf={fc.jf} cpos={((book.cpos as Row[]) || []).filter((p) => p.site_id === id)} settings={settings} appsN={apps.filter((a) => a.status !== 'void').length} boqN={fc.schedItemsN} onDone={() => setFinOpen(false)} />}
       <Pressable onPress={() => router.setParams({ tab: 'setup' })}>
         <Card>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -236,6 +239,9 @@ function RetentionPanel({ id, fc, settings, invs, apps }: { id: string; fc: Retu
   const [retBusy, setRetBusy] = useState(false);
   // Release a half either way (9219zn): Apply puts it through the next application, or Raise invoice bills it now.
   const retAppFor = (n: 1 | 2) => { const aid = n === 1 ? fc.jf.ret1_app_id : fc.jf.ret2_app_id; const a = aid ? apps.find((x) => x.id === aid) : null; return a && a.status !== 'void' ? a : null; };
+  // Without Finance – Edit (Admin › Roles) a half only opens its invoice or application; it isn't released from here.
+  const canEdit = canEditFinance(me);
+  const canTap = (n: 1 | 2) => canEdit || !!(n === 1 ? fc.jf.ret1_invoice_id : fc.jf.ret2_invoice_id) || !!retAppFor(n);
   const retInv = async (n: 1 | 2) => {
     if (!me || retBusy) return;
     // 9219zn: invoiced → view the invoice; applied for → that application (never applied for twice);
@@ -244,6 +250,7 @@ function RetentionPanel({ id, fc, settings, invs, apps }: { id: string; fc: Retu
     if (done) { router.push(`/fin/job/${id}/invoice/${done}` as never); return; }
     const inApp = retAppFor(n);
     if (inApp) { router.push(`/fin/job/${id}/application/${inApp.id}` as never); return; }
+    if (!canEdit) return;
     const date = n === 1 ? d.first : d.second;
     const k = await chooseAction(n === 1 ? 'First half of the retention' : 'Final retention release', [{ key: 'app', label: 'Apply — through the next application (the client certifies it)' }, ...(date ? [{ key: 'inv', label: 'Raise invoice — bill it straight away' }] : [])]);
     if (!k) return;
@@ -264,9 +271,9 @@ function RetentionPanel({ id, fc, settings, invs, apps }: { id: string; fc: Retu
       <Card>
         {alerts.map((a) => <Text key={a.half} style={{ color: '#D98A00', fontWeight: '500' }}>{a.half === 1 ? 'First' : 'Second'} half due {fdate(a.date)}</Text>)}
         <FinRow title="Held to date" right={money(fc.retHeld)} />
-        <FinRow title="First half — at practical completion" sub={`${d.first ? fdate(d.first) : 'Set the practical completion date in Projects › Handover'}${fc.jf.ret1_invoice_id ? ' · invoiced' : retAppFor(1) ? ` · In Application ${retAppFor(1)?.number}` : ''}`} right={money(retHalfAmt(heldCert, 1, fc.jf, invs, apps))} onPress={() => void retInv(1)} />
-        <FinRow title="Second half — end of defects period" sub={`${d.second ? fdate(d.second) : '—'}${fc.jf.ret2_invoice_id ? ' · invoiced' : retAppFor(2) ? ` · In Application ${retAppFor(2)?.number}` : ''}`} right={money(retHalfAmt(heldCert, 2, fc.jf, invs, apps))} onPress={() => void retInv(2)} />
-        <Muted>Tap a half to release it: Apply puts it through your next application (the client certifies it), or Raise invoice bills it straight away.</Muted>
+        <FinRow title="First half — at practical completion" sub={`${d.first ? fdate(d.first) : 'Set the practical completion date in Projects › Handover'}${fc.jf.ret1_invoice_id ? ' · invoiced' : retAppFor(1) ? ` · In Application ${retAppFor(1)?.number}` : ''}`} right={money(retHalfAmt(heldCert, 1, fc.jf, invs, apps))} onPress={canTap(1) ? () => void retInv(1) : undefined} />
+        <FinRow title="Second half — end of defects period" sub={`${d.second ? fdate(d.second) : '—'}${fc.jf.ret2_invoice_id ? ' · invoiced' : retAppFor(2) ? ` · In Application ${retAppFor(2)?.number}` : ''}`} right={money(retHalfAmt(heldCert, 2, fc.jf, invs, apps))} onPress={canTap(2) ? () => void retInv(2) : undefined} />
+        {canEdit && <Muted>Tap a half to release it: Apply puts it through your next application (the client certifies it), or Raise invoice bills it straight away.</Muted>}
       </Card>
       {retInvoices.length > 0 && (
         <>
@@ -297,6 +304,8 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone, appsN = 0, boqN
     return !!(((await fdb.from('quotes').select('id').eq('site_id', id).limit(1)).data as Row[] | null) ?? []).length;
   } });
   if (!me) return null;
+  // Without Finance – Edit (Admin › Roles) the project details are shown, not changed.
+  const canEdit = canEditFinance(me);
   // Company overheads: only an admin or a Finance Controller sees or changes them here (Andy, 7 Nov 2026).
   const canOhp = me.role === 'admin' || isFinanceController(me);
   const linkEst = () => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'estimating', id } } as never);
@@ -345,7 +354,7 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone, appsN = 0, boqN
     if (!(await confirmAsk(`Delete “${site.name}”? This permanently removes the project. This can’t be undone.`, 'Delete'))) return;
     if (await deleteSite(id)) { toast('Project deleted'); void qc.invalidateQueries({ queryKey: ['sites'] }); router.replace('/fin/jobs' as never); } else toast('Could not delete — try again.');
   };
-  const jobForm = edit === 'job' && (
+  const jobForm = canEdit && edit === 'job' && (
         <FinForm title="Project Financials" extra={isFullManager(me) && !estLinked ? <View style={{ marginBottom: 8 }}><Button small kind="ghost" title="📁 Link Estimating Folder" onPress={() => { setEdit(null); onDone?.(); linkEst(); }} /></View> : undefined} initial={{ ...jf, job_number: site?.job_number || '', billing_type: billType, rates_q: (site as Row | undefined)?.repair_uses_rates ? 'yes' : 'no', rates_sign: Number((site as Row | undefined)?.repair_discount_pct || 0) < 0 ? 'plus' : 'less', rates_disc: (site as Row | undefined)?.repair_discount_pct != null ? String(Math.abs(Number((site as Row).repair_discount_pct))) : '', online: (site as Row | undefined)?.repair_online_approval ? 'yes' : 'no', na_charge: (site as Row | undefined)?.repair_no_access_charge != null ? String((site as Row).repair_no_access_charge) : '', billing_name: cliName, billing_email: cliEmail, billing_address: jf.billing_address || (projDir && !jf.billing_name ? [projDir.address, projDir.postcode].filter(Boolean).join('\n') : ''), ohp_pct: jf.ohp_pct ?? settings.ohp_pct ?? 0 }} onClose={() => { setEdit(null); onDone?.(); }}
           // Worked out from what's picked, so choosing Invoice hides retention and the dates at once.
           fields={(cur) => { const inv = String(cur.billing_type || '') === 'invoice'; return [
@@ -415,7 +424,7 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone, appsN = 0, boqN
             toast('Project financials saved'); refresh(); return null;
           }} />
   );
-  const datesForm = (edit === 'dates' || datesOver) && (() => {
+  const datesForm = canEdit && (edit === 'dates' || datesOver) && (() => {
         const months = Array.from({ length: 13 }, (_, i) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1 + i); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; });
         const custom = (jf.app_dates || {}) as Record<string, string>;
         const rule = (ym: string) => appDateFor({ ...jf, app_dates: null } as never, settings, ym);
@@ -445,7 +454,7 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone, appsN = 0, boqN
       <Card>
         {kv('Project Number', site?.job_number || '—')}
         {kv('Contract Value', jf.contract_value != null ? money(jf.contract_value) : 'Not Set')}
-        {kv('Client PO', cpos.length ? cpos.slice().sort((a, b) => Number(!!b.is_primary) - Number(!!a.is_primary)).map((p) => p.po_number).join(', ') : 'None Yet — Tap To Add', () => void openPo())}
+        {kv('Client PO', cpos.length ? cpos.slice().sort((a, b) => Number(!!b.is_primary) - Number(!!a.is_primary)).map((p) => p.po_number).join(', ') : canEdit ? 'None Yet — Tap To Add' : 'None Yet', canEdit ? () => void openPo() : undefined)}
         {kv('Billing', billType === 'invoice' ? 'By Invoice' : billType === 'application' ? 'By Application' : 'Not Chosen Yet')}
         {!!site?.repair_contract && kv('Contract Rates', (site as Row).repair_uses_rates ? `Yes${(site as Row).repair_rates_name ? ` — ${(site as Row).repair_rates_name}` : ' — not uploaded yet'}${Number((site as Row).repair_discount_pct || 0) > 0 ? ` · less ${(site as Row).repair_discount_pct}%` : Number((site as Row).repair_discount_pct || 0) < 0 ? ` · plus ${-Number((site as Row).repair_discount_pct)}%` : ''}` : 'No', () => router.push(`/fin/job/${id}/rates` as never))}
         {!!site?.repair_contract && kv('Online Approval', (site as Row).repair_online_approval ? 'Yes — Clients Approve Quotes Online' : 'No')}
@@ -458,10 +467,10 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone, appsN = 0, boqN
         {!byInv && kv('Final Retention Release', jf.final_release_date ? `${fdate(jf.final_release_date)} (set by hand)` : 'End of the defects period')}
         {kv('QS', jf.qs_id ? (people ?? []).find((p) => p.id === jf.qs_id)?.name || '—' : 'None Yet')}
         {canOhp && kv('Company Overheads', jf.ohp_pct != null ? `${jf.ohp_pct}%` : `${settings.ohp_pct ?? 0}% (company)`)}
-        <View style={{ marginTop: 12, flexDirection: 'row', justifyContent: 'center' }}><Button title="Edit ▾" onPress={() => void editMenu()} /></View>
+        {canEdit && <View style={{ marginTop: 12, flexDirection: 'row', justifyContent: 'center' }}><Button title="Edit ▾" onPress={() => void editMenu()} /></View>}
       </Card>
-      {isFullManager(me) && <View style={{ marginBottom: 8 }}><Button kind="danger" title="🗑 Delete this project" onPress={() => void delJob()} /></View>}
-      {edit === 'site' && site && (
+      {isFullManager(me) && canEdit && <View style={{ marginBottom: 8 }}><Button kind="danger" title="🗑 Delete this project" onPress={() => void delJob()} /></View>}
+      {edit === 'site' && site && canEdit && (
         <FinForm title="Project" note="The same details as on the project itself — change them here or there and both update." initial={{ name: site.name || '', status: site.status === 'closed' ? 'closed' : site.status === 'upcoming' ? 'upcoming' : 'live', start_date: site.start_date || '', client_name: site.client_name || '', address: site.address || '', postcode: site.postcode || '', pm: (site as { responsible_pm_id?: string | null }).responsible_pm_id || '' }} onClose={() => setEdit(null)}
           fields={[{ k: 'name', label: 'Project name' }, { k: 'status', label: 'Status', kind: 'choice', options: [['upcoming', 'Upcoming'], ['live', 'Live'], ['closed', 'Closed']], half: true }, { k: 'start_date', label: 'Start date', kind: 'date', half: true }, ...(!people?.length ? [] : [{ k: 'pm', label: 'Project manager', kind: 'choice' as const, options: [['', 'None yet'], ...(people ?? []).filter((x) => ['pm', 'admin'].includes(x.role) && !(x as { finance_only?: boolean }).finance_only).sort((a, b) => a.name.localeCompare(b.name)).map((x) => [x.id, x.name])] as [string, string][] }]), { k: 'client_name', label: 'Client' }, { k: 'address', label: 'Site address' }, { k: 'postcode', label: 'Postcode', half: true }]}
           onSave={async (v) => {
@@ -485,7 +494,7 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone, appsN = 0, boqN
       )}
       {datesForm}
       {jobForm}
-      {edit === 'po' && (
+      {edit === 'po' && canEdit && (
         <FinForm title={po ? `Client PO ${po.po_number}` : 'Client PO'} initial={po || { is_primary: !cpos.length }} onClose={() => setEdit(null)}
           note="No value on a client PO: the contract value lives in Project details."
           extra={(

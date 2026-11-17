@@ -25,6 +25,7 @@ import { fdb, useFinSettings } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { plainGet, plainSet } from '@/lib/kv';
 import { useFlushOnLeave } from '@/lib/useFlushOnLeave';
 import { APP_STAGE, appCalc, appFigures, groupTotals, isItem, pct } from '@/lib/rules/finApp';
@@ -57,11 +58,13 @@ export default function FinApplication() {
   const toast = useToast();
   const started = useRef(false);
   useEffect(() => {
-    if (app !== 'new' || started.current || !me) return;
+    // Starting one is a change: Finance – Edit only (Admin › Roles).
+    if (app !== 'new' || started.current || !me || !canEditFinance(me)) return;
     started.current = true;
     void newApplication(me, id).then((r) => { if (r.id) router.replace(`/fin/job/${id}/application/${r.id}` as never); else { toast(r.error || 'Could not start.'); if (r.error?.startsWith('Set up')) router.replace(`/fin/job/${id}/boq` as never); } });
   }, [app, me, id, toast]);
   const { data, isLoading } = useQuery({ queryKey: ['finApp', app], enabled: app !== 'new', gcTime: 0, refetchOnWindowFocus: false, queryFn: () => loadApplication(app) });
+  if (app === 'new' && me && !canEditFinance(me)) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>;
   if (app === 'new' || isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!data) return <Muted style={{ padding: space.l }}>Application not found.</Muted>;
   return <Editor key={`${(data.a as Row).id}${data.a.status}${(data.a as Row).cert_net ?? ''}`} a0={data.a} jf={data.jf} prior={data.prior} previousLive={data.previousLive} prevPct={data.prevPct} prevVar={data.prevVar} siteProgress={data.siteProgress} varProgress={data.varProgress} />;
@@ -77,11 +80,13 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
   // Hide the qty column on the phone rows (Andy, 3 Nov 2026): kept with the application, so its certificate looks the same.
   const [hideQty, setHideQtyNow] = useState(!!a0.hide_qty);
   // The request only goes when awaited, so it's awaited here.
-  const setHideQty = async (x: boolean) => { setHideQtyNow(x); const r = await fdb.from('fin_applications').update({ hide_qty: x } as never).eq('id', a0.id); if (r.error) toast('Not saved — try again.'); };
+  const setHideQty = async (x: boolean) => { setHideQtyNow(x); if (ro) return; const r = await fdb.from('fin_applications').update({ hide_qty: x } as never).eq('id', a0.id); if (r.error) toast('Not saved — try again.'); };
   // An applied application stays as an application until Certify is pressed.
   const [certifying, setCertifying] = useState(false);
   const [over, setOver] = useState<Record<string, Entry>>({}); // single lines switched away from the page's choice
   const { me, org } = useAuth();
+  // Without Finance – Edit (Admin › Roles) it's shown as it stands: nothing saves, and no stage changes, emails or invoices.
+  const ro = !canEditFinance(me);
   const { data: site } = useSite(a0.site_id);
   const { data: finSt } = useFinSettings(me?.org_id);
   const toast = useToast();
@@ -98,7 +103,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
   const [gen, setGen] = useState(0); // a new Bill of Quantities line / header (9219n)
   // Autosave (9219ze): a copy on this device after every change, saved to the server two seconds after
   // typing stops and when you leave; an unsaved copy left on the device is brought back when it's newer.
-  const KEY = `finAppDraft:${a0.id}`, isDraft = APP_STAGE(a0) === 'draft';
+  const KEY = `finAppDraft:${a0.id}`, isDraft = APP_STAGE(a0) === 'draft' && !ro;
   const savedSnap = useRef(JSON.stringify(a0));
   const [autoNote, setAutoNote] = useState('');
   const autoSave = useRef<(() => Promise<unknown>) | null>(null);
@@ -135,8 +140,8 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [a]);
   if (!me) return null;
-  const stage = APP_STAGE(a0), locked = stage !== 'draft', certing = stage === 'applied' && certifying, certDone = stage === 'certified' || stage === 'invoiced';
-  const previous = locked ? Number(a0.previous || 0) : previousLive;
+  const stage = APP_STAGE(a0), lockedStage = stage !== 'draft', locked = lockedStage || ro, draftEdit = stage === 'draft' && !ro, certing = stage === 'applied' && certifying, certDone = stage === 'certified' || stage === 'invoiced';
+  const previous = lockedStage ? Number(a0.previous || 0) : previousLive;
   const c = appCalc(a, jf.contract_value, jf.retention_limit_pct, previous);
   const tots = groupTotals(c.lines, (l) => l.value, (l) => l.gross);
   const refresh = () => { ['finApp', 'finSales', 'finBook', 'finOverview'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
@@ -216,7 +221,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
   const dueNow = certNet != null ? certNet : c.net_due;
   // Laptop: below each section bar, a table with a column for each figure (Andy, 2 Nov 2026).
   const entryHead = (w: string) => `${w} ${mode === 'gbp' ? '£' : mode === 'qty' ? 'qty' : '%'}`;
-  const cols = certing || certDone ? ['ref', 'desc', 'qty', 'unit', 'value', 'pct', 'gross', 'certBox', 'cert', 'prev', 'now'] : ['ref', 'desc', 'qty', 'unit', 'rate', 'value', stage === 'draft' ? 'box' : 'pct', 'gross', 'prev', 'now'];
+  const cols = certing || certDone ? ['ref', 'desc', 'qty', 'unit', 'value', 'pct', 'gross', 'certBox', 'cert', 'prev', 'now'] : ['ref', 'desc', 'qty', 'unit', 'rate', 'value', draftEdit ? 'box' : 'pct', 'gross', 'prev', 'now'];
   const gridHead = <LineRow head cols={cols} cells={{ ref: 'Ref', desc: 'Description', qty: 'Qty', unit: 'Unit', rate: 'Rate', value: 'Value', box: entryHead('Applied'), pct: 'Applied %', gross: certing || certDone ? 'Applied' : 'Cumulative', certBox: certing ? entryHead('Certified') : 'Certified %', cert: 'Certified', prev: 'Previous', now: 'Current' }} />;
   const varSite = (v: Row, i: number) => {
     const sp = varProgress[v.fin_variation_id || v.variation_id || ''];
@@ -272,7 +277,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
       {!!a.retention_release && <Card style={{ backgroundColor: '#f1fbf5', borderColor: '#d3f0de' }}><Text style={{ color: base.ink }}><Text style={{ fontWeight: '600' }}>Retention release — {a.retention_release === 1 ? 'first half (practical completion)' : 'final release'}.</Text> Retention on this application is {pct(a.retention_pct)}%, so the client pays back {a.retention_release === 1 ? 'half of what they hold' : 'what they still hold'} when they certify it.</Text></Card>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 6 }}>
         <Text style={{ fontSize: desk ? 20 : 17, fontWeight: '600', color: base.ink }}>Application No. {a0.number}</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel={`Status: ${STAGE[stage]}`} disabled={stage === 'void'} onPress={() => void pickStage()} style={{ backgroundColor: stage === 'draft' ? '#EEF0F3' : stage === 'applied' ? '#FFF4DF' : '#E3F5E9', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, marginTop: desk ? 4 : 3 }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: stage === 'draft' ? base.slate : stage === 'applied' ? '#92580A' : '#1E7A3C' }}>{certing ? 'Entering The Certificate' : STAGE[stage]}{stage === 'void' ? '' : ' ▾'}</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Status: ${STAGE[stage]}`} disabled={stage === 'void' || ro} onPress={() => void pickStage()} style={{ backgroundColor: stage === 'draft' ? '#EEF0F3' : stage === 'applied' ? '#FFF4DF' : '#E3F5E9', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, marginTop: desk ? 4 : 3 }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: stage === 'draft' ? base.slate : stage === 'applied' ? '#92580A' : '#1E7A3C' }}>{certing ? 'Entering The Certificate' : STAGE[stage]}{stage === 'void' || ro ? '' : ' ▾'}</Text></Pressable>
       </View>
       <View style={{ flexDirection: 'row', gap: 6, marginBottom: 14, borderBottomWidth: 1, borderColor: base.cardLine }}>
         {([['overview', 'Overview'], ['lines', 'Line By Line']] as const).map(([k, l]) => (
@@ -291,7 +296,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
                 <DetailRow key={k} l={l}>{locked ? <Val>{a[k] ? fdate(a[k]) : '—'}</Val> : <DateBox value={a[k] || ''} onChange={(x) => setA({ ...a, [k]: x })} title={l} style={{ width: 150, paddingVertical: 5 }} />}</DetailRow>
               ))}
               <DetailRow l={`Retention${jf.retention_limit_pct ? ` (limit ${jf.retention_limit_pct}%)` : ''}`}>{locked ? <Val>{pct(a.retention_pct)}%</Val> : <PctIn key={`ret${a.retention_release || 0}`} label="Retention percent" value={pct(a.retention_pct)} onChange={(x) => setA({ ...a, retention_pct: x })} />}</DetailRow>
-              <DetailRow l="Discount" last={locked && !a.retention_release}>{stage !== 'draft' ? <Val>{pct(a.discount_pct || 0)}%</Val> : <PctIn label="Discount percent" value={pct(a.discount_pct || 0)} onChange={(x) => setA({ ...a, discount_pct: x })} />}</DetailRow>
+              <DetailRow l="Discount" last={locked && !a.retention_release}>{!draftEdit ? <Val>{pct(a.discount_pct || 0)}%</Val> : <PctIn label="Discount percent" value={pct(a.discount_pct || 0)} onChange={(x) => setA({ ...a, discount_pct: x })} />}</DetailRow>
               {(!locked || !!a.retention_release) && (
                 <DetailRow l="Retention Release" last>{a.retention_release ? <Val>{a.retention_release === 1 ? 'First half' : 'Final release'}</Val> : ret1Done && ret2Done ? <Val>Released</Val> : <Button small kind="ghost" title="Release ▾" onPress={() => void chooseRelease()} />}</DetailRow>
               )}
@@ -314,7 +319,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
               })()} />
             </Panel>
             <Muted style={{ fontSize: 12, marginTop: -6, marginBottom: 12 }}>An application isn&apos;t a VAT invoice; the invoice follows the certificate.{(jf.vat_treatment || finSt?.default_vat) === 'reverse_charge' ? ' Reverse charge VAT is shown for the client to account for, and isn’t added to the total.' : ''}</Muted>
-            {stage === 'applied' && !certing && (
+            {stage === 'applied' && !certing && !ro && (
               <>
                 <ActionRow onDelete={deleteAny}>
                   <Button kind="ghost" title="Return To Draft" onPress={async () => { if (await confirmAsk('Return this application to draft so you can edit it?', 'Return to draft')) { if (await setStatus(a0.id, { status: 'draft' })) { toast('Back to draft — you can edit it now'); refresh(); } } }} />
@@ -340,11 +345,11 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
                   {round2(Number(a0.cert_net) - Number(a0.net_due)) !== 0 && <Text style={{ marginTop: 6, color: Number(a0.cert_net) < Number(a0.net_due) ? '#C0392B' : '#1E7A3C', fontWeight: '500' }}>{Number(a0.cert_net) < Number(a0.net_due) ? 'Short by' : 'Over by'} {money(Math.abs(Number(a0.cert_net) - Number(a0.net_due)))} compared with the {money(a0.net_due)} applied for.</Text>}
                   {a0.cert_notes ? <Muted style={{ marginTop: 6 }}>{a0.cert_notes}</Muted> : null}
                   {a0.cert_file_path && <Pressable onPress={async () => { const u = await openDocLink('finance-docs', a0.cert_file_path); if (u) viewDoc(u); }}><Text style={{ color: base.blue, marginTop: 6 }}>📄 Certificate</Text></Pressable>}
-                  <ActionRow onDelete={a0.invoice_id ? undefined : deleteAny}>
-                    {!a0.invoice_id && <Button kind="ghost" title="Change The Certificate" onPress={async () => { if (await confirmAsk('Clear the certificate figures and enter them again?', 'Clear')) { if (await clearCertificate(a0.id)) refresh(); else toast('Not saved — check your signal and try again.'); } }} />}
+                  <ActionRow onDelete={a0.invoice_id || ro ? undefined : deleteAny}>
+                    {!a0.invoice_id && !ro && <Button kind="ghost" title="Change The Certificate" onPress={async () => { if (await confirmAsk('Clear the certificate figures and enter them again?', 'Clear')) { if (await clearCertificate(a0.id)) refresh(); else toast('Not saved — check your signal and try again.'); } }} />}
                     <Button kind="ghost" busy={busy === 'xlsx'} title="Export Excel" onPress={() => void exportAs('xlsx', true)} />
                     {a0.invoice_id ? <Button title="Open Invoice" onPress={() => router.push(`/fin/job/${a0.site_id}/invoice/${a0.invoice_id}` as never)} />
-                      : <Button busy={busy === 'inv'} title="Raise Invoice" onPress={async () => { setBusy('inv'); const r = await raiseInvoiceFromCert(me, org, a0, site as never, false); setBusy(''); if (r.error) toast(r.error); if (r.id) { refresh(); router.push(`/fin/job/${a0.site_id}/invoice/${r.id}` as never); } }} />}
+                      : ro ? null : <Button busy={busy === 'inv'} title="Raise Invoice" onPress={async () => { setBusy('inv'); const r = await raiseInvoiceFromCert(me, org, a0, site as never, false); setBusy(''); if (r.error) toast(r.error); if (r.id) { refresh(); router.push(`/fin/job/${a0.site_id}/invoice/${r.id}` as never); } }} />}
                   </ActionRow>
                 </View>
               </Panel>
@@ -355,13 +360,13 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
       {view === 'lines' && <>
       {!desk ? (
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10, alignItems: 'center' }}>
-          <View style={{ flex: 1 }}><Button kind="ghost" busy={!!busy} title={certing ? 'Bulk Certify ▾' : stage === 'draft' ? 'Bulk Edit ▾' : `Options${hideZero ? ' · 0% Hidden' : ''} ▾`} onPress={async () => {
+          <View style={{ flex: 1 }}><Button kind="ghost" busy={!!busy} title={certing ? 'Bulk Certify ▾' : draftEdit ? 'Bulk Edit ▾' : `Options${hideZero ? ' · 0% Hidden' : ''} ▾`} onPress={async () => {
             // No Enter % / £ / qty on a phone: the % and qty boxes are both there to type in (Andy, 3 Nov 2026).
-            const k = await chooseAction(certing ? 'Bulk Certify' : stage === 'draft' ? 'Bulk Edit' : 'Lines', [
+            const k = await chooseAction(certing ? 'Bulk Certify' : draftEdit ? 'Bulk Edit' : 'Lines', [
               { key: 'zero', label: hideZero ? 'Show 0% lines' : 'Hide 0% lines' },
               { key: 'qtycol', label: hideQty ? 'Show the qty column' : 'Hide the qty column' },
               ...(certing ? [{ key: 'applied', label: 'Fill in: certified as applied' }, { key: 'xl', label: 'Fill in: from the client’s Excel' }, { key: 'pdf', label: 'Fill in: from the client’s PDF' }] : []),
-              ...(stage === 'draft' ? [{ key: 'all100', label: 'Set every line to 100%' }, { key: 'all0', label: 'Set every line to 0%' }, { key: 'up', label: 'Upload edited Excel' }] : []),
+              ...(draftEdit ? [{ key: 'all100', label: 'Set every line to 100%' }, { key: 'all0', label: 'Set every line to 0%' }, { key: 'up', label: 'Upload edited Excel' }] : []),
             ]);
             if (k === 'zero') setHideZero(!hideZero); else if (k === 'qtycol') void setHideQty(!hideQty);
             else if (k === 'applied') cert.asApplied();
@@ -370,14 +375,14 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
             else if (k === 'up') void uploadExcel();
             else if (k === 'all100' || k === 'all0') { const to = k === 'all100' ? 100 : 0; setA({ ...a, lines: (a.lines || []).map((l: Row) => (isItem(l) ? { ...l, pct: to } : l)), variations: (a.variations || []).map((x: Row) => ({ ...x, pct: to })) }); setGen((g) => g + 1); }
           }} /></View>
-          {stage === 'applied' && !certing && <Button title="Certify" onPress={() => setCertifying(true)} />}
+          {stage === 'applied' && !certing && !ro && <Button title="Certify" onPress={() => setCertifying(true)} />}
         </View>
       ) : (
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8, alignItems: 'center' }}>
-        {(stage === 'draft' || certing) && <SelectBox title="Enter Figures By" value={mode} options={[['pct', 'Enter %'], ['gbp', 'Enter £'], ['qty', 'Enter qty']]} onChange={(k) => setMode(k as Entry)} style={{ width: 130, marginBottom: 0 }} />}
+        {(draftEdit || certing) && <SelectBox title="Enter Figures By" value={mode} options={[['pct', 'Enter %'], ['gbp', 'Enter £'], ['qty', 'Enter qty']]} onChange={(k) => setMode(k as Entry)} style={{ width: 130, marginBottom: 0 }} />}
         <Check label="Hide 0% Lines" value={hideZero} onChange={setHideZero} />
-        {stage === 'draft' && <View style={{ marginLeft: 'auto' }}><Button small kind="ghost" busy={!!busy} title="Upload Edited Excel" onPress={() => void uploadExcel()} /></View>}
-        {stage === 'applied' && !certing && <View style={{ marginLeft: 'auto' }}><Button title="Certify" onPress={() => setCertifying(true)} /></View>}
+        {draftEdit && <View style={{ marginLeft: 'auto' }}><Button small kind="ghost" busy={!!busy} title="Upload Edited Excel" onPress={() => void uploadExcel()} /></View>}
+        {stage === 'applied' && !certing && !ro && <View style={{ marginLeft: 'auto' }}><Button title="Certify" onPress={() => setCertifying(true)} /></View>}
       </View>
       )}
       {certing && <CertTools a={a0} cert={cert} />}
@@ -620,14 +625,14 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
       </SecBlock>}
       {certing && <View style={{ alignSelf: 'flex-end', marginBottom: 12 }}><Button title="Back To Overview To Save The Certificate" onPress={() => setView('overview')} /></View>}
       </>}
-      {stage === 'draft' && (
+      {draftEdit && (
         <ActionRow note={autoNote} onDelete={async () => { if (await confirmAsk('Delete this draft application?', 'Delete')) { if (await deleteApplication(a0.id)) { toast('Draft deleted'); refresh(); router.back(); } else toast('Not saved — check your signal and try again.'); } }}>
           <Button kind="ghost" busy={busy === 'save'} title="Save" onPress={() => void save()} />
           <Button kind="ghost" busy={busy === 'xlsx'} title="Export Excel" onPress={() => void exportAs('xlsx', true)} />
           <Button title="Apply For Payment" onPress={() => applyNow()} />
         </ActionRow>
       )}
-      {mailing && me && (
+      {mailing && me && !ro && (
         <FinEmailPopup kind="application" title={`Email Application No. ${a0.number}`} to={jf.billing_email || site?.client_email || ''}
           note="The application's Excel goes with it, for the client to fill in what they certify."
           vars={{ client: jf.billing_name || site?.client_name || '', project: site?.name || '', job_no: site?.job_number || '', number: String(a0.number), amount: money(a0.net_due), due: a0.due_date ? fdate(a0.due_date) : '', client_po: a0.client_po || '', company: org?.name || '', my_name: me.name || '' }}

@@ -15,6 +15,7 @@ import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { loadPo, removePoLines, setPoStatus, setPoStatusWithRequests } from '@/data/finPurchase';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance, canRaiseOrders } from '@/lib/roles';
 import { PI_STATUS, poInvoiced } from '@/lib/rules/finBook';
 import { fdate, money } from '@/lib/rules/finance';
 import { base, page, space } from '@/theme/theme';
@@ -31,7 +32,11 @@ export default function FinPo() {
   const [rm, setRm] = useState<Set<number> | null>(null); // ticking lines to take off (9219zr)
   const newSv = useRef<ComponentRef<typeof ScrollView>>(null); // the new PO page, so View PO can go back to the top // Send PO: the supplier's email (Andy, 5 Nov 2026)
   if (!me) return null;
+  // Finance – Edit to change a PO; a new one also needs Raise Orders (Admin › Roles).
+  const canEdit = canEditFinance(me);
   if (poId === 'new') {
+    if (!canEdit) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>;
+    if (!canRaiseOrders(me)) return <Muted style={{ padding: space.l }}>Your role can’t raise orders. Ask your admin (Admin › Roles).</Muted>;
     const st = sites.find((x) => x.id === site);
     return (
       <ScrollView ref={newSv} contentContainerStyle={page(1300)} keyboardShouldPersistTaps="handled">
@@ -58,7 +63,7 @@ export default function FinPo() {
       <Card style={{ marginTop: 14 }}>
         <SectionTitle>This Purchase Order</SectionTitle>
         <Muted style={{ marginBottom: 6 }}>{[`Ordered ${fdate(String(po.created_at).slice(0, 10))} by ${po.ordered_by_name || '—'}`, po.sent_at ? `emailed ${fdate(String(po.sent_at).slice(0, 10))} to ${po.sent_to || ''}` : '', po.yard_booked_at ? `booked into the yard ${fdate(String(po.yard_booked_at).slice(0, 10))}` : '', `invoiced ${money(inv)}${po.value != null ? ` of ${money(po.value)}` : ''}`].filter(Boolean).join(' · ')}</Muted>
-        {fromRequests && po.status === 'open' && (
+        {fromRequests && po.status === 'open' && canEdit && (
           <View style={{ marginBottom: 8 }}>
             {(po.items || []).map((it: Row, k: number) => { const m = it.material_id ? matBy[it.material_id] : null; if (!m) return null; return (
               <View key={k} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -85,13 +90,13 @@ export default function FinPo() {
         )}
         <Text style={{ fontWeight: '600', color: base.ink, marginTop: 4, marginBottom: 2 }}>Purchase Invoices</Text>
         {pinvs.length ? pinvs.map((i) => <FinRow key={i.id} left={i.invoice_no || '—'} title={fdate(i.invoice_date)} sub={i.paid_on ? 'Paid' : PI_STATUS[i.status]} right={money(i.net)} onPress={() => router.push(`/fin/pinv/${i.id}` as never)} />) : <Muted>None yet.</Muted>}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 10 }}>
+        {canEdit && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 10 }}>
           {po.status !== 'cancelled' && <Button small kind="ghost" title="+ Add Invoice" onPress={() => router.push(`/fin/pinv/new?site=${po.site_id}&po=${po.id}` as never)} />}
           {po.status === 'open' && !po.is_draft && <Button small kind="ghost" title="Mark Fully Invoiced" onPress={async () => { if (await setPoStatus(po.id, 'invoiced')) { toast('PO marked fully invoiced', { confirm: true }); refresh(); } }} />}
           {po.status !== 'open' && <Button small kind="ghost" title="Reopen PO" onPress={async () => { const n = await setPoStatusWithRequests(me, po.id, 'open'); if (n !== null) { toast(n ? `PO reopened — ${n} site request${n === 1 ? '' : 's'} put back` : 'PO reopened', { confirm: true }); refresh(); } }} />}
-        </View>
+        </View>}
       </Card>
-      {po.status !== 'cancelled' && <PoQuote me={me} po={po} onDone={refresh} />}
+      {po.status !== 'cancelled' && canEdit && <PoQuote me={me} po={po} onDone={refresh} />}
     </ScrollView>
   );
 }

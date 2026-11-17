@@ -19,6 +19,7 @@ import { raiseInvoiceFromCert } from '@/data/finApp';
 import { fdb, selectAll, useFinSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { byJobNoDesc, fdate, INV_STATUS, invOutstanding, invOutstandingNet, invOverdue, jobTag, money, pcOrFinalDate, retentionDates, retentionStillHeld, retentionTotal, round2, type FinApp, type FinInv, type JobFin } from '@/lib/rules/finance';
 import { monthLabel, monthOf, monthsIn } from '@/lib/rules/finFilters';
 import { inPeriod, useStatPeriods } from '@/lib/useStatPeriods';
@@ -74,7 +75,9 @@ function RetDateBox({ d, claimed, label, onPick }: { d?: string | null; claimed:
 }
 /** + New Application / + New Invoice in the Sales tab row (Andy, 5 Nov 2026): pick the project, then the new one. */
 export function NewSalesButton({ what }: { what: 'invoice' | 'application' }) {
+  const { me } = useAuth();
   const { data: sites = [] } = useSites();
+  if (!canEditFinance(me)) return null;
   return <Button small title={what === 'invoice' ? '+ New Invoice' : '+ New Application'} onPress={async () => { const sid = await pickJob(what === 'invoice' ? 'New invoice' : 'New application', sites.filter((s) => s.status !== 'closed')); if (sid) router.push(`/fin/job/${sid}/${what}/new` as never); }} />;
 }
 export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 'retention'; siteId?: string; f?: string }) {
@@ -92,6 +95,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   };
   const toastRet = useToast();
   const { me, org } = useAuth();
+  const canEdit = canEditFinance(me);
   const { data: sitesRaw = [] } = useSites();
   const { data: st } = useFinSettings(me?.org_id);
   const { data } = useSales(me?.org_id, siteId);
@@ -147,7 +151,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
     return (
       <View>
         {/* No text under the tabs; + New full width above the search (Andy, 11 Nov 2026). */}
-        <View style={{ marginBottom: 10 }}><Button title="+ New Application" onPress={() => void newFor('application')} /></View>
+        {canEdit && <View style={{ marginBottom: 10 }}><Button title="+ New Application" onPress={() => void newFor('application')} /></View>}
         {desk && list.length ? (
           <FinTable rows={list} keyOf={(a) => a.id} onMenu={(a) => void rowMenu.appMenu(a, stage(a))} onRow={(a) => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)}
             cols={[
@@ -157,7 +161,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
               { k: 'ap', l: 'Applied (Net)', total: (l: App[]) => money(l.reduce((t, a) => t + Number(a.net_due || 0), 0)), render: (a: App) => <Cell>{money(a.net_due)}</Cell> },
               { k: 'ce', l: 'Certified (Net)', total: (l: App[]) => money(l.reduce((t, a) => t + Number(a.cert_net || 0), 0)), render: (a: App) => { const short = a.cert_net != null ? round2(Number(a.cert_net) - Number(a.net_due || 0)) : 0; return <View style={{ alignItems: 'center' }}><Cell>{a.cert_net != null ? money(a.cert_net) : '—'}</Cell>{short < -0.009 ? <Text style={{ fontSize: 11, color: '#C0392B' }}>{money(-short)} short</Text> : null}</View>; } },
               { k: 'st', l: 'Stage', noSort: true, choices: ['Draft', 'Waiting for certificate', 'Certified', 'Invoiced', 'Pay less notice'], render: (a: App) => { const s = appStage(a); return <Text style={{ fontSize: 10.5, fontWeight: '600', color: s.c, backgroundColor: `${s.c}1A`, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden', textAlign: 'center' }}>● {s.l}</Text>; } },
-              { k: 'inv', l: 'Invoice', render: (a: App) => { const inv = data.invs.find((i) => i.id === a.invoice_id); return inv ? <Text accessibilityRole="link" onPress={() => router.push(`/fin/job/${a.site_id}/invoice/${inv.id}` as never)} style={{ fontSize: 12.5, fontWeight: '500', color: base.blue }}>{inv.number || 'Draft'}</Text> : appStage(a).k === 'certified' ? <Text accessibilityRole="button" onPress={() => void raise(a)} style={{ fontSize: 12.5, fontWeight: '500', color: base.blue, textAlign: 'center' }}>Raise Invoice</Text> : <Cell>—</Cell>; } },
+              { k: 'inv', l: 'Invoice', render: (a: App) => { const inv = data.invs.find((i) => i.id === a.invoice_id); return inv ? <Text accessibilityRole="link" onPress={() => router.push(`/fin/job/${a.site_id}/invoice/${inv.id}` as never)} style={{ fontSize: 12.5, fontWeight: '500', color: base.blue }}>{inv.number || 'Draft'}</Text> : appStage(a).k === 'certified' && canEdit ? <Text accessibilityRole="button" onPress={() => void raise(a)} style={{ fontSize: 12.5, fontWeight: '500', color: base.blue, textAlign: 'center' }}>Raise Invoice</Text> : <Cell>—</Cell>; } },
             ]}
             footLabel={(list) => `${list.length} application${list.length === 1 ? '' : 's'}`} footRight={siteId ? undefined : monthPick(months)} />
         ) : list.length ? (
@@ -182,7 +186,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
     const months = monthsIn(live, iMonth);
     return (
       <View>
-        <View style={{ marginBottom: 10 }}><Button title="+ New Invoice" onPress={() => void newFor('invoice')} /></View>
+        {canEdit && <View style={{ marginBottom: 10 }}><Button title="+ New Invoice" onPress={() => void newFor('invoice')} /></View>}
         {desk && list.length ? (
           // Starts on the owed ones, as the current app's Owed chip (9219 sales tables; cmp-fin 5 Nov 2026). Untick to see paid and drafts.
           <FinTable startFilter={f0 === 'overdue' ? { s: ['Overdue'] } : siteId ? undefined : { s: ['Issued', 'Sent', 'Part paid', 'Overdue'] }} rows={list} keyOf={(i) => i.id} onMenu={(i) => void rowMenu.invMenu(i)} onRow={(i) => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)}

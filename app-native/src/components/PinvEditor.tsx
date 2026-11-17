@@ -26,6 +26,7 @@ import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { checkAll, loadReadContext, readOne, saveLinesOnInvoice } from '@/data/invoiceRead';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { clearPendingAct, peekPendingAct } from '@/lib/pendingAct';
 import { addDays, finBlocked, fdate, jobTag, money, round2, today } from '@/lib/rules/finance';
 import { allocProblem, codedParts, linesNet, linesVat, type RLine } from '@/lib/rules/invoiceRead';
@@ -60,11 +61,13 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
   const ex = (inbox?.extracted || {}) as Row;
   // In Xero or paid: shown as it is, not changed here.
   const locked = !!pi && (!!pi.xero_id || !!pi.paid_on);
+  // Without Finance – Edit (Admin › Roles) it's shown, not changed: no save, query, approve or delete.
+  const ro = locked || !canEditFinance(me);
   // A saved invoice opens locked; Edit at the bottom opens it for changes (Andy, 6 Nov 2026).
   const [editing, setEditing] = useState(!pi || !!startEdit);
   // Query With Supplier: the saved invoice and who it goes to, while the email pop-up is open.
   const [mail, setMail] = useState<{ row: Row; to: string } | null>(null);
-  const shut2 = !editing || locked;
+  const shut2 = !editing || ro;
   // An expense receipt sent in from a job (7 Nov 2026): typed in from the photo, not read.
   const isRcpt = !!inbox && ex.receipt === true;
   const unread = !!inbox && !isRcpt && !(Array.isArray(ex.lines) && ex.lines.length);
@@ -252,7 +255,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
     } finally { setBusy(false); }
   };
 
-  if (wantQuery && (pi || inbox) && ctx && (!poId || poFull)) { const w = wantQuery; setWantQuery(''); clearPendingAct(pi?.id || inbox?.id); queueMicrotask(() => void act(w)); }
+  if (wantQuery && !ro && (pi || inbox) && ctx && (!poId || poFull)) { const w = wantQuery; setWantQuery(''); clearPendingAct(pi?.id || inbox?.id); queueMicrotask(() => void act(w)); }
 
   const field = (label: string, child: React.ReactNode, w: number | string = 180) => <View style={{ flexGrow: 1, flexBasis: w as number, minWidth: 140 }}><Text style={lab}>{label}</Text>{child}</View>;
   const choice = (label: string, v: string, onPress: () => void, warn = false) => <Pressable disabled={shut2} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={[fieldBox, warn && !shut2 && { borderColor: '#f8e7c2', backgroundColor: '#fffaf0' }, shut2 && { backgroundColor: '#F6F7F9' }]}><Text numberOfLines={1} style={{ color: warn && !shut2 ? '#b45309' : base.ink, fontSize: 14 }}>{v}{shut2 ? '' : ' ▾'}</Text></Pressable>;
@@ -285,7 +288,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
             {shut}
             <Text style={{ color: '#B35A00' }}>Unable to read this one automatically, so fill it in below. The file stays attached and nothing is lost.</Text>
             {!!inbox.query_reason && <Pressable onPress={() => setShowWhy(!showWhy)}><Text style={{ color: '#B35A00', fontSize: 12, marginTop: 4, textDecorationLine: 'underline' }}>{showWhy ? inbox.query_reason : 'Why?'}</Text></Pressable>}
-            {!!inbox.file_path && <View style={{ alignSelf: 'flex-start', marginTop: 8 }}><Button small kind="ghost" busy={busy} title="🤖 Try Reading It Again" onPress={async () => { setBusy(true); const e = await readOne(me, inbox); setBusy(false); if (e) toast(e); void qc.invalidateQueries({ queryKey: ['finInbox', inbox.id] }); }} /></View>}
+            {!!inbox.file_path && !ro && <View style={{ alignSelf: 'flex-start', marginTop: 8 }}><Button small kind="ghost" busy={busy} title="🤖 Try Reading It Again" onPress={async () => { setBusy(true); const e = await readOne(me, inbox); setBusy(false); if (e) toast(e); void qc.invalidateQueries({ queryKey: ['finInbox', inbox.id] }); }} /></View>}
           </View>
         )}
         {isRcpt && !noteShut && <View style={{ backgroundColor: '#F6F7F9', borderRadius: 10, padding: 12, paddingRight: 36, marginBottom: 10 }}>{shut}<Text style={{ color: base.ink }}>Expense receipt from {String(ex.sent_by || 'the team')}{ex.category === 'fuel' ? ' (fuel)' : ''}{ex.label ? `, for ${String(ex.label)}` : ''}. Put in the amount from the receipt, choose the job, then Save.</Text>{!!ex.note && <Muted style={{ marginTop: 4 }}>Their note: {String(ex.note)}</Muted>}</View>}
@@ -332,8 +335,8 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
         )}
         {!shut2 && <Muted style={{ marginBottom: 10 }}>{!pi && !inbox ? 'Save approves it and posts it to Xero (not while Finance is on trial): you’ve typed it in, so it doesn’t wait in Needs Checking.' : 'Save keeps it in Needs Checking. Approve Invoice approves it and posts it to Xero (not while Finance is on trial).'}{desk ? ' Save & Query To PM asks a PM to check it.' : ''}</Muted>}
         <View style={{ flexDirection: 'row', flexWrap: desk ? 'nowrap' : 'wrap', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
-          {!editing && buttons}
-          {inbox && (
+          {(!editing || ro) && buttons}
+          {inbox && !ro && (
             <>
               <Button small kind="ghost" title="Delete" onPress={async () => {
                 if (!(await confirmAsk('Delete this? Use it for emails that aren’t a supplier’s invoice: a statement, a remittance, an advert or a duplicate. It comes off the list; the email is still kept in the background in case it’s ever needed.', 'Delete'))) return;
@@ -343,12 +346,12 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
             </>
           )}
           {!inbox && !pi && <Button small kind="ghost" title="Cancel" onPress={() => router.back()} />}
-          {!inbox && !pi && <Button small kind="ghost" busy={busy} title="Save & Add Another" onPress={() => void act('another')} />}
-          {!!pi && !locked && (editing ? <Button small kind="ghost" title="Cancel Edit" onPress={unedit} /> : <Button small kind="ghost" title="✏️ Edit" onPress={() => setEditing(true)} />)}
-          {!locked && pi?.status !== 'approved' && !(pi?.status === 'query' && askedPm) && <Button small kind="ghost" busy={busy} title="Query To PM" onPress={() => void act('query')} />}
-          {!locked && <Button small kind="ghost" busy={busy} title="Query Supplier" onPress={() => void act('supplier')} />}
-          {!locked && editing && <Button small kind={!pi && !inbox ? 'primary' : 'ghost'} busy={busy} title={pi?.status === 'approved' ? 'Save Changes' : 'Save'} onPress={() => void act('save')} />}
-          {!locked && (pi || inbox) && pi?.status !== 'approved' && <Button small busy={busy} title="Approve Invoice" onPress={() => void act('approve')} />}
+          {!inbox && !pi && !ro && <Button small kind="ghost" busy={busy} title="Save & Add Another" onPress={() => void act('another')} />}
+          {!!pi && !ro && (editing ? <Button small kind="ghost" title="Cancel Edit" onPress={unedit} /> : <Button small kind="ghost" title="✏️ Edit" onPress={() => setEditing(true)} />)}
+          {!ro && pi?.status !== 'approved' && !(pi?.status === 'query' && askedPm) && <Button small kind="ghost" busy={busy} title="Query To PM" onPress={() => void act('query')} />}
+          {!ro && <Button small kind="ghost" busy={busy} title="Query Supplier" onPress={() => void act('supplier')} />}
+          {!ro && editing && <Button small kind={!pi && !inbox ? 'primary' : 'ghost'} busy={busy} title={pi?.status === 'approved' ? 'Save Changes' : 'Save'} onPress={() => void act('save')} />}
+          {!ro && (pi || inbox) && pi?.status !== 'approved' && <Button small busy={busy} title="Approve Invoice" onPress={() => void act('approve')} />}
         </View>
         {below}
         {!!mail && (

@@ -23,6 +23,7 @@ import { fdb } from '@/data/finance';
 import { supabase } from '@/lib/supabase';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { COST_CATS, forecast } from '@/lib/rules/finBook';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
 import { page, space, useDesk } from '@/theme/theme';
@@ -55,6 +56,8 @@ export default function FinCosts() {
   // + Add A Cost from a works order or plot (8 Nov 2026): the form opens, and the cost is booked to it.
   useEffect(() => { if (add === '1' && data && !opened.current) { opened.current = true; setEdit('new'); } }, [add, data]);
   if (!data || !me) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
+  // Without Finance – Edit (Admin › Roles) the costs are shown, not changed: no adding, and a cost doesn't open its form.
+  const canEdit = canEditFinance(me);
   const fc = forecast(data.book, id, data.settings);
   const ql = q.trim().toLowerCase();
   const types = sel.type || [];
@@ -77,6 +80,7 @@ export default function FinCosts() {
   const refresh = () => void qc.invalidateQueries({ queryKey: ['finBook'] });
   // A line from fin_job_costs ("jc:<id>:…") opens the form; a yard-stock cost is changed from the stock.
   const openCost = (key: string) => {
+    if (!canEdit) return;
     const x = (data.book.extra || []).find((r) => r.id === key.split(':')[1]); if (!x) return;
     if (x.supplier === 'Yard' && x.ref === 'YARD') {
       void (async () => {
@@ -96,7 +100,7 @@ export default function FinCosts() {
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(1000)}>
       <Stack.Screen options={{ title: 'Costs ledger' }} />
       {!!sub && <View style={{ flexDirection: 'row', marginBottom: 8 }}><FinChip on label={`${sub === 'none' ? 'Not allocated to a plot' : 'One plot / repair job'} ✕`} onPress={() => router.setParams({ sub: '' })} /></View>}
-      <View style={{ alignSelf: 'flex-end', marginBottom: 10 }}><Button title="+ Add cost" onPress={() => setEdit('new')} /></View>
+      {canEdit && <View style={{ alignSelf: 'flex-end', marginBottom: 10 }}><Button title="+ Add cost" onPress={() => setEdit('new')} /></View>}
       {desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search description, supplier or ref' }} sel={sel} onChange={setSel} onClear={() => setSel({ type: [] })}
         parts={[{ key: 'type', label: 'Type', items: [...Object.entries(COST_CATS).map(([v, l]) => ({ v, l: `${l} ${money(tot(v), 0)}`, n: fc.lines.filter((x) => x.cat === v).length })), { v: 'committed', l: `Ordered, not invoiced ${money(fc.committedTotal, 0)}`, n: fc.lines.filter((x) => x.cat === 'committed').length }] }]}
         sorts={[['new', 'Newest'], ['old', 'Oldest'], ['big', 'Biggest'], ['az', 'A–Z']]} sort={sort} onSort={(k) => setSort(k as typeof sort)} />}
@@ -127,8 +131,8 @@ export default function FinCosts() {
             { k: 'n', l: 'Net', w: 84, right: true, bold: true, bigFirst: true, main: (l) => money(l.net), sub: (l) => l.status || '', sort: (l) => Number(l.net || 0),
               choose: { opts: [['', 'Everything'], ['spent', 'All Spent'], ...Object.entries(COST_CATS), ['committed', 'Ordered']] as [string, string][], test: (l, v) => (v === 'spent' ? l.cat !== 'committed' : l.cat === v), start: types[0] || 'spent' } },
           ]} />
-      ) : list.length ? list.map((l) => <FinRow key={l.key} title={l.desc} sub={[l.date ? fdate(l.date) : '', COST_CATS[l.cat] || (l.cat === 'committed' ? `Ordered (${COST_CATS[l.ccat || 'materials']})` : l.cat), l.who, l.ref, l.status].filter(Boolean).join(' · ')} right={money(l.net)} onPress={l.go ? () => router.push(l.go as never) : l.key.startsWith('jc:') ? () => openCost(l.key) : undefined} />) : <Empty>No costs yet.</Empty>}
-      {yardEdit && (() => {
+      ) : list.length ? list.map((l) => <FinRow key={l.key} title={l.desc} sub={[l.date ? fdate(l.date) : '', COST_CATS[l.cat] || (l.cat === 'committed' ? `Ordered (${COST_CATS[l.ccat || 'materials']})` : l.cat), l.who, l.ref, l.status].filter(Boolean).join(' · ')} right={money(l.net)} onPress={l.go ? () => router.push(l.go as never) : l.key.startsWith('jc:') && canEdit ? () => openCost(l.key) : undefined} />) : <Empty>No costs yet.</Empty>}
+      {yardEdit && canEdit && (() => {
         const E = yardEdit, unit = E.st?.unit ? ` (${E.st.unit})` : '';
         const netOf = (v: Record<string, unknown>) => { const q = num(v.qty), r = num(v.rate); return round2((q !== null && !isNaN(q) ? q : E.qty || 1) * (r !== null && !isNaN(r) ? r : 0) * (E.ret ? -1 : 1)); };
         const jobs = (sites ?? []).filter((s) => siteStatusKey(s) !== 'closed' || s.id === E.x.site_id).sort((a, b) => String(b.job_number || '').localeCompare(String(a.job_number || ''), undefined, { numeric: true }));
@@ -153,7 +157,7 @@ export default function FinCosts() {
             }} />
         );
       })()}
-      {edit && (
+      {edit && canEdit && (
         <FinForm title={cur ? 'Cost' : 'Add a cost'} note="For costs without a purchase invoice in OpHUB — skips, fuel, travel, accommodation, site set-up. (Company overheads are added automatically — Finance › Settings › Company overheads.)"
           initial={cur ? { ...cur } : { category: types.length === 1 && COST_CATS[types[0]] && types[0] !== 'labour' ? types[0] : 'overheads', cost_date: today() }} onClose={() => setEdit(null)}
           fields={[

@@ -14,6 +14,7 @@ import { CLIENT_PO_MAX_BYTES, deleteClientPo, saveClientPo } from '@/data/finBoo
 import { openDocLink } from '@/data/hs';
 import { amendSitePo, cancelSitePo, deletePlantHire, deleteSubOrder, PO_STATUS, poChangeable, poFiles, savePlantHire, saveSubOrder, useSiteClientPos, usePlantHires, useSitePos, useSubOrders, useSubPeople, type ClientPo, type PlantHire, type SitePo, type SubOrder } from '@/data/siteOrders';
 import { useAuth } from '@/lib/auth';
+import { canRaiseOrders } from '@/lib/roles';
 import { base } from '@/theme/theme';
 
 const fd = (d: string | null | undefined) => (d ? new Date(d.length === 10 ? `${d}T12:00:00` : d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
@@ -118,6 +119,9 @@ export function HiredPlantCard({ siteId }: { siteId: string }) {
 
 /* ---------- subcontract orders (Materials › Subcontract Orders) ---------- */
 export function SubOrdersList({ siteId }: { siteId: string }) {
+  const { me } = useAuth();
+  // Raise Orders (Admin › Roles) to raise a new subcontract order.
+  const canOrder = canRaiseOrders(me);
   const qc = useQueryClient();
   const { data: list = [], isLoading } = useSubOrders(siteId);
   const [edit, setEdit] = useState<SubOrder | 'new' | null>(null);
@@ -128,7 +132,7 @@ export function SubOrdersList({ siteId }: { siteId: string }) {
   return (
     <View>
       <Muted style={{ marginBottom: 10 }}>Who’s doing what on this job. Finance adds the order value, CIS and retention, and pays their applications.</Muted>
-      <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 10 }}><Button title="+ New Subcontract Order" onPress={() => setEdit('new')} /></View>
+      {canOrder && <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 10 }}><Button title="+ New Subcontract Order" onPress={() => setEdit('new')} /></View>}
       {list.length ? (
         <Card>
           {list.map((x, i) => (
@@ -144,7 +148,7 @@ export function SubOrdersList({ siteId }: { siteId: string }) {
           ))}
         </Card>
       ) : <Muted style={{ textAlign: 'center' }}>No subcontract orders on this job yet.</Muted>}
-      {edit && (
+      {edit && (canOrder || edit !== 'new') && (
         <FinForm title={sc ? `${sc.number} · ${sc.name}` : 'New Subcontract Order'} onClose={() => setEdit(null)}
           initial={sc ? { name: sc.name, email: sc.email || '', description: sc.description || '', notes: sc.notes || '', status: sc.status === 'complete' ? 'complete' : 'active' } : { worker: '' }}
           onChange={(k, next) => { if (k !== 'worker') return; const w = people.find((p) => p.id === next.worker); return w ? { name: w.name, email: w.email || '' } : undefined; }}

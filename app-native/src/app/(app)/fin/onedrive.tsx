@@ -3,12 +3,18 @@
 import { Stack } from 'expo-router';
 
 import { OneDriveSettings } from '@/components/OneDriveSettings';
+import { Muted } from '@/components/ui';
+import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
+import { space } from '@/theme/theme';
 
 export default function FinOneDrive() {
+  const { me } = useAuth();
   return (
     <>
       <Stack.Screen options={{ title: 'OneDrive' }} />
-      <OneDriveSettings finance />
+      {/* The OneDrive settings are changes: Finance – Edit only (Admin › Roles). */}
+      {canEditFinance(me) ? <OneDriveSettings finance /> : <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>}
     </>
   );
 }

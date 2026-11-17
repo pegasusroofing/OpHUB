@@ -21,6 +21,7 @@ import { Button, Empty, Muted, SectionTitle } from '@/components/ui';
 import { fdb, finInvoke, finStatus, selectAll, useFinSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { useJobsData } from './jobs';
 import { COST_CATS } from '@/lib/rules/finBook';
 import { fdate, jobTag, money, num, vatList } from '@/lib/rules/finance';
@@ -86,6 +87,8 @@ export default function FinDirectory() {
   const { data: supInvs = [] } = useQuery({ queryKey: ['finDir', me?.org_id, 'supInvs'], enabled: !!me && kind === 'supplier', queryFn: async () => selectAll<Row>('purchase_invoices', 'id,supplier_id,supplier_name,status,net,total,paid_on', (x) => x.eq('org_id', me?.org_id as string)) });
   const { data: codes = [] } = useQuery({ queryKey: ['finDir', me?.org_id, 'codes'], enabled: !!me && kind !== 'codes', queryFn: async () => selectAll<Row>('fin_cost_codes', '*', (x) => x.eq('org_id', me?.org_id as string)) });
   if (!me) return null;
+  // Without Finance – Edit (Admin › Roles) the Directory is shown, not changed: rows don't open their edit form.
+  const canEdit = canEditFinance(me);
   const refresh = () => void qc.invalidateQueries({ queryKey: ['finDir'] });
   const go = (k: string) => router.setParams({ kind: k });
   const ql = q.trim().toLowerCase();
@@ -140,7 +143,7 @@ export default function FinDirectory() {
     return (
       <FinPage title="Directory" section={section} sub={subTab} onSub={onSub} badges={section === 'subs' ? subsBadges : undefined} top={section === 'subs' ? <SubsStats /> : undefined}>
         <Muted style={{ marginBottom: 10 }}>Subcontractors who invoice you under CIS, and PAYE staff. Check each subbie&apos;s CIS status with HMRC before you pay them.</Muted>
-        {waiting.length > 0 && (
+        {waiting.length > 0 && canEdit && (
           <View style={{ borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, padding: 10, marginBottom: 10, backgroundColor: base.card }}>
             <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 10 }}>{waiting.length} from the sub-contractor sign-up form, not in the directory yet</Text>
             {waiting.map((a) => (
@@ -154,7 +157,7 @@ export default function FinDirectory() {
             ))}
           </View>
         )}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: desk ? 'flex-end' : 'center', marginBottom: 10 }}>{xeroOn && <XeroWorkersButton />}<Button title="+ Add a person" onPress={() => setEdit({ key: '', name: '', r: { pay_type: 'subcontractor', cis_rate: 20 }, app: false })} /></View>
+        {canEdit && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: desk ? 'flex-end' : 'center', marginBottom: 10 }}>{xeroOn && <XeroWorkersButton />}<Button title="+ Add a person" onPress={() => setEdit({ key: '', name: '', r: { pay_type: 'subcontractor', cis_rate: 20 }, app: false })} /></View>}
         {desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search name or UTR' }} sel={pplSel} onChange={setPplSel} onClear={() => setPplSel({ show: [] })} sorts={[['az', 'Name A to Z'], ['za', 'Name Z to A']]} sort={pplSort} onSort={setPplSort}
           parts={[{ key: 'show', label: 'Show', items: [['subs', 'CIS subcontractors'], ['unver', 'Not verified'], ['paye', 'PAYE staff'], ['left', 'No longer working for us']].map(([v, l]) => ({ v, l, n: rows.filter(F[v]).length })) }]} />}
         {/* A laptop gets the current app's table: Name, CIS, UTR, HMRC Check, Day Rate, Bank and a day-rate total (9219j; cmp-fin 5 Nov 2026). */}
@@ -162,7 +165,7 @@ export default function FinDirectory() {
           const pill = (txt: string, bad: boolean) => <Text style={{ fontSize: 11, fontWeight: '600', color: bad ? '#92400E' : '#1E7A43', backgroundColor: bad ? '#FEF3C7' : '#E7F6EC', borderRadius: 999, paddingVertical: 2, paddingHorizontal: 8, overflow: 'hidden' }}>{txt}</Text>;
           const paye = (x: Row) => x.r.pay_type === 'paye';
           return (
-            <FinTable rows={list} keyOf={(x) => x.key} onRow={(x) => setEdit(x)}
+            <FinTable rows={list} keyOf={(x) => x.key} onRow={canEdit ? (x) => setEdit(x) : undefined}
               cols={[
                 { k: 'n', l: 'Name', flex: 1.6, min: 180, sort: (x: Row) => String(x.name || ''), render: (x: Row) => <View style={{ alignSelf: 'stretch' }}><Text style={{ fontWeight: '600', fontSize: 13, color: '#111827' }}>{x.name}</Text>{x.app ? <Text style={{ fontSize: 11.5, color: '#6b7280' }}>Has the app</Text> : null}</View> },
                 { k: 'c', l: 'CIS', render: (x: Row) => <Cell>{paye(x) ? 'PAYE' : CIS.find(([k]) => Number(k) === Number(x.r.cis_rate ?? 20))?.[1]}</Cell> },
@@ -175,7 +178,7 @@ export default function FinDirectory() {
           );
         })() : !desk && rows.length ? (
           // A phone: a table like the rest of Finance (Andy, 14 Nov 2026); ▾ CIS / Not Verified / PAYE / Left under Pay.
-          <PhoneTable key="labour" label="People and rates" rows={rows.slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))} keyOf={(x) => x.key} onRow={(x) => setEdit(x)}
+          <PhoneTable key="labour" label="People and rates" rows={rows.slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))} keyOf={(x) => x.key} onRow={canEdit ? (x) => setEdit(x) : undefined}
             cols={[
               { k: 'n', l: 'Name', lines: 2, main: (x) => x.name, sub: (x) => (x.r.pay_type === 'paye' ? 'PAYE' : x.r.utr ? `UTR ${x.r.utr}` : 'UTR Missing'), find: (x) => `${x.name} ${x.r.name || ''} ${x.r.utr || ''}`, sort: (x) => String(x.name || '').toLowerCase() },
               { k: 'p', l: 'Pay', w: 96, center: true, main: (x) => (x.r.pay_type === 'paye' ? 'PAYE' : CIS.find(([k]) => Number(k) === Number(x.r.cis_rate ?? 20))?.[1] || ''), sub: (x) => (x.r.pay_type === 'paye' ? (bankOk(x.r) ? '' : 'Payroll') : x.r.cis_verified_at ? 'Verified' : 'Unverified'), tone: (x) => (x.r.pay_type !== 'paye' && !x.r.cis_verified_at ? '#B45309' : undefined),
@@ -183,7 +186,7 @@ export default function FinDirectory() {
               { k: 'd', l: 'Day Rate', w: 76, right: true, bold: true, bigFirst: true, main: (x) => (x.r.day_rate != null ? money(x.r.day_rate) : '—'), sub: (x) => (bankOk(x.r) ? `••${String(x.r.bank_account_no).replace(/\D/g, '').slice(-4)}` : x.r.pay_type === 'paye' ? '' : 'No Bank'), sort: (x) => Number(x.r.day_rate || 0) },
             ]} />
         ) : list.length ? list.map((x) => (
-          <FinRow compact key={x.key} title={x.name} sub={[x.app ? 'Has the app' : '', x.r.pay_type === 'paye' ? 'PAYE' : CIS.find(([k]) => Number(k) === Number(x.r.cis_rate ?? 20))?.[1], x.r.pay_type === 'paye' ? '' : x.r.utr ? `UTR ${x.r.utr}` : 'UTR missing', x.r.pay_type === 'paye' ? '' : x.r.cis_verified_at ? `verified ${fdate(x.r.cis_verified_at)}` : 'unverified', bankOk(x.r) ? `${sortCode(x.r.bank_sort_code)} · ••${String(x.r.bank_account_no).replace(/\D/g, '').slice(-4)}` : x.r.pay_type === 'paye' ? 'payroll' : 'bank not saved'].filter(Boolean).join(' · ')} right={x.r.day_rate != null ? `${money(x.r.day_rate)}/day` : ''} onPress={() => setEdit(x)} />
+          <FinRow compact key={x.key} title={x.name} sub={[x.app ? 'Has the app' : '', x.r.pay_type === 'paye' ? 'PAYE' : CIS.find(([k]) => Number(k) === Number(x.r.cis_rate ?? 20))?.[1], x.r.pay_type === 'paye' ? '' : x.r.utr ? `UTR ${x.r.utr}` : 'UTR missing', x.r.pay_type === 'paye' ? '' : x.r.cis_verified_at ? `verified ${fdate(x.r.cis_verified_at)}` : 'unverified', bankOk(x.r) ? `${sortCode(x.r.bank_sort_code)} · ••${String(x.r.bank_account_no).replace(/\D/g, '').slice(-4)}` : x.r.pay_type === 'paye' ? 'payroll' : 'bank not saved'].filter(Boolean).join(' · ')} right={x.r.day_rate != null ? `${money(x.r.day_rate)}/day` : ''} onPress={canEdit ? () => setEdit(x) : undefined} />
         )) : <Empty>No one here yet.</Empty>}
         {cur && (
           <FinForm title={cur.key ? cur.name : 'Add a person'} initial={{ ...cur.r, name: cur.r.name || (cur.app ? cur.name : ''), cis_rate: String(cur.r.cis_rate ?? 20), pay_type: cur.r.pay_type || 'subcontractor', active: cur.r.active !== false }} onClose={() => setEdit(null)}
@@ -236,7 +239,7 @@ export default function FinDirectory() {
         {/* A phone's table has a search box under each heading (Andy, 14 Nov 2026); a laptop keeps the search bar. */}
         {desk && <TextInput value={q} onChangeText={setQ} placeholder="Search Clients" style={box} />}
         {isLoading ? <Muted>Loading…</Muted> : list.length ? (
-          <PhoneTable key="estimating" search={!desk} label="Estimating" rows={list} keyOf={(c) => c.id} onRow={(c) => setEdit(c)}
+          <PhoneTable key="estimating" search={!desk} label="Estimating" rows={list} keyOf={(c) => c.id} onRow={canEdit ? (c) => setEdit(c) : undefined}
             cols={[
               { l: 'Client', main: (c) => c.name, sub: (c) => [c.estimator_name, c.estimator_email].filter(Boolean).join(' · ') || 'No Estimator Yet' },
               { l: 'Mark-Up', w: 64, main: (c) => (c.estimating_markup_pct != null ? `${c.estimating_markup_pct}%` : '—'), sort: (c) => (c.estimating_markup_pct != null ? Number(c.estimating_markup_pct) : null) },
@@ -268,12 +271,12 @@ export default function FinDirectory() {
     const groups: Record<string, Row[]> = {}; list.forEach((c) => { (groups[c.grp || 'No group'] = groups[c.grp || 'No group'] || []).push(c); });
     return (
       <FinPage title="Cost codes" section={section} sub={subTab} onSub={onSub}>
-        <View style={{ flexDirection: 'row', marginBottom: 10 }}><Muted style={{ flex: 1 }}>The ID is the Xero account code each cost goes to. The type decides which column it adds up in on job costs and reports.</Muted><Button title="+ Add cost code" onPress={() => setEdit({ category: 'materials', grp: list[0]?.grp || '' })} /></View>
+        <View style={{ flexDirection: 'row', marginBottom: 10 }}><Muted style={{ flex: 1 }}>The ID is the Xero account code each cost goes to. The type decides which column it adds up in on job costs and reports.</Muted>{canEdit && <Button title="+ Add cost code" onPress={() => setEdit({ category: 'materials', grp: list[0]?.grp || '' })} />}</View>
         {desk && <TextInput value={q} onChangeText={setQ} placeholder="Search cost codes" style={box} />}
         {Object.keys(groups).sort().map((g) => (
           <View key={g}><SectionTitle>{g} · {groups[g].length} Cost Code{groups[g].length === 1 ? '' : 's'}</SectionTitle>{desk ? (
             // A laptop gets the current app's table: Name, ID, Description, Type (9219j; cmp-fin 5 Nov 2026).
-            <FinTable rows={groups[g]} keyOf={(c) => c.id} onRow={(c) => setEdit(c)}
+            <FinTable rows={groups[g]} keyOf={(c) => c.id} onRow={canEdit ? (c) => setEdit(c) : undefined}
               cols={[
                 { k: 'n', l: 'Name', flex: 1.4, render: (c: Row) => <Cell bold>{c.name}{c.active === false ? ' (hidden)' : ''}</Cell> },
                 { k: 'id', l: 'ID', render: (c: Row) => <Cell>{c.code || '—'}</Cell> },
@@ -282,7 +285,7 @@ export default function FinDirectory() {
               ]} />
           ) : (
             // A phone: a table like the rest of Finance (Andy, 14 Nov 2026).
-            <PhoneTable key={`codes${g}`} label={`Cost codes ${g}`} rows={groups[g]} keyOf={(c) => c.id} onRow={(c) => setEdit(c)}
+            <PhoneTable key={`codes${g}`} label={`Cost codes ${g}`} rows={groups[g]} keyOf={(c) => c.id} onRow={canEdit ? (c) => setEdit(c) : undefined}
               cols={[
                 { k: 'id', l: 'ID', w: 60, main: (c) => c.code || '—' },
                 { k: 'n', l: 'Name', lines: 2, main: (c) => `${c.name}${c.active === false ? ' (Hidden)' : ''}`, sub: (c) => c.description || '', find: (c) => `${c.name} ${c.code || ''} ${c.description || ''}` },
@@ -325,9 +328,9 @@ export default function FinDirectory() {
   return (
     <FinPage title="Directory" section={section} sub={subTab} onSub={onSub} badges={section === 'subs' ? subsBadges : undefined} top={section === 'subs' ? <SubsStats /> : undefined}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <Text style={{ flex: 1, minWidth: 200, fontSize: 12, color: '#6b7280' }}>{list.length} {sup ? 'supplier' : 'client'}{list.length === 1 ? '' : 's'} · {list.filter((c) => c.xero_contact_id).length} in Xero. {sup ? 'Tap one to set VAT, payment terms and a default cost code.' : 'New clients you add here go into Xero too.'}</Text>
-        <Pressable disabled={busy} onPress={() => void pull()} style={{ borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12 }}><Text style={{ fontSize: 12, fontWeight: '500', color: base.ink }}>{busy ? 'Pulling…' : '⟳ Pull from Xero'}</Text></Pressable>
-        <Pressable onPress={() => setEdit({ toX: true })} style={{ backgroundColor: th.brand1, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12 }}><Text style={{ fontSize: 12, fontWeight: '600', color: th.brand1Text }}>+ New {sup ? 'supplier' : 'client'}</Text></Pressable>
+        <Text style={{ flex: 1, minWidth: 200, fontSize: 12, color: '#6b7280' }}>{list.length} {sup ? 'supplier' : 'client'}{list.length === 1 ? '' : 's'} · {list.filter((c) => c.xero_contact_id).length} in Xero.{!canEdit ? '' : sup ? ' Tap one to set VAT, payment terms and a default cost code.' : ' New clients you add here go into Xero too.'}</Text>
+        {canEdit && <Pressable disabled={busy} onPress={() => void pull()} style={{ borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12 }}><Text style={{ fontSize: 12, fontWeight: '500', color: base.ink }}>{busy ? 'Pulling…' : '⟳ Pull from Xero'}</Text></Pressable>}
+        {canEdit && <Pressable onPress={() => setEdit({ toX: true })} style={{ backgroundColor: th.brand1, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12 }}><Text style={{ fontSize: 12, fontWeight: '600', color: th.brand1Text }}>+ New {sup ? 'supplier' : 'client'}</Text></Pressable>}
       </View>
       {/* A phone's table has a search box under each heading (Andy, 14 Nov 2026); a laptop keeps the search bar. */}
       {desk && <TextInput value={q} onChangeText={setQ} placeholder={`Search ${sup ? 'suppliers' : 'clients'}`} style={box} />}
@@ -335,7 +338,7 @@ export default function FinDirectory() {
         const jobsOf = (c: Row) => sites.filter((s) => String(s.client_name || jd?.jfBy[s.id]?.billing_name || '').trim().toLowerCase() === String(c.name).trim().toLowerCase());
         const owedOf = (c: Row) => jobsOf(c).reduce((t, s) => ({ o: t.o + (jd?.m[s.id]?.owed || 0), od: t.od + (jd?.m[s.id]?.overdue || 0) }), { o: 0, od: 0 });
         return (
-          <FinTable rows={list} keyOf={(c) => c.id || `n:${c.name}`} onRow={(c) => setEdit(c)}
+          <FinTable rows={list} keyOf={(c) => c.id || `n:${c.name}`} onRow={canEdit ? (c) => setEdit(c) : undefined}
             cols={[
               { k: 'n', l: sup ? 'Supplier' : 'Client', flex: 2.2, min: 220, render: (c: Row) => (
                 <View style={{ alignSelf: 'stretch' }}>
@@ -356,7 +359,7 @@ export default function FinDirectory() {
             foot={(list) => <><FootText bold>{list.length} shown</FootText>{!sup && <FootText>Owed {money(list.reduce((t, c) => t + owedOf(c).o, 0))}</FootText>}{sup && <FootText>To pay {money(list.reduce((t, c) => t + Number(c._owed || 0), 0))}</FootText>}</>} />
         );
       })() : list.length ? (
-        <PhoneTable key={sup ? 'suppliers' : 'clients'} label="Directory" rows={list} keyOf={(c) => c.id || `n:${c.name}`} onRow={(c) => setEdit(c)}
+        <PhoneTable key={sup ? 'suppliers' : 'clients'} label="Directory" rows={list} keyOf={(c) => c.id || `n:${c.name}`} onRow={canEdit ? (c) => setEdit(c) : undefined}
           cols={[
             { l: sup ? 'Supplier' : 'Client', main: (c) => c.name, sub: (c) => c.email || (sup ? c.category : '') || '', find: (c) => `${c.name} ${c.email || ''} ${c.category || ''}` },
             { l: sup ? 'Owed' : 'Terms', w: 92, right: !!sup, bold: !!sup, bigFirst: !!sup, main: (c) => (sup ? (c._owed ? money(c._owed) : '—') : termsText(c) || '—'), sub: (c) => (sup && c._n ? `${c._n} Invoice${c._n === 1 ? '' : 's'}` : ''), sort: (c) => (sup ? Number(c._owed || 0) : termsText(c) || '') },

@@ -20,6 +20,7 @@ import { SubRight } from '@/components/FinSlot';
 import { fdb } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance, canRaiseOrders } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { bestSheet, guessColumns, importRows } from '@/lib/rules/boqImport';
 import { fdate, money, num } from '@/lib/rules/finance';
@@ -83,6 +84,8 @@ export function PurchaseQuotes({ siteId }: { siteId?: string }) {
   const [busy, setBusy] = useState('');
   const [edit, setEdit] = useState<string | null>(null);
   if (!me || !data) return <Muted>Loading…</Muted>;
+  // Finance – Edit to upload or change a list; ticking items for a PO also needs Raise Orders (Admin › Roles).
+  const canEdit = canEditFinance(me), pick = !!siteId && canEdit && canRaiseOrders(me);
   const refresh = () => void qc.invalidateQueries({ queryKey: ['finPQuotes'] });
   const qBy: Record<string, Row> = {}; data.quotes.forEach((x) => { qBy[x.id] = x; });
   const order: Record<string, number> = {}; data.quotes.forEach((x, i) => { order[x.id] = (x.site_id ? 0 : 1000) + i; });
@@ -110,11 +113,11 @@ export function PurchaseQuotes({ siteId }: { siteId?: string }) {
       <Card>
         <SectionTitle>{siteId ? 'Purchase Quotes' : 'Price lists (every project)'}</SectionTitle>
         <Muted style={{ marginBottom: 8 }}>{siteId ? 'Supplier quotes for this project, and your yearly price lists that apply to every project. Tick items and raise a PO from them.' : 'Your main suppliers’ yearly price lists. Their items show under every project’s Purchase Quotes.'}</Muted>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        {canEdit && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
           {siteId && <SelectBox value={scope} title="Who it's for" options={[['project', 'This project'], ['all', 'All projects (price list)']]} onChange={setScope} style={{ marginBottom: 0, width: 200 }} />}
           <TextInput value={sup} onChangeText={setSup} placeholder="Supplier name" style={[box, { minWidth: 180 }]} />
           <SubRight><Button small busy={!!busy} title={busy || '📥 Upload Price List'} onPress={() => void upload()} /></SubRight>
-        </View>
+        </View>}
       </Card>
       {data.quotes.length > 0 && (
         <FinTabs value={filter} onChange={setFilter} items={[
@@ -124,28 +127,28 @@ export function PurchaseQuotes({ siteId }: { siteId?: string }) {
       )}
       {!!filter && qBy[filter] && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-          <Button small kind="ghost" title="✎ Edit this list" onPress={() => setEdit(filter)} />
+          {canEdit && <Button small kind="ghost" title="✎ Edit this list" onPress={() => setEdit(filter)} />}
           {!!qBy[filter].file_path && <Button small kind="ghost" title={`📄 View ${qBy[filter].file_name || 'the quote'}`} onPress={async () => { const u = await openDocLink('finance-docs', qBy[filter].file_path); if (u) viewDoc(u, qBy[filter].file_name || ''); else toast('Could not open the file.'); }} />}
-          <Button small kind="ghost" title="⧉ Duplicate" onPress={async () => {
+          {canEdit && <Button small kind="ghost" title="⧉ Duplicate" onPress={async () => {
             const src = qBy[filter], nid = rid();
             const ins = await fdb.from('fin_quotes').insert({ id: nid, org_id: me.org_id, site_id: src.site_id, purpose: 'pquote', supplier_id: src.supplier_id, supplier_name: src.supplier_name, file_path: src.file_path ?? null, quote_no: src.quote_no ? `${src.quote_no} (copy)` : 'Copy', quote_date: null, file_name: src.file_name, created_by: me.id } as never);
             if (ins.error) { toast('Could not duplicate it.'); return; }
             const its = ((await fdb.from('fin_quote_items').select('*').eq('quote_id', filter).order('position')).data as Row[] | null) ?? [];
             if (its.length) await fdb.from('fin_quote_items').insert(its.map((i) => ({ org_id: me.org_id, quote_id: nid, site_id: src.site_id, supplier_name: i.supplier_name, code: i.code, description: i.description, unit: i.unit, rate: i.rate, position: i.position, active: true, created_by: me.id })) as never);
             refresh(); setFilter(nid); setEdit(nid);
-          }} />
-          <Button small kind="ghost" title="Remove" onPress={async () => {
+          }} />}
+          {canEdit && <Button small kind="ghost" title="Remove" onPress={async () => {
             const src = qBy[filter];
             if (!(await confirmAsk(`Remove this quote${src.site_id ? '' : ' from every project'}? Its items come off the list. POs already raised aren't changed.`, 'Remove'))) return;
             await fdb.from('fin_quote_items').update({ active: false } as never).eq('quote_id', filter);
             if (!(await fdb.from('fin_quotes').delete().eq('id', filter).select('id')).data?.length) toast('Could not remove it.');
             setFilter(''); refresh();
-          }} />
+          }} />}
         </View>
       )}
       {edit && <PriceListEdit qid={edit} onClose={(saved) => { setEdit(null); if (saved) refresh(); }} />}
       <TextInput value={q} onChangeText={setQ} placeholder="Search items or codes" style={[box, { marginBottom: 8 }]} />
-      {siteId && ticked.length > 0 && (
+      {pick && ticked.length > 0 && (
         <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 }}>
           <Text style={{ flex: 1, fontWeight: '500', color: base.ink }}>{ticked.length} item{ticked.length === 1 ? '' : 's'} ticked</Text>
           <Button small title="Raise a PO from these" onPress={raise} />
@@ -155,8 +158,8 @@ export function PurchaseQuotes({ siteId }: { siteId?: string }) {
       {shown.length ? shown.map((i) => {
         const on = sel.has(i.id);
         return (
-          <Pressable key={i.id} disabled={!siteId} onPress={() => setSel((s) => { const n = new Set(s); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n; })} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 9, borderWidth: 1, borderColor: on ? base.ink : base.cardLine, borderRadius: radius.row, marginBottom: 5, backgroundColor: base.card }}>
-            {!!siteId && <Text style={{ fontSize: 17 }}>{on ? '☑' : '☐'}</Text>}
+          <Pressable key={i.id} disabled={!pick} onPress={() => setSel((s) => { const n = new Set(s); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n; })} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 9, borderWidth: 1, borderColor: on ? base.ink : base.cardLine, borderRadius: radius.row, marginBottom: 5, backgroundColor: base.card }}>
+            {pick && <Text style={{ fontSize: 17 }}>{on ? '☑' : '☐'}</Text>}
             <View style={{ flex: 1 }}>
               <Text style={{ fontWeight: '500', color: base.ink, fontSize: 15 }}>{i.code ? `${i.code} – ` : ''}{i.description}</Text>
               <Muted>{[filter ? '' : qLabel(qBy[i.quote_id] || {}), i.unit ? `per ${i.unit}` : ''].filter(Boolean).join(' · ')}</Muted>

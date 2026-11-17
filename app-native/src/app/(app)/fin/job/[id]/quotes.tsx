@@ -13,6 +13,7 @@ import { confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { fdb } from '@/data/finance';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { bestSheet, guessColumns, importRows } from '@/lib/rules/boqImport';
 import { fdate, num } from '@/lib/rules/finance';
 import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
@@ -44,6 +45,8 @@ export default function ProjectQuotes() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
   if (!me || !data) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
+  // Without Finance – Edit (Admin › Roles) the project quotes are shown, not changed.
+  const canEdit = canEditFinance(me);
   const refresh = () => void qc.invalidateQueries({ queryKey: ['finShop', id] });
   const qLabel = (q: Row) => [q.supplier_name, q.quote_no].filter(Boolean).join(' · ') || 'Quote';
   const shown = data.items.filter((i) => !sel || (sel === 'manual' ? !i.quote_id : i.quote_id === sel));
@@ -84,7 +87,7 @@ export default function ProjectQuotes() {
   return (
     <ScrollView contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Project quotes' }} />
-      <Card>
+      {canEdit && <Card>
         <SectionTitle>Upload a project quote</SectionTitle>
         <Muted style={{ marginBottom: 8 }}>A supplier quote or price list for this project (Excel or CSV). Add as many as you need. The team pick items from them when they request materials, and POs are priced from them.</Muted>
         {!draft ? <Button busy={busy} title="📥 Choose the quote file" onPress={() => void read()} /> : (
@@ -104,14 +107,14 @@ export default function ProjectQuotes() {
             </View>
           </View>
         )}
-      </Card>
+      </Card>}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
         <SectionTitle>Project quotes</SectionTitle>
-        <View style={{ marginLeft: 'auto' }}><Button kind="ghost" title="+ Add an item by hand" onPress={async () => {
+        {canEdit && <View style={{ marginLeft: 'auto' }}><Button kind="ghost" title="+ Add an item by hand" onPress={async () => {
           const desc = ((await promptText('Item description', '')) || '').trim(); if (!desc) return;
           const unit = ((await promptText('Unit (e.g. nr, m2, roll) — optional', '')) || '').trim();
           if ((await fdb.from('fin_shop_items').insert({ org_id: me.org_id, site_id: id, description: desc, unit: unit || null, position: 9999, active: true, created_by: me.id } as never)).error) toast('Could not save — try again.'); else refresh();
-        }} /></View>
+        }} /></View>}
       </View>
       {(data.quotes.length > 0 || manual.length > 0) && (
         <FinTabs value={sel} onChange={setSel} items={[
@@ -120,7 +123,7 @@ export default function ProjectQuotes() {
           ...(manual.length > 0 ? [['manual', 'Added By Hand', manual.length] as [string, string, number]] : []),
         ]} />
       )}
-      {!!sel && sel !== 'manual' && (
+      {!!sel && sel !== 'manual' && canEdit && (
         <Button kind="ghost" title="Hide all on this quote from the team" onPress={async () => {
           const n = data.items.filter((i) => i.quote_id === sel).length;
           if (!(await confirmAsk(`Hide all ${n} items on this quote from the team? They stay here and you can show them again.`, 'Hide'))) return;
@@ -133,11 +136,12 @@ export default function ProjectQuotes() {
             <Text style={{ fontWeight: '500', color: base.ink }}>{i.description}</Text>
             <Muted>{[sel ? '' : i.quote_label || (i.quote_id ? '' : 'Added by hand'), i.code, i.unit ? `per ${i.unit}` : '', i.qty != null ? `quoted qty ${i.qty}` : ''].filter(Boolean).join(' · ')}</Muted>
           </View>
-          <TextInput defaultValue={data.rate[i.id] != null ? String(data.rate[i.id]) : ''} placeholder="£" keyboardType="decimal-pad" style={[box, { width: 90 }]} onEndEditing={async (e) => {
+          <TextInput editable={canEdit} defaultValue={data.rate[i.id] != null ? String(data.rate[i.id]) : ''} placeholder="£" keyboardType="decimal-pad" style={[box, { width: 90 }]} onEndEditing={async (e) => {
+            if (!canEdit) return;
             const n = num(e.nativeEvent.text), rate = n === null || isNaN(n) ? null : Math.round(n * 10000) / 10000;
             toast((await fdb.from('fin_shop_prices').upsert({ item_id: i.id, org_id: me.org_id, rate } as never, { onConflict: 'item_id' })).error ? 'Could not save the rate' : 'Rate saved');
           }} />
-          <Pressable onPress={async () => { if (!!(await fdb.from('fin_shop_items').update({ active: !i.active } as never).eq('id', i.id).select('id')).data?.length) refresh(); }}><Text style={{ color: base.blue, fontWeight: '500' }}>{i.active ? 'Hide' : 'Show'}</Text></Pressable>
+          {canEdit && <Pressable onPress={async () => { if (!!(await fdb.from('fin_shop_items').update({ active: !i.active } as never).eq('id', i.id).select('id')).data?.length) refresh(); }}><Text style={{ color: base.blue, fontWeight: '500' }}>{i.active ? 'Hide' : 'Show'}</Text></Pressable>}
         </View>
       )) : <Empty>No items yet — upload a quote or add items by hand.</Empty>}
     </ScrollView>

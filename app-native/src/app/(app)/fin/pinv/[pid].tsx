@@ -17,6 +17,7 @@ import { nameOf, usePeople } from '@/data/hs';
 import { addPiThreadReply, piLabel, tellPmOfPi, isInXero, loadPinv, setPinvPaid, setPinvStatus } from '@/data/finPurchase';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { COST_CATS } from '@/lib/rules/finBook';
 import { codePatch, codeStart, type CodeLine } from '@/lib/rules/piCode';
 import { fdate, jobTag, money, round2, today } from '@/lib/rules/finance';
@@ -27,6 +28,9 @@ const XERO_Q = 'This is already in Xero. Changing it here won’t change Xero �
 type Row = Record<string, any>;
 export default function FinPinv() {
   const { pid, site, po, receipt, sup, no, amt, date, edit } = useLocalSearchParams<{ pid: string; site?: string; po?: string; receipt?: string; sup?: string; no?: string; amt?: string; date?: string; edit?: string }>();
+  const { me } = useAuth();
+  // A new one needs Finance – Edit (Admin › Roles).
+  if (pid === 'new' && !canEditFinance(me)) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>;
   // Add Manually opens the line-by-line screen (Andy, 5 Nov 2026); the project is chosen on it.
   if (pid === 'new') return <PinvEditor key={`${site || ''}${po || ''}${receipt || ''}${no || ''}`} siteId={site || undefined} poId={po || undefined} start={sup || no ? { supplier: sup, no, amount: amt ? Number(amt) : undefined, date } : undefined} />;
   return <ViewPinv id={pid} startEdit={edit === '1'} />;
@@ -45,6 +49,7 @@ function ViewPinv({ id, startEdit }: { id: string; startEdit?: boolean }) {
   if (!me) return null;
   if (isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const i = data?.i; if (!i) return <Muted style={{ padding: space.l }}>Purchase invoice not found.</Muted>;
+  const canEdit = canEditFinance(me);
   const refresh = () => ['finPinv', 'finPurchases', 'finBook', 'finOverview', 'finPo'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
   const status = async (s: string, label: string, note?: string) => {
     if ((s === 'rejected' || s === 'query') && (await isInXero('purchase_invoices', id)) && !(await confirmAsk(`${label}?\n\n${XERO_Q}`, 'I’ll change Xero too'))) return;
@@ -74,7 +79,7 @@ function ViewPinv({ id, startEdit }: { id: string; startEdit?: boolean }) {
                   <Text style={{ color: base.ink }}>{x.text}</Text>
                 </View>
               )) : <Muted>No replies yet.</Muted>}
-              {i.status === 'query' && (pm ? (
+              {i.status === 'query' && canEdit && (pm ? (
                 <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
                   <TextInput value={reply} onChangeText={setReply} placeholder="Reply to the PM…" style={{ flex: 1, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card }} />
                   <Button busy={sending} title="Send" onPress={async () => {
@@ -96,7 +101,7 @@ function ViewPinv({ id, startEdit }: { id: string; startEdit?: boolean }) {
       )}
     </View>
   );
-  const buttons = (
+  const buttons = !canEdit ? null : (
     <>
       {i.status === 'approved' && <Button small kind="ghost" title={i.paid_on ? 'Remove Paid Date' : 'Mark Paid Today'} onPress={async () => { if (await setPinvPaid(id, i.paid_on ? null : today())) { toast(i.paid_on ? 'Paid date removed' : 'Marked paid', { confirm: true }); refresh(); } }} />}
       {i.status !== 'rejected' && !i.paid_on && <Button small kind="ghost" title="Reject" onPress={async () => { if (await confirmAsk('Reject this purchase invoice?', 'Reject')) void status('rejected', 'Reject this purchase invoice'); }} />}

@@ -10,7 +10,7 @@ import { FinMode, Muted } from '@/components/ui';
 import { FinSlotCtx } from '@/components/FinSlotCtx';
 import { fdb } from '@/data/finance';
 import { useAuth } from '@/lib/auth';
-import { isFinanceController, isFinanceOnlyOrg, isFinanceUser } from '@/lib/roles';
+import { canEditFinance, canRaiseOrders, financeOnlyPerson, isFinanceUser } from '@/lib/roles';
 import { base, page, radius, useTheme } from '@/theme/theme';
 
 export const FIN_SECTIONS = [
@@ -107,9 +107,11 @@ export function FinJobTabs({ id, active, job, name, onOverview }: { id: string; 
   const t = useTheme();
   const { me, org } = useAuth();
   // Go To Project (Andy, 5 Nov 2026): straight to this job's page in Projects, for people who use Projects.
-  const toProject = !isFinanceOnlyOrg(org) && !isFinanceController(me);
+  const toProject = !financeOnlyPerson(me, org);
   const { data: kind } = useJobKind(id);
   const invoiceJob = kind?.billing === 'invoice', repair = !!kind?.repair;
+  // + New only when the role has Finance – Edit; orders also need Raise Orders (Admin › Roles).
+  const canEdit = canEditFinance(me), canOrder = canEdit && canRaiseOrders(me);
   // Variations sit inside the Bill of Quantities tab, unless an invoice job has no Bill.
   // Costs By Job / Plot sits under Live Jobs on a repair contract, else under the Bill (or Variations on an invoice job).
   const a0 = active === 'parts' ? (repair ? 'repairs' : 'variations') : active;
@@ -126,13 +128,13 @@ export function FinJobTabs({ id, active, job, name, onOverview }: { id: string; 
             <Text style={{ color: t.brand1, fontSize: 12.5, fontWeight: '600' }}>Go To Project</Text>
           </Pressable>
         )}
-        <Pressable onPress={async () => {
-          const opts = [...(repair ? [['job', 'Repair Job', `/fin/job/${id}/repairs`]] : []), ['inv', 'Invoice', `/fin/job/${id}/invoice/new`], ...(invoiceJob ? [] : [['app', 'Application', `/fin/job/${id}/application/new`]]), ['po', 'Purchase order', `/fin/po/new?site=${id}`], ['pinv', 'Purchase invoice', `/fin/pinv/new?site=${id}`], ['plant', 'Plant hire', `/fin/plant/new?site=${id}`], ['sub', 'Subcontractor order', `/fin/sub/new?site=${id}`]];
+        {canEdit && <Pressable onPress={async () => {
+          const opts = [...(repair ? [['job', 'Repair Job', `/fin/job/${id}/repairs`]] : []), ['inv', 'Invoice', `/fin/job/${id}/invoice/new`], ...(invoiceJob ? [] : [['app', 'Application', `/fin/job/${id}/application/new`]]), ...(canOrder ? [['po', 'Purchase order', `/fin/po/new?site=${id}`]] : []), ['pinv', 'Purchase invoice', `/fin/pinv/new?site=${id}`], ['plant', 'Plant hire', `/fin/plant/new?site=${id}`], ...(canOrder ? [['sub', 'Subcontractor order', `/fin/sub/new?site=${id}`]] : [])];
           const k = await chooseAction('New', opts.map(([key, label]) => ({ key, label })));
           const o = opts.find((x) => x[0] === k); if (o) router.push(o[2] as never);
         }} style={{ backgroundColor: t.brand1, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 14, flexDirection: 'row', gap: 18 }}>
           <Text style={{ color: t.brand1Text, fontSize: 12.5, fontWeight: '600' }}>+ New</Text><Text style={{ color: t.brand1Text, fontSize: 11 }}>▾</Text>
-        </Pressable>
+        </Pressable>}
       </View>
       <View style={{ marginTop: 6, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' }}>
         <KeepInView on={current} items={tabs} render={(k, l) => (
@@ -207,6 +209,8 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide, to
           </View>
           {!(subs.length > 1 && onSub) && <>{subRight}{slot}</>}
           </View>
+          {/* A role without Finance – Edit (Admin › Roles) sees Finance look-only. */}
+          {!canEditFinance(me) && <Muted style={{ marginBottom: 8 }}>View Only</Muted>}
           {section === 'overview' && <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 10 }}><Text style={{ color: '#111827', fontSize: 12 }}>🔒 Finance trial — nothing is sent from Finance (no emails, no Xero, no pushes to PMs) while it&apos;s being tested.</Text></View>}
           {!!top && <FinMode.Provider value>{top}</FinMode.Provider>}
           {subs.length > 1 && onSub && (

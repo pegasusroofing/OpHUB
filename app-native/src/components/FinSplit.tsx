@@ -11,6 +11,8 @@ import { Button, Muted } from '@/components/ui';
 import { fdb } from '@/data/finance';
 import { loadSubJobs, subKind, subNoun, type SubJob } from '@/data/finSubJobs';
 import { useSites } from '@/data/sites';
+import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { allocs } from '@/lib/rules/finBook';
 import { jobTag, money, num, plantCost, round2 } from '@/lib/rules/finance';
 import { splitAcross, splitEven, splitFoot, splitMode, splitPatch, splitStart, splitTotal, type SplitLine } from '@/lib/rules/finSplit';
@@ -24,6 +26,7 @@ const netOf = (t: SplitTable, r: Row): number | null => { const n = t === 'purch
 
 /** "Booked to Plot 3 · Change split" — shown when the project has plots / repair jobs or the cost is split. */
 export function AllocRow({ table, row, po, onSaved }: { table: SplitTable; row: Row; po?: Row | null; onSaved?: () => void }) {
+  const { me } = useAuth();
   const { data: sites = [] } = useSites();
   const home = sites.find((s) => s.id === row.site_id);
   const [subs, setSubs] = useState<Record<string, SubJob[]>>({});
@@ -46,7 +49,7 @@ export function AllocRow({ table, row, po, onSaved }: { table: SplitTable; row: 
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: base.line }}>
       <Muted>Booked to</Muted>
       <Text style={{ flex: 1, fontWeight: '500', color: base.ink }}>{txt}</Text>
-      <Pressable onPress={() => setOpen(true)}><Text style={{ color: base.blue, fontWeight: '500' }}>{a.length > 1 ? 'Change split' : subKind(home) ? 'Allocate / split' : 'Split'}</Text></Pressable>
+      {canEditFinance(me) && <Pressable onPress={() => setOpen(true)}><Text style={{ color: base.blue, fontWeight: '500' }}>{a.length > 1 ? 'Change split' : subKind(home) ? 'Allocate / split' : 'Split'}</Text></Pressable>}
       {open && <SplitBox table={table} row={row} po={po} onClose={() => setOpen(false)} onSaved={onSaved} />}
     </View>
   );

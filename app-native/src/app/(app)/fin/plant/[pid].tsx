@@ -6,11 +6,13 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
+import { FinRow } from '@/components/FinNav';
 import { AllocRow } from '@/components/FinSplit';
 import { useToast } from '@/components/toast';
-import { Button, Muted } from '@/components/ui';
+import { Button, Card, Muted } from '@/components/ui';
 import { fdb } from '@/data/finance';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { fdate, num, plantCost, round2, today } from '@/lib/rules/finance';
 import { space } from '@/theme/theme';
 
@@ -26,6 +28,20 @@ export default function FinPlant() {
   if (pid !== 'new' && isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const siteId = h?.site_id || site || '';
   const c = h ? plantCost(h as never) : null;
+  // Without Finance – Edit (Admin › Roles) the hire is shown, not changed; a new one isn't offered.
+  if (!canEditFinance(me)) return (
+    <ScrollView contentContainerStyle={{ padding: space.l }}>
+      <Stack.Screen options={{ title: h ? h.item : 'Plant hire' }} />
+      {c && <Muted style={{ marginBottom: 8 }}>{h?.off_hire ? `Off hire ${fdate(h.off_hire)}` : `On hire ${c.weeks} wk`} · cost so far £{c.cost.toLocaleString('en-GB', { minimumFractionDigits: 2 })}</Muted>}
+      {h && (
+        <Card>
+          {([['What’s On Hire', h.item], ['Supplier', h.supplier_name], ['Hire Ref', h.hire_ref], ['On Hire', h.on_hire ? fdate(h.on_hire) : ''], ['Off Hire', h.off_hire ? fdate(h.off_hire) : 'Still On Hire'], ['Hire Rate', h.rate != null ? `£${Number(h.rate).toFixed(2)} per ${h.rate_period === 'day' ? 'day' : 'week'}` : ''], ['Cost Comes From', h.cost_from === 'invoices' ? 'The supplier’s invoices' : 'The hire rate'], ['Notes', h.notes]] as [string, unknown][]).map(([l, v]) => <FinRow compact key={l} title={l} right={String(v || '—')} />)}
+          <AllocRow table="fin_plant_hires" row={h} />
+        </Card>
+      )}
+      <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>
+    </ScrollView>
+  );
   return (
     <ScrollView contentContainerStyle={{ padding: space.l }}>
       <Stack.Screen options={{ title: h ? h.item : 'Plant hire' }} />

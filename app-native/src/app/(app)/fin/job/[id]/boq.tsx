@@ -28,6 +28,7 @@ import { useFinSettings, fdb } from '@/data/finance';
 import { useSubJobs } from '@/data/finSubJobs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 import { pdfPageTexts } from '@/lib/pdfjs';
@@ -60,6 +61,8 @@ export default function FinBoq() {
 
 function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }) {
   const { org } = useAuth();
+  // Without Finance – Edit (Admin › Roles) the Bill is shown, not changed: nothing saves, and the tools are hidden.
+  const ro = !canEditFinance(me);
   const t = useTheme();
   const desk = useDesk();
   // Laptop: bigger line text and boxes (Andy, 2 Nov 2026).
@@ -138,7 +141,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
   const costRate = (r: Row) => { const q = num(r.qty), c = num(r.cost); return c === null || isNaN(c) ? '' : q ? String(round2(c / q)) : String(c); };
 
   const save = async (quiet = false) => {
-    if (saving.current) return;
+    if (saving.current || ro) return;
     const now = latest.current;
     const numbered = autoRefs(now);
     const clean = now.map((r, ri) => ({ _k: r._k, id: r.id, _task_id: r._task_id, _sec_id: r._sec_id, kind: r.kind || 'item', ref: numbered[ri] || null, description: String(r.description || '').trim(), qty: num(r.qty), unit: String(r.unit || '').trim() || null, rate: num(r.rate), value: itemValue(r), cost: num(r.cost), sub: r.sub || null, cost_basis: r.cost_basis || null, cost_pct: r.cost_pct ?? null }))
@@ -226,8 +229,9 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
     if (!ok) toast('Could not make the file — try again.');
   };
 
-  const ioBtn = (
-        <Button small kind="ghost" busy={importing} title="Import / Export" onPress={async () => {
+  const ioBtn = ro && !lastUp?.path ? null : (
+        <Button small kind="ghost" busy={importing} title={ro ? 'Last Upload' : 'Import / Export'} onPress={async () => {
+          if (ro) { await bqLast(); return; }
           const k = await chooseAction('Import / Export', [{ key: 'send', label: "Send to the operatives' schedule" }, { key: 'imp', label: 'Import a breakdown (Excel, CSV or PDF)' }, ...(lastUp?.path ? [{ key: 'last', label: 'Last Upload' }] : [])]);
           if (k === 'send') await bqSend(); else if (k === 'imp') await bqImport(); else if (k === 'last') await bqLast();
         }} />
@@ -291,7 +295,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       <View style={{ width: 18 }} />
     </View>
   ) : null;
-  const addWorks = <Button small kind="ghost" title="+ Add Works" onPress={async () => { const k = await chooseAction('Add Works', [{ key: 'section', label: 'Section' }, { key: 'item', label: 'Item' }]); if (k) add(k); }} />;
+  const addWorks = ro ? null : <Button small kind="ghost" title="+ Add Works" onPress={async () => { const k = await chooseAction('Add Works', [{ key: 'section', label: 'Section' }, { key: 'item', label: 'Item' }]); if (k) add(k); }} />;
   // Budget cost: margin / mark-up for all or the ticked lines, and changes to the ticked lines together (902).
   const costTools = (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
@@ -332,7 +336,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       }} />}
 
       {/* Each section sits in its own border with a bar above and below (Andy, 1 Nov 2026). Lines before any section get the same, as General. */}
-      {rows.reduce<number[][]>((gs, r, i) => { if (r.kind === 'section' || !gs.length) gs.push([i]); else gs[gs.length - 1].push(i); return gs; }, []).map((g) => (
+      {lockIf(ro, rows.reduce<number[][]>((gs, r, i) => { if (r.kind === 'section' || !gs.length) gs.push([i]); else gs[gs.length - 1].push(i); return gs; }, []).map((g) => (
       <View key={rows[g[0]]._k} style={{ borderWidth: 1.5, borderColor: t.brand1, borderRadius: 10, backgroundColor: base.card, marginBottom: desk ? 30 : 22, zIndex: rows.length - g[0] }}>
       {rows[g[0]].kind !== 'section' && (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: t.brand1, borderTopLeftRadius: 8, borderTopRightRadius: 8, paddingVertical: desk ? 11 : 9, paddingHorizontal: 12 }}>
@@ -413,7 +417,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
             )}
           </View>
           {sec && colHead}
-          {nextHead && <View style={{ marginTop: 10, marginBottom: 16, marginLeft: 8 }}><Button small kind="ghost" title="+ Add" onPress={() => void addHere()} /></View>}
+          {nextHead && !ro && <View style={{ marginTop: 10, marginBottom: 16, marginLeft: 8 }}><Button small kind="ghost" title="+ Add" onPress={() => void addHere()} /></View>}
           </Fragment>
         );
       })}
@@ -427,8 +431,8 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
         );
       })()}
       </View>
-      ))}
-      {rows.length > 0 && <View style={{ flexDirection: 'row', marginTop: 4, marginBottom: 20 }}>{addWorks}</View>}
+      )))}
+      {rows.length > 0 && !ro && <View style={{ flexDirection: 'row', marginTop: 4, marginBottom: 20 }}>{addWorks}</View>}
       {rows.length === 0 && <FinRow title="No lines yet" sub="Use + Add Works, or Import / Export to bring in a breakdown." />}
       {/* On a phone the summary and tools stay in the page; on a laptop they're the footer line. */}
       {!desk && rows.length > 0 && <>
@@ -439,18 +443,20 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
           ))}
         </View>
       </>}
-      {!desk && <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}><Button small kind="ghost" title={`Budget cost tools ${bulkOpen ? '▴' : '▾'}`} onPress={() => setBulkOpen(!bulkOpen)} />{ioBtn}</View>}
-      {!desk && bulkOpen && <Card style={{ paddingVertical: 5, paddingHorizontal: 10 }}>{costTools}</Card>}
+      {!desk && <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>{!ro && <Button small kind="ghost" title={`Budget cost tools ${bulkOpen ? '▴' : '▾'}`} onPress={() => setBulkOpen(!bulkOpen)} />}{ioBtn}</View>}
+      {!desk && bulkOpen && !ro && <Card style={{ paddingVertical: 5, paddingHorizontal: 10 }}>{costTools}</Card>}
 
+      {!ro && <>
             <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <View style={{ minWidth: desk ? 240 : 0, flexGrow: desk ? 0 : 1 }}><Button busy={busy} title="Save Bill of Quantities" onPress={() => void save()} /></View>
         <Button kind="ghost" title="Publish to Application for Payment" onPress={async () => { await save(); if (snap(latest.current) !== saved.current) return; router.push(`/fin/job/${id}/application/new` as never); }} />
       </View>
       <Muted style={{ marginTop: 6, fontSize: 12 }}>Saves by itself every 2 minutes and when a line is finished, once every line has a description and a value.{autoNote ? ` ${autoNote}` : ''}</Muted>
+      </>}
     </ScrollView>
     {desk && rows.length > 0 && (
       <View accessibilityLabel="Budget cost footer" style={{ backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 40, paddingVertical: 8, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-        <View style={{ flexShrink: 1 }}>{costTools}</View>
+        <View style={{ flexShrink: 1 }}>{!ro && costTools}</View>
         <View style={{ flexDirection: 'row', gap: 18, marginLeft: 'auto' }}>
           {[['Total', money(total)], ['Budget cost', costTotal ? money(costTotal) : '—'], ['Margin', costTotal && total ? `${Math.round(((total - costTotal) / total) * 1000) / 10}%` : '—']].map(([l, v]) => (
             <View key={l} style={{ alignItems: 'flex-end' }}><Text style={{ fontSize: 11, color: base.slate }}>{l}</Text><Text style={{ fontSize: 13.5, fontWeight: '600', color: base.ink }}>{v}</Text></View>
@@ -463,6 +469,8 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
   );
 }
 
+/** Look-only: the lines can't be tapped or typed in. Editors keep the page exactly as it was. */
+const lockIf = (on: boolean, n: ReactNode) => (on ? <View pointerEvents="none">{n}</View> : <>{n}</>);
 const capital = (v: string) => (v ? v.charAt(0).toUpperCase() + v.slice(1) : v);
 const key = () => `k${Math.random().toString(36).slice(2, 10)}`;
 // What's saved, to tell when something has changed (ticks and keys don't count).

@@ -29,6 +29,7 @@ import { fdb, selectAll, useFinSettings } from '@/data/finance';
 import { piLabel, setPinvPaid, setPinvStatus, tellPmOfPi } from '@/data/finPurchase';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance, canRaiseOrders } from '@/lib/roles';
 import { setPendingAct } from '@/lib/pendingAct';
 import { COST_CATS, PI_STATUS, poInvoiced } from '@/lib/rules/finBook';
 import { fdate, FIN_TRIAL_MSG, finBlocked, jobTag, money, plantCost, round2, today, vatList } from '@/lib/rules/finance';
@@ -54,7 +55,7 @@ function ActionsCell({ items }: { items: { key: string; label: string; run: () =
 function ageOf(ts: string) { const h = Math.max(0, Math.round((Date.now() - new Date(ts).getTime()) / 36e5)); return h < 1 ? 'Just now' : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`; }
 /** An invoice waiting to be filed (Andy, 3 Nov 2026): its number, status and age; Total, VAT and the project as chips
  *  (tap the project to choose it); then supplier, dates, why it's waiting and where it came from. */
-function InboxRow({ it, pm, why, job, onJob, onPm }: { it: Row; pm: boolean; why: string; job: string; onJob: () => void; onPm: () => void }) {
+function InboxRow({ it, pm, why, job, onJob, onPm }: { it: Row; pm: boolean; why: string; job: string; onJob?: () => void; onPm?: () => void }) {
   const ex = it.extracted || {};
   const ago = ageOf(it.received_at);
   const chip = (label: string, v: string, onPress?: () => void, warn?: boolean) => (
@@ -88,8 +89,8 @@ function InboxRow({ it, pm, why, job, onJob, onPm }: { it: Row; pm: boolean; why
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
         {chip('Total', ex.total != null ? money(ex.total) : '—')}
         {chip('VAT', ex.vat != null ? money(ex.vat) : '—')}
-        {chip('', job || 'Select Project ▾', onJob, !job)}
-        {chip('', pm ? 'With A PM ▾' : 'Assign To PM ▾', onPm)}
+        {chip('', job || (onJob ? 'Select Project ▾' : 'No Project Yet'), onJob, !job)}
+        {chip('', pm ? (onPm ? 'With A PM ▾' : 'With A PM') : onPm ? 'Assign To PM ▾' : 'Not With A PM', onPm)}
       </View>
     </Pressable>
   );
@@ -129,12 +130,16 @@ const piWord = (i: Row) => (isPaid(i) ? (i.paid_on ? 'Paid' : 'Paid (Statement)'
 const piTone = (i: Row) => (isPaid(i) ? '#1E7A43' : i.status === 'query' ? '#C0392B' : i.status === 'to_approve' ? '#B35A00' : undefined);
 /** + New PO in the Purchases tab row (Andy, 5 Nov 2026): pick the project, then the new PO. */
 export function NewPoButton() {
+  const { me } = useAuth();
+  if (!canEditFinance(me) || !canRaiseOrders(me)) return null;
   return <Button small title="+ New PO" onPress={() => router.push('/fin/po/new' as never)} />;
 }
 // Put on hire from Projects (Andy, 8 Nov 2026): no rate yet, so Finance is told to add it.
 const noRate = (h: Row) => !Number(h.rate) && h.cost_from !== 'invoices';
 export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoices' | 'plant' | 'suppliers' | 'all'; siteId?: string; f?: string }) {
   const { me, org } = useAuth();
+  // Without Finance – Edit the lists are look-only; a new PO also needs Raise Orders (Admin › Roles).
+  const canEdit = canEditFinance(me), canPo = canEdit && canRaiseOrders(me);
   const { data: sites = [] } = useSites();
   const { data } = usePurchases(me?.org_id, siteId);
   // Filter: status, supplier, project and month, tick as many as you like. Purchase invoices keep one view at a time, as each shows a different list.
@@ -180,7 +185,8 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     const r = await readNewInvoices(me);
     if (r.read || r.filed) { toast(`${r.read} invoice${r.read === 1 ? '' : 's'} read, ${r.filed} filed by itself`); ['finPurchases', 'finBook', 'finOverview'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); }
   };
-  useEffect(() => { if (tab === 'invoices') void runReader(); }, [tab, me?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The reader files invoices by itself, so it only runs for someone who may change Finance.
+  useEffect(() => { if (tab === 'invoices' && canEdit) void runReader(); }, [tab, me?.id, canEdit]); // eslint-disable-line react-hooks/exhaustive-deps
   // Add invoices by hand (9219b finInboxUpload): each PDF / photo goes into the inbox to be read or filed.
   if (!data) return <Muted>Loading…</Muted>;
   const site = (id: string) => sites.find((s) => s.id === id);
@@ -257,9 +263,9 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     const committed = round2(openPos.filter((p) => p.value != null).reduce((t, p) => t + Math.max(0, Number(p.value) - poInvoiced(p, live)), 0));
     return (
       <View>
-        {!!siteId && <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ New PO" onPress={() => void withJob('New purchase order', (sid) => `/fin/po/new?site=${sid}`)} /></View>}
+        {!!siteId && canPo && <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ New PO" onPress={() => void withJob('New purchase order', (sid) => `/fin/po/new?site=${sid}`)} /></View>}
         {/* On a phone + New PO is full width above the table, not squeezing the tabs (as + New Project; Andy, 14 Nov 2026). */}
-        {!siteId && !desk && <View style={{ marginBottom: 10 }}><Button title="+ New PO" onPress={() => router.push('/fin/po/new' as never)} /></View>}
+        {!siteId && !desk && canPo && <View style={{ marginBottom: 10 }}><Button title="+ New PO" onPress={() => router.push('/fin/po/new' as never)} /></View>}
         {/* A phone's table searches and filters itself (Andy, 14 Nov 2026): no Filter / Sort / search bar. */}
         {desk && bar('Search PO, supplier or project', [{ key: 'status', label: 'Status', items: [['open', 'Open'], ['invoiced', 'Invoiced'], ['cancelled', 'Cancelled']].map(([v, l]) => ({ v, l, n: data.pos.filter(F[v]).filter(fOK).length })) }])}
         {desk && list.length ? (
@@ -329,7 +335,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
           <View style={{ flex: desk ? 1 : undefined, minWidth: 0 }}>{bar(cur === 'job' || cur === 'pm' ? 'Search supplier, email or invoice no.' : 'Search supplier, invoice no. or project', [{ key: 'status', label: 'Show', single: true, items: chips.map(([v, l, n]) => ({ v, l, n })) }], { ...sel, status: [cur] })}</View>
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
             {/* One Add Invoices page: upload one or many, or type one in (Andy, 7 Nov 2026). */}
-            <View style={{ flex: desk ? undefined : 1 }}><Button small={desk} grow={!desk} title="Add Invoices" onPress={() => router.push((siteId ? `/fin/pinv/add?site=${siteId}` : '/fin/pinv/add') as never)} /></View>
+            {canEdit && <View style={{ flex: desk ? undefined : 1 }}><Button small={desk} grow={!desk} title="Add Invoices" onPress={() => router.push((siteId ? `/fin/pinv/add?site=${siteId}` : '/fin/pinv/add') as never)} /></View>}
           </View>
         </View>
         {cur === 'pm' && (
@@ -365,16 +371,16 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                     { k: 'no', l: 'Invoice No.', render: (it: Row) => <Cell>{it.extracted?.invoice_no || '—'}</Cell> },
                     { k: 'd', l: 'Date', sort: (it: Row) => String(it.extracted?.date || it.received_at || ''), render: (it: Row) => <Cell>{it.extracted?.date ? fdate(it.extracted.date) : rcpt(it) && it.received_at ? fdate(it.received_at) : '—'}</Cell> },
                     { k: 'g', l: 'Gross', sort: (it: Row) => Number(it.extracted?.total || 0), total: (l: Row[]) => money(l.reduce((t, it) => t + Number(it.extracted?.total || 0), 0)), render: (it: Row) => <Cell>{it.extracted?.total != null ? money(it.extracted.total) : '—'}</Cell> },
-                    { k: 'w', l: 'Status', flex: 1.1, min: 120, text: (it: Row) => whyOf(it), choices: Array.from(new Set(items.map(whyOf))), render: (it: Row) => (cur !== 'pm' && !it.site_id && !unread(it) && !rcpt(it)
+                    { k: 'w', l: 'Status', flex: 1.1, min: 120, text: (it: Row) => whyOf(it), choices: Array.from(new Set(items.map(whyOf))), render: (it: Row) => (canEdit && cur !== 'pm' && !it.site_id && !unread(it) && !rcpt(it)
                       ? <View onStartShouldSetResponder={() => true} onResponderTerminationRequest={() => false} {...({ onClick: (e: { stopPropagation: () => void }) => e.stopPropagation() } as object)} style={{ width: 150, alignSelf: 'center' }}><TypePick label={`Choose the job for ${it.extracted?.invoice_no || 'this invoice'}`} value="" placeholder="Needs a job" options={jobPickOpts} listWidth={300} onChange={(v) => void setJob(it, v)} style={{ borderWidth: 1, borderColor: '#f8e7c2', backgroundColor: '#fffaf0', borderRadius: 7, paddingHorizontal: 8, paddingVertical: 5, fontSize: 13, color: '#B35A00' }} /></View>
                       : <Text numberOfLines={1} style={{ fontSize: 13, color: '#B35A00', textAlign: 'center' }}>{whyOf(it)}</Text>) },
-                    { k: 'a', l: 'Actions', min: 108, noSort: true, render: (it: Row) => <ActionsCell items={[
+                    ...(!canEdit ? [] : [{ k: 'a', l: 'Actions', min: 108, noSort: true, render: (it: Row) => <ActionsCell items={[
                       ...(!unread(it) && !rcpt(it) ? [{ key: 'ok', label: 'Approve', run: () => { setPendingAct(it.id, 'approve'); router.push(`/fin/inbox/${it.id}` as never); } }] : []),
                       { key: 'edit', label: unread(it) || rcpt(it) ? 'Fill In' : 'Edit', run: () => router.push(`/fin/inbox/${it.id}` as never) },
                       { key: 'pm', label: cur === 'pm' ? 'Change PM' : 'Send To PM', run: () => assignPm(it) },
                       ...(cur === 'pm' && it.site_id ? [{ key: 'sup', label: 'Query Supplier', run: () => { setPendingAct(it.id, 'supplier'); router.push(`/fin/inbox/${it.id}` as never); } }] : []),
                       { key: 'not', label: 'Delete', run: () => notInvoice(it) },
-                    ]} /> },
+                    ]} /> }]),
                   ]}
                   footLabel={(l) => `${l.length} waiting`} />
                 {exportBar(cur === 'pm' ? 'Purchase invoices with a PM' : 'Purchase invoices received', [{ l: 'Supplier', w: 160 }, { l: 'Invoice no.', w: 80 }, { l: 'Date', w: 70 }, { l: 'Gross £', w: 75, money: true }, { l: 'Status', w: 120 }],
@@ -391,7 +397,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               );
               return items.map((it) => {
               const last = (it.comments || []).slice(-1)[0];
-              return <InboxRow key={it.id} it={it} pm={cur === 'pm'} why={cur === 'job' ? (!it.extracted ? 'Not read yet — open it to file by hand' : it.stage === 'pm_replied' && last ? `PM replied — ${last.name}: ${last.text}` : plainReason(it.query_reason)) : 'Sent to a PM'} job={it.site_id ? jobTag(site(it.site_id)) : ''} onPm={() => void assignPm(it)} onJob={async () => { const sid = await pickJob('Which project is it for?', sites.filter((x) => x.status !== 'closed')); if (!sid) return; const r = await fdb.from('fin_inbox').update({ site_id: sid } as never).eq('id', it.id).select('id'); if (!r.data?.length) { toast('Could not save — try again.'); return; } void qc.invalidateQueries({ queryKey: ['finPurchases'] }); }} />;
+              return <InboxRow key={it.id} it={it} pm={cur === 'pm'} why={cur === 'job' ? (!it.extracted ? 'Not read yet — open it to file by hand' : it.stage === 'pm_replied' && last ? `PM replied — ${last.name}: ${last.text}` : plainReason(it.query_reason)) : 'Sent to a PM'} job={it.site_id ? jobTag(site(it.site_id)) : ''} onPm={canEdit ? () => void assignPm(it) : undefined} onJob={!canEdit ? undefined : async () => { const sid = await pickJob('Which project is it for?', sites.filter((x) => x.status !== 'closed')); if (!sid) return; const r = await fdb.from('fin_inbox').update({ site_id: sid } as never).eq('id', it.id).select('id'); if (!r.data?.length) { toast('Could not save — try again.'); return; } void qc.invalidateQueries({ queryKey: ['finPurchases'] }); }} />;
               });
             })()}
             {!(cur === 'job' ? needJob : withPm).length && <Empty>{cur === 'job' ? 'Nothing waiting to be allocated.' : 'Nothing with a PM.'}</Empty>}
@@ -403,7 +409,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               const list = sortBy(data.pinvs.filter(F[cur]).filter(fOK).filter((i) => cur !== 'pm' || !pmF || askedOf[i.id] === pmF).filter((i) => hit(i.supplier_name, i.invoice_no, jobTag(site(i.site_id)), posBy[i.po_id]?.number)), 'invoice_date', 'total');
               // What's on screen: on a phone, only the rows the column boxes have left (review, 15 Nov 2026).
               const vis = !desk && phoneShown ? list.filter((i) => phoneShown.has(i.id)) : list;
-              const bulk = true, picked = vis.filter((i) => picks.has(i.id));
+              const bulk = canEdit, picked = vis.filter((i) => picks.has(i.id));
               const tick = (i: Row) => <Pressable hitSlop={8} accessibilityRole="checkbox" accessibilityState={{ checked: picks.has(i.id) }} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n; })} style={{ width: 13, height: 13, borderRadius: 3, borderWidth: 1.5, borderColor: picks.has(i.id) ? base.blue : '#c3c8d0', backgroundColor: picks.has(i.id) ? base.blue : '#fff', alignItems: 'center', justifyContent: 'center', alignSelf: 'center' }}>{picks.has(i.id) && <Text style={{ color: '#fff', fontSize: 9, fontWeight: '700', lineHeight: 11 }}>✓</Text>}</Pressable>;
               const refresh = () => { setSel(new Set()); ['finPurchases', 'finBook', 'finOverview', 'finPo'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
               const queryPm = async (i: Row) => {
@@ -454,7 +460,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               };
               const waiting = picked.filter((i) => ['to_approve', 'query'].includes(i.status)).length, payable = picked.filter((i) => i.status === 'approved' && !isPaid(i)).length;
               // The bulk edit bar sits under the list and only shows once something is ticked; Select All is in it.
-              const bulkBar = picked.length > 0 ? (
+              const bulkBar = bulk && picked.length > 0 ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 10, padding: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10 }}>
                   <Text style={{ fontWeight: '600', color: base.ink, fontSize: 13 }}>{picked.length} Selected · {money(picked.reduce((t, i) => t + Number(i.total || 0), 0))}</Text>
                   {picked.length < vis.length && <Pressable onPress={() => setSel(new Set(vis.map((i) => i.id)))}><Text style={{ color: base.blue, fontWeight: '500', fontSize: 13 }}>Select All ({vis.length})</Text></Pressable>}
@@ -479,14 +485,14 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                     { k: 't', l: 'Gross', min: 72, total: (l: Row[]) => money(l.reduce((t, i) => t + Number(i.total || 0), 0)), render: (i: Row) => <Cell bold>{money(i.total)}</Cell> },
                     ...(cur === 'unpaid' ? [] : [{ k: 'po', l: 'PO', min: 96, sort: (i: Row) => posBy[i.po_id]?.number || '', render: (i: Row) => poCell(i) }]),
                     { k: 's', l: 'Status', min: 84, noSort: true, choices: ['Needs Checking', 'Query', 'Approved', 'Paid', 'Rejected'], render: (i: Row) => <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 }}><Cell tone={piTone(i)}>{piWord(i)}</Cell>{!!i.xero_id && <View accessibilityLabel="Posted to Xero" style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#13B5EA', alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 7, fontWeight: '700', color: '#fff', letterSpacing: 0.1 }}>xero</Text></View>}</View> },
-                    { k: 'a', l: 'Actions', min: 108, noSort: true, render: (i: Row) => <ActionsCell items={[
+                    ...(!canEdit ? [] : [{ k: 'a', l: 'Actions', min: 108, noSort: true, render: (i: Row) => <ActionsCell items={[
                                             ...(['to_approve', 'query', 'rejected'].includes(i.status) && me ? [{ key: 'ok', label: 'Approve', run: async () => { if (!(await confirmAsk(`Approve ${i.supplier_name || ''} ${i.invoice_no || ''} (${money(i.total)})?`, 'Approve'))) return; const r = await setPinvStatus(me, i.id, 'approved'); toast(r.ok ? 'Approved' : 'Couldn’t approve — try again.', { confirm: r.ok }); refresh(); } }] : []),
                       ...(i.status !== 'approved' && !isPaid(i) ? [{ key: 'pm', label: 'Send To PM', run: () => queryPm(i) }] : []),
                       ...(cur === 'pm' ? [{ key: 'sup', label: 'Query Supplier', run: () => { setPendingAct(i.id, 'supplier'); router.push(`/fin/pinv/${i.id}` as never); } }] : []),
                       { key: 'edit', label: 'Edit', run: () => router.push(`/fin/pinv/${i.id}?edit=1` as never) },
                       ...(i.status === 'approved' && !isPaid(i) ? [{ key: 'paid', label: 'Mark Paid', run: async () => { if (await setPinvPaid(i.id, today())) { toast('Marked paid', { confirm: true }); refresh(); } } }] : []),
                       ...(i.status !== 'rejected' && !isPaid(i) && me ? [{ key: 'rej', label: 'Reject', run: async () => { const inX = !!i.xero_id; if (!(await confirmAsk(`Reject this purchase invoice?${inX ? '\n\nIt’s already in Xero. Rejecting it here won’t change Xero — change it in Xero too.' : ''}`, 'Reject'))) return; const r = await setPinvStatus(me, i.id, 'rejected'); toast(r.ok ? 'Rejected' : 'Couldn’t reject it — try again.', { confirm: r.ok }); refresh(); } }] : []),
-                    ]} /> },
+                    ]} /> }]),
                   ]}
                   footLabel={(list) => `${list.length} shown`} footRight={monthPick} />{bulkBar}
                   {exportBar('Purchase invoices', [{ l: 'Supplier', w: 130 }, { l: 'Invoice no.', w: 75 }, { l: 'Project', w: 150 }, { l: 'Date', w: 70 }, { l: 'Net £', w: 70, money: true }, { l: 'VAT £', w: 60, money: true }, { l: 'Gross £', w: 70, money: true }, { l: 'Status', w: 90 }],
@@ -559,7 +565,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     const onHire = data.hires.filter((h) => !h.off_hire);
     return (
       <View>
-        <SubRight><Button small title="+ Plant Hire" onPress={() => void withJob('Add plant hire', (sid) => `/fin/plant/new?site=${sid}`)} /></SubRight>
+        {canEdit && <SubRight><Button small title="+ Plant Hire" onPress={() => void withJob('Add plant hire', (sid) => `/fin/plant/new?site=${sid}`)} /></SubRight>}
         {desk && list.length ? (
           <FinTable rows={list} keyOf={(h) => h.id} onRow={(h) => router.push(`/fin/plant/${h.id}` as never)}
             cols={[
@@ -586,7 +592,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
         ); }) : <Empty>No plant hire.</Empty>}
         {desk && exportBar('Plant hire', [{ l: 'Item', w: 140 }, { l: 'Supplier', w: 120 }, { l: 'Project', w: 150 }, { l: 'On hire', w: 70 }, { l: 'Off hire', w: 70 }, { l: 'Cost to date £', w: 80, money: true }],
           list.map((h) => [h.item || '', h.supplier_name || '', jobTag(site(h.site_id)), h.on_hire ? fdate(h.on_hire) : '', h.off_hire ? fdate(h.off_hire) : '', round2(plantCost(h as never).cost)]))}
-        <Muted style={{ marginTop: 10 }}>{onHire.length} on hire · {money(onHire.reduce((t, h) => t + plantCost(h as never).cost, 0), 0)} so far. Tap one to off-hire it.</Muted>
+        <Muted style={{ marginTop: 10 }}>{onHire.length} on hire · {money(onHire.reduce((t, h) => t + plantCost(h as never).cost, 0), 0)} so far.{canEdit ? ' Tap one to off-hire it.' : ''}</Muted>
       </View>
     );
   }
@@ -596,7 +602,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   const list = Object.values(by).sort((a, b) => b.spend - a.spend || a.name.localeCompare(b.name)).filter((r) => hit(r.name, r.email));
   return (
     <View>
-      <View style={{ flexDirection: 'row', marginBottom: 10 }}><View style={{ marginLeft: 'auto' }}><Button kind="ghost" title="Edit suppliers (Directory)" onPress={() => router.push('/fin/directory?kind=supplier' as never)} /></View></View>
+      {canEdit && <View style={{ flexDirection: 'row', marginBottom: 10 }}><View style={{ marginLeft: 'auto' }}><Button kind="ghost" title="Edit suppliers (Directory)" onPress={() => router.push('/fin/directory?kind=supplier' as never)} /></View></View>}
       <TextInput value={q} onChangeText={setQ} placeholder="Search suppliers" style={[box, { marginBottom: 10 }]} />
       {list.length ? list.map((r) => <FinRow compact key={r.name} title={r.name} sub={[r.email, `${r.n} invoice${r.n === 1 ? '' : 's'}`, `spent ${money(r.spend, 0)} net`].filter(Boolean).join(' · ')} right={r.owed ? `${money(r.owed, 0)} to pay` : '—'} />) : <Empty>No suppliers yet.</Empty>}
     </View>

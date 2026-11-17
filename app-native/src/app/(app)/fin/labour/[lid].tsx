@@ -22,6 +22,7 @@ import { useSites } from '@/data/sites';
 import { syncOpInvoice, wagesOff, withdrawOpInvoice } from '@/data/wageBook';
 import { WagesToBook } from '@/components/WagesToBook';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { cisStatement } from '@/lib/pdfLazy';
 import { addDays, fdate, jobTag, money, num, round2, today } from '@/lib/rules/finance';
 import { opCalc } from '@/lib/rules/finSubs';
@@ -45,6 +46,8 @@ export default function FinOpInvoice() {
     const who = [...people.filter((x) => canInvoice(rateBy[x.id]) || x.id === p?.user_id).map((x) => ({ key: x.id, name: x.name })), ...rates.filter((r) => !r.user_id && (canInvoice(r) || r.id === p?.worker_id)).map((r) => ({ key: `w:${r.id}`, name: r.trading_name || r.name || 'Worker' }))].sort((a, b) => a.name.localeCompare(b.name));
     return { p, rateBy, who };
   } });
+  // A new one needs Finance – Edit (Admin › Roles).
+  if (lid === 'new' && me && !canEditFinance(me)) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>;
   if (isLoading || !data) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   return <Editor key={lid} p={data.p} rateBy={data.rateBy} who={data.who} />;
 }
@@ -76,7 +79,8 @@ function Editor({ p, rateBy, who }: { p: Row | null; rateBy: Record<string, Row>
     toast(`${nm} is on the list — add their bank details and UTR in Directory › Labour.`);
   };
   if (!me) return null;
-  const locked = p?.status === 'paid';
+  // Paid, or a role without Finance – Edit (Admin › Roles): shown, not changed.
+  const canEdit = canEditFinance(me), paid = p?.status === 'paid', locked = paid || !canEdit;
   const r = rateBy[key] || {};
   const cisRate = num(inv.cis) ?? (r.cis_rate != null ? Number(r.cis_rate) : 20);
   const c = opCalc(lines, num(inv.materials) || 0, Number(cisRate) || 0);
@@ -123,7 +127,7 @@ function Editor({ p, rateBy, who }: { p: Row | null; rateBy: Record<string, Row>
   return (
     <ScrollView contentContainerStyle={page(800)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: p ? `${p.name || 'Operative'} invoice` : 'Operative invoice' }} />
-      {locked && <Card><Text style={{ color: '#1E7A3C', fontWeight: '500' }}>Paid {fdate(p?.paid_on)} — it can&apos;t be changed.</Text></Card>}
+      {paid && <Card><Text style={{ color: '#1E7A3C', fontWeight: '500' }}>Paid {fdate(p?.paid_on)} — it can&apos;t be changed.</Text></Card>}
       <Card>
         <Muted style={{ fontWeight: '500' }}>From</Muted>
         <Pressable disabled={locked || !!p} onPress={() => void pickWho()} style={[box, { marginBottom: 8 }]}><Text style={{ color: base.ink }}>{key ? name(key) : 'Choose who'} ▾</Text></Pressable>
@@ -151,11 +155,11 @@ function Editor({ p, rateBy, who }: { p: Row | null; rateBy: Record<string, Row>
       </View>
       {!locked && <Pressable onPress={async () => { const x = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true }); if (!x.canceled && x.assets[0]) setFile({ uri: x.assets[0].uri, name: x.assets[0].name, mimeType: x.assets[0].mimeType }); }}><Text style={{ color: base.blue, marginBottom: 8 }}>📎 {file ? file.name : 'Attach their invoice'}</Text></Pressable>}
       {!!p && <XeroRow kind="sub" rec={p} onDone={refresh} />}
-      {!!p && !wagesOff(me.org_id) && <WagesToBook me={me} invoiceId={p.id} title="Book to a price sheet" />}
+      {!!p && !wagesOff(me.org_id) && canEdit && <WagesToBook me={me} invoiceId={p.id} title="Book to a price sheet" />}
       {p?.file_path && <FinRow title={`📄 ${p.file_name || 'Their invoice'}`} onPress={async () => { const u = await openDocLink('finance-docs', p.file_path); if (u) viewDoc(u); }} />}
       {!locked && <Button busy={busy} title="Save — ready for the pay run" onPress={() => void save()} />}
       {/* Paid outside the pay run (9219c finOpMarkPaid): the same as the pay run does for this one invoice. */}
-      {p?.status === 'approved' && <View style={{ marginTop: 8 }}><Button title="Mark Paid Today" onPress={async () => {
+      {p?.status === 'approved' && canEdit && <View style={{ marginTop: 8 }}><Button title="Mark Paid Today" onPress={async () => {
         if (!(await confirmAsk(`Mark ${p.name || 'this invoice'} as paid today?`, 'Mark paid'))) return;
         const d = today(), r = await fdb.from('fin_sub_payments').update({ status: 'paid', paid_on: d, pay_date: d } as never).eq('id', p.id).select('id');
         toast(r.data?.length ? 'Marked paid' : 'Could not save — try again.'); refresh();

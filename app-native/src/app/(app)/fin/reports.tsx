@@ -20,6 +20,7 @@ import { invokeAsUser } from '@/lib/userFunctions';
 import { loadBook } from '@/data/finBook';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { REPORT_GROUPS, REPORTS as BOOK_REPORTS, type Col, type Filters } from '@/lib/finReports';
 import { PLOT_REPORT } from '@/lib/finPlotReport';
 import { fdate, jobTag, money } from '@/lib/rules/finance';
@@ -160,6 +161,8 @@ function AutoRun({ id, title, f, dates }: { id: string; title: string; f: Filter
   const here = trail[trail.length - 1] ?? null;
   const { data: level, isLoading } = useQuery({ queryKey: ['reportFolders', here?.id ?? 'root', here?.driveId ?? ''], enabled: open && choosing, queryFn: () => listFolders(here) });
   if (!me || !['admin', 'pm'].includes(me.role)) return null;
+  // Without Finance – Edit (Admin › Roles) the auto-run is shown, not changed.
+  const canEdit = canEditFinance(me);
   const on = !!sc?.active;
   const label = on ? `Auto-run: ${FREQ.find(([k]) => k === sc?.frequency)?.[1] || 'On'}` : 'Auto-run: Off';
   const start = () => { setFreq(on ? String(sc?.frequency) : 'off'); setDay(String(sc?.run_day || 1)); setPeriod(String(sc?.filters?.period || 'last_month')); setFolder(sc?.folder_id ? { id: sc.folder_id, name: sc.folder_name || 'Chosen folder', driveId: sc.drive_id } : null); setTrail([]); setChoosing(false); setOpen(true); };
@@ -174,7 +177,7 @@ function AutoRun({ id, title, f, dates }: { id: string; title: string; f: Filter
   };
   return (
     <>
-      <Pressable accessibilityRole="button" onPress={start} style={box}><Text style={{ color: base.ink, fontSize: 12 }}>{label} ▾</Text></Pressable>
+      <Pressable accessibilityRole={canEdit ? 'button' : undefined} disabled={!canEdit} onPress={start} style={box}><Text style={{ color: base.ink, fontSize: 12 }}>{label}{canEdit ? ' ▾' : ''}</Text></Pressable>
       {!!sc?.last_run_at && <Text style={{ fontSize: 12, color: sc.last_ok ? '#4B5563' : '#C0392B' }}>{sc.last_ok ? 'Last saved' : 'Last try failed'} {fdate(String(sc.last_run_at).slice(0, 10))}{sc.last_ok ? '' : `: ${sc.last_message || ''}`}</Text>}
       {open && (
         <Modal transparent animationType="fade" onRequestClose={() => setOpen(false)}>

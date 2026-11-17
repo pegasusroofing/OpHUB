@@ -17,7 +17,7 @@ import { deleteRate, importRates, saveRate, setContractRates, useContractQuoteSe
 import { useAuth } from '@/lib/auth';
 import { parseRates, parseScheduleSheets, type Rate } from '@/lib/rules/repairQuote';
 import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
-import { isManager } from '@/lib/roles';
+import { canEditFinance, isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
 export default function RepairRates() {
@@ -31,6 +31,8 @@ export default function RepairRates() {
   const [busy, setBusy] = useState('');
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  // Without Finance – Edit (Admin › Roles) the rates are shown, not changed.
+  const canEdit = canEditFinance(me);
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['repairRates', id] }); void qc.invalidateQueries({ queryKey: ['repairQuoteSettings', id] }); };
   const cats = Array.from(new Set(rates.map((r) => r.category).filter(Boolean))) as string[];
   const upload = async () => {
@@ -64,19 +66,19 @@ export default function RepairRates() {
             <Text style={{ fontWeight: '700', color: base.ink }}>{qs?.ratesName || 'Contract Rates'}</Text>
             <Muted style={{ fontSize: 12 }}>{rates.length} rate{rates.length === 1 ? '' : 's'}{cats.length ? ` · ${cats.join(', ')}` : ''}. The adjustment (less a discount, or plus an uplift) applies to every rate on a quote, not lines typed in.</Muted>
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Change the contract discount" onPress={() => setEdit({ id: '__disc' })} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: base.card }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{(qs?.discount ?? 0) < 0 ? `Plus ${-(qs?.discount ?? 0)}%` : `Less ${qs?.discount ?? 0}%`} ▾</Text>
+          <Pressable accessibilityRole={canEdit ? 'button' : undefined} disabled={!canEdit} accessibilityLabel="Change the contract discount" onPress={() => setEdit({ id: '__disc' })} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: base.card }}>
+            <Text style={{ fontWeight: '700', color: base.ink }}>{(qs?.discount ?? 0) < 0 ? `Plus ${-(qs?.discount ?? 0)}%` : `Less ${qs?.discount ?? 0}%`}{canEdit ? ' ▾' : ''}</Text>
           </Pressable>
         </View>
       </Card>
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+      {canEdit && <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
         <View style={{ flex: 2 }}><Button busy={!!busy} title={busy || 'Upload Rates (Excel)'} onPress={() => void upload()} /></View>
         <View style={{ flex: 1 }}><Button kind="ghost" title="+ Add Rate" onPress={() => setEdit({})} /></View>
-      </View>
+      </View>}
       {rates.length ? (
-        <Card><RateFinder rates={rates} always action="›" limit={60} onPick={(r) => setEdit(r)} /></Card>
+        <Card><RateFinder rates={rates} always action={canEdit ? '›' : ''} limit={60} onPick={(r) => { if (canEdit) setEdit(r); }} /></Card>
       ) : <Muted>No rates yet. Upload the NHF schedule (or the client’s own) as an Excel file: every sheet is read, with its headings. Or add them one at a time.</Muted>}
-      {edit?.id === '__disc' ? (
+      {!canEdit ? null : edit?.id === '__disc' ? (
         <FinForm title="Rates Adjustment" initial={{ sign: (qs?.discount ?? 0) < 0 ? 'plus' : 'less', pct: String(Math.abs(qs?.discount ?? 0)) }} onClose={() => setEdit(null)}
           fields={[{ k: 'sign', label: 'Less Or Plus', kind: 'choice', half: true, options: [['less', 'Less (Discount)'], ['plus', 'Plus (Uplift)']] }, { k: 'pct', label: 'Rates Adjustment %', kind: 'number', half: true }]}
           onSave={async (v) => { const n = Number(v.pct || 0); if (isNaN(n) || n < 0 || n > 100) return 'Between 0 and 100%.'; if (!(await setContractRates(id, { pct: n ? (v.sign === 'plus' ? -n : n) : null }))) return 'Could not save — try again.'; refresh(); return null; }} />

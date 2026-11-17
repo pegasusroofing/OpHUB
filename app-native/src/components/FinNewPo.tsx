@@ -31,6 +31,7 @@ import { fdb, finStatus, loadSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useSubJobs } from '@/data/finSubJobs';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance, canRaiseOrders } from '@/lib/roles';
 import { COST_CATS } from '@/lib/rules/finBook';
 import { jobTag, money, num, vatList } from '@/lib/rules/finance';
 import { supabase } from '@/lib/supabase';
@@ -121,6 +122,9 @@ export function FinNewPo({ site: site0, itemIds = [], toTop, po }: { site?: Site
   const [statusNow, setStatusNow] = useState<'draft' | 'open' | ''>(po ? (po.is_draft ? 'draft' : 'open') : '');
   // A cancelled or fully invoiced PO is shown, not changed (Reopen it below to change it).
   const fixed = !!po && (po.status === 'cancelled' || po.status === 'invoiced');
+  // Without Finance – Edit a saved PO is shown, not changed; raising or emailing it also needs Raise Orders (Admin › Roles).
+  const canEdit = canEditFinance(me), canOrder = canEdit && canRaiseOrders(me);
+  const shut = fixed || !canEdit;
   const [panel, setPanel] = useState<'quote' | 'pdf'>('quote'); // the right-hand panel: the project quote, or the PO PDF
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   // Add the date to the project calendar / file the PDF in the project's PO folder: unticked to start; ticking asks, then it
@@ -216,7 +220,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop, po }: { site?: Site
     try { setViewedKey(nowKey); const bytes = await pdfOf(draftRow()); if (pdfUrl) URL.revokeObjectURL(pdfUrl); setPdfUrl(URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }))); setShowShop(true); setPanel('pdf'); toTop?.(); }
     catch { toast('Could not build the PO PDF.'); }
   };
-  const exportPdf = async (row: Record<string, any>) => { try { const bytes = await pdfOf(row); void filePoPdf(me, row, bytes); if (!(await deliverPdf(bytes, `PO ${String(row.number).replace(/[^a-z0-9-]+/gi, '_')}.pdf`))) toast('Could not make the PDF — try again.'); } catch { toast('Could not build the PO PDF.'); } };
+  const exportPdf = async (row: Record<string, any>) => { try { const bytes = await pdfOf(row); if (canEdit) void filePoPdf(me, row, bytes); if (!(await deliverPdf(bytes, `PO ${String(row.number).replace(/[^a-z0-9-]+/gi, '_')}.pdf`))) toast('Could not make the PDF — try again.'); } catch { toast('Could not build the PO PDF.'); } };
   const openEmail = async (row: Record<string, any>) => { const e = row.supplier_id ? ((await fdb.from('suppliers').select('email').eq('id', row.supplier_id).maybeSingle()).data as { email?: string } | null)?.email : ''; setMailRow({ row, to: String(e || newEmail || '') }); };
   // The raised PO onto the project: its PDF in the PO folder, its date on the calendar (Andy, 5 Nov 2026). Done once per date.
   const linkToProject = async (row: Record<string, any>) => {
@@ -229,7 +233,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop, po }: { site?: Site
   };
   // Ticking: a question first, then it's done (straight away if the PO is raised, or when it's raised) and stays ticked.
   const tick = async (what: 'cal' | 'folder') => {
-    if (fixed || (what === 'cal' ? toCal : toFolder)) return;
+    if (shut || (what === 'cal' ? toCal : toFolder)) return;
     const q = what === 'cal' ? 'Add this PO’s delivery / collection date to the project calendar? Once ticked it can’t be unticked.' : 'File this PO’s PDF in the project’s PO folder (and the project’s OneDrive PO folder, if one is linked)? Once ticked it can’t be unticked.';
     if (!(await confirmAsk(q, 'Yes, Tick It'))) return;
     if (what === 'cal') setToCal(true); else setToFolder(true);
@@ -444,7 +448,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop, po }: { site?: Site
       {fixed && <Text style={{ color: base.slate, marginBottom: 8, textAlign: 'center' }}>This PO is {po?.status === 'cancelled' ? 'deleted (cancelled)' : 'fully invoiced'}. Reopen it below to change it.</Text>}
       {/* Who and when on the left, the project quote on the right; then the lines full width; then how, below (Andy, 5 Nov 2026). */}
       {/* A cancelled / fully invoiced PO: shown, not changed (overnight review, 7 Nov 2026). */}
-      <View pointerEvents={fixed ? 'none' : 'auto'} style={fixed ? { opacity: 0.8 } : undefined}>
+      <View pointerEvents={shut ? 'none' : 'auto'} style={shut ? { opacity: 0.8 } : undefined}>
       <View style={desk ? { flexDirection: 'row', gap: 12, alignItems: 'stretch', marginBottom: 12 } : undefined}>
         <Card style={desk ? { flex: 1, minWidth: 0, marginBottom: 0 } : undefined}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -535,19 +539,19 @@ export function FinNewPo({ site: site0, itemIds = [], toTop, po }: { site?: Site
       </View>
       <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
         <Button small kind="ghost" title="‹ Back" onPress={() => router.back()} />
-        {!!saved && !fixed && <Button small kind="ghost" title="Delete" onPress={() => void deletePo()} />}
+        {!!saved && !shut && <Button small kind="ghost" title="Delete" onPress={() => void deletePo()} />}
         <Button small kind="ghost" title={pdfUrl && viewedKey !== nowKey ? '↻ Update & View' : '👁 View PO'} onPress={() => void viewPo()} />
-        {fixed && <Button small kind="ghost" title="⬇ Export PDF" onPress={() => void exportPdf(po as Record<string, any>)} />}
-        {fixed ? null : statusNow === 'open' ? (
+        {shut && !!po && <Button small kind="ghost" title="⬇ Export PDF" onPress={() => void exportPdf(po)} />}
+        {shut ? null : statusNow === 'open' ? (
           <>
             <Button small kind="ghost" busy={busy} title="Save Changes" onPress={async () => { const row = await persist('open'); if (row) { void linkToProject(row); toast('Saved', { confirm: true }); } }} />
             <Button small kind="ghost" title="⬇ Export PDF" onPress={async () => { const row = await persist('open'); if (row) void exportPdf(row); }} />
-            <Button small title="✉ Email PO" onPress={async () => { const row = await persist('open'); if (row) void openEmail(row); }} />
+            {canOrder && <Button small title="✉ Email PO" onPress={async () => { const row = await persist('open'); if (row) void openEmail(row); }} />}
           </>
         ) : (
           <>
             <Button small kind="ghost" busy={busy} title="Save Draft" onPress={() => void saveDraft()} />
-            <Button small busy={busy} title="Raise PO" onPress={() => void raise()} />
+            {canOrder && <Button small busy={busy} title="Raise PO" onPress={() => void raise()} />}
           </>
         )}
       </View>

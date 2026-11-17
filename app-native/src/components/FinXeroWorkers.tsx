@@ -10,6 +10,7 @@ import { useToast } from '@/components/toast';
 import { Button, Check, Muted } from '@/components/ui';
 import { fdb, finInvoke, selectAll } from '@/data/finance';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { money } from '@/lib/rules/finance';
 import { xeroWorkerMatch, xeroWorkerPatch, type XeroMatch, type XeroPerson } from '@/lib/rules/xeroWorkers';
 import { base } from '@/theme/theme';
@@ -23,7 +24,8 @@ export function XeroWorkersButton() {
   const qc = useQueryClient();
   const [state, setState] = useState<{ people: Item[]; notes: string[]; names: Record<string, string> } | 'loading' | null>(null);
   const [busy, setBusy] = useState(false);
-  if (!me) return null;
+  // Bringing people in is a change: Finance – Edit only (Admin › Roles).
+  if (!me || !canEditFinance(me)) return null;
   const open = async () => {
     setState('loading');
     const [j, rates, profiles] = await Promise.all([

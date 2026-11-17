@@ -13,6 +13,7 @@ import { addPayment, deleteDraft, storePdf, voidInvoice } from '@/data/finInvoic
 import { openDocLink } from '@/data/hs';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { fdate, invOutstanding, num, today } from '@/lib/rules/finance';
 
 type Row = Record<string, any>;
@@ -31,6 +32,8 @@ export function useFinRowMenu(invs: Row[] = []) {
   const toast = useToast();
   const qc = useQueryClient();
   const { data: sites = [] } = useSites();
+  // Without Finance – Edit the menu keeps Open, Export and the PDF only.
+  const canEdit = canEditFinance(me);
   const [pay, setPay] = useState<{ id: string; out: number } | null>(null);
   const refresh = () => ['finSales', 'finBook', 'finOverview'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
 
@@ -47,9 +50,9 @@ export function useFinRowMenu(invs: Row[] = []) {
     if (!me) return;
     const k = await chooseAction(`Application ${a.number}`, [
       { key: 'open', label: 'Open' }, { key: 'xlsx', label: 'Export Excel' }, { key: 'pdf', label: 'Download PDF' },
-      ...(stageKey === 'submitted' ? [{ key: 'draft', label: 'Return To Draft' }] : []),
+      ...(stageKey === 'submitted' && canEdit ? [{ key: 'draft', label: 'Return To Draft' }] : []),
       ...(a.invoice_id ? [{ key: 'inv', label: 'View Invoice' }] : []),
-      { key: 'del', label: 'Delete Application' },
+      ...(canEdit ? [{ key: 'del', label: 'Delete Application' }] : []),
     ]);
     if (k === 'open') router.push(`/fin/job/${a.site_id}/application/${a.id}` as never);
     if (k === 'xlsx' || k === 'pdf') {
@@ -75,8 +78,8 @@ export function useFinRowMenu(invs: Row[] = []) {
     const k = await chooseAction(`Invoice ${i.number || 'draft'}`, [
       { key: 'open', label: 'Open' },
       ...(i.status !== 'draft' ? [{ key: 'pdf', label: 'View PDF' }] : []),
-      ...(out > 0 ? [{ key: 'pay', label: 'Record Payment' }] : []),
-      ...(i.status === 'draft' ? [{ key: 'del', label: 'Delete Draft' }] : i.status !== 'void' ? [{ key: 'void', label: 'Void Invoice' }] : []),
+      ...(out > 0 && canEdit ? [{ key: 'pay', label: 'Record Payment' }] : []),
+      ...(!canEdit ? [] : i.status === 'draft' ? [{ key: 'del', label: 'Delete Draft' }] : i.status !== 'void' ? [{ key: 'void', label: 'Void Invoice' }] : []),
     ]);
     if (k === 'open') router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never);
     if (k === 'pdf') await viewPdf(i);

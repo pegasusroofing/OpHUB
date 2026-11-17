@@ -64,7 +64,27 @@ async function as(browser, role, perms, extra) {
   check(/\/fin/.test(u.page.url()), `a Finance Controller with Finance only is sent to Finance (${u.page.url().replace(B, '')})`);
   errs.push(...u.errs); await u.page.context().close();
 
-  // 4. The board says what Site Managers can't do.
+  // 4. Finance – View without Edit, and no Raise Orders: Finance look-only; no ordering in Materials.
+  u = await as(browser, 'pm', without('fin_edit', 'orders'), {finance_enabled: true});
+  await u.page.goto(B + '/fin/purchases?tab=orders'); await u.page.waitForTimeout(5000);
+  t = await u.text();
+  check(/View Only/.test(t) && !t.includes('+ New PO'), 'Finance › Purchases: View Only, no + New PO');
+  await u.page.screenshot({path: path.join(SHOTS, 'fin-view-only.png')});
+  await u.page.goto(B + '/fin/sales'); await u.page.waitForTimeout(4000);
+  t = await u.text();
+  check(/View Only/.test(t) && !t.includes('+ New Invoice') && !t.includes('+ New Application'), 'Finance › Sales: no + New Invoice / Application');
+  await u.page.goto(B + `/sites/${S1}/materials/requests`); await u.page.waitForTimeout(4000);
+  t = await u.text();
+  check(!/Order from Merchant|Send Order/i.test(t), 'Materials: no ordering');
+  errs.push(...u.errs); await u.page.context().close();
+  // ...and with everything, Finance is as before.
+  u = await as(browser, 'pm', ALL, {finance_enabled: true});
+  await u.page.goto(B + '/fin/purchases?tab=orders'); await u.page.waitForTimeout(5000);
+  t = await u.text();
+  check(!/View Only/.test(t) && t.includes('+ New PO'), 'with Finance – Edit and Raise Orders: + New PO is there, no View Only');
+  errs.push(...u.errs); await u.page.context().close();
+
+  // 5. The board says what Site Managers can't do.
   u = await as(browser, 'admin', null);
   await u.page.goto(B + '/pm/admin/roles'); await u.page.waitForTimeout(4000);
   check(/Site Managers only see the jobs they.re put on and can.t make projects/.test(await u.text()), 'the board explains Site Managers’ limits');

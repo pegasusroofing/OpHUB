@@ -16,7 +16,7 @@ import { sendOrder, toCollections, toggleFavourite, useOrderPeople, useSuppliers
 import { useAuth } from '@/lib/auth';
 import { DELIVERY_TIME_SLOTS } from '@/lib/rules/driver';
 import { branchLabel, companyOperativeLabel, orderNote, parseCc, sendToOptions, sortSuppliers, type Branch, type Fulfil, type Mat, type SendTo } from '@/lib/rules/materials';
-import { isFinanceUser, isFullManager } from '@/lib/roles';
+import { canRaiseOrders, isFinanceUser, isFullManager } from '@/lib/roles';
 import { base, radius } from '@/theme/theme';
 
 const ME_KEY = 'me';
@@ -41,7 +41,8 @@ export function OrderPanel({ siteId, mats, again, onDone, onCancel }: { siteId: 
   const [ccIds, setCcIds] = useState<Set<string>>(new Set());
   const [ccRaw, setCcRaw] = useState('');
   const [busy, setBusy] = useState(false);
-  if (!me) return null;
+  // Sending an order needs Raise Orders (Admin › Roles).
+  if (!me || !canRaiseOrders(me)) return null;
 
   const toMe = supId === ME_KEY;
   const sup: FullSupplier | null = !toMe ? suppliers?.find((s) => s.id === supId) ?? null : null;

@@ -29,7 +29,7 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { cancelReasonText, doneEntries, isEmail, liveEntries, matAgo, matSheetLines, OP_STATUS_LABEL, orderEmailFor, subAddrLabel, wasOrdered, type Branch, type Mat } from '@/lib/rules/materials';
 import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
-import { isFinanceUser, isFullManager, isManager } from '@/lib/roles';
+import { canRaiseOrders, isFinanceUser, isFullManager, isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
 const short = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
@@ -43,6 +43,9 @@ export default function MaterialRequests() {
   const qc = useQueryClient();
   const { data: site } = useSite(id);
   const mgr = !!me && isManager(me);
+  // Ordering from a merchant (or sending an order again) needs Raise Orders (Admin › Roles); requests, yard stock and
+  // collections don't.
+  const canOrder = canRaiseOrders(me);
   const fin = isFinanceUser(me, org);
   const { data: repairJobs } = useRepairPick(id, fin && !!site?.repair_contract);
   const [tab, setTab] = useState<MatTab>(mgr ? (startTab === 'done' ? 'done' : 'pending') : 'live');
@@ -90,11 +93,13 @@ export default function MaterialRequests() {
     void act(() => cancelMaterial(me, m.id, reason.trim(), mgr), 'Request cancelled');
   };
   const startOrder = async (ms: Mat[], again: boolean) => {
+    if (!canOrder) return;
     if (again && (await locked(ms))) return;
     setOrdering({ mats: ms, again }); setSel(new Set());
     scroll.current?.scrollTo({ y: 0, animated: true });
   };
   const reemail = async (m: Mat) => {
+    if (!canOrder) return;
     if (await locked([m])) return;
     const sup = suppliers?.find((x) => x.id === m.supplier_id);
     if (!sup) { toast('Could not find that supplier.'); return; }
@@ -148,7 +153,7 @@ export default function MaterialRequests() {
       )}
       {mgr && m.status === 'pending' && !sel.has(m.id) && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-          <Button small title="🚚 Order from Merchant" onPress={() => void startOrder([m], false)} />
+          {canOrder && <Button small title="🚚 Order from Merchant" onPress={() => void startOrder([m], false)} />}
           {yardCanEdit(me, fin) && <Button small kind="ghost" title="🏗 Yard Stock" onPress={() => router.push(`/sites/${id}/materials/yard?mat=${m.id}` as never)} />}
           <Button small kind="ghost" title="📦 Add to collections" onPress={async () => {
             if (await locked([m])) return;
@@ -161,15 +166,15 @@ export default function MaterialRequests() {
       {mgr && m.status === 'sent' && !sel.has(m.id) && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
           <Button small kind="ghost" title="✎ Edit order" onPress={() => void edit(m)} />
-          <Button small kind="ghost" title="↻ Resend order" onPress={() => void startOrder([m], true)} />
+          {canOrder && <Button small kind="ghost" title="↻ Resend order" onPress={() => void startOrder([m], true)} />}
           <Button small kind="ghost" title="✓ Received — close" onPress={() => void close([m])} />
         </View>
       )}
       {mgr && m.status === 'closed' && !sel.has(m.id) && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
           {wasOrdered(m) && m.merchant !== 'Yard stock' && <Button small kind="ghost" title="✎ Edit order" onPress={() => void edit(m)} />}
-          {wasOrdered(m) && m.merchant !== 'Yard stock' && !!m.merchant && !!m.supplier_id && <Button small kind="ghost" title="↻ Resend order" onPress={() => void reemail(m)} />}
-          <Button small kind="ghost" title={wasOrdered(m) && m.merchant !== 'Yard stock' ? 'Send to another supplier' : 'Order it'} onPress={() => void startOrder([m], true)} />
+          {wasOrdered(m) && m.merchant !== 'Yard stock' && !!m.merchant && !!m.supplier_id && canOrder && <Button small kind="ghost" title="↻ Resend order" onPress={() => void reemail(m)} />}
+          {canOrder && <Button small kind="ghost" title={wasOrdered(m) && m.merchant !== 'Yard stock' ? 'Send to another supplier' : 'Order it'} onPress={() => void startOrder([m], true)} />}
           <Button small kind="ghost" title="Reopen" onPress={() => void act(() => reopenMaterials([m]), 'Material request reopened')} />
         </View>
       )}
@@ -219,7 +224,7 @@ export default function MaterialRequests() {
         : <FilterRow value={tab as string} onChange={(k) => { setSel(new Set()); setTab(k as MatTab); }} options={[['live', 'Live/Pending'], ['closed', 'Closed']] as [string, string][]} />}
       {mgr && !done && <InfoBox k="mat_requests" bg="#F1E4FA" fg="#4E1F6E" icon="🙋"><Text style={{ fontWeight: '600' }}>Requests from operatives.</Text> Order them from a merchant, or give them to an operative to collect — those move to the <Text style={{ fontWeight: '600' }}>Collections</Text> tab. Tick several to group them into one request.</InfoBox>}
 
-      {ordering && (
+      {ordering && canOrder && (
         <Card style={{ borderColor: base.ink, borderWidth: 1.5 }}>
           <OrderPanel siteId={id} mats={ordering.mats} again={ordering.again} onDone={() => { setOrdering(null); refresh(); }} onCancel={() => setOrdering(null)} />
         </Card>
@@ -233,7 +238,7 @@ export default function MaterialRequests() {
         <Card style={{ borderColor: base.ink, borderWidth: 1.5 }}>
           <SectionTitle>{done ? `${picked.length} completed order${picked.length > 1 ? 's' : ''} selected` : `${picked.length} request${picked.length > 1 ? 's' : ''} selected for a grouped order`}</SectionTitle>
           {!done && picked.length > 1 && <Button kind="ghost" title="🔗 Group into one request" onPress={() => void act(() => groupMaterials(picked), `${picked.length} requests grouped into one`)} />}
-          <Button title={done ? `Send Again (${picked.length})` : picked.length > 1 ? `Send as one grouped order (${picked.length} items)` : 'Send Order (1 item)'} onPress={() => void startOrder(picked, done)} />
+          {canOrder && <Button title={done ? `Send Again (${picked.length})` : picked.length > 1 ? `Send as one grouped order (${picked.length} items)` : 'Send Order (1 item)'} onPress={() => void startOrder(picked, done)} />}
           {done && (
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <View style={{ flex: 1 }}><Button kind="ghost" title="Reopen selected" onPress={async () => { if (await confirmAsk(`Reopen ${picked.length} closed order${picked.length === 1 ? '' : 's'}? They go back to the Live/Pending tab.`, 'Reopen')) void act(() => reopenMaterials(picked), 'Reopened'); }} /></View>
@@ -278,7 +283,7 @@ export default function MaterialRequests() {
             </View>
             {e.items.map((x) => <Text key={x.id} style={{ color: base.ink, marginTop: 6, fontSize: 15.5 }}>• <Text style={{ fontWeight: '600' }}>{x.item}</Text> · Qty {x.qty || '1'}{x.order_note ? ` · 📝 ${x.order_note}` : ''}{x.sub_site_label ? ` · 📍 ${x.sub_site_label}` : ''}</Text>)}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-              <Button small title="🚚 Order from Merchant" onPress={() => void startOrder(e.items, false)} />
+              {canOrder && <Button small title="🚚 Order from Merchant" onPress={() => void startOrder(e.items, false)} />}
               <Button small kind="ghost" title="Ungroup" onPress={() => void act(() => ungroupMaterials(e.items), 'Ungrouped')} />
               <Button small kind="ghost" title="Close Request" onPress={async () => {
                 if (await confirmAsk(`Close this grouped request (${e.items.length} items) without ordering?`, 'Close')) void close(e.items);

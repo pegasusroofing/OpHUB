@@ -21,6 +21,7 @@ import { Button, Empty, Muted, SectionTitle } from '@/components/ui';
 import { fdb, finStatus, selectAll } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { fdate, money, rateMoney, round2, round3 } from '@/lib/rules/finance';
 import { yardLow, yardNum, yardQty, type YardItem } from '@/lib/rules/materials';
 import { base, radius, useDesk } from '@/theme/theme';
@@ -63,6 +64,8 @@ export default function FinYard() {
   // Before the early return: a hook must run on every render (lint, 15 Nov 2026).
   const desk = useDesk();
   if (!me) return null;
+  // Without Finance – Edit (Admin › Roles) the yard is shown, not changed: no new items, booking in or out, or stock take.
+  const canEdit = canEditFinance(me);
   const items = data?.items ?? [], rateBy = data?.rateBy ?? {};
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['finYard'] }); void qc.invalidateQueries({ queryKey: ['yard'] }); void qc.invalidateQueries({ queryKey: ['finYardMoves'] }); };
   const live = sites.filter((s) => finStatus(s) !== 'closed').sort((a, b) => String(b.job_number || '').localeCompare(String(a.job_number || ''), undefined, { numeric: true }));
@@ -168,7 +171,7 @@ export default function FinYard() {
     return (
       <FinPage title={s?.item || 'Yard stock'} section="purchases" badges={badges} sub="yard" onSub={onSub}>
         <YardSubTabs on="stock" />
-        {isLoading ? <Muted>Loading…</Muted> : !s ? <Muted>Item not found.</Muted> : <ItemView s={s} rate={rateBy[s.id]} jobName={jobName} onEdit={() => setEdit(s)} onIn={() => void bookIn(s.id)} onOut={() => void bookOut(s.id)} />}
+        {isLoading ? <Muted>Loading…</Muted> : !s ? <Muted>Item not found.</Muted> : <ItemView s={s} rate={rateBy[s.id]} jobName={jobName} canEdit={canEdit} onEdit={() => setEdit(s)} onIn={() => void bookIn(s.id)} onOut={() => void bookOut(s.id)} />}
         {forms}
       </FinPage>
     );
@@ -176,15 +179,15 @@ export default function FinYard() {
   return (
     <FinPage title="Purchases" section="purchases" badges={badges} sub="yard" top={<PurchasesStats />} onSub={onSub}>
       {/* Stock Take on the right of the Stock / Plant row on a laptop (Andy, 14 Nov 2026). */}
-      <YardSubTabs on={sub === 'plant' ? 'plant' : 'stock'} right={desk && sub !== 'plant' ? <Button small kind="ghost" title="Stock Take" onPress={() => router.push('/yardcount' as never)} /> : undefined} />
+      <YardSubTabs on={sub === 'plant' ? 'plant' : 'stock'} right={desk && sub !== 'plant' && canEdit ? <Button small kind="ghost" title="Stock Take" onPress={() => router.push('/yardcount' as never)} /> : undefined} />
       {sub === 'plant' ? <PlantRegister /> : <><YardLeftovers />
-      <YardList items={items} rateBy={rateBy} loading={isLoading} onNew={() => setEdit('new')} onIn={(sid) => void bookIn(sid)} onOut={(sid) => void bookOut(sid)}/></>}
+      <YardList items={items} rateBy={rateBy} loading={isLoading} canEdit={canEdit} onNew={() => setEdit('new')} onIn={(sid) => void bookIn(sid)} onOut={(sid) => void bookOut(sid)}/></>}
       {forms}
     </FinPage>
   );
 }
 
-function YardList({ items, rateBy, loading, onNew, onIn, onOut }: { items: Item[]; rateBy: Record<string, number>; loading: boolean; onNew: () => void; onIn: (id?: string) => void; onOut: (id?: string) => void }) {
+function YardList({ items, rateBy, loading, canEdit, onNew, onIn, onOut }: { items: Item[]; rateBy: Record<string, number>; loading: boolean; canEdit: boolean; onNew: () => void; onIn: (id?: string) => void; onOut: (id?: string) => void }) {
   const [sel, setSel] = useState<FilterSel>({ show: ['all'], cat: [] });
   const [sort, setSort] = useState('as');
   const desk = useDesk(); // laptop: a full table in the laptop's style, with the phone's columns (Andy, 14 Nov 2026)
@@ -221,7 +224,7 @@ function YardList({ items, rateBy, loading, onNew, onIn, onOut }: { items: Item[
       {/* One row of buttons (Andy, 14 Nov 2026): Return is under Book In, Lost under Book Out; Adjust count went. On a
           laptop: + New Item across the page, Book In / Book Out on each row, Stock Take beside the Stock / Plant tabs,
           and no search bar or filters above (the boxes under the headings do that). */}
-      {desk ? <View style={{ marginBottom: 10 }}><Button title="+ New Item" onPress={onNew} /></View> : (
+      {!canEdit ? null : desk ? <View style={{ marginBottom: 10 }}><Button title="+ New Item" onPress={onNew} /></View> : (
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 10 }}>
           <Button {...btn} title="+ New Item" onPress={onNew} /><Button {...btn} kind="ghost" title="⬇ Book In" onPress={() => onIn()} />
           <Button {...btn} kind="ghost" title="⬆ Book Out" onPress={() => onOut()} /><Button {...btn} kind="ghost" title="Stock Take" onPress={() => router.push('/yardcount' as never)} />
@@ -237,7 +240,7 @@ function YardList({ items, rateBy, loading, onNew, onIn, onOut }: { items: Item[
             { k: 'r', l: 'Unit Price', sort: (s: Item) => rateBy[s.id] ?? -1, render: (s: Item) => <Cell>{rateBy[s.id] != null ? money(rateBy[s.id]) : '—'}</Cell> },
             { k: 'v', l: 'Value', sort: (s: Item) => val(s), total: (rows: Item[]) => money(rows.reduce((x, s) => x + val(s), 0)), render: (s: Item) => <Cell bold>{val(s) ? money(val(s)) : '—'}</Cell> },
             // Book In / Book Out for this item, on its row (Andy, 14 Nov 2026).
-            { k: 'act', l: '', noSort: true, min: 200, flex: 1.1, render: (s: Item) => s.active === false ? null : (
+            { k: 'act', l: '', noSort: true, min: 200, flex: 1.1, render: (s: Item) => s.active === false || !canEdit ? null : (
               <View style={{ flexDirection: 'row', gap: 6, justifyContent: 'center' }}>
                 <Button small kind="ghost" oneLine title="⬇ Book In" onPress={() => onIn(s.id)} />
                 <Button small kind="ghost" oneLine title="⬆ Book Out" onPress={() => onOut(s.id)} />
@@ -256,7 +259,7 @@ function YardList({ items, rateBy, loading, onNew, onIn, onOut }: { items: Item[
 
 /** One yard item (Andy, 14 Nov 2026): its name at the top, its details as a plain table (in the yard, minimum, location…),
  *  ⬇ Book In and ⬆ Book Out on one row, then its history as a table. */
-function ItemView({ s, rate, jobName, onEdit, onIn, onOut }: { s: Item; rate?: number; jobName: (id: string | null) => string; onEdit: () => void; onIn: () => void; onOut: () => void }) {
+function ItemView({ s, rate, jobName, canEdit, onEdit, onIn, onOut }: { s: Item; rate?: number; jobName: (id: string | null) => string; canEdit: boolean; onEdit: () => void; onIn: () => void; onOut: () => void }) {
   const { data: moves = [] } = useQuery({ queryKey: ['finYardMoves', s.id], queryFn: async () => ((await fdb.from('yard_moves').select('*').eq('stock_id', s.id).order('created_at', { ascending: false }).limit(50)).data as Row[] | null) ?? [] });
   const unit = s.unit || '';
   const rows: [string, string, string?][] = [
@@ -276,7 +279,7 @@ function ItemView({ s, rate, jobName, onEdit, onIn, onOut }: { s: Item; rate?: n
       <View accessibilityLabel="Item details" style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, overflow: 'hidden', marginBottom: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#F6F7F9' }}>
           <Text style={{ flex: 1, fontSize: 10.5, fontWeight: '700', color: base.slate, letterSpacing: 0.3 }}>DETAILS</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="Edit item" hitSlop={8} onPress={onEdit}><Text style={{ fontSize: 13, fontWeight: '600', color: base.ink }}>✎ Edit</Text></Pressable>
+          {canEdit && <Pressable accessibilityRole="button" accessibilityLabel="Edit item" hitSlop={8} onPress={onEdit}><Text style={{ fontSize: 13, fontWeight: '600', color: base.ink }}>✎ Edit</Text></Pressable>}
         </View>
         {rows.map(([l, v, tone]) => (
           <View key={l} style={{ flexDirection: 'row', gap: 10, paddingVertical: 9, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>
@@ -285,9 +288,9 @@ function ItemView({ s, rate, jobName, onEdit, onIn, onOut }: { s: Item; rate?: n
           </View>
         ))}
       </View>
-      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 14 }}>
+      {canEdit && <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 14 }}>
         <Button grow oneLine kind="ghost" title="⬇ Book In" onPress={onIn} /><Button grow oneLine kind="ghost" title="⬆ Book Out" onPress={onOut} />
-      </View>
+      </View>}
       <SectionTitle>History</SectionTitle>
       {moves.length ? (
         <PhoneTable label="Yard history" search={false} rows={moves} keyOf={(m) => m.id}

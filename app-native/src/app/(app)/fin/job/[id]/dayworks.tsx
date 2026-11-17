@@ -15,6 +15,7 @@ import { fdb, insertNumbered } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
 import { base, page, useDesk } from '@/theme/theme';
 
@@ -32,6 +33,8 @@ export default function FinDayworks() {
   const [sheet, setSheet] = useState<{ uri: string; name: string; mimeType?: string | null } | null>(null);
   const { data = [], isLoading } = useQuery({ queryKey: ['finDw', id], queryFn: async () => ((await fdb.from('fin_dayworks').select('*').eq('site_id', id).order('seq')).data as Row[] | null) ?? [] });
   if (!me) return null;
+  // Without Finance – Edit (Admin › Roles) the day works are shown, not changed.
+  const canEdit = canEditFinance(me);
   const list = data.filter((d) => f === 'all' || d.status === f);
   const small = (label: string, onPress: () => void, color = base.blue) => (
     <Pressable onPress={onPress} style={{ paddingVertical: 3, paddingHorizontal: 9, borderRadius: 7, borderWidth: 1, borderColor: base.cardLine }}><Text style={{ fontSize: 12, fontWeight: '500', color }}>{label}</Text></Pressable>
@@ -41,7 +44,7 @@ export default function FinDayworks() {
     <ScrollView contentContainerStyle={page(900)}>
       <Stack.Screen options={{ title: 'Day works' }} />
       <BoqTabs id={id} on="variations" />
-      <VarDayChips id={id} on="dayworks" right={<Button small title="+ Day Work" onPress={() => setEdit({ status: 'issued', work_date: today() })} />} />
+      <VarDayChips id={id} on="dayworks" right={canEdit ? <Button small title="+ Day Work" onPress={() => setEdit({ status: 'issued', work_date: today() })} /> : undefined} />
       {/* Phone: Approved across the top, Issued and Rejected side by side below. Laptop: three even tiles on one row (Andy, 7 Nov 2026). */}
       <View style={{ flexDirection: desk ? 'row' : 'column', gap: 8, marginBottom: 10 }}>
         <View style={{ flexDirection: 'row', flex: desk ? 1 : undefined }}><FinStat v={money(sum('approved'), 0)} label="Approved" /></View>
@@ -50,9 +53,9 @@ export default function FinDayworks() {
       <FinTabs items={[['all', 'All'], ['issued', 'Issued'], ['approved', 'Approved'], ['rejected', 'Rejected']].map(([k, l]) => [k, l, data.filter((d) => k === 'all' || d.status === k).length] as [string, string, number])} value={f} onChange={setF} even />
       {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((d) => (
         // Tidy rows, as Variations (Andy, 7 Nov 2026): number and title, the status and its date, the amount.
-        <FinRow compact key={d.id} left={d.number} title={d.title} sub={[ST[d.status]?.[0], d.status === 'approved' && d.approved_on ? fdate(d.approved_on) : d.work_date ? fdate(d.work_date) : ''].filter(Boolean).join(' · ')} right={money(d.value)} onPress={() => setEdit(d)}>
+        <FinRow compact key={d.id} left={d.number} title={d.title} sub={[ST[d.status]?.[0], d.status === 'approved' && d.approved_on ? fdate(d.approved_on) : d.work_date ? fdate(d.work_date) : ''].filter(Boolean).join(' · ')} right={money(d.value)} onPress={canEdit ? () => setEdit(d) : undefined}>
           {/* 9219s finDwSet: quick Approve (asks the value, the issued value to start with) / Reject, like variations */}
-          {d.status === 'issued' && (
+          {d.status === 'issued' && canEdit && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 5 }}>
               {small('Approve', async () => {
                 const v = await promptText(`Approve ${d.number} — approved value (£)`, d.value != null ? String(d.value) : ''); if (v === null) return;
@@ -69,7 +72,7 @@ export default function FinDayworks() {
         </FinRow>
       )) : <Empty>No day works yet.</Empty>}
       <Muted style={{ marginTop: 8, fontSize: 11.5 }}>Approved day works go onto the next application for payment.</Muted>
-      {edit && (
+      {edit && canEdit && (
         <FinForm title={edit.id ? `${edit.number} · day work` : 'New day work'} initial={edit} onClose={() => { setEdit(null); setSheet(null); }}
           extra={(
             <View style={{ marginBottom: 8 }}>

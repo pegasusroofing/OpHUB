@@ -20,8 +20,9 @@ import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { fdb, selectAll, useFinSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance, canRaiseOrders } from '@/lib/roles';
 import { addDays, fdate, jobTag, money, round2, today } from '@/lib/rules/finance';
-import { base, radius, useDesk } from '@/theme/theme';
+import { base, radius, space, useDesk } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 10 };
@@ -52,6 +53,8 @@ export function useSubsData(orgId: string | null | undefined, siteId?: string) {
 
 export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun' | 'orders' | 'apps' | 'cis'; siteId?: string; f?: string }) {
   const { me } = useAuth();
+  // Finance – Edit for anything that changes; a subcontractor PO is an order, so also Raise Orders (Admin › Roles).
+  const canEdit = canEditFinance(me), canOrder = canEdit && canRaiseOrders(me);
   const toast = useToast();
   const qc = useQueryClient();
   const desk = useDesk(); // laptop: the + buttons sit small on the right, as the current app
@@ -75,7 +78,7 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
   const has = <T,>(F: Record<string, (x: T) => boolean>, x: T) => !sel.show.length || sel.show.some((k) => F[k](x));
   const num = (x: Row, k: string) => Number(x[k] || 0);
 
-  if (tab === 'wages') return <WagesTab me={me} siteId={siteId} />;
+  if (tab === 'wages') return <WagesTab me={me} siteId={siteId} canEdit={canEdit} />;
   if (tab === 'opinv') {
     const F: Record<string, (p: Row) => boolean> = { topay: (p) => p.status === 'approved' || p.status === 'draft', paid: (p) => p.status === 'paid', all: () => true };
     // A phone searches and filters in the table itself (Andy, 14 Nov 2026); a laptop keeps the Filter bar.
@@ -83,7 +86,7 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
     return (
       <View>
         <Muted style={{ marginBottom: 10 }}>When an operative sends their invoice, put it in here with the amount for each job. CIS is worked out for you and it&apos;s paid in the pay run. (Booking it to a price sheet is off while Finance is on trial.)</Muted>
-        <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ Operative invoice" onPress={() => router.push('/fin/labour/new' as never)} /></View>
+        {canEdit && <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ Operative invoice" onPress={() => router.push('/fin/labour/new' as never)} /></View>}
         {desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search name, invoice no. or job' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['name', 'Name A to Z']]} sort={sort} onSort={setSort}
           parts={[{ key: 'show', label: 'Show', items: [['topay', 'To pay'], ['paid', 'Paid']].map(([v, l]) => ({ v, l, n: data.ops.filter(F[v]).length })) }]} />}
         {list.length ? <PhoneTable key="opinv" search={!desk} label="Labour invoices" rows={list} keyOf={(p) => p.id} onRow={(p) => router.push(`/fin/labour/${p.id}` as never)}
@@ -106,7 +109,7 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
     const tot = (k: string) => round2(due.reduce((t, p) => t + Number(p[k] || 0), 0));
     const noBank = due.filter((p) => !bankOk(data.rateBy[keyOf(p)])).length;
     const fmt = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-    const cfgSave = async (k: string, v: number) => { if ((await fdb.from('fin_settings').upsert({ org_id: me.org_id, [k]: v } as never, { onConflict: 'org_id' })).error) toast('Could not save — admins only'); else void qc.invalidateQueries({ queryKey: ['finSettings'] }); };
+    const cfgSave = async (k: string, v: number) => { if (!canEdit) return; if ((await fdb.from('fin_settings').upsert({ org_id: me.org_id, [k]: v } as never, { onConflict: 'org_id' })).error) toast('Could not save — admins only'); else void qc.invalidateQueries({ queryKey: ['finSettings'] }); };
     return (
       <View>
         <Card>
@@ -125,11 +128,11 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
           <FinStat v={money(tot('gross'))} label="Invoices" /><FinStat v={money(tot('cis_deduction'))} label="CIS to pay HMRC" /><FinStat v={money(tot('net_pay'))} label="To transfer" />
         </View>
-        <Button title={`Mark ${due.length || ''} paid once you’ve sent the money`} disabled={!due.length} onPress={async () => {
+        {canEdit && <Button title={`Mark ${due.length || ''} paid once you’ve sent the money`} disabled={!due.length} onPress={async () => {
           if (!(await confirmAsk(`Mark ${due.length} operative invoice${due.length === 1 ? '' : 's'} (${money(tot('net_pay'))}) as paid on ${fdate(day)}?`, 'Mark paid'))) return;
           let n = 0; for (const p of due) if (!!(await fdb.from('fin_sub_payments').update({ status: 'paid', paid_on: day, pay_date: day } as never).eq('id', p.id).select('id')).data?.length) n++;
           toast(`${n} marked paid`); refresh();
-        }} />
+        }} />}
         {noBank > 0 && <Text style={{ color: '#C0392B', marginVertical: 8 }}>{noBank} {noBank === 1 ? 'person has' : 'people have'} no bank details saved — add them in People &amp; rates.</Text>}
         <View style={{ marginTop: 10 }}>
           {/* A table like the rest of Finance (Andy, 14 Nov 2026). */}
@@ -151,7 +154,7 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
     return (
       <View>
         <Muted style={{ marginBottom: 10 }}>For subcontractors on a fixed price who apply for payment (e.g. leadwork, scaffolding).</Muted>
-        <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ Subcontractor PO" onPress={async () => { const sid = siteId || (await pickJob('New subcontractor PO', sites.filter((s) => s.status !== 'closed'))); if (sid) router.push(`/fin/sub/new?site=${sid}` as never); }} /></View>
+        {canOrder && <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ Subcontractor PO" onPress={async () => { const sid = siteId || (await pickJob('New subcontractor PO', sites.filter((s) => s.status !== 'closed'))); if (sid) router.push(`/fin/sub/new?site=${sid}` as never); }} /></View>}
         {desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search subcontractor or project' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['name', 'Name A to Z']]} sort={sort} onSort={setSort}
           parts={[{ key: 'show', label: 'Show', items: [['active', 'Active'], ['complete', 'Complete']].map(([v, l]) => ({ v, l, n: data.scs.filter(F[v]).length })) }]} />}
         {/* A laptop gets the current app's table with totals under Order Value and Certified (912; cmp-fin 5 Nov 2026). */}
@@ -189,12 +192,12 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
       <View>
         <Muted style={{ marginBottom: 10 }}>A subcontractor applies → you certify it and send the payment or pay-less notice before the final date → mark it paid.</Muted>
         {/* + Record an application, as the current app (912): pick the order, then its application form opens. */}
-        <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ Record an application" onPress={async () => {
+        {canEdit && <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ Record an application" onPress={async () => {
           const open = data.scs.filter((s) => s.status !== 'complete');
           if (!open.length) { toast('No active subcontractor orders — add a Subcontractor PO first.'); return; }
           const k = await chooseAction('Record an application for', open.map((s) => ({ key: s.id, label: `${s.number || ''} ${s.name || ''}${siteId ? '' : ` · ${jobTag(site(s.site_id))}`}`.trim() })));
           if (k) router.push(`/fin/sub/${k}?app=new` as never);
-        }} /></View>
+        }} /></View>}
         {desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search subcontractor or project' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first']]} sort={sort} onSort={setSort}
           parts={[{ key: 'show', label: 'Show', items: [['open', 'To certify'], ['certified', 'Certified, to pay'], ['paid', 'Paid']].map(([v, l]) => ({ v, l, n: data.sapps.filter(F[v]).length })) }]} />}
         {/* A table like the rest of Finance (Andy, 14 Nov 2026); on a phone ▾ To Certify / To Pay / Paid under Pay By. */}
@@ -238,7 +241,7 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
 }
 
 // PAYE wages come from sign-ins, a week at a time; operative invoices arrive here when they're saved.
-function WagesTab({ me, siteId }: { me: Profile; siteId?: string }) {
+function WagesTab({ me, siteId, canEdit }: { me: Profile; siteId?: string; canEdit: boolean }) {
   const toast = useToast();
   const qc = useQueryClient();
   const [week, setWeek] = useState(lastMonday());
@@ -246,7 +249,8 @@ function WagesTab({ me, siteId }: { me: Profile; siteId?: string }) {
   return (
     <View>
       <Muted style={{ marginBottom: 10 }}>Labour from operative invoices and PAYE wages from sign-ins wait here. Book each to a price sheet and that week’s booked-in amount updates straight away, or send it to other job costs. PMs see their own jobs’ in the Price tile.</Muted>
-      {!siteId && !wagesOff(me.org_id) && (
+      {!canEdit && <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>}
+      {canEdit && !siteId && !wagesOff(me.org_id) && (
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 10 }}>
           <View style={{ flex: 1 }}><DateBox value={week} onChange={(v) => setWeek(monday(v))} /></View>
           <View style={{ flex: 1 }}><Button small busy={busy} title="Bring in PAYE wages" onPress={async () => {
@@ -256,7 +260,7 @@ function WagesTab({ me, siteId }: { me: Profile; siteId?: string }) {
           }} /></View>
         </View>
       )}
-      <WagesToBook me={me} siteId={siteId} showEmpty />
+      {canEdit && <WagesToBook me={me} siteId={siteId} showEmpty />}
     </View>
   );
 }

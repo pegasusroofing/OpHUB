@@ -4,7 +4,7 @@
 // payments received, void. Emailing and Xero are off during the Finance trial.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinEmailPopup } from '@/components/FinEmailPopup';
@@ -24,6 +24,7 @@ import { addPayment, deleteDraft, deletePayment, draftRow, emailInvoice, issue, 
 import { fdb, finInvoke, useFinSettings } from '@/data/finance';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { fdate, INV_STATUS, invOutstanding, invOverdue, money, num, today } from '@/lib/rules/finance';
 import { INV_VAT, invTotals, issueProblem, lineVat } from '@/lib/rules/finInvoice';
 import { base, isDesk, page, radius, space } from '@/theme/theme';
@@ -38,11 +39,13 @@ export default function FinInvoice() {
   const toast = useToast();
   const made = useRef(false);
   useEffect(() => {
-    if (invId !== 'new' || made.current || !me || !site) return;
+    // Starting one is a change: Finance – Edit only (Admin › Roles).
+    if (invId !== 'new' || made.current || !me || !site || !canEditFinance(me)) return;
     made.current = true;
     void newInvoice(me, site as never).then((nid) => { if (nid) router.replace(`/fin/job/${id}/invoice/${nid}` as never); else toast('Could not start an invoice — try again.'); });
   }, [invId, me, site, id, toast]);
   const { data, isLoading } = useQuery({ queryKey: ['finInvoice', invId], enabled: invId !== 'new', gcTime: 0, queryFn: () => loadInvoice(invId) });
+  if (invId === 'new' && me && !canEditFinance(me)) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>;
   if (invId === 'new' || isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!data?.inv) return <Muted style={{ padding: space.l }}>Invoice not found.</Muted>;
   return data.inv.status === 'draft' ? <Draft key={data.inv.id} inv={data.inv} site={site as Row} /> : <Issued inv={data.inv} pays={data.pays} site={site as Row} />;
@@ -64,6 +67,8 @@ function InvoicePlot({ inv, site, onSet }: { inv: Row; site: Row | undefined; on
   );
 }
 
+/** Look-only: nothing inside can be tapped or typed in. Editors keep the page exactly as it was. */
+const lockIf = (on: boolean, n: ReactNode) => (on ? <View pointerEvents="none">{n}</View> : <>{n}</>);
 const RED = '#C0392B';
 /** Red for money below nought, on screen only (Andy, 3 Nov 2026). */
 const minusTone = (n: unknown) => (Number(n) < 0 ? RED : undefined);
@@ -170,6 +175,8 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
     return () => { live = false; };
   }, [site?.client_name, me?.org_id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!me) return null;
+  // Without Finance – Edit (Admin › Roles) the draft is shown, not changed: no typing, saving, issuing or deleting.
+  const ro = !canEditFinance(me);
   const t = invTotals(d.lines, d.vat_treatment, d.vat_rate);
   const set = (k: string, v: unknown) => setD({ ...d, [k]: v });
   const field = (k: string, label: string, o: { multiline?: boolean; half?: boolean; ph?: string; date?: boolean; short?: boolean } = {}) => (
@@ -180,6 +187,7 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Draft invoice' }} />
+      {lockIf(ro, <>
       <Card>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
           <Text style={{ color: base.blue, fontWeight: '500', marginBottom: 4 }} onPress={async () => {
@@ -194,7 +202,7 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
         <InvoicePlot inv={d} site={site} onSet={(v) => set('sub_job_id', v)} />
       </Card>
       <SectionTitle>Lines</SectionTitle>
-      {editing ? <LinesEdit d={d} setD={setD} /> : <LinesView lines={d.lines} mixed={t.mixed} vatOf={(l) => l.vat} note={inv.source === 'certificate' ? 'These are the certificate’s figures.' : undefined} onEdit={() => setEditing(true)} />}
+      {editing && !ro ? <LinesEdit d={d} setD={setD} /> : <LinesView lines={d.lines} mixed={t.mixed} vatOf={(l) => l.vat} note={inv.source === 'certificate' ? 'These are the certificate’s figures.' : undefined} onEdit={() => setEditing(true)} />}
       <Card>
         <FinRow title="Net" right={money(t.net)} tone={minusTone(t.net)} />
         {Object.keys(t.by).filter((k) => !INV_VAT[k].rc && INV_VAT[k].r > 0).map((k) => <FinRow key={k} title={`VAT @ ${INV_VAT[k].l}${t.mixed ? ` on ${money(t.by[k].net)}` : ''}`} right={money(t.by[k].vat)} />)}
@@ -202,10 +210,11 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
         {t.vatDue ? <Muted>Reverse charge VAT {money(t.vatDue)} — the client pays this to HMRC; not added to the total.</Muted> : null}
       </Card>
       {field('notes', 'Notes on the invoice', { multiline: true, short: true })}
+      </>)}
     </ScrollView>
     {/* Always in view at the bottom, however long the lines get (Andy, 3 Nov 2026), inside the page's edges like the boxes
         above, not across the grey border (Andy, 14 Nov 2026). */}
-    <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 8, paddingHorizontal: isDesk() ? 40 : space.l, paddingTop: 8, paddingBottom: 12, backgroundColor: base.paper }}>
+    {!ro && <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 8, paddingHorizontal: isDesk() ? 40 : space.l, paddingTop: 8, paddingBottom: 12, backgroundColor: base.paper }}>
         <View style={{ flex: 1 }}><Button grow kind="ghost" busy={busy === 'save'} title="Save Draft" onPress={async () => { setBusy('save'); const e = await saveDraft(inv.id, d); setBusy(''); toast(e || 'Draft saved'); if (!e) setEditing(false); refresh(); }} /></View>
         <View style={{ flex: 1 }}><Button grow busy={busy === 'issue'} title="Issue Invoice" onPress={async () => {
           const row = draftRow(d), p = issueProblem(row);
@@ -220,7 +229,7 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
           } finally { setBusy(''); }
         }} /></View>
         <Pressable accessibilityRole="button" accessibilityLabel="Delete draft" onPress={async () => { if (!(await confirmAsk('Delete this draft invoice?', 'Delete'))) return; if (await deleteDraft(inv.id)) { toast('Draft deleted'); refresh(); router.back(); } else toast('Could not delete.'); }} style={({ pressed }) => ({ width: 46, marginTop: 4, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FDECEC', opacity: pressed ? 0.7 : 1 })}><OphIcon name="bin" size={19} color="#B42318" /></Pressable>
-    </View>
+    </View>}
     </View>
   );
 }
@@ -247,6 +256,8 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
     void chooseAction(`Invoice ${inv.number} issued`, [{ key: 'email', label: 'Email it' }, { key: 'pdf', label: 'Export PDF' }, { key: 'done', label: 'Done' }]).then((k) => { if (k === 'email') setMailing(true); else if (k === 'pdf') void openPdf(); });
   }, [inv.id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!me) return null;
+  // Without Finance – Edit (Admin › Roles) the invoice is shown, not changed: no emailing, payments, voiding or line changes.
+  const canEdit = canEditFinance(me);
   const out = invOutstanding(inv as never), t = invTotals(inv.lines, inv.vat_treatment, inv.vat_rate);
   const refresh = () => { ['finInvoice', 'finSales', 'finBook', 'finOverview', 'finJobs'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
   return (
@@ -259,7 +270,7 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
       </View>
       {inv.status !== 'void' && (
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-          <View style={{ flex: 1 }}><Button title="Email Invoice" onPress={() => setMailing(true)} /></View>
+          {canEdit && <View style={{ flex: 1 }}><Button title="Email Invoice" onPress={() => setMailing(true)} /></View>}
           <View style={{ flex: 1 }}><Button kind="ghost" title="Export PDF" onPress={() => void openPdf()} /></View>
         </View>
       )}
@@ -267,7 +278,7 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
         <FinRow title="Bill to" right={inv.bill_name || site?.client_name || '—'} /><FinRow title="Issued" right={fdate(inv.issue_date)} /><FinRow title="Due" right={fdate(inv.due_date)} />
         <FinRow title="Sent" right={inv.sent_at ? `${fdate(String(inv.sent_at).slice(0, 10))}${inv.sent_to ? ` to ${inv.sent_to}` : ''}` : 'Not emailed yet'} />
         <XeroRow kind="invoice" rec={inv} onDone={refresh} />
-        <InvoicePlot inv={inv} site={site} onSet={refresh} />
+        {lockIf(!canEdit, <InvoicePlot inv={inv} site={site} onSet={refresh} />)}
       </Card>
       <SectionTitle>Lines</SectionTitle>
       {edit && (
@@ -286,7 +297,7 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
         {/* The current app's yellow reverse-charge box (901). */}
         {t.vatDue ? <View style={{ marginTop: 8, backgroundColor: '#FFFAF0', borderWidth: 1, borderColor: '#F8E7C2', borderRadius: 10, padding: 10, gap: 4 }}><View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Muted>Reverse Charge VAT · client pays HMRC</Muted><Text style={{ fontWeight: '600', color: base.ink }}>{money(t.vatDue)}</Text></View><Muted style={{ fontSize: 10, fontStyle: 'italic' }}>Domestic reverse charge on {money(Object.keys(t.by).filter((k) => INV_VAT[k as keyof typeof INV_VAT]?.rc).reduce((n, k) => n + t.by[k].net, 0))} — not added to the total; printed on the invoice and sent to Xero.</Muted></View> : null}
       </Card>
-      {mailing && (
+      {mailing && canEdit && (
         <FinEmailPopup kind="invoice" title={`Email Invoice ${inv.number || ''}`} to={inv.bill_email || site?.client_email || ''}
           note="The invoice PDF goes with it."
           vars={{ client: inv.bill_name || site?.client_name || '', project: site?.name || '', job_no: site?.job_number || '', number: String(inv.number || ''), amount: money(inv.total), due: inv.due_date ? fdate(inv.due_date) : '', client_po: inv.client_po || '', company: org?.name || '', my_name: me.name || '' }}
@@ -297,22 +308,22 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
         <>
           <SectionTitle>Payments</SectionTitle>
           <Card>
-            {pays.length ? pays.map((p) => <FinRow key={p.id} title={`${fdate(p.paid_on)}${p.note ? ` · ${p.note}` : ''}`} right={money(p.amount)} onPress={async () => { if (await confirmAsk('Remove this payment?', 'Remove')) { if (await deletePayment(p.id)) { toast('Payment removed'); refresh(); } } }} />) : <Muted>No payments recorded yet.</Muted>}
-            {out > 0 && <View style={{ marginTop: 8 }}><Button kind="ghost" title="+ Record payment" onPress={() => setPay(true)} /></View>}
+            {pays.length ? pays.map((p) => <FinRow key={p.id} title={`${fdate(p.paid_on)}${p.note ? ` · ${p.note}` : ''}`} right={money(p.amount)} onPress={!canEdit ? undefined : async () => { if (await confirmAsk('Remove this payment?', 'Remove')) { if (await deletePayment(p.id)) { toast('Payment removed'); refresh(); } } }} />) : <Muted>No payments recorded yet.</Muted>}
+            {out > 0 && canEdit && <View style={{ marginTop: 8 }}><Button kind="ghost" title="+ Record payment" onPress={() => setPay(true)} /></View>}
           </Card>
-          <Button kind="ghost" title="Void this invoice" onPress={async () => { if (!(await confirmAsk('Void this invoice? This can’t be undone.', 'Void'))) return; if (await voidInvoice(inv.id)) {
+          {canEdit && <Button kind="ghost" title="Void this invoice" onPress={async () => { if (!(await confirmAsk('Void this invoice? This can’t be undone.', 'Void'))) return; if (await voidInvoice(inv.id)) {
             // Already in Xero: void it there too (907 finXeroVoid) — during the Finance trial that's done by hand.
             if (inv.xero_id && me) { const r = await finInvoke(me, 'xero', { action: 'push_invoice', id: inv.id }); toast(r.error ? `Voided here — void it in Xero by hand (${r.error})` : 'Also voided in Xero'); }
             refresh();
-          } }} />
+          } }} />}
           <Muted style={{ marginTop: 6 }}>Issued invoices can&apos;t be changed. To correct one, void it and raise a new one.</Muted>
-          {!edit && <Text accessibilityRole="button" onPress={async () => {
+          {!edit && canEdit && <Text accessibilityRole="button" onPress={async () => {
             if (!(await confirmAsk('Change the lines on this issued invoice?\n\nIt changes here only and won’t be re-posted to Xero — if it’s already in Xero, change it there too.', 'Edit lines'))) return;
             setEdit({ ...JSON.parse(JSON.stringify(inv)), lines: (inv.lines || []).length ? inv.lines.map((l: Row) => ({ ...l, vat: INV_VAT[l.vat] ? l.vat : lineVat(l, inv.vat_treatment, inv.vat_rate), amount: l.amount == null ? '' : String(l.amount) })) : [{ description: '', amount: '' }] });
           }} style={{ alignSelf: 'flex-end', marginTop: 10, fontSize: 11.5, color: base.slate, textDecorationLine: 'underline' }}>Edit lines</Text>}
         </>
       ) : <Card><Muted>This invoice was voided.</Muted></Card>}
-      {pay && (
+      {pay && canEdit && (
         <FinForm title="Record payment" initial={{ amount: String(out), paid_on: today() }} onClose={() => setPay(false)}
           fields={[{ k: 'amount', label: 'Amount received (£)', kind: 'money', half: true }, { k: 'paid_on', label: 'Date received', kind: 'date', half: true }, { k: 'note', label: 'Note (optional)', ph: 'e.g. BACS, remittance ref' }]}
           onSave={async (v) => { const a = num(v.amount); if (a === null || isNaN(a) || a <= 0) return 'Enter the amount received.'; if (!(await addPayment(me, inv.id, a, String(v.paid_on), String(v.note)))) return 'Could not save.'; toast('Payment recorded'); refresh(); return null; }} />

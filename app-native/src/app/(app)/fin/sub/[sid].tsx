@@ -22,6 +22,7 @@ import { subNoun, useSubJobs } from '@/data/finSubJobs';
 import { openDocLink } from '@/data/hs';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance, canRaiseOrders } from '@/lib/roles';
 import { cisStatement, buildSubNoticePdf } from '@/lib/pdfLazy';
 import { supabase } from '@/lib/supabase';
 import { deliverPdf } from '@/lib/fileOut';
@@ -55,6 +56,10 @@ export default function FinSubcontract() {
   const { data: subJobs = [] } = useSubJobs(home as never);
   const { data: sheet } = useQuery({ queryKey: ['finSubSheet', data?.sc?.price_sheet_id], enabled: !!data?.sc?.price_sheet_id, queryFn: async () => (await fdb.from('price_builder_sheets').select('id,title,status,total,site_id,pricing_element_id').eq('id', data?.sc?.price_sheet_id).maybeSingle()).data as Record<string, any> | null });
   if (!me) return null;
+  // Finance – Edit to change an order or its applications; a new order also needs Raise Orders (Admin › Roles).
+  const canEdit = canEditFinance(me);
+  if (sid === 'new' && !canEdit) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>;
+  if (sid === 'new' && !canRaiseOrders(me)) return <Muted style={{ padding: space.l }}>Your role can’t raise orders. Ask your admin (Admin › Roles).</Muted>;
   if (sid !== 'new' && isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const sc = data?.sc || null, apps = data?.apps || [];
   if (sid !== 'new' && !sc) return <Muted style={{ padding: space.l }}>Subcontractor PO not found.</Muted>;
@@ -62,7 +67,7 @@ export default function FinSubcontract() {
   const lastCert = apps.filter((a) => a.certified_gross != null).pop();
   const openApp = app && !appEdit ? apps.find((a) => a.id === app) : null;
   const cur = appEdit && appEdit !== 'new' ? appEdit : openApp || null;
-  const showApp = !!appEdit || !!openApp || (app === 'new' && sc?.status !== 'complete'); // ?app=new: + Record an application from the Subcontractors list
+  const showApp = !!appEdit || !!openApp || (app === 'new' && sc?.status !== 'complete' && canEdit); // ?app=new: + Record an application from the Subcontractors list
   const ctx = (a: Row | null) => {
     const before = apps.filter((x) => x.number < (a ? a.number : 1e9)), certs = before.filter((x) => x.certified_gross != null), pc = certs[certs.length - 1];
     return { prevNet: round2(certs.reduce((t, x) => t + Number(x.net_due || 0), 0)), prevM: pc ? Number(pc.materials_part || 0) : 0, prevContra: pc ? Number(pc.contra || 0) : 0, prevApplied: before.length ? Number(before[before.length - 1].applied_gross || 0) : 0 };
@@ -96,16 +101,16 @@ export default function FinSubcontract() {
             <FinRow title="Project" right={jobTag(sites.find((s) => s.id === sc.site_id))} onPress={() => router.push(`/fin/job/${sc.site_id}` as never)} />
             <FinRow title="Work" right={sc.description || '—'} /><FinRow title="Retention" right={`${sc.retention_pct ?? 0}%`} /><FinRow title="CIS" right={`${sc.cis_rate ?? 20}%${sc.utr ? ` · UTR ${sc.utr}` : ''}`} />
             {sc.email && <FinRow title="Email" right={sc.email} />}
-            <View style={{ marginTop: 8 }}><Button kind="ghost" title="Edit order" onPress={() => setEdit(true)} /></View>
+            {canEdit && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Edit order" onPress={() => setEdit(true)} /></View>}
           </Card>
           <SectionTitle>Applications</SectionTitle>
           {apps.length ? apps.slice().reverse().map((a) => <FinRow key={a.id} left={`No. ${a.number}`} title={fdate(a.app_date)} sub={[`applied ${money(a.applied_gross)}`, a.certified_gross != null ? `certified ${money(a.certified_gross)}` : '', a.final_date ? `pay by ${fdate(a.final_date)}` : '', a.status === 'paid' ? 'Paid' : a.status === 'certified' ? 'Certified' : 'To certify', a.payless ? 'Pay less' : ''].filter(Boolean).join(' · ')} right={a.certified_gross != null ? money(a.pay_amount) : '—'} tone={a.status !== 'paid' && a.final_date && a.final_date < today() ? '#C0392B' : undefined} onPress={() => setAppEdit(a)} />) : <Muted>No applications yet.</Muted>}
-          {sc.status !== 'complete' && <Button title="+ Record an application" onPress={() => setAppEdit('new')} />}
+          {sc.status !== 'complete' && canEdit && <Button title="+ Record an application" onPress={() => setAppEdit('new')} />}
           {apps.some((a) => a.certified_gross != null) && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>{apps.filter((a) => a.certified_gross != null).slice(-4).reverse().map((a) => <Button key={a.id} kind="ghost" title={`📄 ${a.payless ? 'Pay less' : 'Payment'} notice — No. ${a.number}`} onPress={async () => { try { const bytes = await buildSubNoticePdf(a, sc, sites.find((x) => x.id === a.site_id) as Row | undefined, await loadSettings(me.org_id), org, me.name || ''); if (!(await deliverPdf(bytes, `${a.payless ? 'Pay less notice' : 'Payment notice'} - ${sc.number} app ${a.number}.pdf`))) toast('Could not make the PDF — try again.'); } catch { toast('Could not build the notice.'); } }} />)}</View>}
           <Muted style={{ marginTop: 8 }}>Emailing the notice is off during the Finance trial.</Muted>
         </>
       )}
-      {edit && (
+      {edit && canEdit && (
         <FinForm key={pre?.id || 'none'} title={sc ? `Edit ${sc.number}` : 'New subcontractor PO'} initial={sc || (pre ? { name: pre.trading_name || pre.name, email: pre.email, utr: pre.utr, cis_rate: String(pre.cis_rate ?? 20), vat_registered: !!pre.vat_registered, retention_pct: 5, order_value: linesTotal(lines) ?? '' } : { retention_pct: 5, cis_rate: 20 })} onClose={() => { setEdit(false); if (!sc) router.back(); }}
           extra={sc ? undefined : (
             <View style={{ marginBottom: 8 }}>
@@ -151,12 +156,12 @@ export default function FinSubcontract() {
             refresh(); router.replace(`/fin/sub/${r.id}` as never); return null;
           }} />
       )}
-      {showApp && sc && <AppForm sc={sc} a={cur} ctx={ctx(cur)} nextNo={(apps[apps.length - 1]?.number || 0) + 1} onClose={() => { setAppEdit(null); if (openApp || app === 'new') router.setParams({ app: '' }); }} onSaved={refresh} onPaid={markPaid} />}
+      {showApp && sc && <AppForm sc={sc} a={cur} ctx={ctx(cur)} nextNo={(apps[apps.length - 1]?.number || 0) + 1} canEdit={canEdit} onClose={() => { setAppEdit(null); if (openApp || app === 'new') router.setParams({ app: '' }); }} onSaved={refresh} onPaid={markPaid} />}
     </ScrollView>
   );
 }
 
-function AppForm({ sc, a, ctx, nextNo, onClose, onSaved, onPaid }: { sc: Row; a: Row | null; ctx: { prevNet: number; prevM: number; prevContra: number; prevApplied: number }; nextNo: number; onClose: () => void; onSaved: () => void; onPaid: (a: Row) => Promise<void> }) {
+function AppForm({ sc, a, ctx, nextNo, canEdit, onClose, onSaved, onPaid }: { sc: Row; a: Row | null; ctx: { prevNet: number; prevM: number; prevContra: number; prevApplied: number }; nextNo: number; canEdit: boolean; onClose: () => void; onSaved: () => void; onPaid: (a: Row) => Promise<void> }) {
   const { me, org } = useAuth();
   const toast = useToast();
   const [v, setV] = useState<Row>({ app_date: a?.app_date || today(), final_date: a?.final_date || addDays(a?.app_date || today(), 30), applied: String(a?.applied_gross ?? ''), mat: String(a?.materials_part ?? ctx.prevM ?? 0), cert: a?.certified_gross != null ? String(a.certified_gross) : '', contra: String(a?.contra ?? ctx.prevContra ?? 0), reason: a?.payless_reason || a?.contra_note || '' });
@@ -164,7 +169,8 @@ function AppForm({ sc, a, ctx, nextNo, onClose, onSaved, onPaid }: { sc: Row; a:
   // Their application (PDF / photo), kept with it (912).
   const [file, setFile] = useState<{ uri: string; name: string; mimeType?: string | null } | null>(null);
   if (!me) return null;
-  const locked = a?.status === 'paid';
+  // Paid, or a role without Finance – Edit: shown, not changed.
+  const paid = a?.status === 'paid', locked = paid || !canEdit;
   const n = (k: string) => { const x = num(v[k]); return x === null || isNaN(x) ? null : x; };
   const c = subAppCalc({ applied: n('applied') || 0, mat: n('mat') || 0, cert: n('cert'), contra: n('contra') || 0, retentionPct: Number(sc.retention_pct || 0), cisRate: Number(sc.cis_rate || 0), ...ctx });
   const save = async (certify: boolean) => {
@@ -213,9 +219,9 @@ function AppForm({ sc, a, ctx, nextNo, onClose, onSaved, onPaid }: { sc: Row; a:
       )}
       <View style={{ gap: 8, marginTop: 10 }}>
         {!locked && <View style={{ flexDirection: 'row', gap: 8 }}><View style={{ flex: 1 }}><Button kind="ghost" busy={busy} title="Save as received" onPress={() => void save(false)} /></View><View style={{ flex: 1 }}><Button busy={busy} title="Certify" onPress={() => void save(true)} /></View></View>}
-        {a?.status === 'certified' && <Button title="Mark paid today" onPress={async () => { if (await confirmAsk(`Mark application ${a.number} paid (${money(a.pay_amount)})? It's added to the CIS return.`, 'Mark paid')) await onPaid(a); }} />}
-        {a?.status === 'received' && <Button kind="ghost" title="Delete" onPress={async () => { if (await confirmAsk('Delete this application?', 'Delete')) { if (!!(await fdb.from('fin_sub_apps').delete().eq('id', a.id).select('id')).data?.length) { toast('Deleted'); onSaved(); onClose(); } } }} />}
-        {locked && <Button kind="ghost" title="CIS payment statement" onPress={async () => { const p = (await fdb.from('fin_sub_payments').select('*').eq('sub_app_id', a!.id).neq('status', 'void').limit(1)).data as Row[] | null; if (!p?.[0]) { if (await confirmAsk('This application is marked paid but its CIS record is missing, so it isn’t on the CIS return.', 'Add it to the CIS return')) await onPaid(a as Row); return; } if (!(await cisStatement(me, org, p[0]))) toast('Could not make the statement — try again.'); }} />}
+        {a?.status === 'certified' && canEdit && <Button title="Mark paid today" onPress={async () => { if (await confirmAsk(`Mark application ${a.number} paid (${money(a.pay_amount)})? It's added to the CIS return.`, 'Mark paid')) await onPaid(a); }} />}
+        {a?.status === 'received' && canEdit && <Button kind="ghost" title="Delete" onPress={async () => { if (await confirmAsk('Delete this application?', 'Delete')) { if (!!(await fdb.from('fin_sub_apps').delete().eq('id', a.id).select('id')).data?.length) { toast('Deleted'); onSaved(); onClose(); } } }} />}
+        {paid && <Button kind="ghost" title="CIS payment statement" onPress={async () => { const p = (await fdb.from('fin_sub_payments').select('*').eq('sub_app_id', a!.id).neq('status', 'void').limit(1)).data as Row[] | null; if (!p?.[0]) { if (!canEdit) { toast('Its CIS record is missing. Ask someone who can change Finance to add it.'); return; } if (await confirmAsk('This application is marked paid but its CIS record is missing, so it isn’t on the CIS return.', 'Add it to the CIS return')) await onPaid(a as Row); return; } if (!(await cisStatement(me, org, p[0]))) toast('Could not make the statement — try again.'); }} />}
         <Button kind="ghost" title="Close" onPress={onClose} />
       </View>
     </Card>

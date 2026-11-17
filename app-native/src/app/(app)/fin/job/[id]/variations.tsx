@@ -21,7 +21,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { exportTableExcel, type Table } from '@/lib/tableExcel';
 import { exportTablePdf } from '@/lib/pdfLazy';
-import { isFinanceOnlyOrg } from '@/lib/roles';
+import { canEditFinance, isFinanceOnlyOrg } from '@/lib/roles';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
 import { base, page, space, useDesk } from '@/theme/theme';
 
@@ -42,13 +42,16 @@ export default function FinVariations() {
   const finOnly = isFinanceOnlyOrg(org);
   const [site, setSite] = useState<Row[]>([]);
   useEffect(() => {
-    if (!me || !id || finOnly) return;
+    // Bringing them in is a change: only for someone with Finance – Edit (Admin › Roles).
+    if (!me || !id || finOnly || !canEditFinance(me)) return;
     void importSiteVariations(me, id).then((r) => { setSite(r.site); if (r.added) void qc.invalidateQueries({ queryKey: ['finBook'] }); });
   }, [me, id, finOnly, qc]);
   const [busy, setBusy] = useState('');
   // The instruction / quote document on a variation (911 finVaFile).
   const [vfile, setVfile] = useState<{ uri: string; name: string; mimeType?: string | null } | null>(null);
   if (!data || !me) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
+  // Without Finance – Edit (Admin › Roles) the variations are shown, not changed.
+  const canEdit = canEditFinance(me);
   const vars = data.book.vars.filter((v) => v.site_id === id).sort((a, b) => (a.seq || 0) - (b.seq || 0));
   const g = (v: Row) => (v.status === 'agreed' ? 'agreed' : v.status === 'rejected' ? 'rejected' : 'submitted');
   const list = vars.filter((v) => f === 'all' || g(v) === f);
@@ -91,7 +94,7 @@ export default function FinVariations() {
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(900)}>
       <Stack.Screen options={{ title: 'Variations' }} />
       <BoqTabs id={id} on="variations" />
-      <VarDayChips id={id} on="variations" right={<Button small title="+ Variation" onPress={() => setEdit('new')} />} />
+      <VarDayChips id={id} on="variations" right={canEdit ? <Button small title="+ Variation" onPress={() => setEdit('new')} /> : undefined} />
       {/* Phone: Approved across the top, Issued and Rejected side by side below. Laptop: three even tiles on one row (Andy, 7 Nov 2026). */}
       <View style={{ flexDirection: desk ? 'row' : 'column', gap: 8, marginBottom: 10 }}>
         <View style={{ flexDirection: 'row', flex: desk ? 1 : undefined }}><FinStat v={money(sum('agreed_value', (v) => v.status === 'agreed'), 0)} label="Approved" /></View>
@@ -103,18 +106,18 @@ export default function FinVariations() {
       <Muted style={{ marginBottom: 10, fontSize: 11.5 }}>{`Only approved variations go onto applications, at their approved value.${finOnly ? '' : ' Variations raised on site (Projects › Variations) come in here on their own.'}`}</Muted>
       <FinTabs items={[['all', 'All'], ['submitted', 'Issued'], ['agreed', 'Approved'], ['rejected', 'Rejected']].map(([k, l]) => [k, l, vars.filter((v) => k === 'all' || g(v) === k).length] as [string, string, number])} value={f} onChange={setF} even />
       {/* Tidier rows (Andy, 7 Nov 2026): number and title, the status and its date, the amount. The rest is in the variation. */}
-      {list.length ? list.map((v) => <FinRow compact key={v.id} left={v.number} title={v.title} sub={[ST[v.status]?.[0] || v.status, v.status === 'agreed' && v.agreed_on ? fdate(v.agreed_on) : v.submitted_on ? fdate(v.submitted_on) : ''].filter(Boolean).join(' · ')} right={money(v.status === 'agreed' ? v.agreed_value ?? v.quoted : v.quoted)} onPress={() => setEdit(v)}>
+      {list.length ? list.map((v) => <FinRow compact key={v.id} left={v.number} title={v.title} sub={[ST[v.status]?.[0] || v.status, v.status === 'agreed' && v.agreed_on ? fdate(v.agreed_on) : v.submitted_on ? fdate(v.submitted_on) : ''].filter(Boolean).join(' · ')} right={money(v.status === 'agreed' ? v.agreed_value ?? v.quoted : v.quoted)} onPress={canEdit ? () => setEdit(v) : undefined}>
           {(v.variation_id || g(v) === 'submitted' || !finOnly) && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 5 }}>
               {!!v.variation_id && <Text style={{ fontSize: 11, fontWeight: '500', color: '#7A7F87', backgroundColor: '#F0F1F4', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>Site</Text>}
-              {g(v) === 'submitted' && small('Approve', () => void quick(v, 'approved'), '#1E7A3C')}
-              {g(v) === 'submitted' && small('Reject', () => void quick(v, 'rejected'), '#C0392B')}
-              {!finOnly && (inSow(v) ? <Text style={{ fontSize: 12, fontWeight: '500', color: '#1E7A3C' }}>✓ On the schedule</Text> : v.status !== 'rejected' ? small('+ Schedule of Works', () => void toSow(v)) : null)}
+              {g(v) === 'submitted' && canEdit && small('Approve', () => void quick(v, 'approved'), '#1E7A3C')}
+              {g(v) === 'submitted' && canEdit && small('Reject', () => void quick(v, 'rejected'), '#C0392B')}
+              {!finOnly && (inSow(v) ? <Text style={{ fontSize: 12, fontWeight: '500', color: '#1E7A3C' }}>✓ On the schedule</Text> : v.status !== 'rejected' && canEdit ? small('+ Schedule of Works', () => void toSow(v)) : null)}
             </View>
           )}
         </FinRow>)
         : <Empty>No variations yet.</Empty>}
-      {edit && (
+      {edit && canEdit && (
         <FinForm title={cur ? `Variation ${cur.number}` : 'New variation'} initial={cur ? { ...cur, status: g(cur), agreed_value: cur.agreed_value ?? (g(cur) === 'agreed' ? cur.quoted : null) } : { status: 'submitted' }} onClose={() => { setEdit(null); setVfile(null); }}
           // Approved: the approved value comes from the value issued to the client (and follows it until you change it), and today's date.
           onChange={(k, nx, was) => {

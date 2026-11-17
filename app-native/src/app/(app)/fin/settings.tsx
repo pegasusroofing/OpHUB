@@ -22,7 +22,7 @@ import { fdb, finInvoke, useFinSettings } from '@/data/finance';
 import { nameOf, usePeople } from '@/data/hs';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { isFinanceUser, roleLabel } from '@/lib/roles';
+import { canEditFinance, isFinanceUser, roleLabel } from '@/lib/roles';
 import { SUPABASE_URL } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 import { FIN_TRIAL, FIN_VAT_LABEL, num, vatList, type VatRate } from '@/lib/rules/finance';
@@ -65,6 +65,8 @@ export default function FinSettings() {
   const s = (st || {}) as Row;
   const s0 = s;
   const canEditCosts = me.role === 'admin' && isFinanceUser(me, org);
+  // Without Finance – Edit (Admin › Roles) the settings are shown, not changed.
+  const canEdit = canEditFinance(me);
   const initial = { ...s, po_enabled: !!s.po_enabled, pi_auto_approve: s.pi_auto_approve !== false, expenses_user: s.expenses_user || '', po_vat_default: String(s.po_vat_default || '20'), auto_job_numbers: !!o?.auto_job_numbers, job_number_prefix: o?.job_number_prefix || '', next_job_number: o?.next_job_number ?? '' };
   const xs = xero?.data, xErr = xero?.error;
   const EDIT_TITLE: Record<string, string> = { nums: 'Project numbers', po: 'Purchase orders', pi: 'Purchase invoices', vat: 'Default VAT (Sales And Purchases)', inv: 'Invoice numbers', def: 'Defaults for new projects', ohp: 'Company overheads (OHP)', bill: 'On your invoices' };
@@ -81,7 +83,7 @@ export default function FinSettings() {
     bill: [{ k: 'company_address', label: 'Company address', kind: 'multiline' }, { k: 'company_vat_no', label: 'VAT number', half: true }, { k: 'company_reg_no', label: 'Company number', half: true }, { k: 'bank_name', label: 'Bank', half: true }, { k: 'bank_account_name', label: 'Account name', half: true }, { k: 'bank_sort_code', label: 'Sort code', half: true }, { k: 'bank_account_no', label: 'Account number', half: true }, { k: 'invoice_footer', label: 'Invoice footer', kind: 'multiline' }, { k: 'contractor_utr', label: 'Contractor UTR (CIS)', half: true }, { k: 'employer_ref', label: 'Employer reference', half: true }],
   };
   // Overheads are for company admins only (as in the current app).
-  const editBtn = (k: string) => (k === 'ohp' && me.role !== 'admin'
+  const editBtn = (k: string) => (!canEdit ? null : k === 'ohp' && me.role !== 'admin'
     ? <Muted style={{ marginTop: 4 }}>Only a company admin can change this.</Muted>
     : <View style={{ alignSelf: 'flex-start', marginTop: 4 }}><Button small title="Edit" onPress={() => { setEdit(k); if (!openS.includes(k)) setOpenS([...openS, k]); }} /></View>);
   const editForm = edit ? (
@@ -162,7 +164,7 @@ export default function FinSettings() {
                 {k === 'onedrive' ? (
                   <>
                     <Muted style={{ marginBottom: 8 }}>The OneDrive connection, a folder for every new job, and where things save (applications, invoices, and everything from Projects).</Muted>
-                    <View style={{ alignSelf: 'flex-start' }}><Button small title="Open OneDrive Settings ›" onPress={() => router.push('/fin/onedrive' as never)} /></View>
+                    {canEdit && <View style={{ alignSelf: 'flex-start' }}><Button small title="Open OneDrive Settings ›" onPress={() => router.push('/fin/onedrive' as never)} /></View>}
                   </>
                 ) : k === 'costs' ? (
                   <>
@@ -222,7 +224,7 @@ export default function FinSettings() {
                     {xErr ? <Muted>{/not_configured|not connected/i.test(xErr) ? 'Xero isn’t connected.' : `Xero: ${xErr}`}</Muted> : xs ? <Text style={{ color: xs.connected ? '#1E7A3C' : base.slate }}>{xs.connected ? `Connected${xs.tenant_name ? ` to ${xs.tenant_name}` : ''}` : 'Not connected'}</Text> : <Muted>Checking…</Muted>}
                     {FIN_TRIAL && <Muted style={{ marginTop: 6 }}>While Finance is on trial nothing is posted to Xero. Reading and adding clients and suppliers still works.</Muted>}
                     {xs?.connected && me.role === 'admin' && <XeroSettings s={s} />}
-                    {xs && !xs.connected && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Connect Xero" onPress={async () => { const r = await finInvoke<Row>(me, 'xero', { action: 'connect', origin: Platform.OS === 'web' ? window.location.origin : null }); if (r.error || !r.data?.url) { toast(r.error || 'Could not start the Xero connection.'); return; } if (Platform.OS === 'web') window.location.href = r.data.url; else void Linking.openURL(r.data.url); }} /></View>}
+                    {xs && !xs.connected && canEdit && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Connect Xero" onPress={async () => { const r = await finInvoke<Row>(me, 'xero', { action: 'connect', origin: Platform.OS === 'web' ? window.location.origin : null }); if (r.error || !r.data?.url) { toast(r.error || 'Could not start the Xero connection.'); return; } if (Platform.OS === 'web') window.location.href = r.data.url; else void Linking.openURL(r.data.url); }} /></View>}
                   </>
                 ) : k === 'vat' ? (
                   <>{edit === 'vat' ? editForm : <>{rows.map(([l, v]) => <FinRow compact key={l} title={l} right={v} />)}{editBtn('vat')}</>}<VatRates s={s} canEdit={me.role === 'admin' && isFinanceUser(me, org)} onSaved={() => void qc.invalidateQueries({ queryKey: ['finSettings'] })} /></>

@@ -10,6 +10,7 @@ import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Check, Muted } from '@/components/ui';
 import { fdb, finInvoke } from '@/data/finance';
 import { useAuth } from '@/lib/auth';
+import { canEditFinance } from '@/lib/roles';
 import { fdate, money } from '@/lib/rules/finance';
 import { base, radius } from '@/theme/theme';
 
@@ -31,10 +32,12 @@ export function XeroSettings({ s }: { s: Row }) {
   const [v, setV] = useState({ sales: String(s.xero_sales_account || '200'), purch: String(s.xero_purchase_account || '310'), labour: String(s.xero_labour_account || '320'), track: String(s.xero_tracking_name || 'Project'), auto: !!s.xero_auto });
   const [busy, setBusy] = useState('');
   if (!me) return null;
+  // Without Finance – Edit (Admin › Roles) the settings are shown, not changed.
+  const canEdit = canEditFinance(me);
   const f = (k: keyof typeof v, label: string) => (
     <View style={{ flexBasis: '47%', flexGrow: 1, marginBottom: 8 }}>
       <Text style={{ fontSize: 12, fontWeight: '500', color: base.slate, marginBottom: 4 }}>{label}</Text>
-      <TextInput value={String(v[k])} onChangeText={(t) => setV({ ...v, [k]: t })} style={box} />
+      <TextInput editable={canEdit} value={String(v[k])} onChangeText={(t) => setV({ ...v, [k]: t })} style={box} />
     </View>
   );
   return (
@@ -44,8 +47,8 @@ export function XeroSettings({ s }: { s: Row }) {
         {f('sales', 'Sales account (invoices)')}{f('purch', 'Materials account (bills)')}{f('labour', 'Subcontract labour account')}{f('track', 'Xero tracking category')}
       </View>
       <Muted style={{ fontSize: 12, marginBottom: 6 }}>Account codes are the numbers in your Xero chart of accounts. Projects go into Xero under the tracking category (default “Project”) — create it once in Xero.</Muted>
-      <Check label="Send to Xero automatically — invoices when issued, purchase invoices when approved" value={v.auto} onChange={(x) => setV({ ...v, auto: x })} />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+      <Check label="Send to Xero automatically — invoices when issued, purchase invoices when approved" value={v.auto} onChange={(x) => { if (canEdit) setV({ ...v, auto: x }); }} />
+      {canEdit && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
         <Button small busy={busy === 'save'} title="Save Xero settings" onPress={async () => {
           setBusy('save');
           const r = await fdb.from('fin_settings').upsert({ org_id: me.org_id, xero_sales_account: v.sales.trim() || '200', xero_purchase_account: v.purch.trim() || '310', xero_labour_account: v.labour.trim() || '320', xero_tracking_name: v.track.trim() || 'Project', xero_auto: v.auto, updated_at: new Date().toISOString(), updated_by: me.id } as never, { onConflict: 'org_id' });
@@ -62,7 +65,7 @@ export function XeroSettings({ s }: { s: Row }) {
           setBusy('off'); const r = await finInvoke<Row>(me, 'xero', { action: 'disconnect' }); setBusy('');
           if (r.error) toast(`Xero: ${r.error}`); else void qc.invalidateQueries({ queryKey: ['finXeroStatus'] });
         }} />
-      </View>
+      </View>}
     </View>
   );
 }
@@ -79,7 +82,7 @@ export function XeroRow({ kind, rec, onDone }: { kind: 'invoice' | 'bill' | 'sub
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginVertical: 6 }}>
       <Text style={{ color: rec.xero_id ? '#1E7A3C' : base.slate, fontWeight: '500' }}>{rec.xero_id ? `✓ Posted to Xero${rec.xero_synced_at ? ` · ${fdate(String(rec.xero_synced_at).slice(0, 10))}` : ''}` : rec.xero_post === false ? 'Set not to post to Xero' : 'Not posted to Xero yet'}</Text>
-      {can && !rec.xero_id && <Button small kind="ghost" busy={busy} title="Post to Xero" onPress={async () => {
+      {can && !rec.xero_id && canEditFinance(me) && <Button small kind="ghost" busy={busy} title="Post to Xero" onPress={async () => {
         setBusy(true);
         const r = await finInvoke<Row>(me, 'xero', { action: KIND[kind], id: rec.id });
         if (!r.error) await fdb.from(TABLE[kind]).update({ xero_post: true } as never).eq('id', rec.id);
