@@ -23,7 +23,7 @@ async function renderJoin(inviteId){
   const app = document.getElementById('app');
   if(joinInfoFor !== inviteId){ joinInfo = undefined; joinInfoFor = inviteId; joinDraft = {name:'', email:'', password:''}; joinError = null; }
   if(joinInfo === undefined){
-    if(__gen === RENDER_GEN){ app.innerHTML = shell(`<p class="stub">Checking invite…</p>`, {title:'Join OpHUB', tabs:false}); }
+    if(__gen === RENDER_GEN){ app.innerHTML = shell(`<p class="stub">Checking invite…</p>`, {title:'Join OpHUB', tabs:false, org:{}}); }
     joinInfo = await getInviteInfo(inviteId);
     render();
     return;
@@ -34,10 +34,11 @@ async function renderJoin(inviteId){
         <p class="stub" style="margin-top:0;">This invite link isn't valid — it may have already been used or expired. Ask your Project Manager for a new one.</p>
         <button class="ghostbtn" onclick="joinInfo=undefined;go('#/')">Back to Sign In</button>
       </div>
-    `, {title:'Invite not valid', tabs:false}); }
+    `, {title:'Invite not valid', tabs:false, org:{}}); }
     return;
   }
-  // Preview the inviting company's own branding on this screen — falls back
+  // Preview the inviting company's own branding on this screen — header too (opts.org; 18 Nov 2026: it showed the
+  // company this phone last used, e.g. RTB above a Sandbox invite) — falls back
   // to the generic OpHUB mark/colours if they haven't finished company setup yet.
   const previewOrg = {name: joinInfo.org_name, logo_path: joinInfo.logo_path, color_primary: joinInfo.color_primary, color_secondary: joinInfo.color_secondary};
   applyTheme(previewOrg);
@@ -64,7 +65,7 @@ async function renderJoin(inviteId){
     <div style="text-align:center;margin-top:22px;">
       <img src="${orgLogoUrl(joinInfo)}" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="width:64px;height:64px;border-radius:14px;object-fit:cover;">
     </div>
-  `, {title:'Join OpHUB', tabs:false}); }
+  `, {title:'Join OpHUB', tabs:false, org: previewOrg}); }
 }
 window.doJoin = async function(inviteId){
   if(joinBusy) return;
