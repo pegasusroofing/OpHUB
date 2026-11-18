@@ -14,12 +14,13 @@ import { ScrollView, Text, View } from 'react-native';
 import { FinChip } from '@/components/FinNav';
 import { DateField } from '@/components/DateField';
 import { SuggestField } from '@/components/SuggestField';
-import { showAlert, useToast } from '@/components/toast';
+import { showAlert } from '@/components/toast';
 import { Button, Card, Check, Field, Muted } from '@/components/ui';
 import { createSite, type NewSite } from '@/data/siteList';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { clientPortfolio } from '@/lib/rules/checkin';
+import { jobNumberClash, jobNumberError } from '@/lib/rules/jobNumbers';
 import { canCreateProjects, isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { base, page, space, useDesk } from '@/theme/theme';
@@ -31,7 +32,6 @@ const EMPTY: NewSite = { name: '', address: '', postcode: '', job_number: '', cl
 export default function NewProject() {
   const desk = useDesk();
   const { me, org } = useAuth();
-  const toast = useToast();
   const { quote: quoteId } = useLocalSearchParams<{ quote?: string }>();
   const { data: fromQuote } = useQuote(quoteId);
   const { data: qSettings } = useQuoteSettings(quoteId ? me?.org_id : null);
@@ -63,16 +63,20 @@ export default function NewProject() {
     return Object.values(by).map((c) => ({ ...c, sub: [c.phone, c.email].filter(Boolean).join(' · ') }));
   })();
   const save = async () => {
-    if (!d.name.trim()) { toast('Enter a site name.'); return; }
-    if (!d.address.trim()) { toast('Enter the address.'); return; }
-    if (!auto && !d.job_number.trim()) { toast('Enter a job number.'); return; }
-    if (!d.client_name.trim()) { toast('Enter the client.'); return; }
-    if (!chosen) { toast('Choose whether this site is Active or Upcoming.'); return; }
-    if (!d.start_date) { toast('Choose the start date.'); return; }
-    if (d.client_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.client_email.trim())) { toast('Enter a valid client email address.'); return; }
+    // What's missing in a pop-up, not a line at the foot the phone's keyboard covers (Andy, 18 Nov 2026: "on the offline
+    // I can't create a new job"; it was waiting for Active or Upcoming).
+    if (!d.name.trim()) { showAlert('Enter the site name.'); return; }
+    if (!d.address.trim()) { showAlert('Enter the address.'); return; }
+    if (!auto && !d.job_number.trim()) { showAlert('Enter a job number.'); return; }
+    const clash = auto ? null : jobNumberClash(d.job_number, sites);
+    if (clash) { showAlert(`Job number ${d.job_number.trim()} is already used on ${clash}. Use another number.`); return; }
+    if (!d.client_name.trim()) { showAlert('Enter the client name.'); return; }
+    if (!chosen) { showAlert('Choose whether the job is Active or Upcoming.'); return; }
+    if (!d.start_date) { showAlert('Choose the start date.'); return; }
+    if (d.client_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.client_email.trim())) { showAlert('Enter a valid client email address.'); return; }
     setBusy(true);
     const r = await createSite(me, { ...d, name: d.name.trim(), address: d.address.trim(), postcode: d.postcode.trim(), job_number: d.job_number.trim(), client_name: d.client_name.trim(), client_phone: d.client_phone.trim(), client_email: d.client_email.trim(), start_date: d.start_date }, auto);
-    if ('error' in r) { setBusy(false); toast(r.error); return; }
+    if ('error' in r) { setBusy(false); showAlert(jobNumberError(r.error) || r.error); return; }
     if (qq) {
       // A won quote: the folders first, then the quote's folder moves into them and the quote is marked won.
       const notes: string[] = [];
@@ -94,27 +98,30 @@ export default function NewProject() {
       <Stack.Screen options={{ title: qq ? 'Convert To Project' : 'Add a Project' }} />
       {!!qq && <Muted style={{ marginBottom: 10 }}>Won: {qq.title}. Filled in from the quote. Check it, choose Active or Upcoming and the start date, then Create Project.</Muted>}
       <Card>
-        <Field label="Site name *" value={d.name} onChangeText={(v) => set({ name: titleCase(v) })} />
+        <Field label="Site Name *" value={d.name} onChangeText={(v) => set({ name: titleCase(v) })} />
         <Field label="Address *" value={d.address} onChangeText={(v) => set({ address: titleCase(v) })} />
         <Field label="Postcode" value={d.postcode} onChangeText={(v) => set({ postcode: v.toUpperCase() })} autoCapitalize="characters" />
-        <Field label="Job number" value={auto ? `${nums?.job_number_prefix || ''}${nums?.next_job_number ?? ''} (given automatically)` : d.job_number} onChangeText={(v) => set({ job_number: v })} editable={!auto} />
-        {/* Client, number and email together (Andy, 3 Nov 2026): picked from the Directory (synced with Xero) and still editable. */}
-        <View style={{ flexDirection: desk ? 'row' : 'column', gap: desk ? 8 : 0, alignItems: desk ? 'flex-start' : 'stretch', zIndex: 20 }}>
-          <View style={desk ? { flex: 4 } : undefined}><SuggestField label="Client *" value={d.client_name} onChangeText={(v) => { const name = titleCase(v), x = clients.find((y) => y.label.toLowerCase() === name.trim().toLowerCase()); set({ client_name: name, ...(x ? { client_phone: d.client_phone || x.phone || '', client_email: d.client_email || x.email || '' } : {}) }); }} placeholder="Start typing — clients from the Directory come up" items={clients}
+        <Field label="Job Number" value={auto ? `${nums?.job_number_prefix || ''}${nums?.next_job_number ?? ''} (given automatically)` : d.job_number} onChangeText={(v) => set({ job_number: v })} editable={!auto} />
+        {/* Job numbers are one company setting, shared with Finance (Andy, 18 Nov 2026). */}
+        {me.role === 'admin' && <Text accessibilityRole="link" onPress={() => router.push('/pm/admin/jobnumbers' as never)} style={{ fontSize: 12.5, color: base.blue, marginTop: -6, marginBottom: 10 }}>{auto ? 'Change The Job Numbers ›' : 'Number Jobs Automatically ›'}</Text>}
+        {/* Client, number and email together (Andy, 3 Nov 2026): picked from the Directory (synced with Xero) and still
+            editable. Client Name and Client Number side by side, half each, on a phone too; the email under them (18 Nov). */}
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start', zIndex: 20 }}>
+          <View style={{ flex: 1, minWidth: 0 }}><SuggestField label="Client Name *" value={d.client_name} onChangeText={(v) => { const name = titleCase(v), x = clients.find((y) => y.label.toLowerCase() === name.trim().toLowerCase()); set({ client_name: name, ...(x ? { client_phone: d.client_phone || x.phone || '', client_email: d.client_email || x.email || '' } : {}) }); }} placeholder={desk ? 'Start typing: clients from the Directory come up' : 'Start typing'} items={clients}
             onPick={(c) => { const x = clients.find((y) => y.key === c.key); set({ client_name: c.label, client_phone: x?.phone || d.client_phone, client_email: x?.email || d.client_email }); }} /></View>
-          <View style={desk ? { flex: 3 } : undefined}><Field label="Client number" value={d.client_phone} onChangeText={(v) => set({ client_phone: v })} keyboardType="phone-pad" /></View>
-          <View style={desk ? { flex: 4 } : undefined}><Field label="Client email" value={d.client_email} onChangeText={(v) => set({ client_email: v })} keyboardType="email-address" autoCapitalize="none" /></View>
+          <View style={{ flex: 1, minWidth: 0 }}><Field label="Client Number" value={d.client_phone} onChangeText={(v) => set({ client_phone: v })} keyboardType="phone-pad" /></View>
         </View>
+        <Field label="Client Email" value={d.client_email} onChangeText={(v) => set({ client_email: v })} keyboardType="email-address" autoCapitalize="none" />
         <Check label="Multi-site job (several addresses / plots)" value={d.multi_site} onChange={(x) => set({ multi_site: x, repair_contract: x ? false : d.repair_contract })} />
         <Check label="Repair / maintenance contract" value={d.repair_contract} onChange={(x) => set({ repair_contract: x, multi_site: x ? false : d.multi_site })} />
         {fd.shown && <Check label="Create OneDrive folder" value={wantFolder} onChange={setFolderTick} />}
         {fd.shown && fd.clientOff && folderTick === null && <Muted style={{ marginTop: -4, marginBottom: 8 }}>{d.client_name.trim()} is set to no OneDrive folders in the Directory. Tick it to make one for this job only.</Muted>}
-        <Text style={{ fontWeight: '600', color: base.ink, marginTop: 10, marginBottom: 6 }}>Status</Text>
+        <Text style={{ fontWeight: '600', color: base.ink, marginTop: 10, marginBottom: 6 }}>Status *</Text>
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
           <FinChip on={chosen && d.status === 'active'} label="Active" onPress={() => { setChosen(true); set({ status: 'active' }); }} />
           <FinChip on={chosen && d.status === 'upcoming'} label="Upcoming" onPress={() => { setChosen(true); set({ status: 'upcoming' }); }} />
         </View>
-        <DateField label="Start date *" value={d.start_date} onChange={(v) => set({ start_date: v })} clearable={false} />
+        <DateField label="Start Date *" value={d.start_date} onChange={(v) => set({ start_date: v })} clearable={false} />
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
           <View style={{ flex: 2 }}><Button busy={busy} title={step || 'Create Project'} onPress={() => void save()} /></View>
           <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => router.back()} /></View>

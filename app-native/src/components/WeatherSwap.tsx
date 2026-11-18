@@ -86,7 +86,9 @@ export function OnSiteWeather({ me, site, company, count, onSite, style }: { me:
 
 /** The weather as one line in the job's info bar (Andy, 9 Nov 2026): the same tap for today, the next 5 days and the
  *  weather delay email. Nothing until the postcode finds it. */
-export function WeatherLink({ me, site, company, small }: { me: Profile; site: Site; company: string; small?: boolean }) {
+/** compact: the phone's job home, a third of the width: the temperature and the chance of rain only, and never past its
+ *  box (Andy, 18 Nov 2026: "The weather tile in projects extends past the tile and off the screen"). */
+export function WeatherLink({ me, site, company, small, compact }: { me: Profile; site: Site; company: string; small?: boolean; compact?: boolean }) {
   const { data: w, isLoading } = useWeather(site.postcode);
   const pmId = (site as Site & { responsible_pm_id?: string | null }).responsible_pm_id;
   const { data: pm } = useQuery({ queryKey: ['jobPm', pmId], enabled: !!pmId, queryFn: async () => (await supabase.from('profiles').select('name,email').eq('id', pmId as string).maybeSingle()).data as { name?: string | null; email?: string | null } | null });
@@ -95,8 +97,8 @@ export function WeatherLink({ me, site, company, small }: { me: Profile; site: S
   if (!w || !say) return <Text style={{ fontSize: small ? 11.5 : 13, color: base.slateLight }}>{!site.postcode ? 'No Postcode' : isLoading ? '…' : 'No Weather Found'}</Text>;
   return (
     <>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Weather: ${say.text}`} onPress={() => setOpen(true)} hitSlop={6}>
-        <Text numberOfLines={1} style={small ? { fontSize: 11.5, color: base.slateLight } : { fontSize: 13.5, fontWeight: '600', color: base.ink }}>{say.icon} {Number.isFinite(w.temp) ? `${w.temp}°` : ''}{w.rain != null ? ` · ${w.rain}% Rain` : ''} ›</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Weather: ${say.text}`} onPress={() => setOpen(true)} hitSlop={6} style={{ maxWidth: '100%' }}>
+        <Text numberOfLines={1} style={small ? { fontSize: 11.5, color: base.slateLight } : { fontSize: 13.5, fontWeight: '600', color: base.ink }}>{say.icon} {Number.isFinite(w.temp) ? `${w.temp}°` : ''}{w.rain != null ? ` · ${w.rain}%${compact ? '' : ' Rain'}` : ''}{compact ? '' : ' ›'}</Text>
       </Pressable>
       {open && <WeatherPopup me={me} site={site} company={company} pm={pm} lat={w.lat} lon={w.lon} onClose={() => setOpen(false)} />}
     </>

@@ -169,7 +169,8 @@ const fillBox = async (page, label, text) => { const l = page.getByText(label, {
   await login(op);
   const ob = () => op.locator('body').innerText();
   await op.goto(B + '/account'); await op.waitForTimeout(4000);
-  await op.getByText('📁 My Employee Record', {exact: true}).click(); await op.waitForTimeout(4000);
+  // A plain row since 18 Nov 2026.
+  await op.getByText('My Employee Record', {exact: true}).click(); await op.waitForTimeout(4000);
   const seen = await ob();
   check(/\/myrecord/.test(op.url()) && /Your Personal Details/.test(seen), `an operative opens My Employee Record from My Account (${op.url().split('8081')[1]}: ${seen.slice(0, 160).replace(/\n/g, ' | ')})`);
   await op.getByLabel('Edit: Your Personal Details').click(); await op.waitForTimeout(800);

@@ -19,9 +19,11 @@ import { Button, Card, Check, Field, Muted } from '@/components/ui';
 import { DateField } from '@/components/DateField';
 import { useTeam } from '@/data/admin';
 import { fdb } from '@/data/finance';
+import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { isFinanceOnlyOrg } from '@/lib/roles';
 import { FIN_SANDBOX_ORGS, FIN_TRIAL, FIN_TRIAL_MSG, round2 } from '@/lib/rules/finance';
+import { jobNumberClash, jobNumberError } from '@/lib/rules/jobNumbers';
 import { supabase } from '@/lib/supabase';
 import { base, page, space } from '@/theme/theme';
 
@@ -36,6 +38,7 @@ export default function FinNewJob() {
   const finOnly = isFinanceOnlyOrg(org);
   const sandbox = !!me?.org_id && FIN_SANDBOX_ORGS.includes(me.org_id);
   const blocked = FIN_TRIAL && !finOnly && !sandbox;
+  const { data: allSites = [] } = useSites();
   const { data: nums } = useQuery({ queryKey: ['finOrgNums', me?.org_id], enabled: !!me && !blocked, queryFn: async () => (await fdb.from('organizations').select('auto_job_numbers,job_number_prefix,next_job_number').eq('id', me?.org_id as string).maybeSingle()).data as Row | null });
   const { data: clients } = useQuery({ queryKey: ['finClientsAll', me?.org_id], enabled: !!me && !blocked, queryFn: async () => ((await fdb.from('fin_clients').select('*').eq('org_id', me?.org_id as string).order('name')).data as Row[] | null) ?? [] });
   const { data: team } = useTeam(!blocked && !finOnly ? me?.org_id : null);
@@ -65,6 +68,9 @@ export default function FinNewJob() {
     const name = (v.name || '').trim(), no = (v.no || '').trim(), bt = v.bt, poNo = (v.po || '').trim();
     if (!name) { toast('Give the project a name.'); return; }
     if (!auto && !no) { toast('Enter a project number.'); return; }
+    // One number per job, Projects and Finance alike (Andy, 18 Nov 2026: "so duplicates not made").
+    const clash = auto ? null : jobNumberClash(no, allSites);
+    if (clash) { toast(`Project number ${no} is already used on ${clash}. Use another number.`); return; }
     if (!bt) { toast('Choose how you get paid on this project.'); return; }
     if (files.length && !poNo) { toast('Add the client PO number for the PO copy.'); return; }
     if (files.some((f) => f.size > 20 * 1024 * 1024)) { toast('One of the PO files is over 20 MB.'); return; }
@@ -80,7 +86,7 @@ export default function FinNewJob() {
       if (!finOnly) { row.responsible_pm_id = v.pm || null; row.multi_site = v.kind === 'multi'; row.repair_contract = v.kind === 'repair'; }
       // Plain insert (the "return the row" form can be refused by the policy).
       const r = await fdb.from('sites').insert(row as never);
-      if (r.error) { toast(`Could not create the project — ${r.error.message}`); return; }
+      if (r.error) { toast(jobNumberError(r.error.message) || `Could not create the project — ${r.error.message}`); return; }
       const jf = await fdb.from('job_finance').upsert({ site_id: id, org_id: me.org_id, billing_type: bt, billing_name: row.client_name, billing_email: row.client_email, billing_address: cli ? [cli.address, cli.postcode].filter(Boolean).join('\n') || null : null, vat_treatment: vatOf(cli), contract_value: cv, original_value: cv, contract_value_manual: cv, contract_value_source: cv != null ? 'manual' : null, updated_at: new Date().toISOString(), updated_by: me.id } as never, { onConflict: 'site_id' });
       // 908: the finance details are part of making the job — say so if they didn't save.
       let warn = jf.error ? 'Project created, but its finance details (billing, contract value, VAT) didn’t save — set them in Project Admin.' : '';

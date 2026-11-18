@@ -53,7 +53,7 @@ export function FinTabRow({ children, style }: { children: ReactNode; style?: ob
 }
 /** One underlined tab, as the top Finance row: bold with a line in the company colour when on, grey when not.
  *  A count sits beside the name: grey, or amber for things waiting (Andy, 5 Nov 2026). */
-function TabItem({ on, label, n, amber, onPress, fill }: { on: boolean; label: string; n?: number; amber?: boolean; onPress: () => void; fill?: boolean }) {
+export function TabItem({ on, label, n, amber, onPress, fill }: { on: boolean; label: string; n?: number; amber?: boolean; onPress: () => void; fill?: boolean }) {
   const t = useTheme();
   return (
     <Pressable onPress={onPress} accessibilityRole="tab" accessibilityState={{ selected: on }} style={[{ paddingVertical: 10, paddingHorizontal: fill ? 4 : 14, borderBottomWidth: 2, borderBottomColor: on ? t.brand1 : 'transparent' }, fill ? { flex: 1, minWidth: 0, alignItems: 'center' } : null]}>

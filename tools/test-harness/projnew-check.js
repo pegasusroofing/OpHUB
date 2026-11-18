@@ -15,8 +15,10 @@ const {chromium, makeContext} = require('./harness');
   await inputs.nth(0).fill('Test Job');
   await page.getByText('Create Project', {exact:true}).click(); await page.waitForTimeout(800);
   await page.screenshot({path:'shots/pn-1-missing.png'});
+  // What's missing is a pop-up since 18 Nov 2026: close it.
+  await page.getByText('OK', {exact:true}).filter({visible:true}).first().click(); await page.waitForTimeout(400);
   await inputs.nth(1).fill('1 High Street'); await inputs.nth(3).fill('J900');
-  await page.getByPlaceholder('Start typing — clients from the Directory come up').fill('ac'); await page.waitForTimeout(600);
+  await page.getByPlaceholder(/^Start typing/).fill('ac'); await page.waitForTimeout(600);
   await page.screenshot({path:'shots/pn-2-suggest.png'});
   await page.getByText('Acme Homes', {exact:true}).click(); await page.waitForTimeout(400);
   await page.getByText('Active', {exact:true}).click();

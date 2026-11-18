@@ -407,11 +407,11 @@ Receipts are emailed to the address your company has set up.
 **What it's for:** your account, phone number and signature.
 
 1. Tap **Settings** in the bottom bar.
-2. Add your **Phone Number** and tap **Save Phone Number**. Drivers see it when you're the site contact.
-3. Your signature is drawn once and used every time you sign. To redo it, tap **✍ My Signature**, draw it again and tap **Save Signature**.
-4. Tap **📁 My Employee Record** for your details, policies and payslips.
-5. Tap **💡 Show The How-To Tips Again** to see the tips.
-6. Tap **Sign Out** when you're done.
+2. Tap **Phone Number** to change it, then **Save**. Drivers see it when you're the site contact.
+3. Your signature is drawn once and used every time you sign. To redo it, tap **My Signature**, draw it again and tap **Save Signature**.
+4. Tap **My Employee Record** for your details, policies and payslips. (Managers find theirs in **HR › Employee Records**.)
+5. Tap **Show The How-To Tips Again** to see the tips.
+6. Tap **Sign Out**, on its own under the list, when you're done.
 
 ![Settings](shots/phone/op-account.jpg)
 
@@ -438,9 +438,9 @@ PMs use the phone on site and the laptop in the office. Everything below works o
 **What it's for:** setting up a new job.
 
 1. Tap the red **+** in the bottom bar on the projects list.
-2. Fill in **Site name \***, **Address \***, **Postcode** and **Job number**.
-3. Type the **Client \***. Clients from the Directory come up as you type.
-4. Add **Client number** and **Client email**.
+2. Fill in **Site Name \***, **Address \***, **Postcode** and **Job Number** (or leave the automatic one). A number another job has isn't taken.
+3. Type the **Client Name \*** and **Client Number**, side by side. Clients from the Directory come up as you type.
+4. Add the **Client Email**.
 5. Tick **Multi-site job** or **Repair / maintenance contract** if it is one. Tick **Create OneDrive folder** to make its folders.
 6. Choose **Active** or **Upcoming** and the **Start date \***. Tap **Create Project**.
 

@@ -457,7 +457,7 @@ Most operatives use a phone; see the phone guide for full steps. Everything work
 ## O12. My Dashboard and Settings
 
 1. Click **My Dashboard**. Add certificates, check **My Tools**, and use **📄 Export all (PDF)**.
-2. Click **Settings**. Save your **Phone Number**, open **📁 My Employee Record**, or **Sign Out**.
+2. Click **Settings**. Click **Phone Number** to change it. **Sign Out** is on its own under the list. Your employee record is in **HR › Employee Records**.
 
 ![My Dashboard](shots/laptop/op-dashboard.jpg)
 
@@ -484,8 +484,8 @@ The laptop is the best place for set-up work: new jobs, RAMS, orders and Admin.
 **What it's for:** setting up a new job.
 
 1. Click **Projects**, then **+ New Project**.
-2. Fill in **Site name \***, **Address \***, **Postcode** and **Job number** (or leave the automatic one).
-3. Type the **Client \***. Directory clients come up as you type. Add **Client number** and **Client email**.
+2. Fill in **Site Name \***, **Address \***, **Postcode** and **Job Number** (or leave the automatic one). A number another job has isn't taken.
+3. Type the **Client Name \*** and **Client Number**, side by side. Directory clients come up as you type. Add the **Client Email**.
 4. Tick **Multi-site job (several addresses / plots)** or **Repair / maintenance contract** if needed.
 5. Tick **Create OneDrive folder** to make the job's folders.
 6. Choose **Active** or **Upcoming**, and the **Start date \***. Click **Create Project**.
@@ -814,11 +814,12 @@ Report templates are built in **Admin › Libraries › Report Templates**.
 
 **What it's for:** your team's accounts and phones.
 
-1. Click **Admin** at the bottom of the menu. Pages: **People**, **Libraries** and **Company**.
+1. Click **Admin** at the bottom of the menu. Tabs across the top, as in Finance: **People**, **Libraries** and **Company**. 🔍 searches them all.
 2. **Invites:** **Create Permanent Invite Link**, or **Generate One-Time Invite Link** and **Send Invite Email**.
 3. **Users:** click a person to change their role or phone, or remove them.
 4. **Device Locks:** **Approve** or **Deny** new phones. **Unlock** a phone.
 5. **Check-In Logs** shows check-ins by site.
+6. **Company › Job Numbers:** number new jobs automatically, with an optional prefix (for example RTB-2700). It's the same setting as Finance › Settings › Project Numbers, so a job set up in Projects or in Finance takes the next number, and no two jobs share one.
 
 **What This Does In Finance:** an admin with Finance switches **Finance** on or off on each person's row in **Users**.
 

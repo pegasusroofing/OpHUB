@@ -11,18 +11,19 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { DateBox } from '@/components/DateField';
 import { SelectBox } from '@/components/SelectBox';
 import { AssignList } from '@/components/AssignList';
-import { chooseAction, confirmAsk, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import {
   assignToSite, deleteSubAddress, removeFromSite, setSubAddressClosed, saveSubAddress, setSiteStatus, toggleSubOperative, updateSite,
   useSiteAddresses, useTeamData, type FullSubAddr,
 } from '@/data/siteAdmin';
-import { useSite } from '@/data/sites';
+import { useSite, useSites } from '@/data/sites';
 import { syncSiteFolder } from '@/data/drawings';
 import { unlinkFolder, useOneDriveStatus } from '@/data/onedrive';
 import { useAuth } from '@/lib/auth';
 import { siteStatusKey } from '@/lib/rules/checkin';
+import { jobNumberClash } from '@/lib/rules/jobNumbers';
 import { isFullManager, isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
@@ -37,6 +38,7 @@ export default function SiteAdmin() {
   const toast = useToast();
   const qc = useQueryClient();
   const { data: site } = useSite(id);
+  const { data: allSites = [] } = useSites();
   const mc = !!site?.acting_as_main_contractor;
   const { data: team, refetch } = useTeamData(id, mc);
   const { data: addrs, refetch: refetchAddrs } = useSiteAddresses(id, !!site?.multi_site);
@@ -83,7 +85,10 @@ export default function SiteAdmin() {
                   <Muted style={{ fontWeight: '600' }}>Start Date</Muted>
                   <DateBox value={details.start} onChange={(v) => setDetails({ ...details, start: v })} title="Start date" style={{ marginBottom: 8 }} />
                   <Button title="Save" onPress={async () => {
-                    if (!details.name.trim()) { toast('Site name cannot be blank.'); return; }
+                    if (!details.name.trim()) { showAlert('Site name cannot be blank.'); return; }
+                    // A number another job has: say which, not just "Could not save" (Andy, 18 Nov 2026: "it doesn't let me save the edit").
+                    const clash = jobNumberClash(details.job, allSites, id);
+                    if (clash) { showAlert(`Job number ${details.job.trim()} is already used on ${clash}. Use another number.`); return; }
                     const d = details.start || null;
                     if (await updateSite(qc, id, { name: details.name.trim(), address: details.address.trim() || null, postcode: details.postcode.trim() || null, job_number: details.job.trim() || null, start_date: d })) { toast('Details updated'); setDetails(null); }
                     else toast('Could not save — try again.');

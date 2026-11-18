@@ -103,12 +103,12 @@ const IN_RTB = [{id: 'f-live', name: 'Live Projects', driveId: 'd1'}, {id: 'f-ar
   // ---- Add a Project ----
   await page.goto(`${BASE}/sites/new`); await page.waitForTimeout(4500);
   check(await page.getByText('Create OneDrive folder', {exact: true}).count() === 1, 'Add a Project: a Create OneDrive folder tick');
-  await page.getByPlaceholder('Start typing — clients from the Directory come up').fill('Sovereign Housing'); await page.waitForTimeout(1500);
+  await page.getByPlaceholder(/^Start typing/).fill('Sovereign Housing'); await page.waitForTimeout(1500);
   t = await text();
   check(/is set to no OneDrive folders in the Directory/.test(t), 'for Sovereign Housing it starts unticked, and says why');
   await page.screenshot({path: 'shots/od-newproject.png'});
   const fill = async (label, v) => { await page.locator(`text="${label}"`).first().locator('xpath=following::input[1]').fill(v); };
-  await fill('Site name *', 'Oak House'); await fill('Address *', 'Oak House, Banbury'); await fill('Job number', 'J201');
+  await fill('Site Name *', 'Oak House'); await fill('Address *', 'Oak House, Banbury'); await fill('Job Number', 'J201');
   await page.getByText('Active', {exact: true}).first().click();
   await page.getByText('Choose a date', {exact: true}).first().click(); await page.waitForTimeout(500); await page.locator('text="16" >> visible=true').last().click(); await page.waitForTimeout(400);
   const before = fns.filter(([n, b]) => n === 'onedrive-job-pack' && b.action === 'setup').length;
@@ -116,8 +116,8 @@ const IN_RTB = [{id: 'f-live', name: 'Live Projects', driveId: 'd1'}, {id: 'f-ar
   const made = db.sites.find((s) => s.name === 'Oak House');
   check(!!made && fns.filter(([n, b]) => n === 'onedrive-job-pack' && b.action === 'setup').length === before, `unticked: the job is made with no folder (${made ? 'made' : 'not made'})`);
   await page.goto(`${BASE}/sites/new`); await page.waitForTimeout(4000);
-  await page.getByPlaceholder('Start typing — clients from the Directory come up').fill('Bellway Homes'); await page.waitForTimeout(1200);
-  await fill('Site name *', 'Elm Court'); await fill('Address *', 'Elm Court, Oxford'); await fill('Job number', 'J202');
+  await page.getByPlaceholder(/^Start typing/).fill('Bellway Homes'); await page.waitForTimeout(1200);
+  await fill('Site Name *', 'Elm Court'); await fill('Address *', 'Elm Court, Oxford'); await fill('Job Number', 'J202');
   await page.getByText('Active', {exact: true}).first().click();
   await page.getByText('Choose a date', {exact: true}).first().click(); await page.waitForTimeout(500); await page.locator('text="16" >> visible=true').last().click(); await page.waitForTimeout(400);
   await page.getByText('Create Project', {exact: true}).click(); await page.waitForTimeout(3500);

@@ -21,7 +21,7 @@ const seed = require('./fresh/seed');
   await page.getByText('+ New Project', {exact:true}).click(); await page.waitForTimeout(3000);
   const f = page.locator('input:visible');
   await f.nth(0).fill('High Street Flats'); await f.nth(1).fill('1 High Street'); await f.nth(2).fill('ab1 2cd'); await f.nth(3).fill('J900');
-  await page.getByPlaceholder('Start typing — clients from the Directory come up').fill('New Client Ltd');
+  await page.getByPlaceholder(/^Start typing/).fill('New Client Ltd');
   await page.getByText('Upcoming', {exact:true}).last().click();
   await page.getByText('Choose a date', {exact:true}).last().click(); await page.waitForTimeout(600); await page.getByText('Today', {exact:true}).last().click(); await page.waitForTimeout(400);
   await page.getByText('Create Project', {exact:true}).click(); await page.waitForTimeout(4000);

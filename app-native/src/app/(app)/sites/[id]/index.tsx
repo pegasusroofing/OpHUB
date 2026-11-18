@@ -213,8 +213,8 @@ export default function SiteHome() {
   // The weather in its own box, so a tap opens it (Andy, 11 Nov 2026: it was inside the On Site box and went to Check In).
   const weatherPart = site.postcode && me ? (
     <View style={{ flex: 1, minWidth: 0, alignItems: desk ? 'center' : 'flex-start', paddingHorizontal: 12, paddingVertical: 2, borderLeftWidth: 1, borderLeftColor: rule }}>
-      <WeatherLink me={me} site={site} company={org?.name || ''} />
-      <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slateLight, marginTop: 1 }}>Weather · Tap For More</Text>
+      <WeatherLink me={me} site={site} company={org?.name || ''} compact={!desk} />
+      <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slateLight, marginTop: 1 }}>{desk ? 'Weather · Tap For More' : 'Rain · Tap For More'}</Text>
     </View>
   ) : null;
   // On a laptop one line, spread evenly across; on a phone the job and the pill, then today, on site and the weather, then the button.

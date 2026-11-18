@@ -80,8 +80,9 @@ export function HomeWeek({ sites }: { sites: Site[] | undefined }) {
         {/* Each item its own button, on a light grey block so it reads as something to tap. */}
         {list.slice(0, 2).map((e) => (
           <Pressable key={e.id} accessibilityRole="button" accessibilityLabel={`Open ${e.title}`} onPress={() => openItem(e)}
-            style={({ pressed }) => ({ marginTop: 4, marginHorizontal: padX, borderRadius: 6, paddingVertical: 3, paddingHorizontal: desk ? 6 : 3, backgroundColor: pressed ? '#E4E7EC' : '#F1F2F4' })}>
-            <Text numberOfLines={2} style={{ fontSize: desk ? 13 : 12, color: base.ink }}>{e.title}</Text>
+            style={({ pressed }) => ({ marginTop: 3, marginHorizontal: padX, borderRadius: 5, paddingVertical: 2, paddingHorizontal: desk ? 6 : 3, backgroundColor: pressed ? '#E4E7EC' : '#F1F2F4' })}>
+            {/* Smaller words, so one item doesn't fill the day (Andy, 18 Nov 2026). */}
+                  <Text numberOfLines={2} style={{ fontSize: desk ? 12 : 10.5, lineHeight: desk ? 15 : 13, color: base.ink }}>{e.title}</Text>
           </Pressable>
         ))}
         {list.length > 2 && (

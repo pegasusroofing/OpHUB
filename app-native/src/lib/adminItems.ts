@@ -37,6 +37,8 @@ export const ADMIN_ITEMS: AdminItem[] = [
   { key: 'tbtrule', page: 'libraries', group: 'Health & Safety', icon: '🗓️', label: 'Toolbox Talks Required', sub: 'How often on each live project', kw: 'toolbox talk tbt how often monthly frequency rule required', route: '/pm/admin/tbtrule', show: admin },
   { key: 'ppelog', page: 'libraries', group: 'Health & Safety', icon: '🦺', label: 'PPE Log', sub: 'Issued PPE and the register', kw: 'ppe register', route: '/pm/admin/ppelog', show: isFullManager },
   // Who sees the money on Home (Andy, 14 Nov 2026).
+  // Job numbers, from the Projects side too (Andy, 18 Nov 2026: 'There is no simple way of setting up job numbers ... when setting up in projects it links to finance and vice versa'): the same company setting Finance › Settings › Project Numbers uses.
+  { key: 'jobnumbers', page: 'company', group: 'Projects', icon: '#', label: 'Job Numbers', sub: 'Automatic numbers with an optional prefix', kw: 'job number numbers prefix project automatic next', route: '/pm/admin/jobnumbers', show: admin },
   { key: 'hometiles', page: 'company', group: 'Branding', icon: '🏠', label: 'Home Page', sub: 'Who sees the finance tiles on Home', kw: 'home page tiles finance money due in pm project manager site manager', route: '/pm/admin/hometiles', show: admin },
   { key: 'branding', page: 'company', group: 'Branding', icon: '🖼️', label: 'Company Logo & Theme', sub: 'Logo and colours', kw: 'logo theme colour color brand', route: '/pm/admin/branding', show: admin },
   { key: 'expensesemail', page: 'company', group: 'Integrations', icon: '🧾', label: 'Expenses Email', sub: 'Where expense receipts go', kw: 'expenses receipts email', route: '/pm/admin/expensesemail', show: admin },
