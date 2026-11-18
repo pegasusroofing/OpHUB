@@ -2,6 +2,7 @@
 // phone numbers, sub form on/off, removing someone (remove-team-member, so their
 // email can sign up again), invite links, and device locks.
 import { useQuery } from '@tanstack/react-query';
+import { Platform } from 'react-native';
 
 import { roleChangePatch } from '@/lib/rules/users';
 import { supabase } from '@/lib/supabase';
@@ -11,7 +12,13 @@ const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supab
 const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
 
 export const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
-export const joinLink = (inviteId: string) => `${OPHUB_WEB_URL}#/join/${inviteId}`;
+/** The new app's own address when it's open in a browser (the beta), so its links open its own pages (Andy, 18 Nov 2026:
+ *  "The sign up link in the beta is still a html, can we change that for beta but keep the html link live for old
+ *  original app?"). On a phone app there's no address, so the current app's links are used; they keep working. */
+const webOrigin = () => (Platform.OS === 'web' && typeof window !== 'undefined' && /^https?:/.test(window.location.origin) ? window.location.origin : null);
+export const joinLink = (inviteId: string) => { const o = webOrigin(); return o ? `${o}/join/${inviteId}` : `${OPHUB_WEB_URL}#/join/${inviteId}`; };
+/** The subcontractor sign-up form: the new app's page on the beta, subcontractor.html otherwise. */
+export const subSignUpLink = (orgId: string) => { const o = webOrigin(); return o ? `${o}/subcontractor?org=${orgId}` : `https://www.operativehub.co.uk/subcontractor.html?org=${orgId}`; };
 
 export type TeamMember = { id: string; name: string; email: string | null; role: string; is_estimator: boolean | null; phone: string | null; subform_required: boolean | null; finance_enabled?: boolean | null; finance_only?: boolean | null; finance_prev_role?: string | null; org_role_id?: string | null; notify_off?: boolean | null };
 export function useTeam(orgId: string | null | undefined) {

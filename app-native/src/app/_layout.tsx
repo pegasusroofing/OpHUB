@@ -58,6 +58,8 @@ function Root() {
         </Stack.Protected>
         {/* Reachable signed in or out, like the current app's #/reset. */}
         <Stack.Screen name="reset" />
+        {/* The public subcontractor sign-up form (18 Nov 2026), signed in or out. */}
+        <Stack.Screen name="subcontractor" />
       </Stack>
       </ToastProvider>
     </ThemeProvider>

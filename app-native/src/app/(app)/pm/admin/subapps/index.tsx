@@ -7,6 +7,7 @@ import { Linking, Platform, Pressable, ScrollView, Share, Text, View } from 'rea
 
 import { useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { subSignUpLink } from '@/data/admin';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
@@ -26,7 +27,7 @@ export default function SubApps() {
   });
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
-  const link = `https://www.operativehub.co.uk/subcontractor.html?org=${me.org_id}`;
+  const link = subSignUpLink(me.org_id as string); // the new app's page on the beta (18 Nov 2026)
   const counts = { new: 0, approved: 0, rejected: 0 } as Record<string, number>;
   rows.forEach((r) => { counts[r.status] = (counts[r.status] || 0) + 1; });
   return (
