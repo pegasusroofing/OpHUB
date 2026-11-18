@@ -25,6 +25,7 @@ import { Button, Card, Empty, Muted, Toggle, SectionTitle } from '@/components/u
 import { viewDoc } from '@/components/DocViewer';
 import { DOC_LABEL, docBucket, nameOf, openDocLink, sigDocId, signDocs, useHsDocs, usePeople, type DocKind, type HsDoc, type HsSig } from '@/data/hs';
 import { deleteHsDoc, replaceCoshh, uploadHsDoc } from '@/data/hsManager';
+import { refreshToSign } from '@/data/inbox';
 import { buildSignedHsPdf, buildSignedLayoutPdf, PDFDocument } from '@/lib/pdfLazy';
 import { deliverPdf, emailPdf, emailPdfsSeparately, fetchBytes, showPdf } from '@/lib/fileOut';
 import { publicUrl } from '@/lib/privateFiles';
@@ -148,7 +149,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
     setBusy(false);
     toast(r.msg);
     if (!r.ok && r.needSignature) router.push('/signature');
-    if (r.ok) { await qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); void qc.invalidateQueries({ queryKey: ['hsSummary', site.id] }); }
+    if (r.ok) { await qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); refreshToSign(qc); }
   };
   // The ticked documents as one signed PDF (each with its signature sheet), in list order.
   const pack = async (ids: string[]) => {

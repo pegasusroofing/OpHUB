@@ -57,9 +57,10 @@ export function CertsPanel({ userId, manual = false }: { userId: string; manual?
   const s = certStats(certs);
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['myCerts', userId] }); void qc.invalidateQueries({ queryKey: ['operativeList'] }); void qc.invalidateQueries({ queryKey: ['manualPeople'] }); void qc.invalidateQueries({ queryKey: ['manualOps'] }); void qc.invalidateQueries({ queryKey: ['opOneDrive'] }); };
   const stat = (v: number, label: string, colour: string, onPress?: () => void) => (
-    <Pressable onPress={onPress} disabled={!onPress} style={{ flex: 1, minWidth: 80, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 16, padding: 10, alignItems: 'center' }}>
-      <Text style={{ fontSize: 22, fontWeight: '600', color: v ? colour : base.ink }}>{v}</Text>
-      <Text style={{ fontSize: 11, color: base.slate, textAlign: 'center' }}>{label}</Text>
+    // Four across on any phone (Andy, 18 Nov 2026: "the tiles in the operative hub certificates doesn't fit on a row").
+    <Pressable onPress={onPress} disabled={!onPress} style={{ flex: 1, minWidth: 0, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 4, alignItems: 'center' }}>
+      <Text style={{ fontSize: 20, fontWeight: '600', color: v ? colour : base.ink }}>{v}</Text>
+      <Text numberOfLines={1} style={{ fontSize: 11, color: base.slate, textAlign: 'center' }}>{label}</Text>
     </Pressable>
   );
   const upload = async () => {
@@ -95,11 +96,11 @@ export function CertsPanel({ userId, manual = false }: { userId: string; manual?
 
   return (
     <View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
         {stat(s.total, s.total === 1 ? 'Certificate' : 'Certificates', base.ink)}
-        {stat(s.expiringSoon, 'Expiring Soon', base.warn)}
+        {stat(s.expiringSoon, 'Expiring', base.warn)}
         {stat(s.expired, 'Expired', base.red)}
-        {stat(s.missing, 'Missing Types', base.warn, () => setShowMissing(!showMissing))}
+        {stat(s.missing, 'Missing', base.warn, () => setShowMissing(!showMissing))}
       </View>
       {showMissing && <Muted style={{ marginBottom: 8 }}>{s.missingKeys.length ? `Missing: ${s.missingKeys.map(certCategoryLabel).join(', ')}` : 'All standard requirements are on file.'}</Muted>}
       {/* A clear button, not a small + at the far side (Andy, 14 Nov 2026). */}

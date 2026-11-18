@@ -17,6 +17,7 @@ import { Button, Card, Muted } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { buildSignedTbtPdf } from '@/lib/pdfLazy';
 import { useSites } from '@/data/sites';
+import { refreshToSign } from '@/data/inbox';
 import { deliverPdf, emailPdf } from '@/lib/fileOut';
 import { completeTbt, deleteTbt, issueTbt, issueTbtCompanyWide, remindTbt, renameTbt, replaceTbtFile } from '@/data/tbtManager';
 import { canSignOffHs, isManager } from '@/lib/roles';
@@ -54,6 +55,7 @@ export default function TbtView() {
     toast(r.msg);
     if (!r.ok && r.needSignature) { router.push('/signature'); return; }
     await qc.invalidateQueries({ queryKey: ['tbt', tbt] });
+    refreshToSign(qc);
     void qc.invalidateQueries({ queryKey: ['tbts', id] });
   };
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['tbt', tbt] }); void qc.invalidateQueries({ queryKey: ['tbts', id] }); };

@@ -9,6 +9,7 @@ import { useToast } from '@/components/toast';
 import { Button, Card, Muted, Toggle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { openDocLink, usePeople } from '@/data/hs';
+import { refreshToSign } from '@/data/inbox';
 import { signHsPolicy, useHsPolicy } from '@/data/hsPolicy';
 import { useAuth } from '@/lib/auth';
 import { policySigValid } from '@/lib/rules/hs';
@@ -76,7 +77,7 @@ export function PolicyCard() {
               const r = await signHsPolicy(me, doc.id);
               toast(r.msg);
               if (r.needSignature) router.push('/signature');
-              if (r.ok) void qc.invalidateQueries({ queryKey: ['hsPolicy'] });
+              if (r.ok) { void qc.invalidateQueries({ queryKey: ['hsPolicy'] }); refreshToSign(qc); }
             }} />
           )}
         </Card>

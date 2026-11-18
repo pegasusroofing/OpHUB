@@ -14,7 +14,8 @@ export const isFinanceController = (u: Profile | null) => !!u && u.role === 'pm'
 export const deviceLockApplies = (u: Profile | null) => !!u && !['pm', 'admin', 'superadmin'].includes(u.role);
 
 export function finHasAccess(u: Profile | null, org: Organization | null): boolean {
-  return !!u && u.finance_enabled === true && !(org && org.has_pm === false && org.has_finance === false);
+  // Never for operatives, drivers or clients, even if the switch were on by mistake (18 Nov 2026: a safety net; nobody has it).
+  return !!u && u.finance_enabled === true && !['operative', 'driver', 'client'].includes(u.role) && !(org && org.has_pm === false && org.has_finance === false);
 }
 export const isFinanceUser = (u: Profile | null, org: Organization | null) => finHasAccess(u, org) && u?.finance_hidden !== true && can(u, 'fin_view');
 /** + New Project (Projects, Finance, the phone's Add): PMs and admins whose role has Create Projects (Admin › Roles). */

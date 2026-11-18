@@ -1,7 +1,7 @@
 // Operative "Messages & tasks": what's left to sign on my live jobs, and my messages.
 // Ported from computeOutstandingRows (190, operative branch), renderMyMessages and
 // markMessagesRead (830).
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type QueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '@/lib/auth';
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
@@ -101,4 +101,11 @@ export async function markMessagesRead(userId: string, ids: string[]): Promise<v
   try {
     await db.from('message_reads').upsert(ids.map((id) => ({ message_id: id, user_id: userId })) as never, { onConflict: 'message_id,user_id', ignoreDuplicates: true });
   } catch { /* silent, as today */ }
+}
+
+/** After any signature (RAMS, COSHH, Toolbox Talk, H&S Policy): the lists of what's still to sign (To Sign / Do, the HUB,
+ *  Getting Started, the job's sign prompt, the H&S tiles) are read again, so a signed document drops off straight away
+ *  (Andy, 18 Nov 2026: "I've signed coshh but asking me to sign still as if outstanding"). */
+export function refreshToSign(qc: QueryClient) {
+  ['outstanding', 'hub', 'onboarding', 'hsSummary'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
 }

@@ -8,6 +8,7 @@ import { useToast } from '@/components/toast';
 import { Button, Card, Muted, Screen, Title } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { openDocLink } from '@/data/hs';
+import { refreshToSign } from '@/data/inbox';
 import { signHsPolicy, type PolicyDoc } from '@/data/hsPolicy';
 import { useAuth } from '@/lib/auth';
 import { base } from '@/theme/theme';
@@ -33,7 +34,7 @@ export function PolicyGate({ doc }: { doc: PolicyDoc }) {
           <Button title="I have read and understood this policy — Sign" onPress={async () => {
             const r = await signHsPolicy(me, doc.id);
             toast(r.msg);
-            if (r.ok) await qc.invalidateQueries({ queryKey: ['hsPolicy'] });
+            if (r.ok) { await qc.invalidateQueries({ queryKey: ['hsPolicy'] }); refreshToSign(qc); }
           }} />
         ) : (
           <>

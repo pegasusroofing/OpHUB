@@ -1,4 +1,5 @@
-// Operative "Messages & tasks": tabs "To sign / do", "Messages" and the Company Chat (the whole company, 7 Nov 2026).
+// Operative "Messages & tasks": tabs "To Sign / Do", "Messages" and the Company Chat (the whole company, 7 Nov 2026), as
+// Finance's underlined tabs (18 Nov 2026).
 // Ported from renderOpInbox (185), renderOutstandingTasks (190, operative view)
 // and renderMyMessages (830). Opening the Messages tab marks them read.
 import { useQueryClient } from '@tanstack/react-query';
@@ -7,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import { CompanyChat } from '@/components/CompanyChat';
+import { TabItem } from '@/components/FinNav';
 import { Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { useChatUnread } from '@/data/companyChat';
 import { nameOf, usePeople } from '@/data/hs';
@@ -64,14 +66,14 @@ export default function Inbox() {
   const unreadN = msgs.data?.unread.length ?? 0;
   const chatN = useChatUnread(me).data ?? 0;
 
+  // Finance-style tabs (Andy, 18 Nov 2026: "in the messages and tasks have it more of a finance style with the tabs"):
+  // underlined, spread across the page, with their counts.
   const pills = (
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-        {([['todo', `To sign / do${todoN ? ` (${todoN})` : ''}`], ['msgs', `Messages${unreadN && current !== 'msgs' ? ` (${unreadN} new)` : ''}`], ['chat', `Company Chat${chatN && current !== 'chat' ? ` (${chatN} new)` : ''}`]] as const).map(([k, label]) => (
-          <Pressable key={k} onPress={() => setTab(k)} style={{ height: 34, justifyContent: 'center', paddingHorizontal: 13, borderRadius: 999, borderWidth: 1, borderColor: current === k ? base.ink : base.line, backgroundColor: current === k ? base.ink : base.card }}>
-            <Text style={{ fontSize: 12.5, fontWeight: '600', color: current === k ? '#fff' : base.ink }}>{label}</Text>
-          </Pressable>
-        ))}
-      </View>
+    <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', marginBottom: 12 }}>
+      {([['todo', 'To Sign / Do', todoN, true], ['msgs', 'Messages', current !== 'msgs' ? unreadN : 0, false], ['chat', 'Company Chat', current !== 'chat' ? chatN : 0, false]] as const).map(([k, label, n, amber]) => (
+        <TabItem key={k} fill on={current === k} label={label} n={n || undefined} amber={amber && !!n} onPress={() => setTab(k)} />
+      ))}
+    </View>
   );
   if (current === 'chat') return <View style={[page(720), { flex: 1, paddingBottom: 10 }]}>{pills}<CompanyChat /></View>;
 

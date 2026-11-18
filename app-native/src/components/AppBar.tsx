@@ -18,7 +18,7 @@ import { CompanyLogo, useAppRefresh } from '@/components/HomeHeader';
 import { StorageImage } from '@/components/StorageImage';
 import { showAlert } from '@/components/toast';
 import { isManager } from '@/lib/roles';
-import { areaHome, parentOf, takeFinBack, takeJump } from '@/lib/navBack';
+import { areaHome, parentOf, takeJump } from '@/lib/navBack';
 import { isFullManager } from '@/lib/roles';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -134,23 +134,21 @@ export function AppBar({ title, onBack, home, right, noHistory, routeName }: { t
   ) : null;
   const noSelect = { userSelect: 'none' } as never;
   const pressBack = () => {
-    // In Finance: back to the tab or page you were on before (Andy, 14 Nov 2026).
-    if (path.startsWith('/fin')) { const prev = takeFinBack(); if (prev) { router.navigate(prev as never); return; } }
-    const from = takeJump(path.replace(/\/$/, '') || path);
+    // One rule everywhere (Andy, 18 Nov 2026: "it needs to take me up a folder, unless I have clicked into it from somewhere
+    // else then take me back to where I clicked from then up a folder (ie if I click a finance tile in a project screen,
+    // then go back it needs to take me back to project screen then when I click back just up a folder"). So: just after a
+    // jump in from another part of the app, back goes to where you were (once); otherwise it goes up a level, by the trail
+    // under the bar or the page's address. Never simply to the last page seen (that was Finance's tab trail and history).
+    const clean = path.replace(/\/$/, '') || path;
+    const from = takeJump(clean);
     if (from) { router.navigate(from as never); return; }
-    // A project's home screen goes back to Home, not the list of projects (Andy, 18 Nov 2026: "When I'm in the Home Screen of
-    // projects and I click back it needs to take me to the Home Screen").
+    // A project's home screen goes back to Home, not the list of projects (Andy, 18 Nov 2026).
     if (jobHome && !fin) { router.navigate('/home' as never); return; }
-    // A manager on a job goes up one level; a page further in than the trail shows, and everyone else, keeps its own back.
-    const up = site && isManager(me) && (pageTrail || path.split('/').filter(Boolean).length <= 4) ? [...crumbs].reverse().find((c) => c[1])?.[1] : null;
-    if (up) { router.navigate(up as never); return; }
-    // Finance and manager pages one level in always go up: the section keeps old pages behind them, so history could land anywhere.
-    // A page with no history at all, as after a refresh, goes up too rather than to Home.
-    // The Admin Centre's tabs swap one page for another, so back leaves the Admin Centre: to the page before it, or Home.
-    if (adminAt) { if (noHistory) router.navigate('/home' as never); else onBack?.(); return; }
-    const clean = path.replace(/\/$/, '');
-    if (noHistory || /^\/(pm|fin)(\/[^/]+)?$/.test(clean)) { router.navigate(parentOf(clean) as never); return; }
-    onBack?.();
+    // The Admin Centre's tabs swap one page for another; up from it is Home.
+    if (adminAt) { router.navigate('/home' as never); return; }
+    // Up: the nearest step in the trail that's a different page (a tab of this page isn't a level up).
+    const up = crumbs.length > 1 ? [...crumbs].reverse().find(([, h]) => !!h && h.split('?')[0].replace(/\/$/, '') !== clean)?.[1] : null;
+    router.navigate((up || parentOf(clean)) as never);
   };
   const roundBtn = { width: 38, height: 38, borderRadius: 19, backgroundColor: base.paper, alignItems: 'center', justifyContent: 'center' } as const;
   // Finance's bar (Andy, 2 Nov 2026): slim, just the back arrow and OpHUB x the company. The trail under it names the page.
