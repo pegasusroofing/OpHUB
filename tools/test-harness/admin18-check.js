@@ -44,7 +44,7 @@ const setUp = async (browser, role, fin, viewport) => {
   check(where(page) === '/pm/admin/invites', `Admin opens straight on People › Invites (${where(page)})`);
   check(JSON.stringify(ts.slice(0, 5).map((x) => x.t)) === JSON.stringify(MAIN) && ts[0].on, `tabs: ${MAIN.join(', ')}, People chosen (${ts.slice(0, 5).map((x) => x.t).join(', ')})`);
   const subs = ts.slice(5).map((x) => x.t);
-  check(['Invites', 'Users', 'Roles', 'Material Costs For Operatives', 'Device Locks', 'Check-In Logs'].every((x) => subs.includes(x)) && !!ts.find((x) => x.t === 'Invites')?.on, `sub tabs: People's pages, Invites chosen (${subs.join(', ')})`);
+  check(['Invites', 'Users', 'Roles', 'Device Locks', 'Check-In Logs'].every((x) => subs.includes(x)) && !subs.includes('Material Costs For Operatives') && !!ts.find((x) => x.t === 'Invites')?.on, `sub tabs: People's pages, Invites chosen (${subs.join(', ')})`);
   check(/Admin Centre/.test(await body()), 'the bar says Admin Centre');
   await page.screenshot({path: path.join(SHOTS, 'people-laptop.png')});
 

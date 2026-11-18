@@ -2,7 +2,7 @@
 // roles up"; "Yes, all four"). 1. Money On Home is a role part (the Home Page setting is gone from the Admin Centre); a
 // role not set yet keeps the old answer. 2. Users: someone whose role has no Finance – View shows "Role Has No Finance",
 // not a switch that does nothing. 3. See Material Costs is a role part; operatives one by one on Admin › People ›
-// Material Costs For Operatives; Finance › Settings points there. 4. Expenses: one page with where receipts go and who
+// Material Costs For Operatives, since removed ("Yes, remove it": nobody had it on); Finance › Settings points to Roles. 4. Expenses: one page with where receipts go and who
 // books them in Finance. Laptop, then a PM's Home on a phone. Fake database. node roles18-check.js
 const {chromium, makeContext} = require('./harness');
 const path = require('path');
@@ -63,23 +63,17 @@ const seedRoles = (db, org) => {
   // The Admin Centre's lists.
   await page.goto(B + '/pm/admin'); await page.waitForTimeout(4000);
   let t = await body();
-  check(/Material Costs For Operatives/.test(t), 'People: Material Costs For Operatives');
+  check(!/Material Costs For Operatives/.test(t), 'People: no Material Costs For Operatives (removed, 18 Nov)');
   // Since the sub tabs (later on 18 Nov), Company's pages are tabs: no Home Page among them, Expenses is.
   await page.getByRole('tab', {name: 'Company'}).click(); await page.waitForTimeout(3000);
   t = await body();
   check(!/Home Page/.test(t) && /\nExpenses\n/.test(t), 'Company: no Home Page (it\'s in Roles); Expenses there');
 
-  // 3: operatives one by one.
-  await page.goto(B + '/pm/admin/matcosts'); await page.waitForTimeout(4000);
-  t = await body();
-  check(/Jake Morris/.test(t) && /Office Roles/.test(t), 'Material Costs: the operatives, and a pointer to Roles for the office');
-  await page.getByLabel('Jake Morris sees material costs: Yes').click(); await page.waitForTimeout(1200);
-  check(db.profiles.find((p) => p.id === 'o1').see_costs === true, 'an operative switched on one by one');
-  await page.screenshot({path: path.join(SHOTS, 'matcosts-laptop.png'), fullPage: true});
+  // 3: Finance › Settings points to Roles for material costs.
   await page.goto(B + '/fin/settings'); await page.waitForTimeout(4500);
   await page.getByText('Who can see material costs', {exact: true}).first().click(); await page.waitForTimeout(600);
   t = await body();
-  check(/Office roles get material costs from Admin › Roles/.test(t) && !/Select All|Untick All/.test(t), 'Finance › Settings › material costs points to Roles and People (no second list)');
+  check(/Office roles get material costs from Admin › Roles/.test(t) && !/Select All|Untick All/.test(t), 'Finance › Settings › material costs points to Roles (no second list)');
   await page.getByText('Purchase invoices', {exact: true}).first().click(); await page.waitForTimeout(600);
   check(/Expense receipts go to \(Admin › Company › Expenses\)/.test(await body()), 'Finance › Settings › Purchase invoices says where who-books-receipts is set');
 

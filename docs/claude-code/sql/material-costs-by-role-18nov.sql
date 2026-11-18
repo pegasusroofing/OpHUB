@@ -1,3 +1,5 @@
+-- ALREADY RUN on 18 Nov 2026 (Andy: "can you do sql"), so there's nothing to paste. Kept as the record. Safe to run again.
+--
 -- Material costs by role (Andy, 18 Nov 2026: "cross reference the admin/settings ... we have recently set the roles up").
 --
 -- What it does: lets the new "See Material Costs" part on Admin › Roles actually show supplier prices to the people in

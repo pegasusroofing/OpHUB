@@ -157,8 +157,8 @@ export function FinSettingsBody({ only: one }: { only?: string | string[] }) {
                 ) : k === 'costs' ? (
                   <>
                     {/* Who sees material costs is set in the Admin Centre now (Andy, 18 Nov 2026: one place, with the roles). */}
-                    <Muted style={{ marginBottom: 8 }}>Office roles get material costs from Admin › Roles (See Material Costs); operatives are switched on one by one in Admin › People › Material Costs. Finance users always see them.</Muted>
-                    {me.role === 'admin' && <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8 }}><Button small title='Roles' onPress={() => router.push('/pm/admin/roles' as never)} /><Button small kind='ghost' title='Operatives' onPress={() => router.push('/pm/admin/matcosts' as never)} /></View>}
+                    <Muted style={{ marginBottom: 8 }}>Office roles get material costs from Admin › Roles (See Material Costs). Finance users always see them.</Muted>
+                    {me.role === 'admin' && <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8 }}><Button small title='Open Roles' onPress={() => router.push('/pm/admin/roles' as never)} /></View>}
                   </>
                 ) : k === 'inbox' ? (
                   <>

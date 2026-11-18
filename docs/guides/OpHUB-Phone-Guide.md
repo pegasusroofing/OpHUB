@@ -789,7 +789,7 @@ Use **👁 Preview RA** and **👁 Preview MS** to check before you issue.
 
 The parts are: **Every Job**, **Create Projects**, **See Prices And Price Builder**, **See Material Costs**, **Finance – View**, **Finance – Edit**, **Money On Home**, **Quotes**, **Schedule Of Works**, **Snags And Variations**, **Sign Off H&S**, **Raise Orders**, **Drawings And Documents**, **Team And Calendar**, **Manage People**, **Reports** and **Notifications And Emails**.
 
-**Money On Home** shows the money owed to you (Due In) and the OpHUB Finance tile on Home, for people with Finance on. **See Material Costs** shows material prices on a job's orders and shop. Operatives aren't on the board: switch material costs on for them one by one in **Admin › People › Material Costs For Operatives**.
+**Money On Home** shows the money owed to you (Due In) and the OpHUB Finance tile on Home, for people with Finance on. **See Material Costs** shows material prices on a job's orders and shop. Operatives never see material costs.
 
 **See Prices And Price Builder** shows a job's **Price** tile (each price, what's been booked against it and what's left), its **Price Sheets** for subcontractors (the price builder) and its **Subcontractors** tile. **Quotes** is the **Quotes** page, the tender tracker. Money in Finance follows **Finance – View** instead.
 
