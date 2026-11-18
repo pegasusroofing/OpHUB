@@ -19,6 +19,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   const me = db.profiles.find((p) => p.id === 'me');
   Object.assign(me, {role: 'admin', finance_enabled: true, howto_dismissed: ['*'], phone: '07700 900111'});
   Object.assign(db.organizations[0], {has_pm: true, has_finance: true, auto_job_numbers: false, job_number_prefix: null, next_job_number: null});
+  db.fin_clients = [{id: 'fc1', org_id: db.organizations[0].id, name: 'Bellway Homes', email: 'accounts@bellway.example', phone: '0191 000 0000', estimator_name: 'Sam Price', estimator_email: 'sam@bellway.example', estimator_phone: '07700 111111'}];
   const page = await ctx.newPage(); page.on('pageerror', (e) => errs.push(e.message));
   const vis = (sel) => page.locator(`${sel} >> visible=true`).first();
   const body = () => page.evaluate(() => document.body.innerText);
@@ -71,16 +72,32 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.goto(B + '/fin/settings'); await page.waitForTimeout(4500);
   await page.getByText('Project numbers', {exact: true}).first().click(); await page.waitForTimeout(600);
   check(/Automatic · next RTB-2700/.test(await body()), 'Finance › Settings › Project numbers shows the same setting');
+  // VAT rates: a built-in rate's % is words, not a box that won't type ("trying to edit vat rates ... it wouldn't let me").
+  await page.getByText('VAT rates', {exact: true}).first().click(); await page.waitForTimeout(700);
+  const vat = await page.evaluate(() => ({boxes: [...document.querySelectorAll('input')].filter((e) => e.getBoundingClientRect().width > 0 && /^\d+(\.\d+)?$/.test(e.value)).length, words: !!document.querySelector('[aria-label="20% VAT is 20%"]')}));
+  check(vat.boxes === 0 && vat.words, `VAT rates: the built-in rates' % shown as words, no dead boxes (${JSON.stringify(vat)})`);
+  await page.screenshot({path: path.join(SHOTS, 'vat-phone.png'), fullPage: true});
   // Back to typed numbers for the new-project checks.
   Object.assign(o, {auto_job_numbers: false});
 
   // ---- New project ----
   await page.goto(B + '/sites/new'); await page.waitForTimeout(4500);
-  const two = await page.evaluate(() => { const at = (l) => { const e = [...document.querySelectorAll('div[dir="auto"]')].find((x) => x.textContent.trim() === l && x.getBoundingClientRect().width > 0); return e ? e.getBoundingClientRect() : null; }; const a = at('Client Name *'), b = at('Client Number'); return a && b ? {sameRow: Math.abs(a.top - b.top) < 3, aLeft: Math.round(a.left), bLeft: Math.round(b.left)} : null; });
-  check(!!two && two.sameRow && two.bLeft > 160, `Client Name and Client Number side by side, half each (${JSON.stringify(two)})`);
+  // Client on its own row; Contact Name and Contact Number half each; Contact Email under them (Andy, 18 Nov 2026).
+  const lay = await page.evaluate(() => { const at = (l) => { const e = [...document.querySelectorAll('div[dir="auto"]')].find((x) => x.textContent.trim() === l && x.getBoundingClientRect().width > 0); return e ? e.getBoundingClientRect() : null; }; const c = at('Client Name *'), n = at('Contact Name'), p = at('Contact Number'), e = at('Contact Email'); return c && n && p && e ? {clientOwnRow: c.top < n.top - 20, split: Math.abs(n.top - p.top) < 3 && p.left > 160, emailUnder: e.top > n.top + 20} : null; });
+  check(!!lay && lay.clientOwnRow && lay.split && lay.emailUnder, `Client on its own row, Contact Name and Contact Number side by side, Contact Email under (${JSON.stringify(lay)})`);
   await page.screenshot({path: path.join(SHOTS, 'newjob-phone.png'), fullPage: true});
   await fillBy('Site Name *', 'Flight House'); await fillBy('Address *', '1 Test Road'); await fillBy('Job Number', 'J101');
-  await page.getByPlaceholder(/^Start typing/).fill('Bellway Homes'); await page.mouse.click(5, 5);
+  // A client with several contacts (the Directory's main and estimating contacts, and a past project's): offered under
+  // Contact Name, and picking one fills the number and email.
+  await page.getByPlaceholder(/^Start typing/).fill('Bellway Homes'); await page.waitForTimeout(500); await page.mouse.click(5, 5); await page.waitForTimeout(500);
+  check(/\d contacts on file for Bellway Homes/.test(await body()), 'a client with several contacts: it says so');
+  await page.getByPlaceholder('Tap To Choose').click(); await page.waitForTimeout(600);
+  t = await body();
+  check(/Sam Price/.test(t) && /Main Contact/.test(t), `Contact Name lists the client's contacts (${t.split('\n').filter((x) => /Sam Price|Main Contact|Jo Site/.test(x)).join(' | ')})`);
+  await page.screenshot({path: path.join(SHOTS, 'newjob-contacts-phone.png')});
+  await page.getByText('Sam Price', {exact: true}).filter({visible: true}).first().click(); await page.waitForTimeout(600);
+  const filled = await page.evaluate(() => [...document.querySelectorAll('input')].filter((e) => e.getBoundingClientRect().width > 0).map((e) => e.value));
+  check(filled.includes('Sam Price') && filled.includes('07700 111111') && filled.includes('sam@bellway.example'), `picking a contact fills the name, number and email (${filled.slice(4, 8).join(' | ')})`);
   await page.getByText('Create Project', {exact: true}).click(); await page.waitForTimeout(1200);
   t = await body();
   check(/Job number J101 is already used on Studley Rd/.test(t), 'a job number another job has is refused, with the job\'s name, in a pop-up');

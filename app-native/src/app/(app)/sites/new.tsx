@@ -20,6 +20,7 @@ import { createSite, type NewSite } from '@/data/siteList';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { clientPortfolio } from '@/lib/rules/checkin';
+import { clientContacts, contactLabel, contactSub } from '@/lib/rules/contacts';
 import { jobNumberClash, jobNumberError } from '@/lib/rules/jobNumbers';
 import { canCreateProjects, isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
@@ -27,7 +28,7 @@ import { base, page, space, useDesk } from '@/theme/theme';
 
 // 030 applyTitleCase: capitals only at the start or after a space (Andy's House, not Andy'S House).
 const titleCase = (t: string) => t.replace(/(^|\s)([a-z])/g, (_m, a: string, c: string) => a + c.toUpperCase());
-const EMPTY: NewSite = { name: '', address: '', postcode: '', job_number: '', client_name: '', client_phone: '', client_email: '', multi_site: false, repair_contract: false, status: 'active', start_date: '' };
+const EMPTY: NewSite = { name: '', address: '', postcode: '', job_number: '', client_name: '', client_contact_name: '', client_phone: '', client_email: '', multi_site: false, repair_contract: false, status: 'active', start_date: '' };
 
 export default function NewProject() {
   const desk = useDesk();
@@ -40,11 +41,13 @@ export default function NewProject() {
   const { data: sites = [] } = useSites();
   const { data: nums } = useQuery({ queryKey: ['orgNums', me?.org_id], enabled: !!me, queryFn: async () => (await supabase.from('organizations').select('auto_job_numbers,job_number_prefix,next_job_number').eq('id', me?.org_id as string).maybeSingle()).data as { auto_job_numbers?: boolean; job_number_prefix?: string | null; next_job_number?: number | null } | null });
   // Directory clients (Finance) — PMs without Finance just get past clients.
-  const { data: dir = [] } = useQuery({ queryKey: ['dirClients', me?.org_id], enabled: !!me, queryFn: async () => ((await supabase.from('fin_clients').select('id,name,email,phone').eq('org_id', me?.org_id as string).order('name')).data as { id: string; name: string; email?: string | null; phone?: string | null }[] | null) ?? [] });
+  const { data: dir = [] } = useQuery({ queryKey: ['dirClients', me?.org_id, 'contacts'], enabled: !!me, queryFn: async () => ((await supabase.from('fin_clients').select('id,name,email,phone,estimator_name,estimator_email,estimator_phone').eq('org_id', me?.org_id as string).order('name')).data as { id: string; name: string; email?: string | null; phone?: string | null; estimator_name?: string | null; estimator_email?: string | null; estimator_phone?: string | null }[] | null) ?? [] });
+  // Contacts on the company's quotes too (18 Nov 2026), so a client's people are offered whichever way they came in.
+  const { data: quoteContacts = [] } = useQuery({ queryKey: ['quoteContacts', me?.org_id], enabled: !!me, queryFn: async () => ((await supabase.from('quotes' as never).select('client_name,contact_name,contact_phone,contact_email').eq('org_id', me?.org_id as string)).data as { client_name?: string | null; contact_name?: string | null; contact_phone?: string | null; contact_email?: string | null }[] | null) ?? [] });
   const [d, setD] = useState<NewSite>(EMPTY);
   const qq = fromQuote?.quote ?? null;
   // Filled in from the quote once it's loaded.
-  useEffect(() => { if (qq) setD((x) => ({ ...x, name: titleCase(qq.title), address: qq.address || x.address, postcode: (qq.postcode || x.postcode).toUpperCase(), client_name: qq.client_name, client_phone: qq.contact_phone || '', client_email: qq.contact_email || '' })); }, [qq?.id, qq?.client_name]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (qq) setD((x) => ({ ...x, name: titleCase(qq.title), address: qq.address || x.address, postcode: (qq.postcode || x.postcode).toUpperCase(), client_name: qq.client_name, client_contact_name: qq.contact_name || '', client_phone: qq.contact_phone || '', client_email: qq.contact_email || '' })); }, [qq?.id, qq?.client_name]); // eslint-disable-line react-hooks/exhaustive-deps
   const [chosen, setChosen] = useState(false); // Active / Upcoming must be picked
   const [busy, setBusy] = useState(false);
   // Create OneDrive folder (Andy, 8 Nov 2026): ticked unless the company or the client says no; the tick wins once touched.
@@ -62,6 +65,11 @@ export default function NewProject() {
     saved.forEach((c) => { const k = c.name.toLowerCase(), x = by[k]; if (x) { x.phone ||= c.phone; x.email ||= c.email; } else by[k] = { key: `p${k}`, label: c.name, phone: c.phone, email: c.email }; });
     return Object.values(by).map((c) => ({ ...c, sub: [c.phone, c.email].filter(Boolean).join(' · ') }));
   })();
+  // The chosen client's contacts (Directory, past projects, quotes): one is filled in; several are offered under
+  // Contact Name; or type one in (Andy, 18 Nov 2026).
+  const contactsOf = (client: string) => clientContacts(client, dir, sites, quoteContacts);
+  const contacts = contactsOf(d.client_name);
+  const fillFor = (client: string) => { const c = contactsOf(client); return c.length === 1 && !d.client_contact_name && !d.client_phone && !d.client_email ? { client_contact_name: c[0].name, client_phone: c[0].phone, client_email: c[0].email } : {}; };
   const save = async () => {
     // What's missing in a pop-up, not a line at the foot the phone's keyboard covers (Andy, 18 Nov 2026: "on the offline
     // I can't create a new job"; it was waiting for Active or Upcoming).
@@ -75,7 +83,7 @@ export default function NewProject() {
     if (!d.start_date) { showAlert('Choose the start date.'); return; }
     if (d.client_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.client_email.trim())) { showAlert('Enter a valid client email address.'); return; }
     setBusy(true);
-    const r = await createSite(me, { ...d, name: d.name.trim(), address: d.address.trim(), postcode: d.postcode.trim(), job_number: d.job_number.trim(), client_name: d.client_name.trim(), client_phone: d.client_phone.trim(), client_email: d.client_email.trim(), start_date: d.start_date }, auto);
+    const r = await createSite(me, { ...d, name: d.name.trim(), address: d.address.trim(), postcode: d.postcode.trim(), job_number: d.job_number.trim(), client_name: d.client_name.trim(), client_contact_name: (d.client_contact_name || '').trim(), client_phone: d.client_phone.trim(), client_email: d.client_email.trim(), start_date: d.start_date }, auto);
     if ('error' in r) { setBusy(false); showAlert(jobNumberError(r.error) || r.error); return; }
     if (qq) {
       // A won quote: the folders first, then the quote's folder moves into them and the quote is marked won.
@@ -104,14 +112,22 @@ export default function NewProject() {
         <Field label="Job Number" value={auto ? `${nums?.job_number_prefix || ''}${nums?.next_job_number ?? ''} (given automatically)` : d.job_number} onChangeText={(v) => set({ job_number: v })} editable={!auto} />
         {/* Job numbers are one company setting, shared with Finance (Andy, 18 Nov 2026). */}
         {me.role === 'admin' && <Text accessibilityRole="link" onPress={() => router.push('/pm/admin/jobnumbers' as never)} style={{ fontSize: 12.5, color: base.blue, marginTop: -6, marginBottom: 10 }}>{auto ? 'Change The Job Numbers ›' : 'Number Jobs Automatically ›'}</Text>}
-        {/* Client, number and email together (Andy, 3 Nov 2026): picked from the Directory (synced with Xero) and still
-            editable. Client Name and Client Number side by side, half each, on a phone too; the email under them (18 Nov). */}
-        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start', zIndex: 20 }}>
-          <View style={{ flex: 1, minWidth: 0 }}><SuggestField label="Client Name *" value={d.client_name} onChangeText={(v) => { const name = titleCase(v), x = clients.find((y) => y.label.toLowerCase() === name.trim().toLowerCase()); set({ client_name: name, ...(x ? { client_phone: d.client_phone || x.phone || '', client_email: d.client_email || x.email || '' } : {}) }); }} placeholder={desk ? 'Start typing: clients from the Directory come up' : 'Start typing'} items={clients}
-            onPick={(c) => { const x = clients.find((y) => y.key === c.key); set({ client_name: c.label, client_phone: x?.phone || d.client_phone, client_email: x?.email || d.client_email }); }} /></View>
-          <View style={{ flex: 1, minWidth: 0 }}><Field label="Client Number" value={d.client_phone} onChangeText={(v) => set({ client_phone: v })} keyboardType="phone-pad" /></View>
+        {/* The client and its contact (Andy, 18 Nov 2026: "client full row, contact name, contact number split rows,
+            contact email ... all pulls through from directory, if multiple contacts allow to choose, or manually type"):
+            the client on its own row from the Directory and past clients; Contact Name and Contact Number half each, the
+            name offering the client's contacts (picking one fills the number and email); the email under them. */}
+        <View style={{ zIndex: 30 }}>
+          <SuggestField label="Client Name *" value={d.client_name} onChangeText={(v) => { const name = titleCase(v), x = clients.find((y) => y.label.toLowerCase() === name.trim().toLowerCase()); set({ client_name: name, ...(x ? fillFor(x.label) : {}) }); }} placeholder={desk ? 'Start typing: clients from the Directory come up' : 'Start typing'} items={clients}
+            onPick={(c) => set({ client_name: c.label, ...fillFor(c.label) })} />
         </View>
-        <Field label="Client Email" value={d.client_email} onChangeText={(v) => set({ client_email: v })} keyboardType="email-address" autoCapitalize="none" />
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start', zIndex: 20 }}>
+          <View style={{ flex: 1, minWidth: 0 }}><SuggestField label="Contact Name" value={d.client_contact_name || ''} onChangeText={(v) => set({ client_contact_name: titleCase(v) })} placeholder={contacts.length ? 'Tap To Choose' : 'Type A Name'} showAllOnFocus
+            items={contacts.map((c, i) => ({ key: String(i), label: contactLabel(c), sub: contactSub(c) }))}
+            onPick={(s) => { const c = contacts[Number(s.key)]; if (c) set({ client_contact_name: c.name, client_phone: c.phone || d.client_phone, client_email: c.email || d.client_email }); }} /></View>
+          <View style={{ flex: 1, minWidth: 0 }}><Field label="Contact Number" value={d.client_phone} onChangeText={(v) => set({ client_phone: v })} keyboardType="phone-pad" /></View>
+        </View>
+        <Field label="Contact Email" value={d.client_email} onChangeText={(v) => set({ client_email: v })} keyboardType="email-address" autoCapitalize="none" />
+        {contacts.length > 1 && !d.client_contact_name && !d.client_phone && <Muted style={{ marginTop: -6, marginBottom: 10 }}>{contacts.length} contacts on file for {d.client_name.trim()}: tap Contact Name to choose one, or type one in.</Muted>}
         <Check label="Multi-site job (several addresses / plots)" value={d.multi_site} onChange={(x) => set({ multi_site: x, repair_contract: x ? false : d.repair_contract })} />
         <Check label="Repair / maintenance contract" value={d.repair_contract} onChange={(x) => set({ repair_contract: x, multi_site: x ? false : d.multi_site })} />
         {fd.shown && <Check label="Create OneDrive folder" value={wantFolder} onChange={setFolderTick} />}

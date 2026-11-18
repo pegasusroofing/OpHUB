@@ -485,7 +485,7 @@ The laptop is the best place for set-up work: new jobs, RAMS, orders and Admin.
 
 1. Click **Projects**, then **+ New Project**.
 2. Fill in **Site Name \***, **Address \***, **Postcode** and **Job Number** (or leave the automatic one). A number another job has isn't taken.
-3. Type the **Client Name \*** and **Client Number**, side by side. Directory clients come up as you type. Add the **Client Email**.
+3. Type the **Client Name \***; Directory clients come up as you type. Click **Contact Name** to choose one of the client's contacts (from the Directory, past projects and quotes); it fills **Contact Number** and **Contact Email**. Or type them in.
 4. Tick **Multi-site job (several addresses / plots)** or **Repair / maintenance contract** if needed.
 5. Tick **Create OneDrive folder** to make the job's folders.
 6. Choose **Active** or **Upcoming**, and the **Start date \***. Click **Create Project**.

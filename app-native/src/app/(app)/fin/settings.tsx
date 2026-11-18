@@ -254,8 +254,11 @@ function VatRates({ s, canEdit, onSaved }: { s: Row; canEdit: boolean; onSaved: 
       {list.map((r, i) => (
         <View key={r.code} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingVertical: 6, borderTopWidth: i ? 1 : 0, borderTopColor: '#F0F1F4', opacity: r.active ? 1 : 0.5 }}>
           <TextInput editable={canEdit} value={r.name} onChangeText={(v) => set(i, { name: v })} style={[box, { flexGrow: 1, flexBasis: 200, minWidth: 0 }]} />
-          <TextInput editable={canEdit && !!r.custom} value={String(r.rate)} onChangeText={(v) => set(i, { rate: v.replace(/[^0-9.]/g, '') as never })} keyboardType="decimal-pad" style={[box, { width: 56 }]} />
-          <Text style={{ color: base.slate }}>%</Text>
+          {/* A built-in rate's % is the law's, so it's words, not a box that won't type (Andy, 18 Nov 2026: "trying to edit
+              vat rates ... it wouldn't let me"); your own rates keep a box. */}
+          {canEdit && r.custom
+            ? <><TextInput value={String(r.rate)} onChangeText={(v) => set(i, { rate: v.replace(/[^0-9.]/g, '') as never })} keyboardType="decimal-pad" accessibilityLabel={`${r.name || 'New rate'} %`} style={[box, { width: 56 }]} /><Text style={{ color: base.slate }}>%</Text></>
+            : <Text accessibilityLabel={`${r.name} is ${r.rate}%`} style={{ color: base.ink, minWidth: 40 }}>{r.rate}%</Text>}
           <Pressable disabled={!canEdit || !r.custom} onPress={() => set(i, { rc: !r.rc })}><Text style={{ color: base.ink }}>{r.rc ? '☑' : '☐'} RC</Text></Pressable>
           <Pressable disabled={!canEdit} onPress={() => set(i, { active: !r.active })}><Text style={{ color: base.ink }}>{r.active ? '☑' : '☐'} In use</Text></Pressable>
         </View>

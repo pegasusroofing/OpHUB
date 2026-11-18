@@ -439,8 +439,8 @@ PMs use the phone on site and the laptop in the office. Everything below works o
 
 1. Tap the red **+** in the bottom bar on the projects list.
 2. Fill in **Site Name \***, **Address \***, **Postcode** and **Job Number** (or leave the automatic one). A number another job has isn't taken.
-3. Type the **Client Name \*** and **Client Number**, side by side. Clients from the Directory come up as you type.
-4. Add the **Client Email**.
+3. Type the **Client Name \***. Clients from the Directory come up as you type.
+4. **Contact Name** and **Contact Number** sit side by side, with **Contact Email** under them. Tap **Contact Name** to choose one of the client's contacts (from the Directory, past projects and quotes); it fills the number and email. Or type them in.
 5. Tick **Multi-site job** or **Repair / maintenance contract** if it is one. Tick **Create OneDrive folder** to make its folders.
 6. Choose **Active** or **Upcoming** and the **Start date \***. Tap **Create Project**.
 
