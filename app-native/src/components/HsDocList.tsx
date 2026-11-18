@@ -12,6 +12,7 @@ import { testFill } from '@/data/signTemplates';
 import { supabase } from '@/lib/supabase';
 import { useCallback, useState, type ReactNode } from 'react';
 import { Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ClientSignLines } from '@/components/ClientSignLines';
 import { Portal } from '@/components/Portal';
@@ -124,6 +125,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
   useFocusEffect(useCallback(() => { setFocused(true); return () => setFocused(false); }, []));
   const narrow = useWindowDimensions().width < 700;
   const desk = useDesk();
+  const insets = useSafeAreaInsets();
   if (!me) return null;
   const manager = canManage ?? isManager(me);
   // Sign Off H&S (Admin › Roles): without it a manager sees RAMS / COSHH read-only. Site layouts and a subcontractor's own admin are unchanged.
@@ -213,9 +215,10 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
     toast(n === ids.length ? `${n} deleted` : `Only ${n} of ${ids.length} could be deleted — try again.`, { confirm: true });
   };
   // Drawn on top of the page (Portal), not inside the scrolling list: inside it, the bar scrolled up with the page and
-  // sat in the middle of the screen once there were a few RAMS (Andy, 14 Nov 2026).
+  // sat in the middle of the screen once there were a few RAMS (Andy, 14 Nov 2026). On a phone it sits just above the
+  // bottom menu, the iPhone's home-line space included (Andy, 18 Nov 2026: "the pop up bar sits too low").
   const bar = manager && kind !== 'layout' && sel.size > 0 && focused ? (<Portal>
-    <View style={{ position: (Platform.OS === 'web' ? 'fixed' : 'absolute') as 'absolute', left: desk ? 264 : 12, right: desk ? 24 : 12, bottom: desk ? 16 : 84, zIndex: 50, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: base.ink, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}>
+    <View style={{ position: (Platform.OS === 'web' ? 'fixed' : 'absolute') as 'absolute', left: desk ? 264 : 12, right: desk ? 24 : 12, bottom: desk ? 16 : 76 + insets.bottom, zIndex: 50, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: base.ink, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}>
       <Text style={{ flex: 1, color: '#fff', fontWeight: '600', fontSize: 13.5 }}>{sel.size} Selected</Text>
       <Pressable accessibilityRole="button" disabled={busy} onPress={async () => { setBusy(true); toast('Building signed PDF…'); try { const b = await pack(ordered(sel)); if (b && !(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); } finally { setBusy(false); } }} style={{ paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: '#fff', fontWeight: '500' }}>📄 Export</Text></Pressable>
       <Pressable accessibilityRole="button" disabled={busy} onPress={() => void emailIds(ordered(sel))} style={{ paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: '#fff', fontWeight: '500' }}>✉ Email</Text></Pressable>

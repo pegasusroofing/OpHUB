@@ -30,6 +30,19 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.goto(B + '/pm/admin/invites'); await page.waitForTimeout(4000);
   t = await page.evaluate(() => [...document.querySelectorAll('input, textarea')].map((i) => i.value).join(' ')); // the link sits in a box
   check(t.includes(`${B}/join/`) && !t.includes('app.html#'), `invite links open the new app's join page (${(t.match(/\S*\/join\/\S*/) || [''])[0]})`);
+  // Room above One-Time Invite, and Copy Link says it's copied ("it doesn't animate that anything has been copied").
+  const gap = await page.evaluate(() => {
+    const h = [...document.querySelectorAll('div[dir="auto"]')].find((e) => /^One-Time Invite$/i.test(e.textContent.trim()));
+    const btns = [...document.querySelectorAll('[role="button"]')].filter((b) => b.getBoundingClientRect().bottom <= (h?.getBoundingClientRect().top ?? 0));
+    return h && btns.length ? Math.round(h.getBoundingClientRect().top - Math.max(...btns.map((b) => b.getBoundingClientRect().bottom))) : null;
+  });
+  check(gap !== null && gap >= 18, `room above One-Time Invite (${gap}px)`);
+  await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], {origin: B});
+  await page.getByText('Copy Link', {exact: true}).first().click(); await page.waitForTimeout(400);
+  check(await page.getByText('Copied ✓', {exact: true}).count() === 1, 'Copy Link changes to Copied ✓');
+  await page.screenshot({path: path.join(SHOTS, 'invites-copied-laptop.png')});
+  await page.waitForTimeout(2200);
+  check(await page.getByText('Copied ✓', {exact: true}).count() === 0, 'and back to Copy Link after a moment');
   await ctx.close();
 
   // ---- The form, signed out, on a phone ----

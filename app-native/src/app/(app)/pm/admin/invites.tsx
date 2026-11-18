@@ -22,19 +22,22 @@ export default function Invites() {
   const { data } = useInvites(me?.org_id);
   const [role, setRole] = useState('operative');
   const [newId, setNewId] = useState<string | null>(null);
+  // Which link was just copied: its button says Copied ✓ and its box goes green for a moment (Andy, 18 Nov 2026: "When I
+  // click copy link it doesn't animate that anything has been copied").
+  const [copied, setCopied] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['invites'] }); };
-  const share = async (link: string) => {
+  const share = async (link: string, which: string) => {
     const text = `${org?.name || 'Company'} x OpHUB Invite Link\n${link}`;
     try {
-      if (Platform.OS === 'web' && globalThis.navigator?.clipboard) { await globalThis.navigator.clipboard.writeText(text); toast('Link copied'); }
+      if (Platform.OS === 'web' && globalThis.navigator?.clipboard) { await globalThis.navigator.clipboard.writeText(text); setCopied(which); setTimeout(() => setCopied((c) => (c === which ? null : c)), 1800); }
       else await Share.share({ message: text });
     } catch { toast('Could not copy — select and copy the link manually.'); }
   };
-  const linkBox = (link: string) => <TextInput value={link} editable={false} selectTextOnFocus style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 8, fontSize: 11.5, color: base.ink, marginBottom: 8 }} />;
+  const linkBox = (link: string, which?: string) => <TextInput value={link} editable={false} selectTextOnFocus style={{ borderWidth: 1, borderColor: copied && copied === which ? base.ok : base.line, backgroundColor: copied && copied === which ? '#F2FBF6' : undefined, borderRadius: radius.input, padding: 8, fontSize: 11.5, color: base.ink, marginBottom: 8 }} />;
   const perm = data?.permanent;
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
@@ -43,8 +46,8 @@ export default function Invites() {
         {perm ? (
           <>
             <Muted style={{ marginBottom: 8 }}>Share this one link with as many operatives as you like — it never expires and can be used more than once. Used {perm.use_count || 0} time{perm.use_count === 1 ? '' : 's'} so far.</Muted>
-            {linkBox(joinLink(perm.id))}
-            <Button kind="ghost" title={Platform.OS === 'web' ? 'Copy Link' : 'Share Link'} onPress={() => void share(joinLink(perm.id))} />
+            {linkBox(joinLink(perm.id), 'perm')}
+            <Button kind="ghost" title={Platform.OS === 'web' ? (copied === 'perm' ? 'Copied ✓' : 'Copy Link') : 'Share Link'} onPress={() => void share(joinLink(perm.id), 'perm')} />
             <Button kind="ghost" title="Revoke & Create New Link" onPress={async () => {
               if (!(await confirmAsk("This stops the current link from working — anyone who already joined stays on your team, but the link itself won't sign anyone new up any more. You can create a fresh one straight after. Continue?", 'Revoke'))) return;
               toast((await revokeInvite(perm.id)) ? 'Old link revoked' : 'Could not revoke — try again.'); refresh();
@@ -56,12 +59,12 @@ export default function Invites() {
             <Button busy={busy === 'perm'} title="Create Permanent Invite Link" onPress={async () => { setBusy('perm'); const ok = await createPermanentInvite(me); setBusy(null); toast(ok ? 'Permanent invite link created' : 'Could not create — try again.'); refresh(); }} />
           </>
         )}
-        <SectionTitle>One-time invite</SectionTitle>
+        <View style={{ marginTop: 20 }}><SectionTitle>One-Time Invite</SectionTitle></View>
         {newId ? (
           <>
             <Muted style={{ marginBottom: 8 }}>Share this link — it works once, for the next 14 days:</Muted>
-            {linkBox(joinLink(newId))}
-            <Button kind="ghost" title={Platform.OS === 'web' ? 'Copy Link' : 'Share Link'} onPress={() => void share(joinLink(newId))} />
+            {linkBox(joinLink(newId), 'one')}
+            <Button kind="ghost" title={Platform.OS === 'web' ? (copied === 'one' ? 'Copied ✓' : 'Copy Link') : 'Share Link'} onPress={() => void share(joinLink(newId), 'one')} />
             <Muted style={{ marginTop: 10, marginBottom: 6 }}>Or email it to them — a branded invite email with a button that takes them straight to sign-up.</Muted>
             <TextInput value={email} onChangeText={setEmail} placeholder="operative@example.com" autoCapitalize="none" keyboardType="email-address" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 8 }} />
             <Button busy={busy === 'email'} title="Send Invite Email" onPress={async () => {
@@ -82,7 +85,7 @@ export default function Invites() {
         )}
         {!!data?.pending.length && (
           <>
-            <SectionTitle>Pending invites</SectionTitle>
+            <View style={{ marginTop: 20 }}><SectionTitle>Pending Invites</SectionTitle></View>
             {data.pending.map((i) => (
               <View key={i.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: base.line }}>
                 <View style={{ flex: 1 }}>

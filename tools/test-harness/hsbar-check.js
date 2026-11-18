@@ -22,6 +22,12 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   const t = await page.evaluate(() => document.body.innerText);
   check(/\d+ Selected/.test(t) && /📄 Export/.test(t) && /✉ Email/.test(t) && !/\bClear\b/.test(t), 'bar shows count, Export, Email, no Clear');
   check(await page.getByLabel('Delete selected').count() > 0, 'bar has the bin');
+  // Above the bottom menu, not over it (Andy, 18 Nov 2026: "the pop up bar sits too low").
+  // The bar's words end 12px above its own bottom edge; the menu's icons sit 24px above their words.
+  const barText = await page.getByText(/^[0-9]+ Selected$/).first().boundingBox();
+  const homeText = await page.getByText('Home', {exact: true}).last().boundingBox();
+  const fit = barText && homeText ? {barBottom: Math.round(barText.y + barText.height + 12), menuTop: Math.round(homeText.y - 24)} : null;
+  check(!!fit && fit.barBottom <= fit.menuTop, `the bar sits above the bottom menu (${JSON.stringify(fit)})`);
   await page.screenshot({path: path.join(__dirname, 'shots', 'job', 'hsbar-phone.png')});
   await page.getByLabel('Delete selected').click(); await page.waitForTimeout(600);
   check(await page.getByText(/and all (its|their) signatures\? This cannot be undone/).count() > 0, 'the bin asks first');

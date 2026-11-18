@@ -138,6 +138,9 @@ export function AppBar({ title, onBack, home, right, noHistory, routeName }: { t
     if (path.startsWith('/fin')) { const prev = takeFinBack(); if (prev) { router.navigate(prev as never); return; } }
     const from = takeJump(path.replace(/\/$/, '') || path);
     if (from) { router.navigate(from as never); return; }
+    // A project's home screen goes back to Home, not the list of projects (Andy, 18 Nov 2026: "When I'm in the Home Screen of
+    // projects and I click back it needs to take me to the Home Screen").
+    if (jobHome && !fin) { router.navigate('/home' as never); return; }
     // A manager on a job goes up one level; a page further in than the trail shows, and everyone else, keeps its own back.
     const up = site && isManager(me) && (pageTrail || path.split('/').filter(Boolean).length <= 4) ? [...crumbs].reverse().find((c) => c[1])?.[1] : null;
     if (up) { router.navigate(up as never); return; }
