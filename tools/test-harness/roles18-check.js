@@ -65,9 +65,10 @@ const seedRoles = (db, org) => {
   await page.goto(B + '/pm/admin'); await page.waitForTimeout(4000);
   let t = await body();
   check(/Material Costs For Operatives/.test(t), 'People: Material Costs For Operatives');
-  await page.getByRole('tab', {name: 'Company'}).click(); await page.waitForTimeout(700);
+  // Since the sub tabs (later on 18 Nov), Company's pages are tabs: no Home Page among them, Expenses is.
+  await page.getByRole('tab', {name: 'Company'}).click(); await page.waitForTimeout(3000);
   t = await body();
-  check(!/Home Page/.test(t) && /\nExpenses\n/.test(t) && /who books them in Finance/i.test(t), 'Company: no Home Page (it\'s in Roles); Expenses says who books them');
+  check(!/Home Page/.test(t) && /\nExpenses\n/.test(t), 'Company: no Home Page (it\'s in Roles); Expenses there');
 
   // 3: operatives one by one.
   await page.goto(B + '/pm/admin/matcosts'); await page.waitForTimeout(4000);

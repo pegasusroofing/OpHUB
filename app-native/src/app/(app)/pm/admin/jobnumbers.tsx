@@ -4,7 +4,7 @@
 // Numbers changes: number new jobs automatically (Yes / No), an optional prefix and the next number. Jobs made in
 // Projects or in Finance both take the next number, and the database won't give two jobs the same number.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { router, Stack } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
@@ -37,6 +37,7 @@ function NumbersForm({ o, orgId }: { o: Nums; orgId: string }) {
   const [prefix, setPrefix] = useState(o.job_number_prefix || '');
   const [next, setNext] = useState(o.next_job_number != null ? String(o.next_job_number) : '');
   const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
   const n = Number(next);
   const save = async () => {
     const p = prefix.trim();
@@ -48,7 +49,9 @@ function NumbersForm({ o, orgId }: { o: Nums; orgId: string }) {
     setBusy(false);
     if (r.error || !(r.data as unknown[] | null)?.length) { showAlert('That couldn’t be saved. Try again.'); return; }
     ['orgNums', 'finOrgNums'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
-    router.back();
+    // The Admin Centre has tabs now, with no list to step back to, so it stays here and the button says Saved until
+    // something changes (Andy, 18 Nov 2026: "more tab style please and sub tabs").
+    setSaved(true);
   };
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
@@ -56,19 +59,19 @@ function NumbersForm({ o, orgId }: { o: Nums; orgId: string }) {
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 10 }}>
           <Text style={{ flex: 1, fontSize: 14, fontWeight: '500', color: base.ink }}>Number new jobs automatically?</Text>
-          <YesNo label="Number new jobs automatically" value={auto} onChange={setAuto} />
+          <YesNo label="Number new jobs automatically" value={auto} onChange={(x) => { setAuto(x); setSaved(false); }} />
         </View>
         {auto ? (
           <>
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <View style={{ flex: 1 }}><Field label="Prefix (Optional)" value={prefix} onChangeText={setPrefix} placeholder="e.g. RTB-" autoCapitalize="characters" /></View>
-              <View style={{ flex: 1 }}><Field label="Next Number" value={next} onChangeText={(v) => setNext(v.replace(/[^0-9]/g, ''))} keyboardType="number-pad" placeholder="e.g. 2700" /></View>
+              <View style={{ flex: 1 }}><Field label="Prefix (Optional)" value={prefix} onChangeText={(x) => { setPrefix(x); setSaved(false); }} placeholder="e.g. RTB-" autoCapitalize="characters" /></View>
+              <View style={{ flex: 1 }}><Field label="Next Number" value={next} onChangeText={(v) => { setNext(v.replace(/[^0-9]/g, '')); setSaved(false); }} keyboardType="number-pad" placeholder="e.g. 2700" /></View>
             </View>
             <Muted style={{ marginBottom: 10 }}>The next new job will be {prefix.trim()}{next || '…'}, whether it&apos;s set up in Projects or in Finance.</Muted>
           </>
         ) : <Muted style={{ marginBottom: 10 }}>Each new job&apos;s number is typed in when it&apos;s set up. A number already used on another job won&apos;t be taken.</Muted>}
         <Muted style={{ marginBottom: 12 }}>This is the same setting as Finance › Settings › Project Numbers.</Muted>
-        <View style={{ alignItems: 'center' }}><Button busy={busy} title="Save" onPress={() => void save()} /></View>
+        <View style={{ alignItems: 'center' }}><Button busy={busy} disabled={saved} title={saved ? 'Saved' : 'Save'} onPress={() => void save()} /></View>
       </Card>
     </ScrollView>
   );

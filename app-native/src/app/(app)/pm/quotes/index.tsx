@@ -207,7 +207,7 @@ export default function Quotes() {
       {!rows.length && <Text style={{ padding: 14, textAlign: 'center', color: base.slate, borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>No quotes match.</Text>}
       {rows.slice(0, shown).map((x) => (
         <View key={x.id} style={{ flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>
-          <Pressable accessibilityRole="button" accessibilityLabel={x.title} onPress={() => go(x)} style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 9, paddingLeft: 10 }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={x.title} onPress={() => go(x)} style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingLeft: 10 }}>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '600', color: base.ink }}>{x.title}</Text>
               <Text numberOfLines={1} style={{ fontSize: 11, color: base.slate, marginTop: 1 }}>
@@ -230,7 +230,8 @@ export default function Quotes() {
   );
   // A laptop: the Finance table, columns to suit the tab.
   const deskCols = [
-    { k: 'p', l: 'Project', flex: 2, min: 200, text: (x: Quote) => `${x.title} ${x.address || ''} ${x.client_name || ''}`, render: (x: Quote) => <View style={{ alignItems: 'center' }}><Cell bold>{x.title}</Cell>{x.address ? <Text numberOfLines={1} style={{ fontSize: 11, color: base.slate }}>{x.address}</Text> : null}</View>, sort: (x: Quote) => x.title },
+    { k: 'p', l: 'Project', flex: 2, min: 200, text: (x: Quote) => `${x.title} ${x.address || ''} ${x.client_name || ''}`, // Just the name: no address under it, so the rows are shallower (Andy, 18 Nov 2026: "we dont need the address underneath"). The box above still finds the address.
+    render: (x: Quote) => <Cell bold>{x.title}</Cell>, sort: (x: Quote) => x.title },
     { k: 'c', l: 'Customer', flex: 1.5, min: 140, text: (x: Quote) => clientNames(x).join(' '), render: (x: Quote) => <View style={{ alignItems: 'center' }}><Cell>{x.client_name}</Cell>{x.others?.length ? <Text numberOfLines={1} style={{ fontSize: 11, color: base.slate }}>also {x.others.map((o) => o.client_name).join(', ')}</Text> : null}</View>, sort: (x: Quote) => x.client_name },
     ...(tab === 'live' ? [
       { k: 'di', l: 'Discipline', choices: distinct((x) => x.discipline), render: (x: Quote) => <Cell>{x.discipline || '—'}</Cell>, sort: (x: Quote) => x.discipline || '' },
@@ -287,7 +288,7 @@ export default function Quotes() {
         </>
       )}
       {isLoading ? <Muted>Loading…</Muted> : list.length ? (desk ? (
-        <FinTable rows={list} keyOf={(x) => x.id} onRow={go} defaultSort={{ k: 'd', dir: tab === 'live' ? 'asc' : 'desc' }} cols={deskCols}
+        <FinTable filters dense rows={list} keyOf={(x) => x.id} onRow={go} defaultSort={{ k: 'd', dir: tab === 'live' ? 'asc' : 'desc' }} cols={deskCols}
           footLabel={(l) => `${l.length} Quote${l.length === 1 ? '' : 's'}`} />
       ) : (
         <>

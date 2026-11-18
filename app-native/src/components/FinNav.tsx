@@ -2,7 +2,7 @@
 // wrapper with the access check, and small shared bits (stat tile, row, chip).
 import { useQuery } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
-import { useCallback, useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -53,10 +53,11 @@ export function FinTabRow({ children, style }: { children: ReactNode; style?: ob
 }
 /** One underlined tab, as the top Finance row: bold with a line in the company colour when on, grey when not.
  *  A count sits beside the name: grey, or amber for things waiting (Andy, 5 Nov 2026). */
-export function TabItem({ on, label, n, amber, onPress, fill }: { on: boolean; label: string; n?: number; amber?: boolean; onPress: () => void; fill?: boolean }) {
+/** pad: the space either side of the label (14 unless said; the Admin Centre's five tabs on a phone use less). */
+export function TabItem({ on, label, n, amber, onPress, fill, pad }: { on: boolean; label: string; n?: number; amber?: boolean; onPress: () => void; fill?: boolean; pad?: number }) {
   const t = useTheme();
   return (
-    <Pressable onPress={onPress} accessibilityRole="tab" accessibilityState={{ selected: on }} style={[{ paddingVertical: 10, paddingHorizontal: fill ? 4 : 14, borderBottomWidth: 2, borderBottomColor: on ? t.brand1 : 'transparent' }, fill ? { flex: 1, minWidth: 0, alignItems: 'center' } : null]}>
+    <Pressable onPress={onPress} accessibilityRole="tab" accessibilityState={{ selected: on }} style={[{ paddingVertical: 10, paddingHorizontal: pad ?? (fill ? 4 : 14), borderBottomWidth: 2, borderBottomColor: on ? t.brand1 : 'transparent' }, fill ? { flex: 1, minWidth: 0, alignItems: 'center' } : null]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
         <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 13, fontWeight: on ? '700' : '600', color: on ? '#111827' : '#6b7280' }}>{label}</Text>
         {n ? <Text accessibilityLabel={amber ? `${n} waiting` : undefined} style={{ fontSize: 10.5, fontWeight: '700', color: amber ? '#B45309' : on ? '#111827' : '#6b7280', backgroundColor: amber ? '#FDF1E0' : '#EEF0F3', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 5, overflow: 'hidden' }}>{n}</Text> : null}
@@ -182,6 +183,10 @@ export function KeepInView({ on, items, render }: { on?: string; items: [string,
 /** The Settings tabs: Settings, Cost Codes, Templates and Team live on different pages. */
 export const finSettingsGo = (k: string) => router.replace(({ general: '/fin/settings', codes: '/fin/directory?kind=codes', templates: '/fin/templates', team: '/fin/team' } as Record<string, string>)[k] as never);
 
+/** Inside the Admin Centre (Andy, 18 Nov 2026: "more tab style please and sub tabs"): a Finance settings page (Cost
+ *  Codes, Templates) without Finance's own tabs, as the Admin Centre's tabs are above it. */
+export const FinBare = createContext(false);
+
 /** subRight: a button at the right-hand end of the second tab row (+ New PO, Andy 5 Nov 2026). */
 export function FinPage({ title, section, sub, onSub, badges, children, wide, top, foot, subRight }: { title: string; section: string; sub?: string; onSub?: (k: string) => void; badges?: Record<string, number>; children: ReactNode; wide?: boolean; top?: ReactNode; foot?: ReactNode; subRight?: ReactNode }) {
   const { me, org } = useAuth();
@@ -193,6 +198,14 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide, to
   // Team only for Finance-only companies, which have no Admin Centre; everyone else switches Finance on in Admin › Users.
   const subs = (FIN_SUBS[section] || []).filter(([k]) => !(section === 'settings' && k === 'team' && org?.has_pm !== false));
   const insets = useSafeAreaInsets();
+  const bare = useContext(FinBare);
+  if (bare) return (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={page(wide ? 1200 : 900)} keyboardShouldPersistTaps="handled">
+      {!me ? null : !isFinanceUser(me, org) ? <Muted>OpHUB Finance isn&apos;t switched on for your account.</Muted> : (
+        <>{!canEditFinance(me) && <Muted style={{ marginBottom: 8 }}>View Only</Muted>}<FinMode.Provider value>{children}</FinMode.Provider></>
+      )}
+    </ScrollView>
+  );
   return (
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={[page(wide ? 1200 : 900), { paddingTop: 0 }]} keyboardShouldPersistTaps="handled">

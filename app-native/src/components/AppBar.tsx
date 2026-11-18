@@ -9,6 +9,7 @@ import { type ReactNode, useState } from 'react';
 import { Platform, Pressable, Share, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AdminTabs, useAdminTab } from '@/components/AdminTabs';
 import { useTrail } from '@/components/Crumbs';
 import { FIN_SUBS, FinJobTabs } from '@/components/FinNav';
 import { openSideMenu } from '@/components/SideMenu';
@@ -50,7 +51,8 @@ async function copyAddress(a: string): Promise<boolean> {
 }
 const titleCase = (x: string) => x.replace(/[A-Za-z][A-Za-z'’.]*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1));
 
-export function AppBar({ title, onBack, home, right, noHistory }: { title?: string; onBack?: () => void; home?: boolean; right?: ReactNode; noHistory?: boolean }) {
+/** routeName: the page's own name in its navigator, so a page kept open behind another doesn't draw the Admin Centre's tabs. */
+export function AppBar({ title, onBack, home, right, noHistory, routeName }: { title?: string; onBack?: () => void; home?: boolean; right?: ReactNode; noHistory?: boolean; routeName?: string }) {
   const { org, me } = useAuth();
   const t = useTheme();
   const desk = useDesk();
@@ -69,7 +71,9 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   const finJobSub = (path.match(/^\/fin\/job\/([0-9a-f-]{36})$/) || [])[1];
   const finClient = finJobSub ? sites?.find((s) => s.id === finJobSub)?.client_name : null;
   const sub = home ? 'OpHUB' : fin ? (finJobSub ? `Finance${finClient ? ` · ${finClient}` : ''}` : title === 'OpHUB Finance' ? finSub : 'OpHUB Finance') : site ? fullSiteAddress(site) || site.name : org?.name || 'OpHUB';
-  const main = home ? org?.name || 'OpHUB' : title || '';
+  // The Admin Centre's pages sit under its tabs, so the bar names the Admin Centre (Andy, 18 Nov 2026: "sub tabs").
+  const adminAt = useAdminTab(routeName);
+  const main = home ? org?.name || 'OpHUB' : adminAt ? 'Admin Centre' : title || '';
   const sName = site ? [site.job_number, site.name].filter(Boolean).join(' ') : '';
   // Finance trail, the whole way down (Andy, 1 Nov 2026): Finance › Projects › SBX-107 Andy House › Project Admin, or
   // Finance › Purchases › Purchase invoices. Every step but the last is a link.
@@ -139,6 +143,8 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
     if (up) { router.navigate(up as never); return; }
     // Finance and manager pages one level in always go up: the section keeps old pages behind them, so history could land anywhere.
     // A page with no history at all, as after a refresh, goes up too rather than to Home.
+    // The Admin Centre's tabs swap one page for another, so back leaves the Admin Centre: to the page before it, or Home.
+    if (adminAt) { if (noHistory) router.navigate('/home' as never); else onBack?.(); return; }
     const clean = path.replace(/\/$/, '');
     if (noHistory || /^\/(pm|fin)(\/[^/]+)?$/.test(clean)) { router.navigate(parentOf(clean) as never); return; }
     onBack?.();
@@ -232,6 +238,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
           ))}
         </View>
       )}
+      {!!adminAt && <AdminTabs at={adminAt} />}
     </View>
   );
 }
@@ -241,7 +248,7 @@ type HeaderProps = { options: { title?: string; headerRight?: (p: { tintColor?: 
 export const stackHeader = {
   // First page of a section (opened from the menu): back goes Home, as the current app's back arrow did.
   header: (p: HeaderProps) => (
-    <AppBar title={p.options.title ?? p.route.name} right={p.options.headerRight?.({ canGoBack: !!p.back })}
+    <AppBar title={p.options.title ?? p.route.name} routeName={p.route.name} right={p.options.headerRight?.({ canGoBack: !!p.back })}
       noHistory={!p.back} onBack={p.back ? () => p.navigation.goBack() : () => router.navigate('/home' as never)} />
   ),
   contentStyle: { backgroundColor: base.paper },

@@ -51,15 +51,19 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.goto(B + '/pm/admin'); await page.waitForTimeout(4500);
   t = await body();
   const tabs = await page.evaluate(() => [...document.querySelectorAll('[role="tab"]')].filter((e) => e.getBoundingClientRect().width > 0).map((e) => e.innerText.trim()));
-  check(JSON.stringify(tabs) === JSON.stringify(['People', 'Libraries', 'Company']), `Admin Centre: People, Libraries and Company tabs, as Finance (${tabs.join(', ')})`);
+  // The tabs since the later 18 Nov redo: People · Projects · (Finance) · H&S · Company.
+  // (Then sub tabs: that tab's pages follow the main row.)
+  check(tabs[0] === 'People' && tabs[1] === 'Projects' && tabs.includes('H&S') && tabs.includes('Company') && !tabs.includes('Libraries'),`Admin Centre: People, Projects, H&S and Company tabs, as Finance (${tabs.join(', ')})`);
   check(/Users\n/.test(t) && /Invites\n/.test(t) && /Roles\n/.test(t) && !/Users & invites/.test(t), 'People shows its rows straight away (Users, Invites, Roles)');
   check(!/Sign Out/.test(t) && !/My Signature/.test(t) && !/Finance \(Trial\)/.test(t), 'no footer of links (they\'re in Settings)');
   check(await page.evaluate(() => [...document.querySelectorAll('[role="button"]')].filter((b) => /^Users/.test(b.innerText.trim())).every((b) => !b.querySelector('svg') || b.querySelectorAll('svg').length === 1)), 'plain rows: no icon squares');
   await page.screenshot({path: path.join(SHOTS, 'admin-phone.png'), fullPage: true});
   await page.getByRole('tab', {name: 'Company'}).click(); await page.waitForTimeout(800);
   t = await body();
-  check(/Job Numbers/.test(t) && /Set-Up Guide/.test(t), 'Company: Job Numbers, and the Set-Up Guide');
+  check(/Set-Up Guide/.test(t), 'Company: the Set-Up Guide');
   await page.screenshot({path: path.join(SHOTS, 'admin-company-phone.png'), fullPage: true});
+  await page.getByRole('tab', {name: 'Projects'}).click(); await page.waitForTimeout(800);
+  check(/Job Numbers/.test(await body()), 'Projects: Job Numbers');
   await page.getByText('Job Numbers', {exact: true}).first().click(); await page.waitForTimeout(3000);
   check(new URL(page.url()).pathname === '/pm/admin/jobnumbers', 'Job Numbers opens');
   await page.getByLabel('Number new jobs automatically: Yes').or(page.getByText('Yes', {exact: true})).first().click(); await page.waitForTimeout(500);
@@ -140,7 +144,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.setViewportSize({width: 1300, height: 900});
   await page.goto(B + '/pm/admin'); await page.waitForTimeout(4500);
   await page.screenshot({path: path.join(SHOTS, 'admin-laptop.png'), clip: {x: 0, y: 0, width: 1300, height: 700}});
-  check((await page.evaluate(() => [...document.querySelectorAll('[role="tab"]')].filter((e) => e.getBoundingClientRect().width > 0).length)) === 3, 'laptop: the same three tabs');
+  check((await page.evaluate(() => [...document.querySelectorAll('[role="tab"]')].filter((e) => e.getBoundingClientRect().width > 0).map((e) => e.innerText.trim()))).filter((x) => ['People', 'Projects', 'Finance', 'H&S', 'Company'].includes(x)).length >= 4, 'laptop: the same main tabs');
 
   check(!errs.length, `no page errors ${errs.slice(0, 2).join(' | ')}`);
   await browser.close();

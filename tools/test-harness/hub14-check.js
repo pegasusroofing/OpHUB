@@ -128,7 +128,7 @@ const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.
   check(await page.getByLabel('Message', {exact: true}).count() > 0, 'Company Chat opens with its message box');
 
   // Admin › Toolbox Talks Required.
-  await page.goto(B + '/pm/admin?page=libraries'); await page.waitForTimeout(4000);
+  await page.goto(B + '/pm/admin?page=hs'); await page.waitForTimeout(4000);
   check(/Toolbox Talks Required/.test(await body()), 'Admin lists Toolbox Talks Required');
   await page.goto(B + '/pm/admin/tbtrule'); await page.waitForTimeout(4000);
   t = await body();

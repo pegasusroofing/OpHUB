@@ -79,7 +79,7 @@ On a laptop, the menu sits down the left-hand side. It's always there.
    - **TEAM:** **Hub** and **Dashboards** (▾ **Company**, **Operatives**).
    - **OFFICE:** **Finance**, then **HR**.
 4. **Operatives' menu:** **Home**, **My projects**, **Inbox**, **My Dashboard** and **Settings**.
-5. **THIS PROJECT** appears when you're inside a job: **Project Home**, **Schedule of Works**, **Health & Safety**, **Check In**, **Inbox**, and for managers **Price**, **Finance** and **Project Settings**.
+5. **THIS PROJECT** appears when you're inside a job: **Project Home**, **Schedule of Works**, **Health & Safety**, **Check In**, then **HUB** for managers (that job's messages and to-dos; operatives have **Inbox**), and for managers **Price**, **Finance** and **Project Settings**. On a job's page, managers have a **HUB** row in place of a To Do List.
 6. **Admin** is at the bottom, above your name and **Sign out**.
 
 The trail at the top of each page shows where you are. Click any part of it to go back.
@@ -598,7 +598,7 @@ Issuing creates two documents in the job's RAMS list for operatives to sign. Re-
 3. Use **🔔 Ask Outstanding to Sign**, then **✓ Mark as Completed**.
 4. Open **Daily Briefings**. Click **+ New Briefing**. Fill it in. Click **Complete Briefing**, then **Issue For Signing**.
 
-How often each job needs a talk is set in **Admin › Libraries › Toolbox Talks Required**.
+How often each job needs a talk is set in **Admin › H&S › Toolbox Talks Required**.
 
 ![Toolbox Talks](shots/laptop/pm-tbt.jpg)
 
@@ -620,7 +620,7 @@ How often each job needs a talk is set in **Admin › Libraries › Toolbox Talk
 
 1. **Accident / Incident:** read and export reports filed on the job.
 2. **Tools, HAVS & PUWER:** the HAVS log and the weekly PUWER roster. Click a tile's **⋮** to choose who sees it.
-3. **PPE:** click **+ Issue PPE**, or **Fulfil** a request. The company register is in **Admin › Libraries › PPE Log**.
+3. **PPE:** click **+ Issue PPE**, or **Fulfil** a request. The company register is in **Admin › H&S › PPE Log**.
 
 ![PPE for a manager](shots/laptop/pm-ppe.jpg)
 
@@ -727,7 +727,7 @@ How often each job needs a talk is set in **Admin › Libraries › Toolbox Talk
 3. Filter by template or surveyor.
 4. Tick completed ones. Click **Export PDF** or **Email**.
 
-Report templates are built in **Admin › Libraries › Report Templates**.
+Report templates are built in **Admin › Projects › Report Templates**.
 
 ![Reports & surveys](shots/laptop/pm-reports.jpg)
 
@@ -814,12 +814,14 @@ Report templates are built in **Admin › Libraries › Report Templates**.
 
 **What it's for:** your team's accounts and phones.
 
-1. Click **Admin** at the bottom of the menu. Tabs across the top, as in Finance: **People**, **Libraries** and **Company**. 🔍 searches them all.
+1. Click **Admin** at the bottom of the menu. Two rows of tabs, as in Finance: **People**, **Projects**, **Finance**, **H&S** and **Company**, then that tab's pages. Click one and it opens straight underneath. The Admin Centre opens on the page you last used. 🔍 at the end of the second row finds any page.
 2. **Invites:** **Create Permanent Invite Link**, or **Generate One-Time Invite Link** and **Send Invite Email**.
 3. **Users:** click a person to change their role or phone, or remove them.
 4. **Device Locks:** **Approve** or **Deny** new phones. **Unlock** a phone.
 5. **Check-In Logs** shows check-ins by site.
-6. **Company › Job Numbers:** number new jobs automatically, with an optional prefix (for example RTB-2700). It's the same setting as Finance › Settings › Project Numbers, so a job set up in Projects or in Finance takes the next number, and no two jobs share one.
+6. **Projects › Job Numbers:** number new jobs automatically, with an optional prefix (for example RTB-2700). It's the same setting as Finance › Settings › Project Numbers, so a job set up in Projects or in Finance takes the next number, and no two jobs share one. **Projects** also has the Schedule of Works Library, Rate Card, Suppliers, Main Contractor and the report and signing templates.
+7. **Finance** (people with Finance on): each of Finance's settings on its own row: **Invoice Numbers**, **Defaults For New Projects**, **On Your Invoices**, **VAT Rates**, **Company Overheads (OHP)**, **Purchase Orders**, **Purchase Invoices**, **Invoice Inbox**, **Cost Codes**, **Finance Templates** and **Xero**. Each is a tab under **Finance**. They're the same settings as Finance › Settings.
+8. **H&S:** the H&S Policy, PPE Log, HAVS Tools, RAMS and COSHH libraries, and Toolbox Talks.
 
 **What This Does In Finance:** an admin with Finance switches **Finance** on or off on each person's row in **Users**.
 
@@ -835,7 +837,9 @@ Report templates are built in **Admin › Libraries › Report Templates**.
 4. **Options** on the left are the parts it hasn't got. **In This Role** on the right are the parts it has.
 5. Click a part with **→** to add it to the role, or one with **←** to take it out. You can also drag a part across. Each change saves straight away.
 
-The parts: **Every Job**, **Create Projects**, **See Prices And Price Builder**, **Finance – View**, **Finance – Edit**, **Quotes**, **Schedule Of Works**, **Snags And Variations**, **Sign Off H&S**, **Raise Orders**, **Drawings And Documents**, **Team And Calendar**, **Manage People**, **Reports** and **Notifications And Emails**. Admins can always do everything.
+The parts: **Every Job**, **Create Projects**, **See Prices And Price Builder**, **See Material Costs**, **Finance – View**, **Finance – Edit**, **Money On Home**, **Quotes**, **Schedule Of Works**, **Snags And Variations**, **Sign Off H&S**, **Raise Orders**, **Drawings And Documents**, **Team And Calendar**, **Manage People**, **Reports** and **Notifications And Emails**. Admins can always do everything.
+
+**Money On Home** shows the money owed to you (Due In) and the OpHUB Finance tile on Home, for people with Finance on. **See Material Costs** shows material prices on a job's orders and shop. Operatives aren't on the board: switch material costs on for them one by one in **Admin › People › Material Costs For Operatives**. In **Users**, someone whose role has no **Finance – View** shows **Role Has No Finance**.
 
 **See Prices And Price Builder** shows a job's **Price** tile (each price, what's been booked against it and what's left), its **Price Sheets** for subcontractors (the price builder) and its **Subcontractors** tile. **Quotes** is the **Quotes** page, the tender tracker. Money in Finance follows **Finance – View** instead.
 

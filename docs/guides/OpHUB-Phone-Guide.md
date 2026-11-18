@@ -765,10 +765,12 @@ Use **👁 Preview RA** and **👁 Preview MS** to check before you issue.
 
 **What it's for:** your team's accounts.
 
-1. Tap the **Admin** tile on Home.
+1. Tap the **Admin** tile on Home. Two rows of tabs: **People**, **Projects**, **Finance**, **H&S** and **Company**, then that tab's pages (swipe the second row for more). Tap one and it opens straight underneath. 🔍 at the end of the second row finds any page.
 2. **People › Invites:** tap **Generate One-Time Invite Link** or **Send Invite Email**.
 3. **People › Users:** tap a person to change their role or phone, or remove them.
 4. **People › Device Locks:** **Approve** or **Deny** a new phone. **Unlock** a phone.
+5. **Projects › Job Numbers:** number new jobs automatically, with an optional prefix. Finance uses the same setting.
+6. **Finance** (people with Finance on): each of Finance's settings on its own row: **Invoice Numbers**, **Defaults For New Projects**, **On Your Invoices**, **VAT Rates**, **Company Overheads (OHP)**, **Purchase Orders**, **Purchase Invoices**, **Invoice Inbox**, **Cost Codes**, **Finance Templates** and **Xero**. Each is a tab under **Finance**. They're the same settings as Finance › Settings.
 
 **What This Does In Finance:** an admin with Finance switches **Finance** on or off on each person's row in Users.
 
@@ -784,7 +786,9 @@ Use **👁 Preview RA** and **👁 Preview MS** to check before you issue.
 4. **Options** on the left are the parts it hasn't got. **In This Role** on the right are the parts it has.
 5. Tap a part with **→** to add it, or one with **←** to take it out. It saves straight away.
 
-The parts are: **Every Job**, **Create Projects**, **See Prices And Price Builder**, **Finance – View**, **Finance – Edit**, **Quotes**, **Schedule Of Works**, **Snags And Variations**, **Sign Off H&S**, **Raise Orders**, **Drawings And Documents**, **Team And Calendar**, **Manage People**, **Reports** and **Notifications And Emails**.
+The parts are: **Every Job**, **Create Projects**, **See Prices And Price Builder**, **See Material Costs**, **Finance – View**, **Finance – Edit**, **Money On Home**, **Quotes**, **Schedule Of Works**, **Snags And Variations**, **Sign Off H&S**, **Raise Orders**, **Drawings And Documents**, **Team And Calendar**, **Manage People**, **Reports** and **Notifications And Emails**.
+
+**Money On Home** shows the money owed to you (Due In) and the OpHUB Finance tile on Home, for people with Finance on. **See Material Costs** shows material prices on a job's orders and shop. Operatives aren't on the board: switch material costs on for them one by one in **Admin › People › Material Costs For Operatives**.
 
 **See Prices And Price Builder** shows a job's **Price** tile (each price, what's been booked against it and what's left), its **Price Sheets** for subcontractors (the price builder) and its **Subcontractors** tile. **Quotes** is the **Quotes** page, the tender tracker. Money in Finance follows **Finance – View** instead.
 

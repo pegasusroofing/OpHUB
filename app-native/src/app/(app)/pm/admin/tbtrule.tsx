@@ -2,7 +2,7 @@
 // the rules for tbt required monthly in the admin please, some companies may have it more infrequent"). How often each
 // live project needs a Toolbox Talk issued and signed; the Hub and each project's Toolbox Talks page go by it. Saved on
 // the company (organizations.tbt_every), so phone and laptop match. Not set = every month, as before.
-import { router, Stack } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
@@ -30,6 +30,7 @@ export default function TbtRuleSettings() {
   const toast = useToast();
   const [picked, setV] = useState<TbtEvery | null>(null);
   const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
   const v = picked ?? tbtEvery(org?.tbt_every);
   if (!me) return null;
   if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Company admins only.</Muted>;
@@ -39,7 +40,9 @@ export default function TbtRuleSettings() {
     setBusy(false);
     if (r.error || !(r.data as unknown[] | null)?.length) { toast('Could not save — try again.'); return; }
     await refresh();
-    router.back();
+    // The Admin Centre has tabs now, with no list to step back to, so it stays here and the button says Saved until
+    // something changes (Andy, 18 Nov 2026: "more tab style please and sub tabs").
+    setSaved(true);
   };
   const p = tbtPeriod(v);
   const fmt = (d: Date) => d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -49,9 +52,9 @@ export default function TbtRuleSettings() {
       <Card>
         <Text style={{ fontSize: 15, fontWeight: '600', color: base.ink, marginBottom: 4 }}>How Often Does Each Live Project Need A Toolbox Talk?</Text>
         <Muted style={{ marginBottom: 12 }}>A talk issued on a project counts for the period it was issued in. Projects that are due or overdue show in the Hub and on the project&apos;s Toolbox Talks page.</Muted>
-        <SelectBox title="Toolbox Talks Required" value={v} options={TBT_EVERY.map((x) => [x.k, x.l])} onChange={setV} />
+        <SelectBox title="Toolbox Talks Required" value={v} options={TBT_EVERY.map((x) => [x.k, x.l])} onChange={(x) => { setV(x as TbtEvery); setSaved(false); }} />
         <Muted>{WHEN[v]}{p ? ` The current one is due by ${fmt(p.due)}.` : ''}</Muted>
-        <View style={{ marginTop: 14 }}><Button busy={busy} title="Save" onPress={() => void save()} /></View>
+        <View style={{ marginTop: 14 }}><Button busy={busy} disabled={saved} title={saved ? 'Saved' : 'Save'} onPress={() => void save()} /></View>
       </Card>
     </ScrollView>
   );

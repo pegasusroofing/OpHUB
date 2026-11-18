@@ -61,13 +61,15 @@ function nodeText(n: ReactNode): string {
   if (isValidElement(n)) { const p = n.props as { children?: ReactNode; label?: string; title?: string }; return [nodeText(p.children), p.label || '', p.title || ''].join(' '); }
   return '';
 }
-export function FinTable<T>({ cols: allCols, rows, keyOf, onRow, foot, onMenu, defaultSort, startFilter, tally, colsKey, footLabel, footRight, onPick }: {
+export function FinTable<T>({ cols: allCols, rows, keyOf, onRow, foot, onMenu, defaultSort, startFilter, tally, colsKey, footLabel, footRight, onPick, filters, dense }: {
   cols: FinCol<T>[]; rows: T[]; keyOf: (r: T) => string; onRow?: (r: T) => void; foot?: ReactNode | ((shown: T[]) => ReactNode); onMenu?: (r: T) => void; defaultSort?: FinSort;
   startFilter?: Record<string, string | string[]>; tally?: boolean;
   /** Turns on ⚙ Columns; the device remembers the choice under this name. */ colsKey?: string;
   /** With column totals: what sits at the left of the totals bar (e.g. "2 invoices"). */ footLabel?: (shown: T[]) => ReactNode;
   /** Extra things at the right of the totals bar (e.g. the month picker). */ footRight?: ReactNode;
   /** Told when a one-choice drop-down changes (e.g. to ask for custom dates). Return false to keep the old choice. */ onPick?: (k: string, v: string) => boolean | Promise<boolean>;
+  /** The search boxes under the headings even with no totals bar (Quotes' Live tab; Andy, 18 Nov 2026). */ filters?: boolean;
+  /** Shallower rows (Quotes; Andy, 18 Nov 2026: "the rows are a little deep"). */ dense?: boolean;
 }) {
   const t = useTheme();
   // startFilter: what the column filters hold when the table opens (Projects starts on Live): words for a typed box, a list for a
@@ -139,7 +141,7 @@ export function FinTable<T>({ cols: allCols, rows, keyOf, onRow, foot, onMenu, d
             ))}
               {onMenu ? <View style={{ width: 32 }} /> : null}
           </View>
-          {(!!foot || hasTotals) && (
+          {(!!foot || hasTotals || filters) && (
             <View style={{ flexDirection: 'row', paddingBottom: 8, paddingHorizontal: 8 }}>
               {cols.map((c) => <View key={c.k} style={cell(c)}>{!!c.l && dateOf(c) ? (
                 <Pressable onPress={(e) => { setAt({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY }); setDraft(dates[c.k] || { mode: 'on' }); setOpen(open === `date:${c.k}` ? '' : `date:${c.k}`); }} accessibilityRole="button" accessibilityLabel={`Filter ${c.l}`} style={[filterBox, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, borderColor: dates[c.k]?.mode ? t.brand1 : '#e5e7eb' }]}>
@@ -215,7 +217,7 @@ export function FinTable<T>({ cols: allCols, rows, keyOf, onRow, foot, onMenu, d
             {!shown.length && <Text style={{ padding: 14, textAlign: 'center', color: base.slate }}>Nothing matches those filters.</Text>}
             {drawn.map((r, i) => (
               <Pressable key={keyOf(r)} onPress={onRow ? () => onRow(r) : undefined}
-                style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', minHeight: 52, paddingVertical: 8, paddingHorizontal: 8, borderTopWidth: i ? 1 : 0, borderTopColor: '#F0F1F4' }, pressed && { backgroundColor: '#F8F9FB' }]}>
+                style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', minHeight: dense ? 40 : 52, paddingVertical: dense ? 5 : 8, paddingHorizontal: 8, borderTopWidth: i ? 1 : 0, borderTopColor: '#F0F1F4' }, pressed && { backgroundColor: '#F8F9FB' }]}>
                 {cols.map((c) => <View key={c.k} style={cell(c)} testID={`col-${c.k}`}>{c.render(r)}</View>)}
                 {onMenu ? <Pressable onPress={() => onMenu(r)} hitSlop={8} accessibilityLabel="More" style={{ width: 32, alignItems: 'center' }}><Text style={{ fontSize: 16, fontWeight: '600', color: base.slate }}>⋯</Text></Pressable> : null}
               </Pressable>
