@@ -77,6 +77,18 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   const vat = await page.evaluate(() => ({boxes: [...document.querySelectorAll('input')].filter((e) => e.getBoundingClientRect().width > 0 && /^\d+(\.\d+)?$/.test(e.value)).length, words: !!document.querySelector('[aria-label="20% VAT is 20%"]')}));
   check(vat.boxes === 0 && vat.words, `VAT rates: the built-in rates' % shown as words, no dead boxes (${JSON.stringify(vat)})`);
   await page.screenshot({path: path.join(SHOTS, 'vat-phone.png'), fullPage: true});
+  // Automatic numbers: the Job Number box is blocked out, phone and laptop ("if job numbers are automatic, block out
+  // manual entry in the cell ... same for laptop").
+  const jobBox = () => page.evaluate(() => { const l = [...document.querySelectorAll('div[dir="auto"]')].find((x) => /^Job Number$|^Project number \*$/.test(x.textContent.trim()) && x.getBoundingClientRect().width > 0); const i = l && l.parentElement.querySelector('input'); return i ? {value: i.value, bg: getComputedStyle(i).backgroundColor, ro: i.readOnly, blocked: getComputedStyle(i.parentElement).pointerEvents === 'none' || getComputedStyle(i).pointerEvents === 'none'} : null; });
+  for (const vp of [{width: 375, height: 812}, {width: 1300, height: 900}]) {
+    await page.setViewportSize(vp);
+    await page.goto(B + '/sites/new'); await page.waitForTimeout(4500);
+    const jb = await jobBox();
+    check(!!jb && /RTB-2700 \(given automatically\)/.test(jb.value) && jb.ro && jb.blocked && jb.bg === 'rgb(238, 240, 243)', `${vp.width < 800 ? 'phone' : 'laptop'}: automatic numbers, the Job Number box is greyed out and can't be typed in (${JSON.stringify(jb)})`);
+    if (vp.width > 800) await page.screenshot({path: path.join(SHOTS, 'newjob-auto-laptop.png'), clip: {x: 0, y: 0, width: 1300, height: 600}});
+    else await page.screenshot({path: path.join(SHOTS, 'newjob-auto-phone.png')});
+  }
+  await page.setViewportSize({width: 375, height: 812});
   // Back to typed numbers for the new-project checks.
   Object.assign(o, {auto_job_numbers: false});
 

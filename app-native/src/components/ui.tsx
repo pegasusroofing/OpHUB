@@ -41,10 +41,16 @@ export function Muted({ children, style }: { children: ReactNode; style?: object
 }
 
 export function Field({ label, ...props }: TextInputProps & { label: string }) {
+  // A box that can't be typed in looks it: grey, grey words, and no cursor (Andy, 18 Nov 2026: "if job numbers are
+  // automatic, block out manual entry in the cell"; phone and laptop).
+  const off = props.editable === false;
   return (
     <View style={{ marginBottom: space.m }}>
       <Text style={s.label}>{label}</Text>
-      <TextInput placeholderTextColor={base.slateLight} style={s.input} {...props} />
+      <View pointerEvents={off ? 'none' : 'auto'}>
+        <TextInput placeholderTextColor={base.slateLight} {...props} accessibilityState={{ ...props.accessibilityState, disabled: off }}
+          style={[s.input, off && { backgroundColor: '#EEF0F3', borderColor: '#E3E6EA', color: base.slate }, props.style]} />
+      </View>
     </View>
   );
 }
