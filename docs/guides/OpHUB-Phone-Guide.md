@@ -767,10 +767,11 @@ Use **👁 Preview RA** and **👁 Preview MS** to check before you issue.
 
 1. Tap the **Admin** tile on Home. Two rows of tabs: **People**, **Projects**, **Finance**, **H&S** and **Company**, then that tab's pages (swipe the second row for more). Tap one and it opens straight underneath. 🔍 at the end of the second row finds any page.
 2. **People › Invites:** tap **Generate One-Time Invite Link** or **Send Invite Email**.
-3. **People › Users:** tap a person to change their role or phone, or remove them.
-4. **People › Device Locks:** **Approve** or **Deny** a new phone. **Unlock** a phone.
-5. **Projects › Job Numbers:** number new jobs automatically, with an optional prefix. Finance uses the same setting.
-6. **Finance** (people with Finance on): each of Finance's settings on its own row: **Invoice Numbers**, **Defaults For New Projects**, **On Your Invoices**, **VAT Rates**, **Company Overheads (OHP)**, **Purchase Orders**, **Purchase Invoices**, **Invoice Inbox**, **Cost Codes**, **Finance Templates** and **Xero**. Each is a tab under **Finance**. They're the same settings as Finance › Settings.
+3. **People › Users:** tap a person to change their role or phone, or remove them. For an operative, **Open In Operatives Hub** shows their page, with their Subcontractor Form.
+4. **People › Check-In Logs:** everyone's check-ins, drivers too, between two dates. Choose who with **Type ▾**, or type a name or a role (for example "site managers").
+5. **People › Device Locks:** **Approve** or **Deny** a new phone. **Unlock** a phone.
+6. **Projects › Job Numbers:** number new jobs automatically, with an optional prefix. Finance uses the same setting.
+7. **Finance** (people with Finance on): Finance's settings in six tabs: **Sales** (invoice numbers, what goes on your invoices, defaults for new projects), **VAT & Overheads**, **Purchases** (purchase orders, purchase invoices, the invoice inbox), **Cost Codes**, **Templates** and **Xero**. They're the same settings as Finance › Settings.
 
 **What This Does In Finance:** an admin with Finance switches **Finance** on or off on each person's row in Users.
 
@@ -781,8 +782,8 @@ Use **👁 Preview RA** and **👁 Preview MS** to check before you issue.
 **What it's for:** deciding what each office role can use. Company admins only.
 
 1. Open **Admin › People › Roles**.
-2. Under **Your Roles**, choose a role from the drop-down ▾ for a short brief: what it uses the app as and who has it. Tap **Edit Role** to rename it or change **Uses The App As**. Tap **+ Add A Role** for a new one.
-3. Scroll to **What Each Role Can Do**. The role you chose opens there; change it with **Role ▾**. Only that role shows.
+2. One card: choose a role from the drop-down ▾ for a short brief: what it uses the app as and who has it. Tap **Edit Role** to rename it or change **Uses The App As**. Tap **+ Add A Role** for a new one.
+3. Under it, in the same card, **Options** and **In This Role** for that role. Admins, operatives and drivers say what they get instead.
 4. **Options** on the left are the parts it hasn't got. **In This Role** on the right are the parts it has.
 5. Tap a part with **→** to add it, or one with **←** to take it out. It saves straight away.
 
@@ -794,4 +795,4 @@ The parts are: **Every Job**, **Create Projects**, **See Prices And Price Builde
 
 **What This Does In Finance:** without **Finance – Edit**, Finance shows **View Only**. Without **Raise Orders**, **+ New** has no purchase or subcontractor orders.
 
-![What Each Role Can Do](shots/phone/pm-admin-roles.jpg)
+![Your Roles](shots/phone/pm-admin-roles.jpg)

@@ -47,6 +47,9 @@ export default function Users() {
     const { options, canRemove } = roleActionsFor(me, p, team);
     const full = isFullManager(me);
     const opts = [
+      // An operative's own page: their certificates, tools and Subcontractor Form (Andy, 18 Nov 2026: "when i click it
+      // should give me the option to go to operatives hub where it shows the subcontractor sign ups").
+      ...(p.role === 'operative' ? [{ key: 'hub', label: '👷 Open In Operatives Hub (Subcontractor Form)' }] : []),
       ...(options && roleChoices(options.map((o) => o.value), roles, iAmAdmin, accessOf(p)).filter((r) => r.id !== roleOf(p, roles)?.id).length ? [{ key: 'role', label: `Role: ${roleName(p, roles)} — change` }] : []),
       ...(full && p.role === 'operative' ? [{ key: 'subform', label: `📝 Sub form: ${p.subform_required === false ? 'Off' : 'On'}` }] : []),
       ...(p.id === me.id && isFinanceUser(me, org) ? [{ key: 'myfin', label: `💷 Finance: ${me.finance_hidden ? 'Off — turn on' : 'On — turn off'}` }] : []),
@@ -56,6 +59,7 @@ export default function Users() {
     ];
     if (!opts.length) return;
     const k = await chooseAction(p.name, opts);
+    if (k === 'hub') { router.push(`/pm/operatives/${p.id}` as never); return; }
     if (k === 'role' && options) {
       const choices = roleChoices(options.map((o) => o.value), roles, iAmAdmin, accessOf(p)).filter((r) => r.id !== roleOf(p, roles)?.id);
       const k2 = await chooseAction(`Change ${p.name}'s role`, choices.map((r) => ({ key: r.id, label: r.name })));
@@ -93,11 +97,7 @@ Pass it on securely — it won’t be shown again.`, 'Password reset');
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Users' }} />
-      {iAmAdmin && (
-        <Pressable accessibilityRole="button" accessibilityLabel="Change the list of roles" onPress={() => router.push('/pm/admin/roles' as never)} hitSlop={6} style={{ alignSelf: 'flex-end', marginBottom: 4 }}>
-          <Text style={{ fontSize: 13, fontWeight: '600', color: base.slate }}>Change The List Of Roles ›</Text>
-        </Pressable>
-      )}
+      {/* No link to Roles here: it's the next tab (Andy, 18 Nov 2026). */}
       {isLoading || rolesLoading ? <Muted>Loading…</Muted> : groupByRole(team.filter((p) => (ACCESS_ORDER as string[]).includes(accessOf(p))), roles).map((g) => {
         const list = g.people;
         return (
@@ -105,14 +105,15 @@ Pass it on securely — it won’t be shown again.`, 'Password reset');
             <SectionTitle>{g.title}</SectionTitle>
             {g.role?.access === 'estimator' && <Muted style={{ marginBottom: 6 }}>Same access as a Project Manager, but they get no notifications or automatic emails.</Muted>}
             {list.length ? list.map((p) => (
-              <Pressable key={p.id} onPress={() => void act(p)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
-                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: swatch(p.role), alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ color: swatchText(p.role), fontWeight: '600' }}>{(p.name || '?').split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</Text>
+              <Pressable key={p.id} onPress={() => void act(p)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 4, backgroundColor: base.card }}>
+                <View style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: swatch(p.role), alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: swatchText(p.role), fontWeight: '600', fontSize: 11 }}>{(p.name || '?').split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</Text>
                 </View>
-                <View style={{ flex: 1 }}>
+                {/* One line: the name, then the email and phone (Andy, 18 Nov 2026: "the rows need compacting"). */}
+                <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, fontSize: 13.5 }}>
                   <Text style={{ fontWeight: '600', color: base.ink }}>{p.name}{p.id === me.id ? ' (you)' : ''}</Text>
-                  <Muted>{p.email || ''}{p.phone ? ` · ${p.phone}` : ''}</Muted>
-                </View>
+                  <Text style={{ fontSize: 12, color: base.slate }}>{p.email ? `  ${p.email}` : ''}{p.phone ? ` · ${p.phone}` : ''}</Text>
+                </Text>
                 {finRole(p) && roleNoFin(p) ? <Text accessibilityLabel={`${p.name}: their role doesn't include Finance (Admin › Roles)`} style={{ fontSize: 11.5, color: base.slate, maxWidth: 110, textAlign: 'right' }}>Role Has No Finance</Text> : finRole(p) && (canFin && p.id !== me.id
                   ? <Pressable accessibilityRole="switch" accessibilityState={{ checked: !!p.finance_enabled }} accessibilityLabel={`Finance for ${p.name}`} hitSlop={6} onPress={(e) => { e.stopPropagation(); void flipFinance(p); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Text style={{ fontSize: 12, fontWeight: '600', color: base.ink }}>Finance</Text>

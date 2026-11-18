@@ -816,11 +816,11 @@ Report templates are built in **Admin › Projects › Report Templates**.
 
 1. Click **Admin** at the bottom of the menu. Two rows of tabs, as in Finance: **People**, **Projects**, **Finance**, **H&S** and **Company**, then that tab's pages. Click one and it opens straight underneath. The Admin Centre opens on the page you last used. 🔍 at the end of the second row finds any page.
 2. **Invites:** **Create Permanent Invite Link**, or **Generate One-Time Invite Link** and **Send Invite Email**.
-3. **Users:** click a person to change their role or phone, or remove them.
+3. **Users:** click a person to change their role or phone, or remove them. For an operative, **Open In Operatives Hub** shows their page, with their Subcontractor Form.
 4. **Device Locks:** **Approve** or **Deny** new phones. **Unlock** a phone.
-5. **Check-In Logs** shows check-ins by site.
+5. **Check-In Logs:** everyone's check-ins, drivers too, between a **From** and **To** date. Choose who with **Type ▾**, or type a name or a role (for example "site managers"). A driver's breaks come off their hours.
 6. **Projects › Job Numbers:** number new jobs automatically, with an optional prefix (for example RTB-2700). It's the same setting as Finance › Settings › Project Numbers, so a job set up in Projects or in Finance takes the next number, and no two jobs share one. **Projects** also has the Schedule of Works Library, Rate Card, Suppliers, Main Contractor and the report and signing templates.
-7. **Finance** (people with Finance on): each of Finance's settings on its own row: **Invoice Numbers**, **Defaults For New Projects**, **On Your Invoices**, **VAT Rates**, **Company Overheads (OHP)**, **Purchase Orders**, **Purchase Invoices**, **Invoice Inbox**, **Cost Codes**, **Finance Templates** and **Xero**. Each is a tab under **Finance**. They're the same settings as Finance › Settings.
+7. **Finance** (people with Finance on): Finance's settings in six tabs: **Sales** (invoice numbers, what goes on your invoices, defaults for new projects), **VAT & Overheads**, **Purchases** (purchase orders, purchase invoices, the invoice inbox), **Cost Codes**, **Templates** and **Xero**. They're the same settings as Finance › Settings.
 8. **H&S:** the H&S Policy, PPE Log, HAVS Tools, RAMS and COSHH libraries, and Toolbox Talks.
 
 **What This Does In Finance:** an admin with Finance switches **Finance** on or off on each person's row in **Users**.
@@ -832,8 +832,8 @@ Report templates are built in **Admin › Projects › Report Templates**.
 **What it's for:** deciding what each office role can use. Company admins only.
 
 1. Click **Admin**, then **People**, then **Roles**.
-2. Under **Your Roles**, choose a role from the drop-down ▾. A short brief shows what it uses the app as and who has it. Click **Edit Role** to rename it or change **Uses The App As**. Click **+ Add A Role** to add one. A new role starts the same as Project Manager.
-3. Scroll to **What Each Role Can Do**. The role you chose opens there; change it with **Role ▾**. Only that role shows.
+2. One card: choose a role from the drop-down ▾. A short brief shows what it uses the app as and who has it. Click **Edit Role** to rename it or change **Uses The App As**. Click **+ Add A Role** to add one. A new role starts the same as Project Manager.
+3. Under it, in the same card, **Options** and **In This Role** for that role. Admins, operatives and drivers say what they get instead.
 4. **Options** on the left are the parts it hasn't got. **In This Role** on the right are the parts it has.
 5. Click a part with **→** to add it to the role, or one with **←** to take it out. You can also drag a part across. Each change saves straight away.
 
@@ -845,4 +845,4 @@ The parts: **Every Job**, **Create Projects**, **See Prices And Price Builder**,
 
 **What This Does In Finance:** **Finance – View** lets a role see Finance. Without **Finance – Edit**, it shows **View Only**. Without **Raise Orders**, **+ New ▾** has no purchase or subcontractor orders.
 
-![What Each Role Can Do](shots/laptop/pm-admin-roles.jpg)
+![Your Roles](shots/laptop/pm-admin-roles.jpg)

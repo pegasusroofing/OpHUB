@@ -66,7 +66,7 @@ function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
       {isLoading ? <Muted>Loading…</Muted> : (data?.subfolders.length || data?.files.length) ? (
         <>
           {data.subfolders.map((f) => (
-            <Pressable key={f.id} onPress={() => setFolderId(f.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 11, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
+            <Pressable key={f.id} onPress={() => setFolderId(f.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, paddingHorizontal: 11, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
               <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>📁 {f.name}</Text>
               <Pressable hitSlop={8} onPress={async () => { const n = await promptText('Rename folder', f.name); if (n && n.trim() && n.trim() !== f.name) { toast((await renameFolder(f.id, n.trim())) ? 'Folder renamed' : 'Could not rename'); refresh(); } }}><Text>✏️</Text></Pressable>
               <Pressable hitSlop={8} onPress={async () => { if (await confirmAsk("Delete this folder and everything inside it? This can't be undone.", 'Delete')) { toast((await deleteFolder(f.id)) ? 'Folder deleted' : 'Could not delete'); refresh(); } }}><Text>🗑</Text></Pressable>
@@ -75,7 +75,7 @@ function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
           {data.files.map((f) => {
             const on = sel.includes(f.id);
             return (
-              <Card key={f.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderColor: on ? base.ink : base.cardLine }}>
+              <Card key={f.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, marginBottom: 6, borderColor: on ? base.ink : base.cardLine }}>
                 <Pressable onPress={() => setSel(on ? sel.filter((x) => x !== f.id) : [...sel, f.id])} hitSlop={6} style={{ width: 22, height: 22, borderRadius: 5, borderWidth: 1.5, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '600' }}>{on ? '✓' : ''}</Text></Pressable>
                 <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{f.name}</Text>
                 <Pressable onPress={async () => { const u = await openDocLink('coshh-library', f.storage_path); if (u) viewDoc(u); else toast('Could not open the file.'); }}><Text style={{ color: base.blue, fontWeight: '600' }}>View</Text></Pressable>
@@ -187,7 +187,7 @@ function Products({ setPick }: { setPick: (p: Pick | null) => void }) {
           {groups[g].map((it) => {
             const a = amap[it.id], dup = cnt[titleKey(it.title)] > 1;
             return (
-              <Pressable key={it.id} onPress={() => router.push(`/pm/admin/coshh/${it.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderWidth: 1, borderColor: dup ? '#E0301E' : base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
+              <Pressable key={it.id} onPress={() => router.push(`/pm/admin/coshh/${it.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, paddingHorizontal: 10, borderWidth: 1, borderColor: dup ? '#E0301E' : base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
                 <View style={{ flexDirection: 'row', width: 58, gap: 2 }}>{it.data.pictos.slice(0, 3).map((k) => <Image key={k} source={{ uri: COSHH_PICTO_IMG[k] }} style={{ width: 18, height: 18 }} />)}</View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontWeight: '600', color: base.ink }}>{it.title}{dup ? '  · Duplicate' : ''}{it.data.needsCheck ? '  · Check' : ''}</Text>

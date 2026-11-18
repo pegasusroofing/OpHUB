@@ -33,7 +33,7 @@ export default function Templates() {
       <Stack.Screen options={{ title: 'Report Templates' }} />
       <Muted style={{ marginBottom: 10 }}>Build reusable inspection / report templates here. Project Managers can fill these in on site and submit them as a report. Editing a template never changes inspections already started from it.</Muted>
       {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((t) => (
-        <Pressable key={t.id} onPress={() => router.push(`/pm/admin/templates/${t.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
+        <Pressable key={t.id} onPress={() => router.push(`/pm/admin/templates/${t.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
           <Text style={{ fontSize: 20 }}>📋</Text>
           <View style={{ flex: 1 }}>
             <Text style={{ fontWeight: '600', color: base.ink }}>{t.name}</Text>

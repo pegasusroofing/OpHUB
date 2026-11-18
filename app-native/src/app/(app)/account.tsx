@@ -41,7 +41,7 @@ export default function Account() {
     <Screen>
       {isManager(me) && (
         <ListGroup first>
-          <PlainRow label="Admin Centre" sub="Team, libraries, company settings" onPress={() => router.push('/pm/admin' as never)} last />
+          <PlainRow label="Admin Centre" sub="People, projects, finance, H&S, company" onPress={() => router.push('/pm/admin' as never)} last />
         </ListGroup>
       )}
       <ListGroup title="Your Account" first={!isManager(me)}>
@@ -50,7 +50,7 @@ export default function Account() {
           <Text style={{ fontSize: 12, color: base.slate, marginTop: 1 }}>{me.email}</Text>
         </View>
         {phone === null ? (
-          <PlainRow label="Phone Number" value={saved || 'Not Set'} sub="Shown to delivery drivers when you're a site contact" a11y="Edit phone number" onPress={() => setPhone(saved)} />
+          <PlainRow label="Phone Number" value={saved || 'Not Set'} sub="For delivery drivers" a11y="Edit phone number" onPress={() => setPhone(saved)} />
         ) : (
           <View style={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#F0F1F4' }}>
             <Field label="Phone Number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="e.g. 07123 456789" autoFocus />
@@ -64,7 +64,7 @@ export default function Account() {
         {/* Managers have their own folder in HR › Employee Records; everyone else (no HR page) keeps it here. */}
         {!isManager(me) && me.role !== 'client' && !me.role.startsWith('subcontractor') && <PlainRow label="My Employee Record" onPress={() => router.push('/myrecord' as never)} />}
         {finHasAccess(me, org) && (
-          <PlainRow label="Show Finance" sub="No hides Finance and money figures. Nothing is deleted." value={finShown ? 'Yes' : 'No'} a11y={`Show Finance: ${finShown ? 'Yes' : 'No'}`} onPress={async () => {
+          <PlainRow label="Show Finance" sub="No hides Finance and money figures" value={finShown ? 'Yes' : 'No'} a11y={`Show Finance: ${finShown ? 'Yes' : 'No'}`} onPress={async () => {
             const r = await supabase.from('profiles').update({ finance_hidden: finShown } as never).eq('id', me.id);
             if (r.error) { toast('Could not save — try again.'); return; }
             void refresh();

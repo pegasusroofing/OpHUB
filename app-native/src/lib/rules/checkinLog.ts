@@ -50,3 +50,19 @@ export function byDay(sessions: Session[]) {
   });
   return { days, hours: (ms / 3600000).toFixed(1) };
 }
+
+// Who to show (Andy, 18 Nov 2026: "allow for searching by role, i can type in site managers etc and it pulls all, or
+// their name"). A person matches typed words by their name, or by their role: the app's word for it (singular or
+// plural, e.g. "site managers") or the company's own role name (e.g. "Quantity Surveyor").
+export const ROLE_WORDS: Record<string, string[]> = {
+  operative: ['operative'], site_manager: ['site manager'], pm: ['project manager', 'pm'], admin: ['admin', 'company admin'],
+  driver: ['driver', 'delivery driver'], estimator: ['estimator'], finance_controller: ['finance controller'],
+};
+export function personMatches(q: string, p: { name?: string | null; role?: string | null }, roleName?: string | null): boolean {
+  const s = q.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!s) return true;
+  if ((p.name || '').toLowerCase().includes(s)) return true;
+  const one = s.replace(/'?s$/, '');
+  const words = [...(ROLE_WORDS[p.role || ''] || []), (roleName || '').toLowerCase()].filter(Boolean);
+  return words.some((w) => w === s || w.startsWith(one));
+}

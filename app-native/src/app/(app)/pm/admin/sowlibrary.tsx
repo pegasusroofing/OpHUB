@@ -74,7 +74,7 @@ export default function SowLibrary() {
       <Muted style={{ marginBottom: 10 }}>Reusable Schedule of Works templates for the whole company — build one once here, then pick it from any site&apos;s Schedule of Works &quot;+ → From Library&quot; to copy the whole structure in. Every copied line becomes an ordinary task on that job.</Muted>
       {isLoading ? <Muted>Loading…</Muted> : tpls.length ? tpls.map((t) => (
         <Card key={t.id} style={{ padding: 0, overflow: 'hidden' }}>
-          <Pressable onPress={() => setOpen(open === t.id ? null : t.id)} style={{ flexDirection: 'row', padding: 12 }}>
+          <Pressable onPress={() => setOpen(open === t.id ? null : t.id)} style={{ flexDirection: 'row', paddingVertical: 8, paddingHorizontal: 12 }}>
             <Text style={{ color: base.slate, width: 18 }}>{open === t.id ? '▼' : '▶'}</Text>
             <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{t.name}</Text>
           </Pressable>

@@ -34,7 +34,7 @@ export default function CompanyLibrary() {
       <Stack.Screen options={{ title: 'Subcontractor Library' }} />
       <Muted style={{ marginBottom: 12 }}>Every subcontractor company&apos;s own document library — shared across every site that company is added to.</Muted>
       {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((p) => (
-        <Pressable key={p.id} onPress={() => router.push(`/pm/admin/companylibrary/${p.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
+        <Pressable key={p.id} onPress={() => router.push(`/pm/admin/companylibrary/${p.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
           <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: base.ink, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '600' }}>{p.name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</Text></View>
           <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{p.name}</Text>
           <Pressable hitSlop={8} onPress={async () => {

@@ -6,7 +6,7 @@ import { ScrollView } from 'react-native';
 
 import { FinSettingsBody } from '@/components/FinSettingsBody';
 import { Muted } from '@/components/ui';
-import { ADMIN_ITEMS } from '@/lib/adminItems';
+import { ADMIN_ITEMS, FIN_GROUPS } from '@/lib/adminItems';
 import { useAuth } from '@/lib/auth';
 import { isFinanceUser } from '@/lib/roles';
 import { page, space } from '@/theme/theme';
@@ -14,14 +14,14 @@ import { page, space } from '@/theme/theme';
 export default function AdminFinSettings() {
   const { me, org } = useAuth();
   const { part } = useLocalSearchParams<{ part?: string }>();
-  const k = typeof part === 'string' && part ? part : 'vat';
+  const k = typeof part === 'string' && part ? part : 'sales';
   const item = ADMIN_ITEMS.find((i) => i.route === `/pm/admin/finsettings?part=${k}`);
   if (!me) return null;
   if (!isFinanceUser(me, org)) return <Muted style={{ padding: space.l }}>For people with Finance switched on.</Muted>;
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: item?.label || 'Finance Settings' }} />
-      <FinSettingsBody only={k} />
+      <FinSettingsBody only={FIN_GROUPS[k] ?? k} />
     </ScrollView>
   );
 }

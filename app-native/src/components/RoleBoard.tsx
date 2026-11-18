@@ -4,6 +4,8 @@
 // the Role ▾ drop-down. On the left, Options: the parts it hasn't got; on the right, In This Role: the parts it has.
 // Tap a part to move it across (→ adds it, ← takes it out); on a computer it can be dragged across too. Each change
 // saves straight away. Rules: lib/rules/rolePerms.
+// Andy, 18 Nov 2026 ("can we combine this?"): on Admin › Roles it sits in the same card as Your Roles, under its
+// one Role drop-down (noPicker), so the role is chosen once.
 import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 
@@ -83,7 +85,8 @@ function List({ side, title, parts, roleName, empty, onMove, onTake }: { side: S
 }
 
 // pick / onPick: the role on show, when the screen keeps it (Admin › Roles shares it with Your Roles).
-export function RoleBoard({ roles, onSave, pick: shared, onPick }: { roles: OrgRole[]; onSave: (role: OrgRole, perms: Part[]) => Promise<string | null>; pick?: string | null; onPick?: (id: string) => void }) {
+// noPicker: the screen chooses the role (no drop-down or intro here); a role that isn't an office role shows nothing.
+export function RoleBoard({ roles, onSave, pick: shared, onPick, noPicker }: { roles: OrgRole[]; onSave: (role: OrgRole, perms: Part[]) => Promise<string | null>; pick?: string | null; onPick?: (id: string) => void; noPicker?: boolean }) {
   const board = roles.filter((r) => BOARD_LEVELS.includes(r.access));
   const [own, setOwn] = useState<string | null>(null);
   const pick = shared !== undefined ? shared : own;
@@ -91,8 +94,8 @@ export function RoleBoard({ roles, onSave, pick: shared, onPick }: { roles: OrgR
   const [mine, setMine] = useState<Record<string, Part[]>>({}); // changes not read back yet
   const desk = useDesk();
   const { org } = useAuth();
-  const role = board.find((r) => r.id === pick) ?? board[0];
-  if (!role) return <Muted>No office roles yet. Add one above.</Muted>;
+  const role = board.find((r) => r.id === pick) ?? (noPicker ? undefined : board[0]);
+  if (!role) return noPicker ? null : <Muted>No office roles yet. Add one above.</Muted>;
   // Money On Home and See Material Costs not set on a role yet: what the old settings gave it (18 Nov 2026).
   const partsFor = (r: OrgRole) => mine[r.id] ?? partsOf(r.perms, r.perms_extra, legacyExtra(r.access, org));
   const save = async (r: OrgRole, next: Part[]) => {
@@ -106,9 +109,11 @@ export function RoleBoard({ roles, onSave, pick: shared, onPick }: { roles: OrgR
   const move = (on: boolean) => (p: Part) => void save(role, withPart(has, p, on));
   return (
     <View style={{ maxWidth: desk ? 640 : undefined }}>
+      {noPicker ? <Muted style={{ marginBottom: 8 }}>Tap A Part To Move It Across{web && desk ? ' (Or Drag It)' : ''}. → Adds It To The Role, ← Takes It Out.</Muted> : <>
       <Muted style={{ marginBottom: 8 }}>Choose A Role, Then Tap A Part To Move It Across{web && desk ? ' (Or Drag It)' : ''}. → Adds It To The Role, ← Takes It Out. Admins Can Do Everything.</Muted>
       <SelectBox label="Role" title="Choose A Role" value={role.id} options={board.map((r) => [r.id, r.name] as [string, string])} onChange={setPick} style={{ marginBottom: 4 }} />
       <Muted style={{ marginBottom: 10 }}>Uses The App As {ACCESS_LABEL[role.access as keyof typeof ACCESS_LABEL] ?? role.access}</Muted>
+      </>}
       <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
         <List side="options" title="Options" parts={options} roleName={role.name} empty="It Has Everything" onMove={move(true)} onTake={move(false)} />
         <List side="role" title="In This Role" parts={has} roleName={role.name} empty="Nothing Yet" onMove={move(false)} onTake={move(true)} />

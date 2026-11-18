@@ -52,8 +52,7 @@ const seedRoles = (db, org) => {
   await page.locator('[aria-label="Add See Material Costs to Project Manager"]').first().click(); await page.waitForTimeout(1200);
   const r4 = db.org_roles.find((r) => r.id === 'r4');
   check(JSON.stringify(r4.perms_extra) === JSON.stringify(['home_money', 'mat_costs']) && !r4.perms.includes('home_money') && r4.perms.includes('fin_view'), `saved apart from the other parts (perms_extra ${JSON.stringify(r4.perms_extra)})`);
-  await page.getByLabel('Your Roles').filter({visible: true}).first().click(); await page.waitForTimeout(500);
-  await page.getByText('Project Manager', {exact: true}).filter({visible: true}).last().click(); await page.waitForTimeout(800);
+  // One card since 18 Nov: the brief above the lists is the same role's, so no need to choose it again.
   check(/Can Use (16 Of 17 Parts|Every Part)/.test(await body()), `the role's brief counts 17 parts (${(await body()).match(/Can Use [^\n:]*/)?.[0]})`);
 
   // 2: Users.

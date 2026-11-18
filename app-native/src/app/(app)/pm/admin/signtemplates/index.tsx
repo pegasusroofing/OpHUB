@@ -55,7 +55,7 @@ export default function SignTemplates() {
       {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((tp) => {
         const s = layoutSummary(tp.layout);
         return (
-          <Card key={tp.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Card key={tp.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, marginBottom: 6 }}>
             <View style={{ flex: 1 }}>
               <Text style={{ fontWeight: '600', color: base.ink }}>{tp.name}</Text>
               <Text style={{ color: s ? base.slate : '#B23B2E' }}>{s || 'No boxes set yet'}{tp.page_count ? ` · ${tp.page_count} pages` : ''}</Text>

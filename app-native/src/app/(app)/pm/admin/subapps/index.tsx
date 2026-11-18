@@ -51,7 +51,7 @@ export default function SubApps() {
         ))}
       </View>
       {isLoading ? <Muted>Loading…</Muted> : rows.filter((r) => r.status === tab).length ? rows.filter((r) => r.status === tab).map((r) => (
-        <Pressable key={r.id} onPress={() => router.push(`/pm/admin/subapps/${r.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
+        <Pressable key={r.id} onPress={() => router.push(`/pm/admin/subapps/${r.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
           <View style={{ flex: 1 }}>
             <Text style={{ fontWeight: '600', color: base.ink }}>{r.company_name}</Text>
             <Muted>{r.contact_name} · {subAppValue((r.data || {}).trades)} · {new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</Muted>

@@ -1,8 +1,8 @@
 // The Admin Centre redone (Andy, 18 Nov 2026: "keep tab style but add into the main admin tabs for finance settings,
 // then a project settings etc", then "can we make the admin centre more tab style please and sub tabs"). Tabs:
 // People · Projects · Finance · H&S · Company; under them that tab's pages as sub tabs, and the page chosen straight
-// under those. Finance's sub tabs are each part of Finance's settings (and Cost Codes and Templates, without Finance's
-// own tabs). Saving stays on the page. The 🔍 finds any page. Back leaves the Admin Centre. VAT rates one row each
+// under those. Finance's sub tabs group Finance's settings ("make less tabs": Sales, VAT & Overheads, Purchases, Cost
+// Codes, Templates, Xero; Cost Codes and Templates without Finance's own tabs). Saving stays on the page. The 🔍 finds any page. Back leaves the Admin Centre. VAT rates one row each
 // ("in use needs to be on the same row"). Someone without Finance has no Finance tab. Laptop and phone. Fake database.
 // node admin18-check.js
 const {chromium, makeContext} = require('./harness');
@@ -52,27 +52,27 @@ const setUp = async (browser, role, fin, viewport) => {
   await tab(page, 'Finance').click(); await page.waitForTimeout(3500);
   ts = await tabsOf(page);
   const fsubs = ts.slice(5).map((x) => x.t);
-  const want = ['Invoice Numbers', 'Defaults For New Projects', 'On Your Invoices', 'VAT Rates', 'Company Overheads (OHP)', 'Purchase Orders', 'Purchase Invoices', 'Invoice Inbox', 'Cost Codes', 'Finance Templates', 'Xero'];
-  check(where(page) === '/pm/admin/finsettings?part=inv' && want.every((x) => fsubs.includes(x)), `Finance: Invoice Numbers open, every part a sub tab (${where(page)}; missing ${want.filter((x) => !fsubs.includes(x)).join(', ') || 'none'})`);
+  const want = ['Sales', 'VAT & Overheads', 'Purchases', 'Cost Codes', 'Templates', 'Xero'];
+  check(where(page) === '/pm/admin/finsettings?part=sales' && JSON.stringify(fsubs) === JSON.stringify(want), `Finance: six grouped sub tabs, Sales open (${where(page)}; missing ${want.filter((x) => !fsubs.includes(x)).join(', ') || 'none'})`);
   let t = await body();
-  check(/INV-120/.test(t) && !/Purchase orders|Defaults for new projects/.test(t), 'just that part under the tabs, with its figure (INV-120)');
+  check(/INV-120/.test(t) && /On your invoices/i.test(t) && /Defaults for new projects/i.test(t) && !/Purchase orders/i.test(t), 'Sales: invoice numbers (INV-120), what goes on invoices, defaults; nothing from Purchases');
   await page.getByText('Edit', {exact: true}).filter({visible: true}).first().click(); await page.waitForTimeout(800);
   await page.getByLabel('Next invoice number').filter({visible: true}).first().fill('130');
   await page.getByText('Save', {exact: true}).filter({visible: true}).first().click(); await page.waitForTimeout(2000);
-  check(Number(db.fin_settings[0].next_invoice_number) === 130 && where(page) === '/pm/admin/finsettings?part=inv', `it saves and stays (${db.fin_settings[0].next_invoice_number})`);
+  check(Number(db.fin_settings[0].next_invoice_number) === 130 && where(page) === '/pm/admin/finsettings?part=sales', `it saves and stays (${db.fin_settings[0].next_invoice_number})`);
   await page.screenshot({path: path.join(SHOTS, 'invoice-numbers-laptop.png')});
 
-  await tab(page, 'VAT Rates').click(); await page.waitForTimeout(3000);
+  await tab(page, 'VAT & Overheads').click(); await page.waitForTimeout(3000);
   t = await body();
-  check(where(page) === '/pm/admin/finsettings?part=vat' && /Default VAT On Sales/.test(t) && /\+ Add VAT rate/.test(t), 'VAT Rates sub tab: the defaults and the rates');
+  check(where(page) === '/pm/admin/finsettings?part=vatohp' && /Company overheads/i.test(t) && /Default VAT On Sales/.test(t) && /\+ Add VAT rate/.test(t), 'VAT & Overheads: the VAT defaults and rates, and the overheads');
   await page.screenshot({path: path.join(SHOTS, 'vat-laptop.png'), fullPage: true});
 
   await tab(page, 'Cost Codes').click(); await page.waitForTimeout(4000);
   ts = await tabsOf(page);
   check(where(page) === '/pm/admin/fincodes?kind=codes' && !!ts.find((x) => x.t === 'Finance')?.on && !!ts.find((x) => x.t === 'Cost Codes')?.on && !ts.some((x) => x.t === 'Overview'), `Cost Codes under the Admin Centre's tabs, not Finance's (${where(page)})`);
   await page.screenshot({path: path.join(SHOTS, 'costcodes-laptop.png')});
-  await tab(page, 'Finance Templates').click(); await page.waitForTimeout(3500);
-  check(where(page) === '/pm/admin/fintemplates' && !(await tabsOf(page)).some((x) => x.t === 'Overview'), `Finance Templates likewise (${where(page)})`);
+  await tab(page, 'Templates').click(); await page.waitForTimeout(3500);
+  check(where(page) === '/pm/admin/fintemplates' && !(await tabsOf(page)).some((x) => x.t === 'Overview'), `Templates likewise (${where(page)})`);
 
   // Projects › Job Numbers: Save stays, and says Saved.
   await tab(page, 'Projects').click(); await page.waitForTimeout(3500);
@@ -102,7 +102,7 @@ const setUp = async (browser, role, fin, viewport) => {
   await page.goto(B + '/pm/admin/users'); await page.waitForTimeout(4000);
   await page.getByLabel('Search the Admin Centre', {exact: true}).first().click(); await page.waitForTimeout(2500);
   await page.getByLabel('Search the Admin Centre').filter({visible: true}).last().fill('xero'); await page.waitForTimeout(600);
-  check(/Finance › Connections/.test(await body()), 'search finds Xero under Finance');
+  check(/Finance › Settings/.test(await body()), 'search finds Xero under Finance');
   await page.getByText('Xero', {exact: true}).filter({visible: true}).last().click(); await page.waitForTimeout(3000);
   check(where(page) === '/pm/admin/finsettings?part=xero', `and opens it (${where(page)})`);
   // Old links.
@@ -122,7 +122,7 @@ const setUp = async (browser, role, fin, viewport) => {
   check(fit.length === 5 && fit[0][0] >= 0 && fit[4][1] <= 390 && fit.every((f) => f[2]), `phone: the five tabs across the screen, none cut (${JSON.stringify(fit)})`);
   await pg.screenshot({path: path.join(SHOTS, 'people-phone.png')});
   await tab(pg, 'Finance').click(); await pg.waitForTimeout(3000);
-  await tab(pg, 'VAT Rates').click(); await pg.waitForTimeout(3000);
+  await tab(pg, 'VAT & Overheads').click(); await pg.waitForTimeout(3000);
   // One row per rate: the name, its %, RC and In Use level.
   const rowY = await pg.evaluate(() => ['20% VAT name', '20% VAT is 20%', '20% VAT reverse charge: No', '20% VAT in use: Yes'].map((l) => { const e = document.querySelector(`[aria-label="${l}"]`); if (!e) return null; const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); }));
   check(rowY.every((y) => y !== null) && Math.max(...rowY) - Math.min(...rowY) <= 6, `phone: a VAT rate on one row, In Use too (${JSON.stringify(rowY)})`);

@@ -27,9 +27,10 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
 
   await page.goto(B + '/pm/admin/roles'); await page.waitForTimeout(4000);
   let t = await body();
-  const yours = () => body().then((x) => x.slice(x.indexOf('Your Roles'), x.indexOf('What Each Role Can Do')));
+  // Since 18 Nov the role's lists are in the same card, after its brief and buttons.
+  const yours = () => body().then((x) => { const e = x.indexOf('\nOptions\n'); return x.slice(x.indexOf('Your Roles'), e < 0 ? undefined : e); });
   t = await yours();
-  check(/\nAdmin\n▾\nUses The App As Company Admin/.test(t) && !/Contracts Administrator/.test(t), `Your Roles shows one role at a time, Admin first (${t.replace(/\n/g, ' | ').slice(0, 220)})`);
+  check(/\nContracts Administrator\n▾\nUses The App As Project Manager/.test(t) && !/Finance Controller/.test(t), `Your Roles shows one role at a time, the first office role first (it has lists) (${t.replace(/\n/g, ' | ').slice(0, 220)})`);
   const pickRole = async (n) => {
     await page.getByLabel('Your Roles', {exact: true}).click(); await page.waitForTimeout(600);
     await page.getByText(n, {exact: true}).last().click(); await page.waitForTimeout(800);
@@ -42,7 +43,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByText('Project Manager', {exact: true}).last().click(); await page.waitForTimeout(800);
   t = await yours();
   check(/Uses The App As Project Manager/.test(t) && /\d+ (Person|People): \w/.test(t) && /Can Use (Every Part|\d+ Of 17 Parts)/.test(t), `the brief: what it uses the app as, who has it, its parts (${t.replace(/\n/g, ' | ').slice(0, 160)})`);
-  check(/\nRole\nProject Manager\n/.test(await body()), 'the same role opens in What Each Role Can Do');
+  check(await page.locator('[aria-label$=" out of Project Manager"]').count() > 0, 'what Project Manager can do shows under it, in the same card');
   await page.screenshot({path: path.join(SHOTS, 'roles-laptop.png'), fullPage: true});
   await pickRole('Quantity Surveyor');
   check(/Nobody Yet/.test(await yours()), 'a role nobody has says Nobody Yet');
@@ -73,7 +74,8 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   // Users: grouped under the roles; an admin gives Dave Price the Contracts Manager role.
   await page.goto(B + '/pm/admin/users'); await page.waitForTimeout(4000);
   t = await body();
-  check(/Change The List Of Roles/.test(t) && /\nProject Manager\n/i.test(t) && /\nOperative\n/i.test(t), 'Users grouped under the roles, with a link to the list');
+  // No link to the list since 18 Nov ("remove the link top right to roles"): Roles is the next tab.
+  check(!/Change The List Of Roles/.test(t) && /\nProject Manager\n/i.test(t) && /\nOperative\n/i.test(t), 'Users grouped under the roles (no link: Roles is the next tab)');
   const dave = db.profiles.find((p) => p.name === 'Dave Price');
   await page.getByText('Dave Price', {exact: true}).first().click(); await page.waitForTimeout(800);
   await page.getByText(/^Role: Project Manager/).last().click(); await page.waitForTimeout(800);

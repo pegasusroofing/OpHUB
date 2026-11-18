@@ -87,7 +87,7 @@ export default function Suppliers() {
         const isOpen = open === s.id;
         return (
           <Card key={s.id} style={{ padding: 0, overflow: 'hidden' }}>
-            <Pressable onPress={() => setOpen(isOpen ? null : s.id)} style={{ flexDirection: 'row', alignItems: 'center', padding: 12 }}>
+            <Pressable onPress={() => setOpen(isOpen ? null : s.id)} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12 }}>
               <Text style={{ color: base.slate, width: 18 }}>{isOpen ? '▼' : '▶'}</Text>
               <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{s.name}</Text>
               <Pressable hitSlop={8} accessibilityLabel={`Favourite ${s.name}`} style={{ paddingHorizontal: 8 }} onPress={async () => { const err = await toggleFavourite(me.org_id as string, s); if (err) toast(err); refresh(); }}><Text style={{ fontSize: 17, color: s.favourite ? '#D98A00' : base.slate }}>{s.favourite ? '★' : '☆'}</Text></Pressable>

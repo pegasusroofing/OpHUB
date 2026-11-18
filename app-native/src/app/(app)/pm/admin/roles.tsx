@@ -4,6 +4,9 @@
 // then gives a brief': choose one from the drop-down for a short brief; Edit Role renames it, changes its level (only
 // when nobody has it) or removes it; + Add A Role beside it. The role chosen also opens in What Each Role Can Do. Below, What Each Role Can Do: one role at a time, chosen
 // from a drop-down, with the parts it can have on the left and the parts it has on the right (17 Nov 2026).
+// Andy, 18 Nov 2026 ("can we combine this?"): one card. One Role drop-down; under it who has the role, Edit Role and
+// + Add A Role, then what it can do (Options / In This Role). Admins, operatives and drivers say what they get instead.
+// It opens on the first office role, so the lists show straight away.
 // Company admins only; the database enforces the same.
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
@@ -22,6 +25,13 @@ import { ACCESS_LABEL, ACCESS_ORDER, holders, type OrgRole } from '@/lib/rules/o
 import { legacyExtra } from '@/lib/homeTiles';
 import { ALL_PARTS, BOARD_LEVELS, partsOf } from '@/lib/rules/rolePerms';
 import { base, page, radius, space } from '@/theme/theme';
+
+/** What a role that isn't on the board gets, in a line. */
+const NO_BOARD: Record<string, string> = {
+  admin: 'Company Admins Can Do Everything.',
+  operative: 'Operatives Use The Site Screens: Their Jobs, Check In, H&S And Snags.',
+  driver: 'Drivers Use The Driver Screens: Deliveries And Their Shifts.',
+};
 
 function RolePop({ role, n, onClose, onSave, onRemove }: { role: OrgRole | null; n: number; onClose: () => void; onSave: (name: string, access: string) => Promise<string | null>; onRemove: () => Promise<string | null> }) {
   const [name, setName] = useState(role?.name ?? '');
@@ -80,7 +90,7 @@ export default function Roles() {
   const reread = () => ['orgRoles', 'team', 'people'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
   const done = () => { setPop(null); reread(); };
   const choose = (id: string) => { const r = roles.find((x) => x.id === id); if (r) setPick({ id: r.id, name: r.name }); };
-  const sel = roles.find((r) => r.id === pick?.id) ?? roles.find((r) => r.name === pick?.name) ?? roles[0];
+  const sel = roles.find((r) => r.id === pick?.id) ?? roles.find((r) => r.name === pick?.name) ?? roles.find((r) => BOARD_LEVELS.includes(r.access)) ?? roles[0];
   const cur = pop && pop !== 'new' ? pop : null;
   const who = sel ? holders(sel, team, roles) : [];
   const has = sel ? partsOf(sel.perms, sel.perms_extra, legacyExtra(sel.access, company)).length : 0;
@@ -89,29 +99,26 @@ export default function Roles() {
       <Stack.Screen options={{ title: 'Roles' }} />
       <Card>
         <Text style={{ fontSize: 15, fontWeight: '600', color: base.ink, marginBottom: 4 }}>Your Roles</Text>
-        <Muted style={{ marginBottom: 8 }}>The roles people can have. Choose one to see who has it. Choose someone&apos;s role in Users.</Muted>
+        <Muted style={{ marginBottom: 8 }}>The roles people can have. Choose one to see who has it and what it can do. Choose someone&apos;s role in Users.</Muted>
         {isLoading || !sel ? <Muted>Loading…</Muted> : (
           <View style={{ maxWidth: 640 }}>
             <SelectBox title="Your Roles" value={sel.id} options={roles.map((r) => [r.id, r.name] as [string, string])} onChange={choose} style={{ marginBottom: 8 }} />
             <View accessibilityLabel={`About ${sel.name}`} style={{ backgroundColor: '#F7F8FA', borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, padding: 10, gap: 3 }}>
               <Text style={{ fontSize: 13.5, color: base.ink }}>Uses The App As {ACCESS_LABEL[sel.access as keyof typeof ACCESS_LABEL] ?? sel.access}</Text>
               <Text style={{ fontSize: 13.5, color: base.ink }}>{who.length ? `${who.length} ${who.length === 1 ? 'Person' : 'People'}: ${names(who)}` : 'Nobody Yet'}</Text>
-              {BOARD_LEVELS.includes(sel.access) && <Muted>Can Use {has === ALL_PARTS.length ? 'Every Part' : `${has} Of ${ALL_PARTS.length} Parts`}: Set Below</Muted>}
+              {BOARD_LEVELS.includes(sel.access) ? <Muted>Can Use {has === ALL_PARTS.length ? 'Every Part' : `${has} Of ${ALL_PARTS.length} Parts`}</Muted>
+                : !!NO_BOARD[sel.access] && <Muted>{NO_BOARD[sel.access]}</Muted>}
             </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 10, marginTop: 12 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 10, marginTop: 12, marginBottom: BOARD_LEVELS.includes(sel.access) ? 14 : 0 }}>
               <Button kind="ghost" title="Edit Role" onPress={() => setPop(sel)} />
               <Button title="+ Add A Role" onPress={() => setPop('new')} />
             </View>
+            {/* What it can do, in the same card (Andy, 18 Nov 2026: "can we combine this?"). */}
+            <RoleBoard noPicker roles={roles} pick={sel.id} onPick={choose}
+              onSave={async (r, perms) => { const e = await saveRolePerms(org, roles, r, perms); if (!e) void qc.invalidateQueries({ queryKey: ['orgRoles'] }); return e; }} />
           </View>
         )}
       </Card>
-      {!isLoading && (
-        <Card>
-          <Text style={{ fontSize: 15, fontWeight: '600', color: base.ink, marginBottom: 4 }}>What Each Role Can Do</Text>
-          <RoleBoard roles={roles} pick={sel?.id ?? null} onPick={choose}
-            onSave={async (r, perms) => { const e = await saveRolePerms(org, roles, r, perms); if (!e) void qc.invalidateQueries({ queryKey: ['orgRoles'] }); return e; }} />
-        </Card>
-      )}
       {pop && (
         <RolePop key={cur?.id ?? 'new'} role={cur} n={cur ? holders(cur, team, roles).length : 0} onClose={() => setPop(null)}
           onSave={async (name, access) => {

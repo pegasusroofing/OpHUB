@@ -40,26 +40,26 @@ async function signIn(page) {
   await page.goto(B + '/pm/admin/roles'); await page.waitForTimeout(4000);
   let t = await body();
   const lists = () => body().then((x) => {
-    const s = x.slice(x.indexOf('What Each Role Can Do'));
+    const s = x.slice(x.indexOf('Your Roles')); // one card since 18 Nov ("can we combine this?")
     const o = s.indexOf('\nOptions\n'), r = s.indexOf('\nIn This Role\n');
     return {all: s, options: s.slice(o, r), role: s.slice(r)};
   });
-  check(t.includes('What Each Role Can Do'), 'the board is on Admin › Roles');
+  check(t.includes('Your Roles') && t.includes('In This Role') && !t.includes('What Each Role Can Do'), 'one card on Admin › Roles: the roles and what each can do');
   let L = await lists();
-  check(/Role\nContracts Administrator\n/.test(L.all), 'the Role ▾ drop-down starts on the first office role (Contracts Administrator)');
+  check(/\nContracts Administrator\n▾/.test(L.all), 'the Role ▾ drop-down starts on the first office role (Contracts Administrator)');
   // Since 18 Nov a role has 17 parts (Money On Home and See Material Costs too). A role not set on the board yet keeps the
   // old Home Page answer (Money On Home: yes) and no material costs.
   check(/Options\n2\n/.test(L.options) && /Finance – Edit/.test(L.options) && /See Material Costs/.test(L.options) && !/Every Job/.test(L.options), 'Options lists only what the role hasn’t got (Finance – Edit, See Material Costs)');
   check(/In This Role\n15\n/.test(L.role) && /Every Job/.test(L.role) && /Money On Home/.test(L.role) && !/Finance – Edit/.test(L.role), 'In This Role lists its 15 parts (with Money On Home)');
-  check(!/Document Controller|Estimator|Finance Controller/.test(L.all.slice(L.all.indexOf('\nRole\n'))), 'only one role on show at a time');
-  await page.getByText('What Each Role Can Do', {exact: true}).evaluate((e) => e.scrollIntoView({block: 'start'})); await page.waitForTimeout(400); await page.screenshot({path: path.join(SHOTS, 'board-laptop.png')});
+  check(!/Document Controller|Estimator|Finance Controller/.test(L.all.slice(L.all.indexOf('▾'))), 'only one role on show at a time');
+  await page.getByText('Your Roles', {exact: true}).first().evaluate((e) => e.scrollIntoView({block: 'start'})); await page.waitForTimeout(400); await page.screenshot({path: path.join(SHOTS, 'board-laptop.png')});
 
   // The drop-down lists the office roles only.
-  await page.getByLabel('Role', {exact: true}).click(); await page.waitForTimeout(600);
+  await page.getByLabel('Your Roles', {exact: true}).click(); await page.waitForTimeout(600);
   t = await body();
-  const menu = t.slice(t.lastIndexOf('Choose A Role'));
+  const menu = t.slice(t.lastIndexOf('Your Roles'));
   check(['Contracts Administrator', 'Finance Controller', 'Project Manager', 'Document Controller', 'Estimator', 'Site Manager'].every((n) => menu.includes(n)), 'the drop-down has each office role');
-  check(!/\nAdmin\n|\nOperative\n|\nDelivery Driver\n/.test(menu), 'no Admin, Operative or Driver in it');
+  check(/\nAdmin\n/.test(menu) && /\nOperative\n/.test(menu), 'Admin and Operative are in it too (one drop-down for every role)');
   await page.screenshot({path: path.join(SHOTS, 'board-dropdown.png')});
   await page.getByText('✓ Contracts Administrator', {exact: true}).click(); await page.waitForTimeout(500);
 
@@ -78,22 +78,22 @@ async function signIn(page) {
   check(db.org_roles.find((r) => r.id === 'r6').perms === null, 'other roles untouched');
 
   // Choose Document Controller: its own lists only.
-  await page.getByLabel('Role', {exact: true}).click(); await page.waitForTimeout(600);
+  await page.getByLabel('Your Roles', {exact: true}).click(); await page.waitForTimeout(600);
   await page.getByText('Document Controller', {exact: true}).last().click(); await page.waitForTimeout(800);
   L = await lists();
-  check(/Role\nDocument Controller\n/.test(L.all) && /In This Role\n3\n/.test(L.role) && /Options\n14\n/.test(L.options), 'Document Controller chosen: 3 in the role (with Money On Home), 14 options');
+  check(/\nDocument Controller\n▾/.test(L.all) && /In This Role\n3\n/.test(L.role) && /Options\n14\n/.test(L.options), 'Document Controller chosen: 3 in the role (with Money On Home), 14 options');
   // Drag Reports across into the role.
   await page.getByLabel('Add Reports to Document Controller', {exact: true}).dragTo(page.getByText('In This Role', {exact: true})); await page.waitForTimeout(1500);
   const dc = db.org_roles.find((r) => r.id === 'r5').perms;
   check(dc.includes('reports') && dc.length === 3, `dragged across on a computer: ${dc.join(', ')}`);
   // Site Manager shows what its level can't do.
-  await page.getByLabel('Role', {exact: true}).click(); await page.waitForTimeout(600);
+  await page.getByLabel('Your Roles', {exact: true}).click(); await page.waitForTimeout(600);
   await page.getByText('Site Manager', {exact: true}).last().click(); await page.waitForTimeout(800);
   check(/Site Managers only see the jobs they.re put on/.test(await body()), 'Site Manager: the note about its level');
 
   // Phone: the two lists side by side, nothing off the side.
   await page.setViewportSize({width: 390, height: 844}); await page.goto(B + '/pm/admin/roles'); await page.waitForTimeout(3500);
-  await page.getByText('What Each Role Can Do', {exact: true}).evaluate((e) => e.scrollIntoView({block: 'start'})); await page.waitForTimeout(400); await page.screenshot({path: path.join(SHOTS, 'board-phone.png')});
+  await page.getByText('Your Roles', {exact: true}).first().evaluate((e) => e.scrollIntoView({block: 'start'})); await page.waitForTimeout(400); await page.screenshot({path: path.join(SHOTS, 'board-phone.png')});
   check(!(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2)), 'phone: nothing runs off the side');
   const side = await page.evaluate(() => {
     const at = (s) => [...document.querySelectorAll('div')].find((e) => e.textContent === s)?.getBoundingClientRect();

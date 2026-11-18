@@ -25,7 +25,8 @@ export const OLD_ADMIN_PAGE: Record<string, AdminPage> = { libraries: 'projects'
 export type AdminItem = { key: string; page: AdminPage; group: string; icon: string; label: string; sub: string; kw: string; route: string | null; show: (me: Profile, org: Organization | null) => boolean };
 const admin = (me: Profile) => me.role === 'admin';
 const fin = (me: Profile, org: Organization | null) => isFinanceUser(me, org);
-/** A part of Finance's settings, on its own page from the Admin Centre (the same part as on Finance › Settings). */
+/** A group of Finance's settings, on one page from the Admin Centre (the same parts as on Finance › Settings). */
+export const FIN_GROUPS: Record<string, string[]> = { sales: ['inv', 'bill', 'def'], vatohp: ['vat', 'ohp'], buy: ['po', 'pi', 'inbox'], xero: ['xero'] };
 const finPart = (key: string, group: string, label: string, sub: string, kw: string, show = fin): AdminItem =>
   ({ key: `fin_${key}`, page: 'finance', group, icon: '💷', label, sub, kw: `finance ${kw}`, route: `/pm/admin/finsettings?part=${key}`, show });
 export const ADMIN_ITEMS: AdminItem[] = [
@@ -35,8 +36,8 @@ export const ADMIN_ITEMS: AdminItem[] = [
   // Office roles get See Material Costs on Admin › Roles; operatives one by one here (18 Nov 2026; it was Finance › Settings).
   { key: 'matcosts', page: 'people', group: 'Team', icon: '💷', label: 'Material Costs For Operatives', sub: 'Which operatives see material prices', kw: 'material costs prices see operatives cost', route: '/pm/admin/matcosts', show: (me, org) => admin(me) && isFinanceUser(me, org) },
   { key: 'devicelocks', page: 'people', group: 'Team', icon: '📱', label: 'Device Locks', sub: 'One phone = one person', kw: 'device phone lock approve', route: '/pm/admin/devicelocks', show: (u) => isFullManager(u) && can(u, 'people') },
-  { key: 'checkinlogs', page: 'people', group: 'Logs', icon: '📍', label: 'Check-In Logs', sub: 'Operatives and PM logins by site', kw: 'check in out log site attendance', route: '/pm/admin/checkinlogs', show: isManager },
-  { key: 'drivercheckins', page: 'people', group: 'Logs', icon: '🚚', label: 'Driver Check-In Log', sub: 'Shifts, breaks, hours', kw: 'driver check in shift break hours', route: '/pm/admin/drivercheckins', show: isFullManager },
+  { key: 'checkinlogs', page: 'people', group: 'Logs', icon: '📍', label: 'Check-In Logs', sub: 'Everyone’s check-ins, drivers too, by dates', kw: 'check in out log site attendance driver shift break hours', route: '/pm/admin/checkinlogs', show: isManager },
+  { key: 'drivercheckins', page: 'people', group: 'Logs', icon: '🚚', label: 'Driver Check-In Log', sub: 'Shifts, breaks, hours', kw: 'driver check in shift break hours', route: '/pm/admin/drivercheckins', show: () => false }, // in Check-In Logs now (Andy, 18 Nov 2026)
   { key: 'subapplications', page: 'people', group: 'Subcontractors', icon: '🏗', label: 'Subcontractor Sign-Up', sub: 'Sign-up form link and applications', kw: 'subcontractor sign up form application apply', route: '/pm/admin/subapps', show: isManager },
 
   // Projects.
@@ -51,17 +52,14 @@ export const ADMIN_ITEMS: AdminItem[] = [
 
   // Finance: each part of Finance › Settings as its own row. Job numbers are under Projects; who sees material costs is
   // in People and Roles; OneDrive is under Company.
-  finPart('inv', 'Sales', 'Invoice Numbers', 'The prefix and the next number', 'invoice number prefix next'),
-  finPart('def', 'Sales', 'Defaults For New Projects', 'Retention, payment terms, application date', 'default retention payment terms due days application date'),
-  finPart('bill', 'Sales', 'On Your Invoices', 'Address, VAT and company numbers, bank, CIS references', 'invoice address bank sort code account vat number company number utr cis employer footer'),
-  finPart('vat', 'VAT & Overheads', 'VAT Rates', 'Defaults, and the rates you can pick', 'vat rate rates reverse charge default'),
-  finPart('ohp', 'VAT & Overheads', 'Company Overheads (OHP)', 'The overheads % on each project', 'overheads ohp percent'),
-  finPart('po', 'Purchases', 'Purchase Orders', 'A PO for every order, and its VAT', 'purchase order po vat'),
-  finPart('pi', 'Purchases', 'Purchase Invoices', 'Approving them automatically', 'purchase invoice approve automatic'),
-  finPart('inbox', 'Purchases', 'Invoice Inbox', 'The email address supplier invoices go to', 'inbox email invoices power automate key'),
-  { key: 'fin_codes', page: 'finance', group: 'Codes & Templates', icon: '💷', label: 'Cost Codes', sub: 'The codes costs are booked to', kw: 'finance cost codes code nominal', route: '/pm/admin/fincodes?kind=codes', show: fin },
-  { key: 'fin_templates', page: 'finance', group: 'Codes & Templates', icon: '💷', label: 'Finance Templates', sub: 'Invoices, applications and orders', kw: 'finance templates template invoice application order layout', route: '/pm/admin/fintemplates', show: fin },
-  finPart('xero', 'Connections', 'Xero', 'The connection to your accounts', 'xero accounts connect'),
+  // Grouped into fewer tabs (Andy, 18 Nov 2026: "you can still group the items, ie purchases (put purchase orders and
+  // invoices etc into this tab), make less tabs"): each group's parts on one page.
+  finPart('sales', 'Settings', 'Sales', 'Invoice numbers, what goes on your invoices, defaults for new projects', 'sales invoice number numbers prefix next address bank sort code account vat number company number utr cis employer footer default defaults retention payment terms due days application date'),
+  finPart('vatohp', 'Settings', 'VAT & Overheads', 'VAT rates and the company overheads', 'vat rate rates reverse charge default overheads ohp percent'),
+  finPart('buy', 'Settings', 'Purchases', 'Purchase orders, purchase invoices and the invoice inbox', 'purchase purchases order orders po invoice invoices approve automatic inbox email power automate key'),
+  { key: 'fin_codes', page: 'finance', group: 'Settings', icon: '💷', label: 'Cost Codes', sub: 'The codes costs are booked to', kw: 'finance cost codes code nominal', route: '/pm/admin/fincodes?kind=codes', show: fin },
+  { key: 'fin_templates', page: 'finance', group: 'Settings', icon: '💷', label: 'Templates', sub: 'Invoices, applications and orders', kw: 'finance templates template invoice application order layout', route: '/pm/admin/fintemplates', show: fin },
+  finPart('xero', 'Settings', 'Xero', 'The connection to your accounts', 'xero accounts connect'),
 
   // Health & Safety.
   { key: 'hspolicy', page: 'hs', group: 'Policy & Registers', icon: '📕', label: 'H&S Policy', sub: 'Policy document and who has signed', kw: 'health safety policy', route: '/pm/admin/hspolicy', show: isFullManager },

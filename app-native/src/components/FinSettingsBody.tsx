@@ -1,6 +1,7 @@
 // Finance's settings, part by part (900 renderFinanceSettings / saveFinanceSettings), shown on Finance › Settings and,
 // one part to a page, on the Admin Centre's Finance tab (Andy, 18 Nov 2026: "keep tab style but add into the main admin
-// tabs for finance settings, then a project settings etc"). `only` shows that one part, already open.
+// tabs for finance settings, then a project settings etc"). `only` shows that part, or those parts (a group, each under
+// its own heading), already open.
 // The parts:
 // project and invoice numbering, default retention / terms / VAT /
 // application date, company overheads (admins), company and bank details
@@ -32,7 +33,9 @@ import { base, radius } from '@/theme/theme';
 
 type Row = Record<string, any>;
 
-export function FinSettingsBody({ only }: { only?: string }) {
+export function FinSettingsBody({ only: one }: { only?: string | string[] }) {
+  const only = one == null ? null : Array.isArray(one) ? one : [one];
+  const heads = !!only && only.length > 1;
   const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -133,10 +136,11 @@ export function FinSettingsBody({ only }: { only?: string }) {
         ['inbox', 'Invoice inbox (email)', 'mail', []],
         ['xero', 'Xero', 'link', []],
         ['onedrive', 'OneDrive', 'cloud', []],
-      ] as [string, string, string, [string, string][]][]).filter(([k]) => !only || k === only).map(([k, title, ic, rows]) => {
+      ] as [string, string, string, [string, string][]][]).filter(([k]) => !only || only.includes(k)).sort((x, y) => (only ? only.indexOf(x[0]) - only.indexOf(y[0]) : 0)).map(([k, title, ic, rows]) => {
         const on = !!only || openS.includes(k);
         return (
           <View key={k} style={{ marginBottom: 4 }}>
+            {heads && <Text style={{ fontSize: 13, fontWeight: '700', color: base.slate, letterSpacing: 0.3, textTransform: 'uppercase', marginTop: 10, marginBottom: 2 }}>{title}</Text>}
             {!only && <Pressable onPress={() => setOpenS(on ? openS.filter((x) => x !== k) : [...openS, k])} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 10 }}>
               <OphIcon name={ic} size={16} color={base.slate} />
               <Text style={{ flex: 1, fontWeight: '600', color: '#111827', fontSize: 13 }}>{title}</Text>
