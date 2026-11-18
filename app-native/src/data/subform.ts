@@ -17,17 +17,28 @@ export function useSubformNeeded(me: Profile | null) {
       const p = me as Profile;
       const [prof, sent] = await Promise.all([
         db.from('profiles').select('subform_required').eq('id', p.id).maybeSingle(),
-        db.from('subcontractor_applications').select('id').eq('user_id', p.id).limit(1),
+        db.from('subcontractor_applications').select('id,status,review_note').eq('user_id', p.id).order('created_at', { ascending: false }).limit(1),
       ]);
-      if (sent.error) return { needed: false, off: false };
+      if (sent.error) return { needed: false, off: false, returned: null as string | null };
       const off = (prof.data as { subform_required?: boolean | null } | null)?.subform_required === false;
-      return { needed: !off && !((sent.data as unknown[] | null) ?? []).length, off };
+      const last = ((sent.data as { id: string; status: string; review_note: string | null }[] | null) ?? [])[0];
+      // Sent back for more information (18 Nov 2026): needed again, with what's missing.
+      const returned = last?.status === 'rejected' ? (last.review_note || 'More information is needed.') : null;
+      return { needed: !off && (!last || returned !== null), off, returned, lastId: last?.id ?? null };
     },
   });
 }
 
 const key = (uid: string) => `ophub_subform_${uid}`;
-export const loadSubDraft = (me: Profile): Promise<SubDraft> => plainGet<SubDraft>(key(me.id), { data: { contact_name: me.name || '', email: me.email || '', phone: (me as { phone?: string | null }).phone || '' }, files: {}, agree: false, signed: me.name || '' });
+/** The draft kept on the phone, else a new one. Their name, email and the mobile they gave on signing up fill any of
+ *  those still blank (Andy, 18 Nov 2026: "It needs to pull through the users number from sign up as their contact number"). */
+export async function loadSubDraft(me: Profile): Promise<SubDraft> {
+  const mine = { contact_name: me.name || '', email: me.email || '', phone: (me as { phone?: string | null }).phone || '' };
+  const d = await plainGet<SubDraft>(key(me.id), { data: mine, files: {}, agree: false, signed: me.name || '' });
+  const data = { ...d.data } as Record<string, unknown>;
+  (Object.keys(mine) as (keyof typeof mine)[]).forEach((k) => { if (!String(data[k] ?? '').trim() && mine[k]) data[k] = mine[k]; });
+  return { ...d, data: data as SubDraft['data'] };
+}
 export const saveSubDraft = (me: Profile, d: SubDraft) => plainSet(key(me.id), d);
 
 export async function uploadSubFile(me: Profile, f: { uri: string; name: string; mimeType?: string | null }): Promise<{ name: string; path: string } | null> {
@@ -64,4 +75,14 @@ export function useOperativeSubform(opId: string | undefined) {
       return { sent: ((r.data as { id: string; created_at: string }[] | null) ?? [])[0] ?? null, off: (p.data as { subform_required?: boolean | null } | null)?.subform_required === false };
     },
   });
+}
+
+/** A form that was sent back: its answers and documents, to start the new one from (18 Nov 2026). */
+export async function lastSubAnswers(me: Profile, id: string): Promise<Partial<SubDraft> | null> {
+  const r = (await db.from('subcontractor_applications').select('company_name,contact_name,email,phone,data,files').eq('id', id).eq('user_id', me.id).maybeSingle()).data as
+    { company_name: string; contact_name: string; email: string; phone: string | null; data: Record<string, unknown> | null; files: { label: string; name: string; path: string }[] | null } | null;
+  if (!r) return null;
+  const files: Record<string, { name: string; path: string }[]> = {};
+  (r.files || []).forEach((f) => { (files[f.label] ||= []).push({ name: f.name, path: f.path }); });
+  return { data: { ...(r.data || {}), company_name: r.company_name, contact_name: r.contact_name, email: r.email, phone: r.phone || '' } as SubDraft['data'], files };
 }

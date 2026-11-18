@@ -29,7 +29,7 @@ type AuthState = {
   notice: { kind: 'error' | 'info'; text: string } | null;
   setNotice: (n: AuthState['notice']) => void;
   signIn: (email: string, password: string, remember: boolean, onStage?: (label: string) => void) => Promise<string | null>;
-  join: (inviteId: string, name: string, email: string, password: string, onStage?: (label: string) => void) => Promise<{ error?: string; done?: string }>;
+  join: (inviteId: string, name: string, email: string, password: string, onStage?: (label: string) => void, phone?: string) => Promise<{ error?: string; done?: string }>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -154,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [enter, clearLocal]);
 
-  const join = useCallback<AuthState['join']>(async (inviteId, name, rawEmail, password, onStage) => {
+  const join = useCallback<AuthState['join']>(async (inviteId, name, rawEmail, password, onStage, phone) => {
     const email = normaliseEmail(rawEmail);
     if (!email || !password || !name.trim()) return { error: 'Fill in every field.' };
     if (password.length < 6) return { error: 'Password needs to be at least 6 characters.' };
@@ -163,11 +163,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       onStage?.('Creating your account…');
       // Only invite_id matters server-side: handle_new_user() takes the company and role from the invite.
-      const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name: name.trim(), invite_id: inviteId } } });
+      const mobile = (phone || '').trim();
+      const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name: name.trim(), invite_id: inviteId, ...(mobile ? { phone: mobile } : {}) } } });
       if (error) return { error: error.message || 'Sign up failed' };
       if (!data.session) return { done: 'Check your email and tap the link to confirm your account, then come back here and log in.' };
       // Best effort; awaited before any sign-out so it still carries the new account's login.
       const notifyAdmins = () => supabase.functions.invoke('notify-admin-signup', { body: {} }).catch(() => undefined);
+      // Their mobile from the sign-up page goes on their account, so their forms fill it in (Andy, 18 Nov 2026: "It needs
+      // to pull through the users number from sign up as their contact number please automatically").
+      if (mobile) await supabase.from('profiles').update({ phone: mobile } as never).eq('id', data.session.user.id);
       onStage?.('Loading your account…');
       const p = await loadProfile(data.session.user.id);
       if (!p || !p.org_id) {

@@ -34,8 +34,16 @@ export async function uploadCert(me: Profile, f: { uri: string; name: string; mi
   const r = await db.from('operative_certifications').insert({
     org_id: me.org_id, ...(manual === 'operative' ? { operative_id: null, manual_operative_id: operativeId } : manual ? { manual_person_id: operativeId } : { operative_id: operativeId }), category, other_type_description: category === 'other' ? otherDesc || null : null,
     expiry_date: expiry, name: f.name, storage_path: up.data.path, size: f.size ?? null, source: 'upload', uploaded_by: me.id,
-  } as never);
-  return r.error ? 'Could not save — try again.' : null;
+  } as never).select('id').single();
+  if (r.error || !r.data) return 'Could not save — try again.';
+  const id = (r.data as { id: string }).id;
+  // Straight into the operative's own OneDrive folder (Andy, 18 Nov 2026: "the certificates they upload need to
+  // automatically go into the operatives folder"); best effort: nothing happens if they have no folder yet.
+  if (manual !== true) void supabase.functions.invoke('sync-operative-certification', { body: manual === 'operative' ? { manual_operative_id: operativeId, cert_ids: [id] } : { operative_id: operativeId, cert_ids: [id] } }).catch(() => undefined);
+  // No expiry given: its date is read off the file; if it can't be, whoever checks sign-ups gets a to-do to add it.
+  // Waits up to 15 seconds, so the list shows the date when it was found.
+  if (!expiry) await Promise.race([supabase.functions.invoke('cert-ai-read', { body: { cert_id: id } }).catch(() => undefined), new Promise((ok) => setTimeout(ok, 15000))]);
+  return null;
 }
 
 /* ---------- office side (320): rename, expiry, delete ---------- */

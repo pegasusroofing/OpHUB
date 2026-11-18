@@ -1,19 +1,58 @@
 // Getting Started: a step-by-step checklist for new operatives. Ported from
 // renderOnboardingChecklist (210). The "add to home screen" steps only make sense for
 // the website, so they're shown on the web version only (the phone app is already installed).
+// The signature is drawn and saved right in its step (Andy, 18 Nov 2026: "The getting started should give a possibility
+// to draw signature that gets adopted please currently it just tells me to do it").
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 
+import { SignaturePad, type SignaturePadHandle } from '@/components/SignaturePad';
+import { StorageImage } from '@/components/StorageImage';
 import { useToast } from '@/components/toast';
 import { Button, Card, Field, Muted, Screen } from '@/components/ui';
+import { saveSignature } from '@/data/hs';
 import { savePhone, useOnboarding } from '@/data/onboarding';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { base, useTheme } from '@/theme/theme';
 
-type Step = { key: string; title: string; done: boolean; body: string; href?: string; phone?: boolean };
+type Step = { key: string; title: string; done: boolean; body: string; href?: string; phone?: boolean; sig?: boolean };
+
+/** Draw the signature here; saving adopts it for every signature from now on. */
+function SignatureStep({ onSaved }: { onSaved: () => void }) {
+  const { me, refresh } = useAuth();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const pad = useRef<SignaturePadHandle>(null);
+  const [busy, setBusy] = useState(false);
+  if (!me) return null;
+  const save = async () => {
+    if (!pad.current || pad.current.isEmpty()) { toast('Draw your signature first.'); return; }
+    setBusy(true);
+    const png = await pad.current.toPng();
+    const path = png ? await saveSignature(me, png) : null;
+    setBusy(false);
+    if (!path) { toast('Could not save — check your signal and try again.'); return; }
+    await refresh(); void qc.invalidateQueries({ queryKey: ['onboarding'] }); onSaved();
+  };
+  return (
+    <>
+      {!!me.signature_path && (
+        <View style={{ backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#E6E8EC', borderRadius: 8, padding: 8, marginBottom: 10 }}>
+          <StorageImage bucket="signatures" path={me.signature_path} style={{ height: 46, width: '100%', resizeMode: 'contain' }} />
+        </View>
+      )}
+      <Muted style={{ marginBottom: 6, fontWeight: '600' }}>{me.signature_path ? 'Draw A New One To Replace It' : 'Draw Here'}</Muted>
+      <SignaturePad ref={pad} />
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 12 }}>
+        <Button kind="ghost" title="Clear" onPress={() => pad.current?.clear()} />
+        <Button title="Save Signature" busy={busy} onPress={() => void save()} />
+      </View>
+    </>
+  );
+}
 
 export default function GettingStarted() {
   const { me, refresh } = useAuth();
@@ -30,7 +69,7 @@ export default function GettingStarted() {
 
   const steps: Step[] = [
     { key: 'welcome', title: 'Welcome to OpHUB', done: true, body: "Let's get you fully set up — a few quick steps and you're ready to go." },
-    ...data.items.map((it) => ({ key: it.key, title: it.label, done: it.done, body: it.desc, href: it.done ? undefined : it.href || undefined, phone: it.key === 'phone' })),
+    ...data.items.map((it) => ({ key: it.key, title: it.label, done: it.done, body: it.desc, href: it.done || it.key === 'signature' ? undefined : it.href || undefined, phone: it.key === 'phone', sig: it.key === 'signature' })),
     ...(Platform.OS === 'web' ? [
       { key: 'android-home', title: 'Add to Home Screen — Android', done: false, body: 'In Chrome: tap the ⋮ menu (top-right), tap Add to Home Screen (or Install app), then tap Add / Install.' },
       { key: 'iphone-home', title: 'Add to Home Screen — iPhone', done: false, body: 'In Safari: tap Share (the square with an arrow), scroll down, tap Add to Home Screen, then Add. This only works from Safari.' },
@@ -64,7 +103,8 @@ export default function GettingStarted() {
             }} />
           </>
         )}
-        {step.href && <Button title="Go do this now" onPress={() => router.push(step.href as never)} />}
+        {step.sig && <SignatureStep onSaved={() => setIdx(i + 1)} />}
+        {step.href && <Button title="Go Do This Now" onPress={() => router.push(step.href as never)} />}
       </Card>
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
         <View style={{ flex: 1 }}><Button kind="ghost" disabled={i === 0} title="‹ Back" onPress={() => setIdx(i - 1)} /></View>

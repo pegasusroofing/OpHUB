@@ -769,9 +769,10 @@ Use **👁 Preview RA** and **👁 Preview MS** to check before you issue.
 2. **People › Invites:** tap **Generate One-Time Invite Link** or **Send Invite Email**.
 3. **People › Users:** tap a person to change their role or phone, or remove them. For an operative, **Open In Operatives Hub** shows their page, with their Subcontractor Form.
 4. **People › Check-In Logs:** everyone's check-ins, drivers too, between two dates. Choose who with **Type ▾**, or type a name or a role (for example "site managers").
-5. **People › Device Locks:** **Approve** or **Deny** a new phone. **Unlock** a phone.
-6. **Projects › Job Numbers:** number new jobs automatically, with an optional prefix. Finance uses the same setting.
-7. **Finance** (people with Finance on): Finance's settings in six tabs: **Sales** (invoice numbers, what goes on your invoices, defaults for new projects), **VAT & Overheads**, **Purchases** (purchase orders, purchase invoices, the invoice inbox), **Cost Codes**, **Templates** and **Xero**. They're the same settings as Finance › Settings.
+5. **People › Subcontractor Sign-Up:** choose **Who Checks Sign-Ups**; they approve forms and get a to-do when a certificate's expiry date can't be read off it. **Send Back For More Info** asks what's missing: an operative gets a message and their form opens again with your note and their answers; someone who used the public link gets an email from you (**Email Them What's Missing**).
+6. **People › Device Locks:** **Approve** or **Deny** a new phone. **Unlock** a phone.
+7. **Projects › Job Numbers:** number new jobs automatically, with an optional prefix. Finance uses the same setting.
+8. **Finance** (people with Finance on): Finance's settings in six tabs: **Sales** (invoice numbers, what goes on your invoices, defaults for new projects), **VAT & Overheads**, **Purchases** (purchase orders, purchase invoices, the invoice inbox), **Cost Codes**, **Templates** and **Xero**. They're the same settings as Finance › Settings.
 
 **What This Does In Finance:** an admin with Finance switches **Finance** on or off on each person's row in Users.
 

@@ -11,7 +11,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import { DateBox } from '@/components/DateField';
-import { loadSubDraft, saveSubDraft, sendSubform, uploadSubFile, useSubformNeeded } from '@/data/subform';
+import { lastSubAnswers, loadSubDraft, saveSubDraft, sendSubform, uploadSubFile, useSubformNeeded } from '@/data/subform';
 import { useAuth } from '@/lib/auth';
 import { SUBFORM_SECTIONS, subformMissing, subQShown, type SubDraft, type SubQ } from '@/lib/rules/subform';
 import { base, page, radius, space } from '@/theme/theme';
@@ -27,6 +27,19 @@ export default function SubForm() {
   const [miss, setMiss] = useState<Set<string> | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (me) void loadSubDraft(me).then(setD); }, [me]);
+  // Sent back (18 Nov 2026): a fresh form starts from the answers and documents they sent before.
+  const lastId = need?.returned != null ? need.lastId ?? null : null;
+  useEffect(() => {
+    if (!me || !lastId) return;
+    void lastSubAnswers(me, lastId).then((a) => {
+      if (!a) return;
+      setD((cur) => {
+        if (!cur || String(cur.data.company_name ?? '').trim()) return cur;
+        const keep = Object.fromEntries(Object.entries(cur.data).filter(([, v]) => (Array.isArray(v) ? v.length : String(v ?? '').trim())));
+        return { ...cur, data: { ...(a.data || {}), ...keep }, files: Object.keys(cur.files).length ? cur.files : a.files || {} };
+      });
+    });
+  }, [me, lastId]);
   if (!me || !d) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const update = (n: SubDraft) => { setD(n); void saveSubDraft(me, n); };
   const set = (k: string, v: unknown) => update({ ...d, data: { ...d.data, [k]: v } });
@@ -92,6 +105,13 @@ export default function SubForm() {
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Subcontractor form' }} />
+      {need?.returned != null && (
+        <Card style={{ backgroundColor: base.warnBg, borderColor: base.warn }}>
+          <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 4 }}>Sent Back For More Information</Text>
+          <Text style={{ color: base.ink }}>{need.returned}</Text>
+          <Muted style={{ marginTop: 6 }}>Your answers from last time are below. Update what’s needed and send it again.</Muted>
+        </Card>
+      )}
       <Card style={{ borderTopWidth: 6, borderTopColor: base.blue }}>
         <Text style={{ fontSize: 20, fontWeight: '600', color: base.ink }}>Subcontractor form</Text>
         <Muted>Please fill this in for {org?.name || 'us'} — your company details, insurance, cards and health &amp; safety. It saves as you go, so you can come back to it.</Muted>

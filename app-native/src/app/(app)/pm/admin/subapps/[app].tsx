@@ -9,6 +9,7 @@ import { confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { useTeam } from '@/data/admin';
+import { subSignUpLink } from '@/data/admin';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { isFullManager, isManager } from '@/lib/roles';
@@ -27,7 +28,7 @@ const LABELS: Record<string, string> = {
   riddor: 'RIDDOR incidents (3 yrs)', riddor_detail: 'RIDDOR detail', enforcement: 'HSE notices (3 yrs)', enforcement_detail: 'Notices detail',
   operatives: 'Operatives', ref1: 'Reference 1', ref2: 'Reference 2', bank_note: 'Payment terms', notes: 'Anything else',
 };
-type App = { id: string; company_name: string; contact_name: string; email: string; phone: string | null; status: string; created_at: string; signed_name: string | null; reviewed_at: string | null; reviewed_by: string | null; review_note: string | null; data: Record<string, unknown> | null; files: { label?: string; name?: string; path: string; bucket?: string }[] | null };
+type App = { id: string; company_name: string; contact_name: string; email: string; phone: string | null; status: string; created_at: string; signed_name: string | null; reviewed_at: string | null; reviewed_by: string | null; review_note: string | null; user_id?: string | null; data: Record<string, unknown> | null; files: { label?: string; name?: string; path: string; bucket?: string }[] | null };
 
 export default function SubApp() {
   const { app: id } = useLocalSearchParams<{ app: string }>();
@@ -41,10 +42,19 @@ export default function SubApp() {
   if (isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!r) return <Muted style={{ padding: space.l }}>That application has gone.</Muted>;
   const d = r.data || {};
-  const st = ({ new: 'New', approved: 'Approved', rejected: 'Rejected' } as Record<string, string>)[r.status] || r.status;
+  const st = ({ new: 'New', approved: 'Approved', rejected: 'Sent Back' } as Record<string, string>)[r.status] || r.status;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['subApp', id] }); void qc.invalidateQueries({ queryKey: ['subApps'] }); };
+  // Sent back for more information (Andy, 18 Nov 2026: "if it's rejected for missing info sort a process for this"): what's
+  // missing has to be said. An operative who sent it from the app gets a message with it, their form opens again with
+  // their answers and the note, and sending it again makes a New application. One sent from the public link gets an
+  // email from you (Email Them What's Missing), with the form's link.
   const decide = async (status: 'approved' | 'rejected') => {
-    const note = await promptText(status === 'approved' ? 'Approve — add a note (optional)' : 'Reject — reason (optional)', ''); if (note === null) return;
+    const note = await promptText(status === 'approved' ? 'Approve — add a note (optional)' : 'What’s missing or needs changing? They’ll see this.', ''); if (note === null) return;
+    if (status === 'rejected' && !note.trim()) { toast('Say what’s missing, so they know what to fix.'); return; }
+    if (status === 'rejected' && r.user_id) {
+      // A message to them (operatives can't see the office's to-dos); their form and Getting Started show it too.
+      await db.from('messages').insert({ org_id: me.org_id, site_id: null, sender_id: me.id, audience: 'single', recipient_id: r.user_id, kind: 'message', body: `Your Subcontractor Form was sent back: ${note.trim()} — open it (Settings › Getting Started, or Subcontractor Form), update it and send it again.` } as never);
+    }
     toast(!(await db.from('subcontractor_applications').update({ status, reviewed_by: me.id, reviewed_at: new Date().toISOString(), review_note: note.trim() || null } as never).eq('id', r.id).select('id')).data?.length ? 'Could not save — try again.' : status === 'approved' ? 'Approved' : 'Rejected');
     refresh();
   };
@@ -86,8 +96,25 @@ export default function SubApp() {
       </Card>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {r.status !== 'approved' && <View style={{ flex: 1 }}><Button title="✓ Approve" onPress={() => void decide('approved')} /></View>}
-        {r.status !== 'rejected' && <View style={{ flex: 1 }}><Button kind="ghost" title="Reject" onPress={() => void decide('rejected')} /></View>}
+        {r.status !== 'rejected' && <View style={{ flex: 1 }}><Button kind="ghost" title="Send Back For More Info" onPress={() => void decide('rejected')} /></View>}
       </View>
+      {r.status === 'rejected' && !r.user_id && !!r.email && (
+        <View style={{ alignItems: 'center', marginTop: 10 }}>
+          <Button kind="ghost" title="Email Them What’s Missing" onPress={() => {
+            const body = `Hello ${r.contact_name || ''},
+
+Thank you for your subcontractor sign-up. We need a little more before we can approve it:
+
+${r.review_note || ''}
+
+Please fill the form in again here:
+${subSignUpLink(me.org_id as string)}
+
+Thanks`;
+            void Linking.openURL(`mailto:${r.email}?subject=${encodeURIComponent('Your subcontractor sign-up — more information needed')}&body=${encodeURIComponent(body)}`);
+          }} />
+        </View>
+      )}
       {isFullManager(me) && <Button kind="ghost" title="🗑 Delete application" onPress={async () => {
         if (!(await confirmAsk("Delete this application? This can't be undone.", 'Delete'))) return;
         if (!!(await db.from('subcontractor_applications').delete().eq('id', r.id).select('id')).data?.length) { toast('Deleted'); void qc.invalidateQueries({ queryKey: ['subApps'] }); router.back(); } else toast('Could not delete — try again.');

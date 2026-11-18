@@ -818,10 +818,11 @@ Report templates are built in **Admin › Projects › Report Templates**.
 2. **Invites:** **Create Permanent Invite Link**, or **Generate One-Time Invite Link** and **Send Invite Email**.
 3. **Users:** click a person to change their role or phone, or remove them. For an operative, **Open In Operatives Hub** shows their page, with their Subcontractor Form.
 4. **Device Locks:** **Approve** or **Deny** new phones. **Unlock** a phone.
-5. **Check-In Logs:** everyone's check-ins, drivers too, between a **From** and **To** date. Choose who with **Type ▾**, or type a name or a role (for example "site managers"). A driver's breaks come off their hours.
-6. **Projects › Job Numbers:** number new jobs automatically, with an optional prefix (for example RTB-2700). It's the same setting as Finance › Settings › Project Numbers, so a job set up in Projects or in Finance takes the next number, and no two jobs share one. **Projects** also has the Schedule of Works Library, Rate Card, Suppliers, Main Contractor and the report and signing templates.
-7. **Finance** (people with Finance on): Finance's settings in six tabs: **Sales** (invoice numbers, what goes on your invoices, defaults for new projects), **VAT & Overheads**, **Purchases** (purchase orders, purchase invoices, the invoice inbox), **Cost Codes**, **Templates** and **Xero**. They're the same settings as Finance › Settings.
-8. **H&S:** the H&S Policy, PPE Log, HAVS Tools, RAMS and COSHH libraries, and Toolbox Talks.
+5. **Subcontractor Sign-Up:** choose **Who Checks Sign-Ups**; they approve forms and get a to-do when a certificate's expiry date can't be read off it. **Send Back For More Info** asks what's missing: an operative gets a message and their form opens again with your note and their answers; someone who used the public link gets an email from you (**Email Them What's Missing**).
+6. **Check-In Logs:** everyone's check-ins, drivers too, between a **From** and **To** date. Choose who with **Type ▾**, or type a name or a role (for example "site managers"). A driver's breaks come off their hours.
+7. **Projects › Job Numbers:** number new jobs automatically, with an optional prefix (for example RTB-2700). It's the same setting as Finance › Settings › Project Numbers, so a job set up in Projects or in Finance takes the next number, and no two jobs share one. **Projects** also has the Schedule of Works Library, Rate Card, Suppliers, Main Contractor and the report and signing templates.
+8. **Finance** (people with Finance on): Finance's settings in six tabs: **Sales** (invoice numbers, what goes on your invoices, defaults for new projects), **VAT & Overheads**, **Purchases** (purchase orders, purchase invoices, the invoice inbox), **Cost Codes**, **Templates** and **Xero**. They're the same settings as Finance › Settings.
+9. **H&S:** the H&S Policy, PPE Log, HAVS Tools, RAMS and COSHH libraries, and Toolbox Talks.
 
 **What This Does In Finance:** an admin with Finance switches **Finance** on or off on each person's row in **Users**.
 

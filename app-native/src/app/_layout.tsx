@@ -14,7 +14,8 @@ import { startReportSync } from '@/lib/reportOffline';
 import { startUploadQueue } from '@/lib/uploadQueue';
 import { ThemeProvider } from '@/theme/theme';
 
-export { ErrorBoundary } from 'expo-router';
+// Our own error page: reloads once after a new version went up (18 Nov 2026), else a plain message.
+export { AppErrorBoundary as ErrorBoundary } from '@/components/AppErrorBoundary';
 
 SplashScreen.preventAutoHideAsync();
 

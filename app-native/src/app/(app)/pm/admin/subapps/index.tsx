@@ -1,13 +1,14 @@
 // Admin Centre › Subcontractor sign-up (866 renderSubApplications): the public
-// sign-up form link to send out, and applications — New / Approved / Rejected.
+// sign-up form link to send out, and applications — New / Approved / Sent Back (for more information; 18 Nov 2026).
 import { useQuery } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, Share, Text, View } from 'react-native';
 
+import { SelectBox } from '@/components/SelectBox';
 import { useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
-import { subSignUpLink } from '@/data/admin';
+import { subSignUpLink, useTeam } from '@/data/admin';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
@@ -16,6 +17,31 @@ import { base, page, radius, space, live } from '@/theme/theme';
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 export type SubApp = { id: string; company_name: string; contact_name: string; email: string; phone: string | null; status: string; created_at: string; data: Record<string, unknown> | null };
 export const subAppValue = (v: unknown) => (Array.isArray(v) ? v.map((x) => (x && typeof x === 'object' ? Object.values(x).filter(Boolean).join(' · ') : String(x))).join('\n') : String(v ?? ''));
+
+/** Who checks sign-ups (Andy, 18 Nov 2026: "flag to the document controller or whoever approves the sign up form"): they
+ *  get the to-dos for certificates whose expiry date couldn't be read. Nobody chosen: the company admins. Admins set it. */
+function SignupChecker() {
+  const { me, org, refresh } = useAuth();
+  const toast = useToast();
+  const { data: team = [] } = useTeam(me?.org_id);
+  const [busy, setBusy] = useState(false);
+  if (!me || me.role !== 'admin' || !org) return null;
+  const managers = team.filter((p) => ['admin', 'pm'].includes(p.role)); // they see the office's to-dos (site managers don't)
+  const cur = (org as unknown as { signup_checker?: string | null }).signup_checker || '';
+  return (
+    <Card>
+      <SectionTitle>Who Checks Sign-Ups</SectionTitle>
+      <Muted style={{ marginBottom: 8 }}>They approve or send back sign-up forms, and get a to-do when a certificate’s expiry date can’t be read. Nobody chosen: the company admins.</Muted>
+      <SelectBox title="Who Checks Sign-Ups" value={cur || 'admins'} options={[['admins', 'The Company Admins'], ...managers.map((p) => [p.id, p.name || 'Unnamed'] as [string, string])]} onChange={async (v) => {
+        if (busy) return; setBusy(true);
+        const r = await db.from('organizations').update({ signup_checker: v === 'admins' ? null : v } as never).eq('id', org.id).select('id');
+        setBusy(false);
+        if (r.error || !(r.data as unknown[] | null)?.length) { toast('Could not save — try again.'); return; }
+        await refresh();
+      }} />
+    </Card>
+  );
+}
 
 export default function SubApps() {
   const { me } = useAuth();
@@ -44,10 +70,11 @@ export default function SubApps() {
           <View style={{ flex: 1 }}><Button kind="ghost" title="👁 Open the form" onPress={() => void Linking.openURL(link)} /></View>
         </View>
       </Card>
+      <SignupChecker />
       <View style={{ flexDirection: 'row', gap: 6, marginVertical: 10 }}>
         {(['new', 'approved', 'rejected'] as const).map((k) => (
           <Pressable key={k} onPress={() => setTab(k)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: tab === k ? live.brand1 : base.line, backgroundColor: tab === k ? live.brand1 : base.card }}>
-            <Text style={{ fontWeight: '500', color: tab === k ? live.brand1Text : base.ink }}>{k[0].toUpperCase() + k.slice(1)} ({counts[k] || 0})</Text>
+            <Text style={{ fontWeight: '500', color: tab === k ? live.brand1Text : base.ink }}>{({ new: 'New', approved: 'Approved', rejected: 'Sent Back' } as Record<string, string>)[k]} ({counts[k] || 0})</Text>
           </Pressable>
         ))}
       </View>

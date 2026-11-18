@@ -14,6 +14,7 @@ export default function Join() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -23,7 +24,8 @@ export default function Join() {
   const go = async () => {
     if (busy || !invite) return;
     setError(null); setBusy('Creating your account…');
-    const r = await join(invite, name, email, password, setBusy);
+    if (!phone.replace(/[^0-9]/g, '').match(/^[0-9]{10,13}$/)) { setError('Enter your mobile number.'); return; }
+    const r = await join(invite, name, email, password, setBusy, phone);
     setBusy(null);
     if (r.error) setError(r.error);
     else if (r.done) setDone(r.done);
@@ -58,8 +60,10 @@ export default function Join() {
           <Title>Join OpHUB</Title>
           <Muted style={{ marginBottom: 12 }}>You've been invited to join {info.org_name} on OpHUB.</Muted>
           {error && <Notice kind="error" text={error} />}
-          <Field label="Your name" value={name} onChangeText={setName} placeholder="e.g. Andy Turner" autoComplete="name" />
+          <Field label="Your Name" value={name} onChangeText={setName} placeholder="e.g. Andy Turner" autoComplete="name" />
           <Field label="Email" value={email} onChangeText={setEmail} placeholder="you@yourcompany.co.uk" autoCapitalize="none" keyboardType="email-address" autoComplete="email" />
+          {/* Their mobile, saved on their account and filled in on their forms (18 Nov 2026). */}
+          <Field label="Mobile Number" value={phone} onChangeText={setPhone} placeholder="e.g. 07123 456789" keyboardType="phone-pad" autoComplete="tel" />
           <Field label="Password" value={password} onChangeText={setPassword} placeholder="••••••••" secureTextEntry autoComplete="new-password" />
           <Button title={busy || 'Join Team'} busy={!!busy} onPress={go} />
         </Card>
