@@ -110,7 +110,8 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
     ...(!mgr || can(me, 'sow') ? [{ k: 'schedule', ic: 'clipboard', lbl: 'Schedule of Works', go: `/sites/${siteId}/schedule` }] : []),
     { k: 'hs', ic: 'shield', lbl: 'Health & Safety', go: `/sites/${siteId}/hs` },
     { k: 'checkin', ic: 'pin', lbl: 'Check In', go: `/sites/${siteId}/checkin` },
-    { k: 'messages', ic: 'chat', lbl: 'Inbox', go: `/sites/${siteId}/messages` },
+    // A manager's This Project has the job's HUB (its messages and to-dos), as the phone's bar (Andy, 18 Nov 2026); others keep the job's Inbox.
+    isFullManager(me) ? { k: 'hub', ic: 'bell', lbl: 'HUB', go: `/pm/hub?site=${siteId}` } : { k: 'messages', ic: 'chat', lbl: 'Inbox', go: `/sites/${siteId}/messages` },
     ...(site?.price_enabled && mgr && can(me, 'prices') ? [{ k: 'price', ic: 'pound', lbl: 'Price', go: `/sites/${siteId}/price` }] : []),
     ...(isFinanceUser(me, org) ? [{ k: 'fin', ic: 'chart', lbl: 'Finance', go: `/fin/job/${siteId}` }] : []),
     ...(mgr ? [{ k: 'admin', ic: 'gear', lbl: 'Project Settings', go: `/sites/${siteId}/admin` }] : []),

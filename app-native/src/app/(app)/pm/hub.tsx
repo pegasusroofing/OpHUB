@@ -39,7 +39,7 @@ export default function Hub() {
   const { me, org } = useAuth();
   const t = useTheme();
   const qc = useQueryClient();
-  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
+  const { tab: tabParam, site: siteParam } = useLocalSearchParams<{ tab?: string; site?: string }>();
   // The tab you tapped; a link with ?tab=… (e.g. from a "tagged you" notification) wins until you tap another.
   const fromLink: Tab = TABS.some(([k]) => k === tabParam) ? (tabParam as Tab) : 'todo';
   const [picked, setPicked] = useState<{ link?: string; tab: Tab } | null>(null);
@@ -48,7 +48,10 @@ export default function Hub() {
   const { data: sites } = useSites();
   const { data: pms } = usePmList();
   const [pm, setPm] = useState('');
-  const [site, setSite] = useState('');
+  // A project's HUB row (?site=…; Andy, 18 Nov 2026): that project only, until you choose another.
+  const [sitePick, setSitePick] = useState<{ link?: string; site: string } | null>(null);
+  const site = sitePick && sitePick.link === siteParam ? sitePick.site : String(siteParam || '');
+  const setSite = (v: string) => setSitePick({ link: siteParam, site: v });
   const [due, setDue] = useState<string>('all');
   const [finPick, setFinPick] = useState<string | null>(null); // the Finance tile opened
   const hub = useHubAll(me, org, sites, pm);

@@ -136,7 +136,8 @@ export default function SiteHome() {
         <JobRows desk={desk} cols={desk ? 2 : 1} rows={[
           // A client: Works Orders and Health & Safety only (their pages).
           ...(client ? [] : [{ key: 'cal', ic: 'calendar', title: 'Calendar', sub: 'Key dates', onPress: go('calendar') },
-          { key: 'todo', ic: 'check', title: 'To Do List', sub: 'Tasks', onPress: go('todos') }]),
+          // A manager on a laptop: the job's HUB (messages and to-dos), as on a normal job (18 Nov 2026).
+          mgr && desk ? { key: 'hub', ic: 'bell', title: 'HUB', sub: 'Messages & to-dos', onPress: () => router.push(`/pm/hub?site=${site.id}` as never) } : { key: 'todo', ic: 'check', title: 'To Do List', sub: 'Tasks', onPress: go('todos') }]),
           { key: 'hs', ic: 'shield', title: 'Health & Safety', sub: 'RAMS · COSHH · TBT', onPress: go('hs') },
         ]} />
         {footer}
@@ -169,7 +170,9 @@ export default function SiteHome() {
     ...(!mgr || can(me, 'snags') || can(me, 'reports') ? [{ key: 'rep', ic: 'reports', title: mgr ? 'Inspections & Reports' : 'Snagging & Variations', sub: h ? `${snags} open` : '…', badge: snags || undefined, onPress: go('snagging') }] : []),
     ...(h?.canSeePrice && can(me, 'prices') ? [{ key: 'price', ic: 'pound', title: 'Price', sub: h.priceWages ? `${h.priceWages} wage${h.priceWages > 1 ? 's' : ''} to book` : h.priceVars ? `${h.priceVars} variation${h.priceVars > 1 ? 's' : ''} pending` : 'Restricted access', badge: h.priceVars + h.priceWages || undefined, onPress: go('price') }] : []),
     ...(mgr && siteStatusKey(site) === 'closed' ? [{ key: 'ho', ic: 'book', title: 'Handover', sub: 'O&M manual · data sheets · guarantees', onPress: go('handover') }]
-      : mgr && desk ? [{ key: 'todo', ic: 'check', title: 'To Do List', sub: h ? (h.openTodos ? `${h.openTodos} open` : 'Nothing outstanding') : '…', onPress: go('todos') }] : []),
+      // On a laptop the project's HUB (its messages and to-dos), not a To Do List and an Inbox (Andy, 18 Nov 2026: "we need to
+      // rethink the hub ... there is an inbox and to do list in the laptop view. maybe make the hub a row in the project?").
+      : mgr && desk ? [{ key: 'hub', ic: 'bell', title: 'HUB', sub: h ? (h.openTodos ? `Messages & to-dos · ${h.openTodos} to do` : 'Messages & to-dos') : '…', onPress: () => router.push(`/pm/hub?site=${site.id}` as never) }] : []),
   ];
   // Calendar sits second to last, whatever comes before it.
   if (!client && (!mgr || can(me, 'team'))) rows.splice(Math.max(0, rows.length - 1), 0, { key: 'cal', ic: 'calendar', title: 'Calendar', sub: 'Key dates', onPress: go('calendar') });
@@ -221,7 +224,8 @@ export default function SiteHome() {
   const info = desk ? (
     <View style={[cardBox, { borderRadius: 10, flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingLeft: 2, paddingRight: 12, marginBottom: 10 }]}>
       {clientPart}{todayPart}{thirdPart}{weatherPart}
-      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10, borderLeftWidth: 1, borderLeftColor: rule, paddingLeft: 12 }}>{pill}{checkBtn}</View>
+      {/* Its own width, so the badge and button don't run over the weather (18 Nov 2026). */}
+      <View style={{ flexShrink: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10, borderLeftWidth: 1, borderLeftColor: rule, paddingLeft: 12 }}>{pill}{checkBtn}</View>
     </View>
   ) : (
     <View style={[cardBox, { borderRadius: 10, paddingTop: 10, paddingBottom: 12, marginBottom: 10 }]}>

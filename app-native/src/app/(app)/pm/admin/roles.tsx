@@ -19,6 +19,7 @@ import { useTeam } from '@/data/admin';
 import { addOrgRole, removeOrgRole, saveOrgRole, saveRolePerms, useOrgRoles } from '@/data/orgRoles';
 import { useAuth } from '@/lib/auth';
 import { ACCESS_LABEL, ACCESS_ORDER, holders, type OrgRole } from '@/lib/rules/orgRoles';
+import { legacyExtra } from '@/lib/homeTiles';
 import { ALL_PARTS, BOARD_LEVELS, partsOf } from '@/lib/rules/rolePerms';
 import { base, page, radius, space } from '@/theme/theme';
 
@@ -65,7 +66,7 @@ const names = (people: { name?: string | null }[]) => {
 };
 
 export default function Roles() {
-  const { me } = useAuth();
+  const { me, org: company } = useAuth();
   const qc = useQueryClient();
   const { data: roles = [], isLoading } = useOrgRoles(me?.org_id);
   const { data: team = [] } = useTeam(me?.org_id);
@@ -82,7 +83,7 @@ export default function Roles() {
   const sel = roles.find((r) => r.id === pick?.id) ?? roles.find((r) => r.name === pick?.name) ?? roles[0];
   const cur = pop && pop !== 'new' ? pop : null;
   const who = sel ? holders(sel, team, roles) : [];
-  const has = sel ? partsOf(sel.perms).length : 0;
+  const has = sel ? partsOf(sel.perms, sel.perms_extra, legacyExtra(sel.access, company)).length : 0;
   return (
     <ScrollView contentContainerStyle={page(1000)}>
       <Stack.Screen options={{ title: 'Roles' }} />

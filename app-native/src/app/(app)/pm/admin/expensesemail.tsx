@@ -1,11 +1,15 @@
-// Admin Centre › Expenses Email (590 saveExpensesEmail), admins only: where
-// receipts from the Expenses tile are emailed, and how long the app keeps them.
-import { useQuery } from '@tanstack/react-query';
+// Admin Centre › Company › Expenses (590 saveExpensesEmail), admins only: where receipts from the Expenses tile are
+// emailed, how long the app keeps them, and (with Finance) who books them in Finance: one place (Andy, 18 Nov 2026).
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { useToast } from '@/components/toast';
+import { SelectBox } from '@/components/SelectBox';
+import { showAlert, useToast } from '@/components/toast';
+import { fdb, useFinSettings } from '@/data/finance';
+import { usePeople } from '@/data/hs';
+import { isFinanceUser } from '@/lib/roles';
 import { Button, Card, Muted } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
@@ -14,7 +18,7 @@ import { base, page, radius, space, live } from '@/theme/theme';
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
 export default function ExpensesEmail() {
-  const { me, refresh } = useAuth();
+  const { me, org, refresh } = useAuth();
   const toast = useToast();
   const { data, refetch } = useQuery({
     queryKey: ['orgExpenses', me?.org_id], enabled: !!me,
@@ -28,7 +32,7 @@ export default function ExpensesEmail() {
   if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Company admins only.</Muted>;
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'Expenses Email' }} />
+      <Stack.Screen options={{ title: 'Expenses' }} />
       <Card>
         <Muted style={{ marginBottom: 10 }}>Receipts sent from the Expenses tile on any job are emailed to this address.</Muted>
         <Muted style={{ fontWeight: '600' }}>Send expenses to</Muted>
@@ -51,8 +55,36 @@ export default function ExpensesEmail() {
           toast(ok ? (v ? 'Expenses settings saved' : 'Saved — no expenses email set') : 'Could not save — only a Project Manager or Admin can change this.');
           if (ok) { void refetch(); void refresh(); }
         }} />
+        {!!me.org_id && isFinanceUser(me, org) && <FinanceBooker orgId={me.org_id} meId={me.id} />}
         {data?.expenses_email ? <Text style={{ color: base.ok, marginTop: 8 }}>✓ Currently going to {data.expenses_email}</Text> : <Text style={{ color: base.warn, marginTop: 8 }}>Not set yet — receipts can&apos;t be sent until an address is saved.</Text>}
       </Card>
     </ScrollView>
+  );
+}
+
+/** Who books the receipts once they're in Finance (Andy, 18 Nov 2026: one place for expenses; it was Finance › Settings
+ *  › Purchase Invoices › Expense Receipts Go To). Receipts emailed to the invoices mailbox that's forwarded into
+ *  Finance are given to this Finance person; ones already waiting with nobody go to them too. Saved as you choose. */
+function FinanceBooker({ orgId, meId }: { orgId: string; meId: string }) {
+  const qc = useQueryClient();
+  const { data: st } = useFinSettings(orgId);
+  const { data: people = [] } = usePeople();
+  const fin = (people as { id: string; name?: string | null; finance_enabled?: boolean | null }[]).filter((p) => p.finance_enabled).sort((x, y) => String(x.name).localeCompare(String(y.name)));
+  const cur = String((st as { expenses_user?: string | null } | undefined)?.expenses_user || '');
+  const choose = async (v: string) => {
+    const r = await fdb.from('fin_settings').upsert({ org_id: orgId, expenses_user: v || null, updated_at: new Date().toISOString(), updated_by: meId } as never, { onConflict: 'org_id' });
+    if (r.error) { showAlert('That couldn’t be saved. Try again.'); return; }
+    if (v && v !== cur) {
+      const wait = (((await fdb.from('fin_inbox').select('id,extracted,assigned_pm').eq('org_id', orgId).eq('status', 'new')).data as { id: string; extracted?: { receipt?: boolean } | null; assigned_pm?: string | null }[] | null) ?? []).filter((x) => x.extracted?.receipt === true && (!x.assigned_pm || x.assigned_pm === cur));
+      if (wait.length) await fdb.from('fin_inbox').update({ assigned_pm: v, assigned_at: new Date().toISOString() } as never).in('id', wait.map((x) => x.id));
+    }
+    ['finSettings', 'finPurchases'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
+  };
+  return (
+    <View style={{ marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
+      <SelectBox label="Who Books Them In Finance" title="Who Books Expense Receipts" value={cur as never}
+        options={[['', 'Nobody Chosen (Any Finance User)'], ...fin.map((p) => [p.id, p.name || 'Unnamed'] as [string, string])]} onChange={(v) => void choose(v)} />
+      <Muted style={{ marginTop: 2 }}>When the address above is your invoices mailbox (forwarded into Finance), each receipt is given to this person to book.</Muted>
+    </View>
   );
 }

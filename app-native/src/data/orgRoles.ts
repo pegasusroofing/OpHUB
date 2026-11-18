@@ -4,7 +4,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { DEFAULT_ROLES, isUnsaved, withDefaults, type OrgRole } from '@/lib/rules/orgRoles';
-import { BOARD_LEVELS, startingParts } from '@/lib/rules/rolePerms';
+import { BOARD_LEVELS, splitParts, startingParts } from '@/lib/rules/rolePerms';
 import { roleChangePatch } from '@/lib/rules/users';
 import { supabase } from '@/lib/supabase';
 
@@ -14,7 +14,7 @@ export function useOrgRoles(orgId: string | null | undefined) {
   return useQuery({
     queryKey: ['orgRoles', orgId], enabled: !!orgId, staleTime: 300000,
     queryFn: async () => {
-      const r = await db.from('org_roles').select('id,name,access,is_default,position,perms').eq('org_id', orgId as string);
+      const r = await db.from('org_roles').select('id,name,access,is_default,position,perms,perms_extra').eq('org_id', orgId as string);
       if (r.error) throw r.error; // never show the starting list in place of a company's own
       return withDefaults((r.data as OrgRole[] | null) ?? []);
     },
@@ -32,7 +32,7 @@ const errText = (e: unknown, name?: string) => {
 /** A company from before the list existed has none saved yet: save the starting list first. */
 async function ensureSaved(orgId: string, roles: OrgRole[]): Promise<OrgRole[] | null> {
   if (!roles.every(isUnsaved)) return roles;
-  const r = await db.from('org_roles').insert(DEFAULT_ROLES.map(([name, access, d], i) => ({ org_id: orgId, name, access, is_default: d, position: i + 1 })) as never).select('id,name,access,is_default,position,perms');
+  const r = await db.from('org_roles').insert(DEFAULT_ROLES.map(([name, access, d], i) => ({ org_id: orgId, name, access, is_default: d, position: i + 1 })) as never).select('id,name,access,is_default,position,perms,perms_extra');
   return r.error ? null : withDefaults((r.data as OrgRole[] | null) ?? []);
 }
 
@@ -40,8 +40,8 @@ export async function addOrgRole(orgId: string, roles: OrgRole[], name: string, 
   const saved = await ensureSaved(orgId, roles); if (!saved) return 'Could not save — try again.';
   const position = Math.max(0, ...saved.map((r) => r.position)) + 1;
   // A new office role starts the same as the company's Project Manager (Andy, 17 Nov 2026).
-  const perms = BOARD_LEVELS.includes(access) ? startingParts(saved) : null;
-  const r = await db.from('org_roles').insert({ org_id: orgId, name: name.trim(), access, position, perms } as never).select('id');
+  const start = BOARD_LEVELS.includes(access) ? startingParts(saved) : { perms: null, extra: null };
+  const r = await db.from('org_roles').insert({ org_id: orgId, name: name.trim(), access, position, perms: start.perms, perms_extra: start.extra } as never).select('id');
   return r.error ? errText(r.error, name.trim()) : null;
 }
 
@@ -55,11 +55,13 @@ export async function saveOrgRole(orgId: string, roles: OrgRole[], role: OrgRole
 }
 
 /** What a role can do (the board on Admin › Roles). */
-export async function saveRolePerms(orgId: string, roles: OrgRole[], role: OrgRole, perms: string[]): Promise<string | null> {
+/** Saves a role's parts from the board: the first fifteen to perms, Money On Home and See Material Costs to perms_extra. */
+export async function saveRolePerms(orgId: string, roles: OrgRole[], role: OrgRole, parts: string[]): Promise<string | null> {
   const saved = await ensureSaved(orgId, roles); if (!saved) return 'Could not save — try again.';
   const id = isUnsaved(role) ? saved.find((x) => x.name === role.name)?.id : role.id;
   if (!id) return 'Could not save — try again.';
-  const r = await db.from('org_roles').update({ perms } as never).eq('id', id).select('id');
+  const { perms, extra } = splitParts(parts);
+  const r = await db.from('org_roles').update({ perms, perms_extra: extra } as never).eq('id', id).select('id');
   return r.error ? errText(r.error) : r.data?.length ? null : 'Could not save — try again.';
 }
 

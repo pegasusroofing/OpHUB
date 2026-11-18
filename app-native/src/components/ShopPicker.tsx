@@ -15,8 +15,9 @@ import { base, radius, live } from '@/theme/theme';
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 export type ShopItem = { id: string; description: string; unit: string | null; code: string | null; supplier_id: string | null; supplier_name: string | null; quote_id: string | null; quote_label: string | null; rate?: number | null };
 
-/** Costs are shown to Finance users (unless hidden) and anyone given "see costs". */
-export const canSeeCosts = (me: Profile | null | undefined) => !!me && ((me.finance_enabled && me.finance_hidden !== true) || !!me.see_costs);
+/** Costs are shown to Finance users (unless hidden), anyone given "see costs" person by person (operatives), and roles
+ *  with See Material Costs (Admin › Roles, 18 Nov 2026). */
+export const canSeeCosts = (me: Profile | null | undefined) => !!me && ((me.finance_enabled && me.finance_hidden !== true) || !!me.see_costs || (!!me.perms_extra && me.perms_extra.includes('mat_costs')));
 
 export function useShopItems(siteId: string, on: boolean) {
   const { me } = useAuth();

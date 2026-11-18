@@ -22,9 +22,8 @@ import { fdb, finInvoke, useFinSettings } from '@/data/finance';
 import { nameOf, usePeople } from '@/data/hs';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { canEditFinance, isFinanceUser, roleLabel } from '@/lib/roles';
+import { canEditFinance, isFinanceUser } from '@/lib/roles';
 import { SUPABASE_URL } from '@/lib/supabase';
-import type { Profile } from '@/lib/types';
 import { FIN_TRIAL, FIN_VAT_LABEL, num, vatList, type VatRate } from '@/lib/rules/finance';
 import { base, radius } from '@/theme/theme';
 
@@ -40,15 +39,6 @@ export default function FinSettings() {
   const { data: xero } = useQuery({ queryKey: ['finXeroStatus', me?.org_id], enabled: !!me, queryFn: async () => (me ? finInvoke<Row>(me, 'xero', { action: 'status' }) : null) });
   const [edit, setEdit] = useState<string | null>(null); // which part is being edited
   const [openS, setOpenS] = useState<string[]>([]);
-  const { data: team, refetch: refetchTeam } = useQuery({ queryKey: ['finSeeCosts', me?.org_id], enabled: !!me && openS.includes('costs'), queryFn: async () =>
-    (((await fdb.from('profiles').select('*').eq('org_id', me?.org_id as string)).data as Profile[] | null) ?? [])
-      .filter((p) => !p.finance_enabled && ['pm', 'site_manager', 'operative', 'admin'].includes(p.role)).sort((x, y) => String(x.name).localeCompare(String(y.name))) });
-  const setSeeCosts = async (p: Profile, on: boolean) => {
-    const r = await fdb.from('profiles').update({ see_costs: on } as never).eq('id', p.id).select('see_costs');
-    const ok = !r.error && ((r.data as { see_costs: boolean }[] | null) ?? [])[0]?.see_costs === on;
-    if (!ok) toast('Only an admin with Finance can change this.');
-    void refetchTeam();
-  };
   const newInboxKey = async () => {
     if (!me) return;
     if (s0.inbox_key && !(await confirmAsk('Make a new inbox key? The old address stops working, so update your email forwarding afterwards.', 'Make a new key'))) return;
@@ -60,11 +50,9 @@ export default function FinSettings() {
   };
   // Expense receipts sent in from jobs go to one Finance person to book (Andy, 7 Nov 2026).
   const { data: people } = usePeople();
-  const finPeople = (people || []).filter((p) => (p as Row).finance_enabled).sort((x, y) => String(x.name).localeCompare(String(y.name)));
   if (!me) return null;
   const s = (st || {}) as Row;
   const s0 = s;
-  const canEditCosts = me.role === 'admin' && isFinanceUser(me, org);
   // Without Finance – Edit (Admin › Roles) the settings are shown, not changed.
   const canEdit = canEditFinance(me);
   const initial = { ...s, po_enabled: !!s.po_enabled, pi_auto_approve: s.pi_auto_approve !== false, expenses_user: s.expenses_user || '', po_vat_default: String(s.po_vat_default || '20'), auto_job_numbers: !!o?.auto_job_numbers, job_number_prefix: o?.job_number_prefix || '', next_job_number: o?.next_job_number ?? '' };
@@ -76,8 +64,7 @@ export default function FinSettings() {
     def: [{ k: 'default_retention_pct', label: 'Default retention %', kind: 'number', half: true }, { k: 'app_reminder_day', label: 'Application date (day of month)', kind: 'day', half: true }, { k: 'default_due_days', label: 'Payment due (days)', kind: 'number', half: true }, { k: 'default_final_days', label: 'Final date (days)', kind: 'number', half: true }],
     po: [{ k: 'po_enabled', label: 'Raise a PO for every PM’s order', kind: 'check' }, { k: 'po_vat_default', label: 'VAT on new PO lines', kind: 'choice', options: vatList(s).filter((x) => x.active || x.code === String(s.po_vat_default || '20')).map((x) => [x.code, x.name] as [string, string]) }],
     // Approve by themselves when nothing looks wrong (Andy, 5 Nov 2026). Blank counts as on.
-    pi: [{ k: 'pi_auto_approve', label: 'Approve purchase invoices automatically when nothing looks wrong (filed to a project, supplier in your Directory, not over its PO, not a duplicate)', kind: 'check' },
-      { k: 'expenses_user', label: 'Expense Receipts Go To', kind: 'choice', options: [['', 'Nobody Chosen (Any Finance User)'], ...finPeople.map((p) => [p.id, p.name] as [string, string])] }],
+    pi: [{ k: 'pi_auto_approve', label: 'Approve purchase invoices automatically when nothing looks wrong (filed to a project, supplier in your Directory, not over its PO, not a duplicate)', kind: 'check' }],
     vat: [{ k: 'default_vat', label: 'Default VAT On Sales (Invoices And Applications)', kind: 'choice', options: Object.entries(FIN_VAT_LABEL) }, { k: 'po_vat_default', label: 'Default VAT On Purchases (New PO Lines)', kind: 'choice', options: vatList(s).filter((x) => x.active || x.code === String(s.po_vat_default || '20')).map((x) => [x.code, x.name] as [string, string]) }],
     ohp: [{ k: 'ohp_pct', label: 'Company overheads %', kind: 'number' }],
     bill: [{ k: 'company_address', label: 'Company address', kind: 'multiline' }, { k: 'company_vat_no', label: 'VAT number', half: true }, { k: 'company_reg_no', label: 'Company number', half: true }, { k: 'bank_name', label: 'Bank', half: true }, { k: 'bank_account_name', label: 'Account name', half: true }, { k: 'bank_sort_code', label: 'Sort code', half: true }, { k: 'bank_account_no', label: 'Account number', half: true }, { k: 'invoice_footer', label: 'Invoice footer', kind: 'multiline' }, { k: 'contractor_utr', label: 'Contractor UTR (CIS)', half: true }, { k: 'employer_ref', label: 'Employer reference', half: true }],
@@ -115,7 +102,7 @@ export default function FinSettings() {
               if (appDay !== null && (isNaN(appDay) || appDay < 1 || appDay > 31)) return 'Application date must be a day of the month, 1 to 31.';
               Object.assign(body, { default_retention_pct: ret, app_reminder_day: appDay, default_due_days: due === null || isNaN(due) ? 30 : due, default_final_days: fin === null || isNaN(fin) ? 14 : fin });
             }
-            if (edit === 'pi') { body.pi_auto_approve = !!v.pi_auto_approve; body.expenses_user = String(v.expenses_user || '') || null; }
+            if (edit === 'pi') { body.pi_auto_approve = !!v.pi_auto_approve; /* who books expense receipts: Admin › Company › Expenses (18 Nov 2026) */ }
             if (edit === 'po') Object.assign(body, { po_enabled: !!v.po_enabled, po_vat_default: String(v.po_vat_default || '20') });
             if (edit === 'vat') { body.default_vat = v.default_vat || 'standard'; body.po_vat_default = String(v.po_vat_default || '20'); }
             if (edit === 'ohp') { const oh = num(v.ohp_pct); if (oh === null || isNaN(oh) || oh < 0 || oh > 100) return 'Overheads must be between 0 and 100%.'; body.ohp_pct = oh; }
@@ -124,12 +111,6 @@ export default function FinSettings() {
             if (Object.keys(orgPatch).length) { const r = await fdb.from('organizations').update(orgPatch as never).eq('id', org?.id || (me.org_id as string)).select('id'); if (r.error || !(r.data as unknown[] | null)?.length) orgNote = ' The project number settings can only be changed by an admin.'; }
             const r = edit === 'nums' ? { error: null } : await fdb.from('fin_settings').upsert(body as never, { onConflict: 'org_id' });
             if (r.error) return `Save failed — ${r.error.message}`;
-            // Receipts already waiting with nobody get the chosen person too.
-            if (edit === 'pi' && body.expenses_user && body.expenses_user !== s.expenses_user) {
-              const wait = (((await fdb.from('fin_inbox').select('id,extracted,assigned_pm').eq('org_id', me.org_id as string).eq('status', 'new')).data as Row[] | null) ?? []).filter((x) => x.extracted?.receipt === true && (!x.assigned_pm || x.assigned_pm === s.expenses_user));
-              if (wait.length) await fdb.from('fin_inbox').update({ assigned_pm: body.expenses_user, assigned_at: new Date().toISOString() } as never).in('id', wait.map((x) => x.id));
-              void qc.invalidateQueries({ queryKey: ['finPurchases'] });
-            }
             toast(orgNote ? orgNote.trim() : 'Saved'); ['finSettings', 'finOrgNums'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); return null;
           }} />
   ) : null;
@@ -140,7 +121,7 @@ export default function FinSettings() {
         ['costs', 'Who can see material costs', 'eye', []],
         ['nums', 'Project numbers', 'hash', [['Project numbers', o?.auto_job_numbers ? `Automatic · next ${o.job_number_prefix || ''}${o.next_job_number ?? ''}` : 'Typed by hand']]],
         ['po', 'Purchase orders', 'reports', [['Raise a PO for every PM’s order', s.po_enabled ? 'On' : 'Off'], ['VAT on new PO lines', vatList(s).find((x) => x.code === String(s.po_vat_default || '20'))?.name || String(s.po_vat_default || '20')]]],
-        ['pi', 'Purchase invoices', 'reports', [['Approve automatically when nothing looks wrong', s.pi_auto_approve === false ? 'Off' : 'On'], ['Expense receipts go to', s.expenses_user ? nameOf(people, s.expenses_user) : 'Nobody chosen']]],
+        ['pi', 'Purchase invoices', 'reports', [['Approve automatically when nothing looks wrong', s.pi_auto_approve === false ? 'Off' : 'On'], ['Expense receipts go to (Admin › Company › Expenses)', s.expenses_user ? nameOf(people, s.expenses_user) : 'Nobody chosen']]],
         ['vat', 'VAT rates', 'percent', [['Default VAT On Sales', FIN_VAT_LABEL[s.default_vat] || '—'], ['Default VAT On Purchases', vatList(s).find((x) => x.code === String(s.po_vat_default || '20'))?.name || String(s.po_vat_default || '20')]]],
         ['inv', 'Invoice numbers', 'list', [['Next invoice number', `${s.invoice_prefix || ''}${s.next_invoice_number ?? ''}`]]],
         ['def', 'Defaults for new projects', 'gear', [['Retention', `${s.default_retention_pct ?? 5}%`], ['Payment terms', `${s.default_due_days ?? 30} days · final ${s.default_final_days ?? 14} days`], ['Application date', s.app_reminder_day ? `${s.app_reminder_day} of each month` : 'Not set']]],
@@ -168,44 +149,9 @@ export default function FinSettings() {
                   </>
                 ) : k === 'costs' ? (
                   <>
-                    <Muted style={{ marginBottom: 8 }}>Prices on project quotes (and in the Materials tile) are hidden from everyone except Finance users and the people switched on here.</Muted>
-                    {/* By role (Andy, 11 Nov 2026): Admins, PMs, Site Managers, then Operatives, each with Select All; operatives stay
-                        off unless an admin switches them on. */}
-                    {!team ? <Muted>Loading…</Muted> : team.length ? ([['admin', 'Admins'], ['pm', 'Project Managers'], ['site_manager', 'Site Managers'], ['operative', 'Operatives']] as const).map(([role, label]) => {
-                      const grp = team.filter((p) => p.role === role);
-                      if (!grp.length) return null;
-                      const onN = grp.filter((p) => p.see_costs).length, gk = `costs:${role}`, shut = !openS.includes(gk);
-                      return (
-                        <View key={role} style={{ borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9 }}>
-                            <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => setOpenS(shut ? [...openS, gk] : openS.filter((x) => x !== gk))} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <Text style={{ fontWeight: '600', color: base.ink }}>{label}</Text>
-                              <Text style={{ fontSize: 12, color: base.slate }}>{onN} Of {grp.length} Can See {shut ? '▾' : '▴'}</Text>
-                            </Pressable>
-                            {canEditCosts && <Button small kind="ghost" title={onN === grp.length ? 'Untick All' : 'Select All'} onPress={async () => {
-                              const on = onN !== grp.length;
-                              if (role === 'operative' && on && !(await confirmAsk('Let every operative see material costs?', 'Yes', 'No'))) return;
-                              const r = await fdb.from('profiles').update({ see_costs: on } as never).in('id', grp.map((p) => p.id)).select('id');
-                              if (r.error || !(r.data as unknown[] | null)?.length) toast('Only an admin with Finance can change this.');
-                              void refetchTeam();
-                            }} />}
-                          </View>
-                          {role === 'operative' && <Muted style={{ fontSize: 12, marginTop: -4, marginBottom: 6 }}>Always off unless an admin switches them on.</Muted>}
-                          {!shut && grp.map((p) => (
-                            <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7, paddingLeft: 12 }}>
-                              <Text style={{ flex: 1, color: base.ink }}>{p.name}</Text>
-                              {canEditCosts
-                                ? <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: !!p.see_costs }} accessibilityLabel={`${p.name} can see material costs`} onPress={() => void setSeeCosts(p, !p.see_costs)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                    <Text style={{ fontSize: 16, color: base.ink }}>{p.see_costs ? '☑' : '☐'}</Text>
-                                    <Text style={{ fontWeight: '500', color: base.ink, minWidth: 54 }}>{p.see_costs ? 'Can See' : 'Hidden'}</Text>
-                                  </Pressable>
-                                : <Text style={{ fontWeight: '500', color: base.ink }}>{p.see_costs ? 'Can See' : 'Hidden'}</Text>}
-                            </View>
-                          ))}
-                        </View>
-                      );
-                    }) : <Muted>Nobody else in the team yet.</Muted>}
-                    {!canEditCosts && <Muted style={{ marginTop: 6 }}>Only an admin with Finance can change these.</Muted>}
+                    {/* Who sees material costs is set in the Admin Centre now (Andy, 18 Nov 2026: one place, with the roles). */}
+                    <Muted style={{ marginBottom: 8 }}>Office roles get material costs from Admin › Roles (See Material Costs); operatives are switched on one by one in Admin › People › Material Costs. Finance users always see them.</Muted>
+                    {me.role === 'admin' && <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8 }}><Button small title='Roles' onPress={() => router.push('/pm/admin/roles' as never)} /><Button small kind='ghost' title='Operatives' onPress={() => router.push('/pm/admin/matcosts' as never)} /></View>}
                   </>
                 ) : k === 'inbox' ? (
                   <>

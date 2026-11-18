@@ -104,15 +104,12 @@ const VP = {viewport: {width: 1300, height: 900}};
   const nameY = (await page.getByText('Company Admin', {exact: true}).filter({visible: true}).first().boundingBox().catch(() => null))?.y || 0;
   check(adminY > finY + 60 && nameY > adminY && nameY - adminY < 80, `Admin at the bottom, just above the name (${Math.round(finY)} / ${Math.round(adminY)} / ${Math.round(nameY)})`);
 
-  // ---- Admin › Company › Home Page ----
+  // ---- Admin › Company: no Home Page since 18 Nov (Money On Home is a part on Admin › Roles) ----
   await page.goto(B + '/pm/admin?page=company'); await page.waitForTimeout(3500);
-  check(await page.getByText('Home Page', {exact: true}).filter({visible: true}).count() >= 1, 'Admin › Company lists Home Page');
+  check(await page.getByText('Home Page', {exact: true}).filter({visible: true}).count() === 0, 'Admin › Company has no Home Page (it is in Roles now)');
   await page.goto(B + '/pm/admin/hometiles'); await page.waitForTimeout(3500);
-  await page.locator('[aria-label="Project Managers See Finance On Home?: No"] >> visible=true').first().click(); await page.waitForTimeout(300);
+  check(/Money On Home Is In Roles Now/.test(await page.evaluate(() => document.body.innerText)), 'an old link to the Home Page points to Roles');
   await page.screenshot({path: path.join(SHOTS, 'laptop-hometiles.png')});
-  await page.getByText('Save', {exact: true}).filter({visible: true}).first().click(); await page.waitForTimeout(2500);
-  const ht = db.organizations[0].home_tiles || {};
-  check(ht.finance_pm === false, `saved on the company (${JSON.stringify(ht)}; the Home Page asks about project managers only since the 15 Nov review)`);
 
   // ---- Yard ----
   await page.goto(B + '/fin/yard'); await page.waitForTimeout(4500);
@@ -146,6 +143,8 @@ const VP = {viewport: {width: 1300, height: 900}};
   check(await page.getByText('Costs By Plot', {exact: true}).filter({visible: true}).count() >= 1, 'variations: a multi-site project keeps Costs By Plot');
 
   // ---- A PM kept off the money ----
+  // The company's old Home Page answer (No for project managers) still counts while the PM's role isn't set on the board.
+  db.organizations[0].home_tiles = {...(db.organizations[0].home_tiles || {}), finance_pm: false};
   me.role = 'pm';
   await page.goto(B + '/home'); await page.waitForTimeout(5000);
   const pt = await page.locator('body').innerText();

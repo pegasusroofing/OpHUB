@@ -99,6 +99,8 @@
       }
       // Roles (17 Nov 2026): the demo company keeps no list of what each role can do, so every role can do everything.
       if (fn === 'my_role_perms') return json(null);
+      // ...and its two extra parts (18 Nov 2026): not set, so the old behaviour.
+      if (fn === 'my_role_perms_extra') return json(null);
       return json(/check_device_lock|check_and_lock_device/.test(fn) ? { ok: true } : []);
     }
     if (p.indexOf('/rest/v1/') === 0) {

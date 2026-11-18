@@ -36,6 +36,8 @@ export default function Users() {
   const iAmAdmin = me.role === 'admin';
   // Finance is switched on the person's row: office roles only, never operatives (Andy, 2 Nov 2026).
   const finRole = (p: TeamMember) => p.role === 'admin' || p.role === 'pm';
+  // Their role on Admin › Roles has no Finance – View: the switch would do nothing, so say why (Andy, 18 Nov 2026).
+  const roleNoFin = (p: TeamMember) => { if (p.role === 'admin') return false; const r = roleOf(p, roles); return !!r && r.perms != null && !r.perms.includes('fin_view'); };
   const canFin = me.role === 'admin' && isFinanceUser(me, org);
   const flipFinance = async (p: TeamMember) => {
     if (!(await confirmAsk(p.finance_enabled ? `Switch Finance off for ${p.name}?` : `Give ${p.name} access to Finance?`, p.finance_enabled ? 'Switch off' : 'Give Finance'))) return;
@@ -111,7 +113,7 @@ Pass it on securely — it won’t be shown again.`, 'Password reset');
                   <Text style={{ fontWeight: '600', color: base.ink }}>{p.name}{p.id === me.id ? ' (you)' : ''}</Text>
                   <Muted>{p.email || ''}{p.phone ? ` · ${p.phone}` : ''}</Muted>
                 </View>
-                {finRole(p) && (canFin && p.id !== me.id
+                {finRole(p) && roleNoFin(p) ? <Text accessibilityLabel={`${p.name}: their role doesn't include Finance (Admin › Roles)`} style={{ fontSize: 11.5, color: base.slate, maxWidth: 110, textAlign: 'right' }}>Role Has No Finance</Text> : finRole(p) && (canFin && p.id !== me.id
                   ? <Pressable accessibilityRole="switch" accessibilityState={{ checked: !!p.finance_enabled }} accessibilityLabel={`Finance for ${p.name}`} hitSlop={6} onPress={(e) => { e.stopPropagation(); void flipFinance(p); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Text style={{ fontSize: 12, fontWeight: '600', color: base.ink }}>Finance</Text>
                       <View style={{ width: 36, height: 20, borderRadius: 10, backgroundColor: p.finance_enabled ? '#15803d' : '#d1d5db', padding: 2, alignItems: p.finance_enabled ? 'flex-end' : 'flex-start' }}><View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff' }} /></View>

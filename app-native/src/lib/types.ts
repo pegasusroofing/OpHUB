@@ -30,6 +30,8 @@ export type Profile = {
   see_costs: boolean;
   /** What their role can do (Admin › Roles; read with my_role_perms when signing in). Null: everything. App-only. */
   perms?: string[] | null;
+  /** The role's two extra parts (Money On Home, See Material Costs); null: not set on the role yet (18 Nov 2026). */
+  perms_extra?: string[] | null;
 };
 
 export type Organization = {

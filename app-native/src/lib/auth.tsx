@@ -48,8 +48,9 @@ async function loadProfile(uid: string): Promise<Profile | null> {
 /** What the person's role can do (Admin › Roles, 17 Nov 2026), kept on their profile. Unreadable: everything, as before. */
 async function withPerms(p: Profile | null): Promise<Profile | null> {
   if (!p) return p;
-  const r = await supabase.rpc('my_role_perms' as never);
-  return { ...p, perms: r.error || !Array.isArray(r.data) ? null : (r.data as string[]) };
+  const [r, x] = await Promise.all([supabase.rpc('my_role_perms' as never), supabase.rpc('my_role_perms_extra' as never)]);
+  // The two extra parts (18 Nov 2026): unreadable or not set, null (the old behaviour).
+  return { ...p, perms: r.error || !Array.isArray(r.data) ? null : (r.data as string[]), perms_extra: x.error || !Array.isArray(x.data) ? null : (x.data as string[]) };
 }
 // Support mode (100-state): the platform owner viewing a company is that company's admin until they exit.
 const supportMe = (p: Profile | null): Profile | null => (p && p.role === 'superadmin' && p.view_as_org_id ? { ...p, role: 'admin', org_id: p.view_as_org_id, _support: true, _realOrgId: p.org_id } : p);

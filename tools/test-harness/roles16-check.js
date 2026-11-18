@@ -41,7 +41,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.screenshot({path: path.join(SHOTS, 'roles-dropdown.png')});
   await page.getByText('Project Manager', {exact: true}).last().click(); await page.waitForTimeout(800);
   t = await yours();
-  check(/Uses The App As Project Manager/.test(t) && /\d+ (Person|People): \w/.test(t) && /Can Use (Every Part|\d+ Of 15 Parts)/.test(t), `the brief: what it uses the app as, who has it, its parts (${t.replace(/\n/g, ' | ').slice(0, 160)})`);
+  check(/Uses The App As Project Manager/.test(t) && /\d+ (Person|People): \w/.test(t) && /Can Use (Every Part|\d+ Of 17 Parts)/.test(t), `the brief: what it uses the app as, who has it, its parts (${t.replace(/\n/g, ' | ').slice(0, 160)})`);
   check(/\nRole\nProject Manager\n/.test(await body()), 'the same role opens in What Each Role Can Do');
   await page.screenshot({path: path.join(SHOTS, 'roles-laptop.png'), fullPage: true});
   await pickRole('Quantity Surveyor');

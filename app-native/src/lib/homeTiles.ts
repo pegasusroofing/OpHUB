@@ -3,6 +3,7 @@
 // (organizations.home_tiles); a missing answer means Yes, as before. Company admins always see them, and only people
 // with Finance switched on ever do. The finance tiles are the Due In figure and the OpHUB Finance tile.
 import { isFinanceUser } from '@/lib/roles';
+import { can } from '@/lib/rules/rolePerms';
 import type { Organization, Profile } from '@/lib/types';
 
 export type HomeTiles = { finance_pm?: boolean; finance_site_manager?: boolean; finance_other?: boolean };
@@ -17,9 +18,14 @@ export const HOME_TILE_ASKS: { k: HomeTileKey; q: string }[] = [
 export const homeTileKey = (role: string | undefined): HomeTileKey =>
   role === 'pm' ? 'finance_pm' : role === 'site_manager' ? 'finance_site_manager' : 'finance_other';
 
-/** Does this person see the finance tiles on Home? */
+/** What the old Home Page setting gave a level: Money On Home unless the company said No (Admin › Roles has it now). */
+export const oldHomeMoney = (access: string, org: Organization | null) => (org?.home_tiles ?? {})[homeTileKey(access)] !== false;
+/** A role's extra parts before they were set on the board (18 Nov 2026): Money On Home as the old setting; no material costs. */
+export const legacyExtra = (access: string, org: Organization | null): string[] => (oldHomeMoney(access, org) ? ['home_money'] : []);
+
+/** Does this person see the finance tiles on Home? Finance on, and their role's Money On Home (Admin › Roles; Andy, 18 Nov
+ *  2026: "there is a who sees finance but we have recently set the roles up"); not set on the role yet, the old setting. */
 export function seesHomeFinance(me: Profile | null, org: Organization | null): boolean {
   if (!me || !isFinanceUser(me, org)) return false;
-  if (me.role === 'admin' || me.role === 'superadmin') return true;
-  return (org?.home_tiles ?? {})[homeTileKey(me.role)] !== false;
+  return can(me, 'home_money', oldHomeMoney(me.role, org));
 }

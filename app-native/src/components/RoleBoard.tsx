@@ -10,6 +10,8 @@ import { Platform, Pressable, Text, View } from 'react-native';
 import { SelectBox } from '@/components/SelectBox';
 import { showAlert } from '@/components/toast';
 import { Muted } from '@/components/ui';
+import { useAuth } from '@/lib/auth';
+import { legacyExtra } from '@/lib/homeTiles';
 import { ACCESS_LABEL, type OrgRole } from '@/lib/rules/orgRoles';
 import { ALL_PARTS, BOARD_LEVELS, partLabel, partsOf, withPart, type Part } from '@/lib/rules/rolePerms';
 import { base, radius, useDesk } from '@/theme/theme';
@@ -88,9 +90,11 @@ export function RoleBoard({ roles, onSave, pick: shared, onPick }: { roles: OrgR
   const setPick = onPick ?? setOwn;
   const [mine, setMine] = useState<Record<string, Part[]>>({}); // changes not read back yet
   const desk = useDesk();
+  const { org } = useAuth();
   const role = board.find((r) => r.id === pick) ?? board[0];
   if (!role) return <Muted>No office roles yet. Add one above.</Muted>;
-  const partsFor = (r: OrgRole) => mine[r.id] ?? partsOf(r.perms);
+  // Money On Home and See Material Costs not set on a role yet: what the old settings gave it (18 Nov 2026).
+  const partsFor = (r: OrgRole) => mine[r.id] ?? partsOf(r.perms, r.perms_extra, legacyExtra(r.access, org));
   const save = async (r: OrgRole, next: Part[]) => {
     const before = partsFor(r);
     setMine((m) => ({ ...m, [r.id]: next }));

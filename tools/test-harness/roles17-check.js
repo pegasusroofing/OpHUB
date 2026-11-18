@@ -47,8 +47,10 @@ async function signIn(page) {
   check(t.includes('What Each Role Can Do'), 'the board is on Admin › Roles');
   let L = await lists();
   check(/Role\nContracts Administrator\n/.test(L.all), 'the Role ▾ drop-down starts on the first office role (Contracts Administrator)');
-  check(/Options\n1\nFinance – Edit\n/.test(L.options) && !/Every Job/.test(L.options), 'Options lists only what the role hasn’t got (Finance – Edit)');
-  check(/In This Role\n14\n/.test(L.role) && /Every Job/.test(L.role) && !/Finance – Edit/.test(L.role), 'In This Role lists its 14 parts');
+  // Since 18 Nov a role has 17 parts (Money On Home and See Material Costs too). A role not set on the board yet keeps the
+  // old Home Page answer (Money On Home: yes) and no material costs.
+  check(/Options\n2\n/.test(L.options) && /Finance – Edit/.test(L.options) && /See Material Costs/.test(L.options) && !/Every Job/.test(L.options), 'Options lists only what the role hasn’t got (Finance – Edit, See Material Costs)');
+  check(/In This Role\n15\n/.test(L.role) && /Every Job/.test(L.role) && /Money On Home/.test(L.role) && !/Finance – Edit/.test(L.role), 'In This Role lists its 15 parts (with Money On Home)');
   check(!/Document Controller|Estimator|Finance Controller/.test(L.all.slice(L.all.indexOf('\nRole\n'))), 'only one role on show at a time');
   await page.getByText('What Each Role Can Do', {exact: true}).evaluate((e) => e.scrollIntoView({block: 'start'})); await page.waitForTimeout(400); await page.screenshot({path: path.join(SHOTS, 'board-laptop.png')});
 
@@ -66,7 +68,7 @@ async function signIn(page) {
   const ca = () => db.org_roles.find((r) => r.id === 'r2').perms;
   check(ca().includes('fin_edit') && ca().length === PM.length + 1 && ca().indexOf('fin_edit') === 4, `→ adds it, saved in the board's order (${ca().length} parts)`);
   L = await lists();
-  check(/It Has Everything/.test(L.options) && /Finance – Edit/.test(L.role), 'it moves across: Options now says It Has Everything');
+  check(/Options\n1\nSee Material Costs\n/.test(L.options) && /Finance – Edit/.test(L.role), 'it moves across: only See Material Costs left in Options');
   // ← takes it out again.
   await page.getByLabel('Take Finance – Edit out of Contracts Administrator', {exact: true}).click(); await page.waitForTimeout(1500);
   check(!ca().includes('fin_edit'), '← takes it out and saves');
@@ -79,7 +81,7 @@ async function signIn(page) {
   await page.getByLabel('Role', {exact: true}).click(); await page.waitForTimeout(600);
   await page.getByText('Document Controller', {exact: true}).last().click(); await page.waitForTimeout(800);
   L = await lists();
-  check(/Role\nDocument Controller\n/.test(L.all) && /In This Role\n2\n/.test(L.role) && /Options\n13\n/.test(L.options), 'Document Controller chosen: 2 in the role, 13 options');
+  check(/Role\nDocument Controller\n/.test(L.all) && /In This Role\n3\n/.test(L.role) && /Options\n14\n/.test(L.options), 'Document Controller chosen: 3 in the role (with Money On Home), 14 options');
   // Drag Reports across into the role.
   await page.getByLabel('Add Reports to Document Controller', {exact: true}).dragTo(page.getByText('In This Role', {exact: true})); await page.waitForTimeout(1500);
   const dc = db.org_roles.find((r) => r.id === 'r5').perms;
