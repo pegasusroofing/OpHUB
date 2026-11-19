@@ -11,7 +11,7 @@ import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-nativ
 import { DateBox } from '@/components/DateField';
 import { SelectBox } from '@/components/SelectBox';
 import { Button } from '@/components/ui';
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/lib/supabase';
+import { fnUrl, SUPABASE_ANON_KEY } from '@/lib/supabase';
 import { base, radius, useDesk } from '@/theme/theme';
 
 type Org = { name?: string; colour?: string; logo?: string };
@@ -49,7 +49,7 @@ function QBox({ label, req, children, hint, bad, desk }: { label: string; req?: 
 }
 
 async function api<T>(org: string, payload: Record<string, unknown>): Promise<T> {
-  const r = await fetch(`${SUPABASE_URL}/functions/v1/subcontractor-apply`, {
+  const r = await fetch(fnUrl('subcontractor-apply'), {
     method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ org, ...payload }),
   });
   const d = await r.json().catch(() => ({}));

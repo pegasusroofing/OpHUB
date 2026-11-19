@@ -36,7 +36,9 @@ const back = async (page) => {
   let w = await back(page);
   check(w === `/sites/${S1}`, `back: to the project screen it was clicked from (${w})`);
   w = await back(page);
-  check(w === '/home', `back again: up a level, to Home (${w})`);
+  check(w === '/sites', `back again: up a level, to Projects (${w})`);
+  w = await back(page);
+  check(w === '/home', `and from Projects, up to Home (${w})`);
   // Inside Finance: tabs don't stack up; back goes up a level.
   await page.goto(`${B}/fin`); await page.waitForTimeout(4500);
   await page.getByRole('tab', {name: 'Purchases'}).first().click(); await page.waitForTimeout(2500);
@@ -66,7 +68,7 @@ const back = async (page) => {
   // The project asks for signatures first: Not now.
   await op.getByText('Not now', {exact: true}).first().click({timeout: 3000}).catch(() => {}); await op.waitForTimeout(600);
   w = await back(op);
-  check(w === '/home', `operative: back from the project to Home (${w})`);
+  check(w === '/sites', `operative: back from the project up to Projects (${w})`);
   await o.ctx.close();
 
   check(!errs.length, `no page errors ${errs.slice(0, 2).join(' | ')}`);

@@ -39,9 +39,13 @@ export function JobSignPrompt({ siteId }: { siteId: string }) {
           </View>
           <Muted style={{ marginBottom: 12 }}>Please read and sign before starting work on this job.</Muted>
           {items.map((i) => (
-            <Pressable key={i.href} onPress={() => { close(); router.push(i.href as never); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderWidth: 1, borderColor: '#F0C98C', backgroundColor: base.warnBg, borderRadius: 12, marginBottom: 8 }}>
+            <Pressable key={`${i.href}-${i.label}`} onPress={() => { close(); router.push(i.href as never); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderWidth: 1, borderColor: '#F0C98C', backgroundColor: base.warnBg, borderRadius: 12, marginBottom: 8 }}>
               <Text>{ICON[i.type] || '•'}</Text>
-              <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{i.label.replace(/ to sign \((\d+)\)$/, (_m, n: string) => (n === '1' ? '' : ` ×${n}`))}</Text>
+              {/* Each document by name, and why (18 Nov 2026). */}
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{i.label}</Text>
+                {!!i.sub && <Text style={{ fontSize: 12, color: base.slate, marginTop: 1 }}>{i.sub}</Text>}
+              </View>
               <Text style={{ color: base.red, fontWeight: '600' }}>Sign now ›</Text>
             </Pressable>
           ))}

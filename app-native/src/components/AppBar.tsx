@@ -142,8 +142,8 @@ export function AppBar({ title, onBack, home, right, noHistory, routeName }: { t
     const clean = path.replace(/\/$/, '') || path;
     const from = takeJump(clean);
     if (from) { router.navigate(from as never); return; }
-    // A project's home screen goes back to Home, not the list of projects (Andy, 18 Nov 2026).
-    if (jobHome && !fin) { router.navigate('/home' as never); return; }
+    // A project's home goes up to the list of projects, and that list up to Home (Andy, 19 Nov 2026: "When I click back in
+    // the Home Screen of a job, is taking me to the app home page rather than up a folder") — the plain rule below.
     // The Admin Centre's tabs swap one page for another; up from it is Home.
     if (adminAt) { router.navigate('/home' as never); return; }
     // Up: the nearest step in the trail that's a different page (a tab of this page isn't a level up).

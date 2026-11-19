@@ -50,7 +50,9 @@ if (fs.existsSync(nmDir)) {
 }
 
 fs.writeFileSync(path.join(dir, 'vercel.json'), JSON.stringify({
-  rewrites: [{source: '/(.*)', destination: '/index.html'}],
+  // Server functions through this site (19 Nov 2026): most only answer browsers on the current app's addresses, so the
+  // beta's calls are passed on from here (lib/supabase.ts sends them to /functions/v1/…).
+  rewrites: [{source: '/functions/v1/:path*', destination: 'https://dtrfupmcazoioubhwdml.supabase.co/functions/v1/:path*'}, {source: '/(.*)', destination: '/index.html'}],
   headers: [
     // Security headers (review, 15 Nov 2026): no framing by other sites, no content-type guessing, HTTPS only, no
     // address leaks to other sites; camera and location for this site only.

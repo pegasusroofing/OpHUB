@@ -19,8 +19,18 @@ const sessionStorage = {
   removeItem: (key: string) => secureDelete(key),
 };
 
+// On the beta site (ophub-beta.vercel.app), calls to the server functions go through the site itself: the site passes
+// /functions/v1/… on to Supabase (tools/beta/make-beta.js). Most functions only answer browsers on the current app's
+// addresses, so from the beta they failed: invite emails, OneDrive, emails of documents (19 Nov 2026). Elsewhere unchanged.
+const FN = `${SUPABASE_URL}/functions/v1/`;
+const viaSite = typeof window !== 'undefined' && window.location?.host === 'ophub-beta.vercel.app';
+/** A server function's address: the beta site's own on the beta, Supabase's everywhere else. */
+export const fnUrl = (name: string) => (viaSite ? `/functions/v1/${name}` : `${FN}${name}`);
+
 // Reads give up after 12 seconds (lib/rules/readTimeout.ts): the screen then falls back to its saved copy.
-const timedFetch: typeof fetch = (input, init) => {
+const timedFetch: typeof fetch = (input0, init) => {
+  const raw = typeof input0 === 'string' ? input0 : input0 instanceof URL ? input0.href : input0.url;
+  const input = viaSite && (typeof input0 === 'string' || input0 instanceof URL) && raw.startsWith(FN) ? raw.slice(SUPABASE_URL.length) : input0;
   const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
   const method = (init?.method || (typeof input === 'object' && !(input instanceof URL) ? input.method : '') || 'GET').toUpperCase();
   if (!isTimedRead(url, method)) return fetch(input, init);

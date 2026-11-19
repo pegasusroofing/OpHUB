@@ -63,7 +63,8 @@ export function SowExport({ site, left }: { site: Site; tab: SowTab; left?: stri
     setBusy(null);
   };
   return (
-    <FootBar left={left || 'Schedule Of Works'} right={<FootButton label={busy ? 'Making…' : '⬇ Export ▾'} a11y="Export" onPress={async () => {
+    // At the end of the page, not always in view (Andy, 19 Nov 2026: "need to be at the bottom of the page not permanently on view").
+    <FootBar inline left={left || 'Schedule Of Works'} right={<FootButton label={busy ? 'Making…' : '⬇ Export ▾'} a11y="Export" onPress={async () => {
       const k = await chooseAction('Export', [{ key: 'pdf', label: '📄 Export PDF' }, { key: 'email', label: '✉ Email Report' }]);
       if (k === 'pdf') await pdf(); else if (k === 'email') await email();
     }} />} />

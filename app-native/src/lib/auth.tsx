@@ -16,7 +16,7 @@ import { clearSignedCache } from './privateFiles';
 import { registerPush, unregisterPush } from './push';
 import { forgetRemembered, forgetRememberedPassword, saveRemembered } from './remember';
 import { deviceLockApplies } from './roles';
-import { SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from './supabase';
+import { fnUrl, SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from './supabase';
 import type { InviteInfo, Organization, Profile } from './types';
 
 type Status = 'loading' | 'signedOut' | 'ready';
@@ -244,7 +244,8 @@ async function anonFetch(path: string, init: RequestInit & { token?: string } = 
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), 15000);
   try {
-    return await fetch(SUPABASE_URL + path, {
+    // Server functions on the beta go through its own site (lib/supabase.ts fnUrl, 19 Nov 2026).
+    return await fetch(path.startsWith('/functions/v1/') ? fnUrl(path.slice('/functions/v1/'.length)) : SUPABASE_URL + path, {
       ...init,
       signal: ctl.signal,
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${init.token || SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },

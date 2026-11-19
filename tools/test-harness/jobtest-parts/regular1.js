@@ -159,7 +159,7 @@ module.exports = async ({as, step, state, keep, samples}) => {
     const b = await a.text();
     await a.tap('Submit'); await a.tap('Yes', {wait: 2500});
     const after = await a.text();
-    return {ok: /Submit/.test(b) && (/closed out/.test(after) || /Site condition submitted/.test(after)), note: 'submitted'};
+    return {ok: /Submit/.test(b) && (/closed out|Submitted/.test(after) || /Site condition submitted/.test(after)), note: 'submitted'};
   });
 
   await step('Schedule of Works: Export gives a real PDF with the task in it', async () => {

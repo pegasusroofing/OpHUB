@@ -161,7 +161,8 @@ export default function SiteHome() {
     ...(!mgr || can(me, 'sow') ? [{ key: 'sow', ic: 'clipboard', title: 'Schedule of Works', sub: sowSub, onPress: go('schedule') }] : []),
     ...(site.acting_as_main_contractor ? [{ key: 'mc', ic: 'building', title: 'Main Contractor', sub: `${mcAreas} area${mcAreas === 1 ? '' : 's'}`, onPress: go('mc') }] : []),
     { key: 'hs', ic: 'shield', title: 'Health & Safety', sub: h ? `${h.pendingRams} to sign` : '…', badge: mgr ? (h?.hsGap ? '!' : undefined) : h?.pendingRams || undefined, onPress: go('hs') },
-    ...(!mgr || can(me, 'docs') ? [{ key: 'dwg', ic: 'layers', title: "Drawings, Spec's & Programme", sub: 'View & upload', onPress: go('drawings') }] : []),
+    // Operatives only view drawings: no Upload in the line under it (Andy, 19 Nov 2026).
+    ...(!mgr || can(me, 'docs') ? [{ key: 'dwg', ic: 'layers', title: "Drawings, Spec's & Programme", sub: mgr ? 'View & upload' : 'View drawings & specs', onPress: go('drawings') }] : []),
     ...((me?.role === 'pm' || me?.role === 'admin') && can(me, 'docs') && (site as { onedrive_folder_id?: string | null }).onedrive_folder_id ? [{ key: 'docs', ic: 'cloud', title: 'Documents', sub: 'The job’s OneDrive folder', onPress: go('documents') }] : []),
     { key: 'mat', ic: 'box', title: 'Materials', sub: h ? `${h.pendingMaterials} pending` : '…', onPress: go('materials') },
     // Subcontract Orders is labour, not materials: its own row (Andy, 11 Nov 2026).

@@ -71,7 +71,9 @@ export async function revokeInvite(id: string): Promise<boolean> {
   return !!(await db.from('invites').delete().eq('id', id).select('id')).data?.length;
 }
 export async function emailInvite(inviteId: string, email: string): Promise<string> {
-  const r = await supabase.functions.invoke('send-invite-email', { body: { invite_id: inviteId, email } });
+  // From the beta, the email opens the new app's sign-up page (19 Nov 2026); the server only accepts its own list.
+  const o = webOrigin();
+  const r = await supabase.functions.invoke('send-invite-email', { body: { invite_id: inviteId, email, ...(o ? { join_base: o } : {}) } });
   const d = r.data as { error?: string } | null;
   return r.error || d?.error ? d?.error || 'Could not send the invite email.' : `Invite email sent to ${email}`;
 }

@@ -13,6 +13,8 @@ module.exports = async ({as, step, state, samples}) => {
       if (await lib.isVisible().catch(() => false)) await lib.click();
     })()]);
     await fc.setFiles([photo]);
+    // 19 Nov 2026: a To Commence task asks Pre-Start or In Progress.
+    { const q = a.page.getByText(/^📷 Pre-Start Photos/).locator('visible=true').last(); if (await q.isVisible({timeout: 4000}).catch(() => false)) await q.click(); }
     await a.page.waitForTimeout(12000);
   };
 

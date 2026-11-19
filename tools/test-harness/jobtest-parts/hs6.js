@@ -20,6 +20,8 @@ module.exports = async ({as, step, state, keep, samples, OUT}) => {
       if (await lib.isVisible().catch(() => false)) await lib.click();
     })()]);
     await fc.setFiles([photo, photo, photo, photo, photo]);
+    // 19 Nov 2026: a To Commence task asks Pre-Start or In Progress.
+    { const q = a.page.getByText(/^📷 Pre-Start Photos/).locator('visible=true').last(); if (await q.isVisible({timeout: 4000}).catch(() => false)) await q.click(); }
     const t0 = Date.now(); let n = before, sawStuck = false, reloaded = false;
     while (Date.now() - t0 < 45000) { await a.page.waitForTimeout(2500); n = await count(); if (/Not sent yet/.test(await a.text())) sawStuck = true; if (n >= before + 5) break; }
     const secs = Math.round((Date.now() - t0) / 1000);

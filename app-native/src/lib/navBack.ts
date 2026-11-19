@@ -11,7 +11,9 @@ export const currentJobId = () => (last.match(/^\/(?:sites|fin\/job)\/([0-9a-f-]
 /** Called on every page change. */
 export function recordPath(p: string) {
   if (p === last) return;
-  if (last && !backing && area(last) !== area(p)) jumps.set(p, last);
+  // Home is where everyone starts, so going from it isn't a jump: back from what you opened goes up a level (Andy, 19 Nov
+  // 2026: a job opened from Home went back to Home "rather than up a folder").
+  if (last && !backing && area(last) !== area(p) && last.split('?')[0] !== '/home') jumps.set(p, last);
   else jumps.delete(p);
   backing = false;
   last = p;

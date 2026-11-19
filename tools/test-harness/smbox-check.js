@@ -1,5 +1,5 @@
-// A site manager's Inbox "To sign / do" shows the manager feed (RAMS not signed by operatives, open snags, to-dos),
-// not "COSHH to sign" for themselves.
+// A site manager's Inbox "To Do" shows the manager feed (RAMS not signed by operatives, open snags, to-dos),
+// not "Sign COSHH" for themselves.
 const {chromium, makeContext, S1} = require('./harness');
 (async()=>{
   const browser = await chromium.launch(); const errs = [];
@@ -15,7 +15,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto('http://localhost:8081/inbox?tab=todo'); await page.waitForTimeout(7000);
-  console.log('COSHH to sign (me)', await page.getByText(/COSHH to sign/).count(), '| snag', await page.getByText(/Open snag/).count(), '| task', await page.getByText(/Order skip/).count());
+  console.log('Sign COSHH (me)', await page.getByText(/Sign COSHH/).count(), '| snag', await page.getByText(/Open snag/).count(), '| task', await page.getByText(/Order skip/).count());
   await page.screenshot({path:'shots/smbox.png'});
   console.log('errors', errs.join(' / ').slice(0,300) || 'none');
   await browser.close(); process.exit(0);

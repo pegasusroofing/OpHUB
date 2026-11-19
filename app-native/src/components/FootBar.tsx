@@ -17,11 +17,12 @@ export function FootButton({ label, onPress, a11y }: { label: string; onPress: (
   );
 }
 
-/** The bar. It sits after the list and stays in view at the bottom of the screen while the list scrolls (web). */
-export function FootBar({ left, middle, right }: { left: string; middle?: ReactNode; right?: ReactNode }) {
+/** The bar. It sits after the list and stays in view at the bottom of the screen while the list scrolls (web).
+ *  inline: it stays at the end of the page instead, out of view until you scroll down to it (the Schedule of Works). */
+export function FootBar({ left, middle, right, inline }: { left: string; middle?: ReactNode; right?: ReactNode; inline?: boolean }) {
   const t = useTheme();
   return (
-    <View style={{ position: 'sticky' as never, bottom: 10, marginTop: 10, backgroundColor: t.brand1, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+    <View style={{ position: (inline ? 'relative' : 'sticky') as never, bottom: inline ? undefined : 10, marginTop: 10, backgroundColor: t.brand1, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
       <Text numberOfLines={1} style={{ flex: 1, color: t.brand1Text, fontSize: 12.5, fontWeight: '600' }}>{left}</Text>
       {middle ? <View style={{ flex: 1, alignItems: 'center' }}>{middle}</View> : null}
       <View style={{ flex: 1, alignItems: 'flex-end' }}>{right}</View>

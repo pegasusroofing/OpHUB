@@ -1,4 +1,4 @@
-// Operative "Messages & tasks": tabs "To Sign / Do", "Messages" and the Company Chat (the whole company, 7 Nov 2026), as
+// Operative "Messages & tasks": tabs "To Do" (was To Sign / Do; 18 Nov 2026), "Messages" and the Company Chat (the whole company, 7 Nov 2026), as
 // Finance's underlined tabs (18 Nov 2026).
 // Ported from renderOpInbox (185), renderOutstandingTasks (190, operative view)
 // and renderMyMessages (830). Opening the Messages tab marks them read.
@@ -70,7 +70,7 @@ export default function Inbox() {
   // underlined, spread across the page, with their counts.
   const pills = (
     <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', marginBottom: 12 }}>
-      {([['todo', 'To Sign / Do', todoN, true], ['msgs', 'Messages', current !== 'msgs' ? unreadN : 0, false], ['chat', 'Company Chat', current !== 'chat' ? chatN : 0, false]] as const).map(([k, label, n, amber]) => (
+      {([['todo', 'To Do', todoN, true], ['msgs', 'Messages', current !== 'msgs' ? unreadN : 0, false], ['chat', 'Company Chat', current !== 'chat' ? chatN : 0, false]] as const).map(([k, label, n, amber]) => (
         <TabItem key={k} fill on={current === k} label={label} n={n || undefined} amber={amber && !!n} onPress={() => setTab(k)} />
       ))}
     </View>
@@ -100,7 +100,10 @@ export default function Inbox() {
                 <Pressable key={`${it.href}-${i}`} onPress={() => router.push(it.href as never)} accessibilityRole="button"
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 10 }}>
                   <View style={{ width: 50, height: 43, borderRadius: 14, backgroundColor: base.warnBg, borderWidth: 1.5, borderColor: base.ink, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: base.warn, fontWeight: '600' }}>!</Text></View>
-                  <Text style={{ flex: 1, fontWeight: '600', fontSize: 14.5, color: base.ink }}>{it.label}</Text>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={{ fontWeight: '600', fontSize: 14.5, color: base.ink }}>{it.label}</Text>
+                    {!!it.sub && <Text style={{ fontSize: 12.5, color: base.slate, marginTop: 2 }}>{it.sub}</Text>}
+                  </View>
                 </Pressable>
               ))}
             </View>

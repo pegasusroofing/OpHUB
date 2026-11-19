@@ -12,10 +12,12 @@ import type { Message, Profile, Site } from '@/lib/types';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
-export type OutstandingItem = { label: string; href: string; type: 'rams' | 'coshh' | 'tbt' };
+/** One document to sign (Andy, 18 Nov 2026: "give some context in the to do ... what rams need signing, if superseded rams
+ *  been issued"): its name, and why (new, a new version of one already signed, or the yearly re-sign). */
+export type OutstandingItem = { label: string; href: string; type: 'rams' | 'coshh' | 'tbt'; sub?: string };
 export type OutstandingRow = { site: Site; items: OutstandingItem[] };
 
-type Doc = { id: string; site_id: string; uploaded_at: string | null; resign_cycle_start: string | null };
+type Doc = { id: string; site_id: string; uploaded_at: string | null; resign_cycle_start: string | null; name?: string | null; supersedes?: string | null };
 
 export function useOutstanding(sites: Site[] | undefined) {
   const { me } = useAuth();
@@ -30,11 +32,11 @@ export function useOutstanding(sites: Site[] | undefined) {
       if (!live.length) return [];
       const ids = live.map((s) => s.id);
       const [rams, coshh, tbts] = await Promise.all([
-        db.from('rams_docs').select('id,site_id,uploaded_at,resign_cycle_start').eq('status', 'current').in('site_id', ids).is('subcontractor_company_id', null),
-        db.from('coshh_docs').select('id,site_id,uploaded_at,resign_cycle_start').in('site_id', ids).is('subcontractor_company_id', null),
-        db.from('toolbox_talks').select('id,site_id').eq('status', 'live').in('site_id', ids).is('subcontractor_company_id', null),
+        db.from('rams_docs').select('id,site_id,uploaded_at,resign_cycle_start,name,supersedes').eq('status', 'current').in('site_id', ids).is('subcontractor_company_id', null),
+        db.from('coshh_docs').select('id,site_id,uploaded_at,resign_cycle_start,name').in('site_id', ids).is('subcontractor_company_id', null),
+        db.from('toolbox_talks').select('id,site_id,title').eq('status', 'live').in('site_id', ids).is('subcontractor_company_id', null),
       ]);
-      const ramsDocs = orThrow(rams) as Doc[], coshhDocs = orThrow(coshh) as Doc[], liveTbts = orThrow(tbts) as { id: string; site_id: string }[];
+      const ramsDocs = orThrow(rams) as Doc[], coshhDocs = orThrow(coshh) as Doc[], liveTbts = orThrow(tbts) as { id: string; site_id: string; title?: string | null }[];
       const sigs = async (table: string, key: string, docIds: string[]) => docIds.length
         ? orThrow(await db.from(table).select(`${key},user_id,signed_at`).in(key, docIds).eq('user_id', uid)) as Record<string, string>[]
         : [];
@@ -48,14 +50,18 @@ export function useOutstanding(sites: Site[] | undefined) {
       const ramsSigned = new Set(currentCycleSigs(rs as never[], ramsDocs, 'rams_id' as never, liveSite).map((x: Record<string, string>) => x.rams_id));
       const coshhSigned = new Set(currentCycleSigs(cs as never[], coshhDocs, 'coshh_id' as never, liveSite).map((x: Record<string, string>) => x.coshh_id));
       const tbtSigned = new Set(ts.map((x) => x.tbt_id));
+      // The RAMS a new version replaces, by name.
+      const oldIds = [...new Set(ramsDocs.map((d) => d.supersedes).filter(Boolean) as string[])];
+      const old = oldIds.length ? (orThrow(await db.from('rams_docs').select('id,name').in('id', oldIds)) as { id: string; name: string }[]) : [];
+      const oldName = (id: string) => old.find((x) => x.id === id)?.name || 'an earlier version';
+      // Signed before, but not in this year's cycle: the yearly re-sign.
+      const everR = new Set((rs as Record<string, string>[]).map((x) => x.rams_id)), everC = new Set((cs as Record<string, string>[]).map((x) => x.coshh_id));
+      const why = (d: Doc, ever: Set<string>) => (d.supersedes ? `New version — replaces "${oldName(d.supersedes)}"` : ever.has(d.id) ? 'Yearly re-sign due' : 'New — not signed yet');
       return live.map((s) => {
         const items: OutstandingItem[] = [];
-        const r = ramsDocs.filter((d) => d.site_id === s.id && !ramsSigned.has(d.id)).length;
-        const c = coshhDocs.filter((d) => d.site_id === s.id && !coshhSigned.has(d.id)).length;
-        const t = liveTbts.filter((d) => d.site_id === s.id && !tbtSigned.has(d.id)).length;
-        if (r) items.push({ label: `RAMS to sign (${r})`, href: `/sites/${s.id}/hs/rams`, type: 'rams' });
-        if (c) items.push({ label: `COSHH to sign (${c})`, href: `/sites/${s.id}/hs/coshh`, type: 'coshh' });
-        if (t) items.push({ label: `Toolbox Talk to sign (${t})`, href: `/sites/${s.id}/hs/tbt`, type: 'tbt' });
+        ramsDocs.filter((d) => d.site_id === s.id && !ramsSigned.has(d.id)).forEach((d) => items.push({ label: `Sign RAMS: ${d.name || 'RAMS document'}`, sub: why(d, everR), href: `/sites/${s.id}/hs/rams`, type: 'rams' }));
+        coshhDocs.filter((d) => d.site_id === s.id && !coshhSigned.has(d.id)).forEach((d) => items.push({ label: `Sign COSHH: ${d.name || 'COSHH document'}`, sub: why(d, everC), href: `/sites/${s.id}/hs/coshh`, type: 'coshh' }));
+        liveTbts.filter((d) => d.site_id === s.id && !tbtSigned.has(d.id)).forEach((d) => items.push({ label: `Sign Toolbox Talk: ${d.title || 'Toolbox Talk'}`, sub: 'New — not signed yet', href: `/sites/${s.id}/hs/tbt/${d.id}`, type: 'tbt' }));
         return { site: s, items };
       }).filter((r) => r.items.length);
     }),
@@ -80,7 +86,10 @@ export function useMyMessages(siteIds: string[], enabled = true) {
         db.from('messages').select('*').eq('audience', 'single').eq('recipient_id', uid).is('parent_id', null).order('created_at', { ascending: false }).limit(50),
       ]);
       const seen = new Set<string>();
+      // "New RAMS … needs signing" notices aren't listed: what to sign is in To Do, by name (Andy, 18 Nov 2026: "I don't
+      // need messages to the operatives as there is now for new rams"). The phone alert they send still comes.
       const rows = [...(orThrow(t) as Message[]), ...(orThrow(d) as Message[])]
+        .filter((m) => (m as { kind?: string }).kind !== 'doc_needs_signing')
         .filter((m) => (seen.has(m.id) ? false : (seen.add(m.id), true)))
         .sort((x, y) => new Date(y.created_at).getTime() - new Date(x.created_at).getTime())
         .slice(0, 150);

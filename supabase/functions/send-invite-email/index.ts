@@ -216,6 +216,10 @@ Deno.serve(withCors(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const { invite_id, email } = body;
+    // The new app (the beta) asks for its own sign-up page (19 Nov 2026): only these addresses; anything else, and every
+    // call from the current app (which doesn't send it), gets the current app's page as before.
+    const JOIN_BASES = new Set(['https://ophub-beta.vercel.app']);
+    const joinBase = typeof body.join_base === 'string' && JOIN_BASES.has(body.join_base) ? body.join_base : null;
     if (!invite_id || !email) {
       return new Response(JSON.stringify({ error: 'invite_id and email are required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
@@ -255,7 +259,7 @@ Deno.serve(withCors(async (req) => {
     // Must point at app.html, NOT the bare domain root -- the root path
     // serves the marketing homepage (a plain static page with no router),
     // so a "/#/join/..." link there silently does nothing when clicked.
-    const inviteLink = `https://operativehub.co.uk/app.html#/join/${invite_id}`;
+    const inviteLink = joinBase ? `${joinBase}/join/${invite_id}` : `https://operativehub.co.uk/app.html#/join/${invite_id}`;
     const expiresLabel = invite.expires_at ? new Date(invite.expires_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Europe/London' }) : 'in 14 days';
     const subject = `You're invited to join ${companyName} on OpHUB`;
 

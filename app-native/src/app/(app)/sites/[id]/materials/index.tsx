@@ -7,6 +7,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
+import { FinTabs } from '@/components/FinNav';
 import { GrnForm } from '@/components/Grn';
 import { useToast } from '@/components/toast';
 import { OphIcon } from '@/components/OphIcon';
@@ -122,6 +123,7 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [grnFor, setGrnFor] = useState<string | null>(null);
+  const [tab, setTab] = useState<'collect' | 'coming' | 'mine' | null>(null);
   const { data: plantMine = 0 } = useMyPlantHere(siteId, me?.id);
   if (!me) return null;
   const supName = (sid: string) => data?.suppliers.find((s) => s.id === sid)?.name ?? null;
@@ -132,13 +134,18 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
   const showPlant = canSeeMatTile(vis, 'plant', me.role) || plantMine > 0;
   const showExp = canSeeMatTile(vis, 'expenses', me.role);
   const toggle = (x: string) => { const n = new Set(sel); if (n.has(x)) n.delete(x); else n.add(x); setSel(n); };
+  // Finance-style tabs (Andy, 19 Nov 2026: "Change this layout a little more finance tab style"): Collect, Deliveries and
+  // Requests, each with its count; it opens on the first with something in it. Plant and Expenses sit under every tab.
+  const comingN = (data?.coming ?? []).filter((m) => !m.grn).length, mineN = (data?.mine ?? []).length;
+  const cur = tab ?? (openIds.length ? 'collect' : comingN ? 'coming' : mineN ? 'mine' : 'collect');
 
   return (
     <ScrollView contentContainerStyle={page(720)}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       {isLoading ? <Muted>Loading…</Muted> : (
         <>
-          <SectionTitle>Your collection list</SectionTitle>
+          <FinTabs even value={cur} onChange={(k) => setTab(k as typeof cur)} items={[['collect', 'To Collect', openIds.length], ['coming', 'Deliveries', comingN], ['mine', 'My Requests', mineN]]} />
+          {cur === 'collect' && (<>
           {openIds.length > 1 && picked.length > 0 && (
             <Pressable onPress={() => setSel(picked.length >= openIds.length ? new Set() : new Set(openIds))} style={{ marginBottom: 8 }}>
               <Text style={{ fontWeight: '600', color: base.ink }}>{picked.length >= openIds.length ? '☑' : '☐'} Select all ({openIds.length}){picked.length < openIds.length ? ` · ${picked.length} selected` : ''}</Text>
@@ -172,8 +179,9 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
               void qc.invalidateQueries({ queryKey: ['materials', siteId] });
             }} />
           )}
+          </>)}
 
-          <SectionTitle>Coming to site</SectionTitle>
+          {cur === 'coming' && (<>
           {data?.coming.length ? data.coming.map((m) => (
             <Card key={m.id}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -189,8 +197,9 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
                 : <Pressable onPress={() => setGrnFor(m.id)} style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: base.line, borderRadius: 10, padding: 10 }}><View style={{ width: 20, height: 20, borderWidth: 1.5, borderColor: base.slate, borderRadius: 4 }} /><Text style={{ color: base.ink, fontWeight: '600' }}>Goods Received (GRN)</Text></Pressable>)}
             </Card>
           )) : <Empty>No deliveries booked.</Empty>}
+          </>)}
 
-          <SectionTitle>Your requests</SectionTitle>
+          {cur === 'mine' && (<>
           {(data?.mine ?? []).map((m) => (
             <Pressable key={m.id} onPress={() => router.push(`/sites/${siteId}/materials/requests` as never)}>
               <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -198,14 +207,21 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
                   <Text style={{ fontWeight: '600', color: base.ink }}>{m.item}{m.qty ? <Text style={{ color: base.slate, fontWeight: '400' }}> × {m.qty}</Text> : null}</Text>
                   <Muted>Waiting for manager</Muted>
                 </View>
-                <Text style={{ fontSize: 11, fontWeight: '600', color: '#6A2C91', backgroundColor: '#F1E7F8', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' }}>Requested</Text>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: base.slate, backgroundColor: '#EEF0F3', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' }}>Requested</Text>
               </Card>
             </Pressable>
           ))}
+          {!mineN && <Empty>Nothing waiting for a manager.</Empty>}
           <Button title="+ Request Materials" onPress={() => router.push(`/sites/${siteId}/materials/requests?add=1` as never)} />
-          {showPlant && <Button kind="ghost" title={plantMine ? `🏗 Plant (${plantMine})` : '🏗 Plant'} onPress={() => router.push(`/sites/${siteId}/plant` as never)} />}
-          {showExp && <Button kind="ghost" title="🧾 Expenses" onPress={() => router.push(`/sites/${siteId}/expenses` as never)} />}
-          <Pressable onPress={() => router.push(`/sites/${siteId}/materials/requests` as never)} style={{ marginTop: 10 }}><Text style={{ color: base.slate, fontSize: 12, textDecorationLine: 'underline' }}>See All My Requests →</Text></Pressable>
+          <Pressable onPress={() => router.push(`/sites/${siteId}/materials/requests` as never)} style={{ marginTop: 10, alignSelf: 'center' }}><Text style={{ color: base.slate, fontSize: 12, textDecorationLine: 'underline' }}>See All My Requests →</Text></Pressable>
+          </>)}
+
+          {(showPlant || showExp) && (
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: space.l, paddingTop: space.m, borderTopWidth: 1, borderTopColor: base.line }}>
+              {showPlant && <Button grow kind="ghost" title={plantMine ? `🏗 Plant (${plantMine})` : '🏗 Plant'} onPress={() => router.push(`/sites/${siteId}/plant` as never)} />}
+              {showExp && <Button grow kind="ghost" title="🧾 Expenses" onPress={() => router.push(`/sites/${siteId}/expenses` as never)} />}
+            </View>
+          )}
         </>
       )}
     </ScrollView>

@@ -306,7 +306,7 @@ export default function Schedule() {
 
           {view.allTasks.length > 0 && (
             <SiteCondition flag={view.flags.__ungrouped__} tasks={view.allTasks} filter={filter} canChange={isFullManager(me)}
-              onSave={async () => { if (!(await confirmAsk('You can only submit this once. Are you sure?', 'Yes', 'No'))) return; if (await closeOutSiteCondition(me, site.id)) { toast('Site condition submitted'); changed(); } else toast('Could not save — try again.'); }}
+              onSave={async () => { if (!(await confirmAsk('You can only submit this once. Are you sure?', 'Yes', 'No'))) return; if (await closeOutSiteCondition(me, site.id)) changed(); else toast('Could not save — try again.'); }}
               onReopen={async () => { if (await closeOutSiteCondition(me, site.id, true)) { setFilter('active'); changed(); } }}
               onAnswer={async (field, value) => {
                 if (!(await saveFlag(me, site, null, 'the ungrouped tasks', field, value))) { toast('Could not save — try again.'); return; }
@@ -399,34 +399,38 @@ function SiteCondition({ flag, tasks, filter, canChange, onSave, onReopen, onAns
     return (
       <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontWeight: '600', color: base.ink }}>Site condition ✓ closed out</Text>
-          <Muted>🗑 Waste to clear: {yn(flag?.waste_to_clear)} · 📦 Leftover material: {yn(flag?.leftover_material)}</Muted>
+          <Text style={{ fontSize: 13, fontWeight: '600', color: base.ink }}>Project Completion ✓ Submitted</Text>
+          <Muted style={{ fontSize: 12 }}>🗑 Waste to clear: {yn(flag?.waste_to_clear)} · 📦 Leftover material: {yn(flag?.leftover_material)}</Muted>
         </View>
         {canChange && <Pressable onPress={onReopen}><Text style={{ color: base.blue, fontWeight: '600' }}>Change</Text></Pressable>}
       </Card>
     );
   }
+  // Smaller rows, sized like a task's To Commence / In Progress / Complete buttons (Andy, 19 Nov 2026).
   const q = (label: string, on: boolean, field: 'waste_to_clear' | 'leftover_material') => (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 6 }}>
-      <Text style={{ flex: 1, color: base.ink, fontWeight: '600' }}>{label}</Text>
-      {(['No', 'Yes'] as const).map((lbl) => {
-        const val = lbl === 'Yes', active = on === val;
-        return (
-          <Pressable key={lbl} onPress={() => { if (!active) onAnswer(field, val); }}
-            style={{ marginLeft: 6, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: active ? (val ? base.warn : base.ink) : base.line, backgroundColor: active ? (val ? base.warnBg : base.paper) : base.card }}>
-            <Text style={{ fontWeight: '600', color: active ? (val ? base.warn : base.ink) : base.slate }}>{lbl}</Text>
-          </Pressable>
-        );
-      })}
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 4 }}>
+      <Text style={{ flex: 1, fontSize: 13, color: base.ink, fontWeight: '600' }}>{label}</Text>
+      <View style={{ flexDirection: 'row', gap: 3, backgroundColor: '#F1F2F4', borderRadius: 10, padding: 3 }}>
+        {(['No', 'Yes'] as const).map((lbl) => {
+          const val = lbl === 'Yes', active = on === val;
+          return (
+            <Pressable key={lbl} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => { if (!active) onAnswer(field, val); }}
+              style={{ minWidth: 46, alignItems: 'center', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 7, backgroundColor: active ? (val ? base.warn : base.card) : 'transparent' }}>
+              <Text style={{ fontSize: 11.5, fontWeight: '600', color: active ? (val ? '#fff' : base.ink) : base.slate }}>{lbl}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
   return (
     <Card>
-      <SectionTitle>Site condition</SectionTitle>
+      {/* "change the site conditions to project completion" (Andy, 19 Nov 2026). */}
+      <SectionTitle>Project Completion</SectionTitle>
       {q('🗑 Is there waste to clear?', !!flag?.waste_to_clear, 'waste_to_clear')}
       {q('📦 Any leftover material?', !!flag?.leftover_material, 'leftover_material')}
-      {flag?.leftover_material && flag.leftover_photo_path && <Pressable onPress={async () => { const u = await openDocLink('site-photos', flag.leftover_photo_path as string); if (u) viewDoc(u); }}><Muted style={{ color: base.blue, fontWeight: '600' }}>📷 Leftover photo added — tap to view</Muted></Pressable>}
-      <Button title="Submit" onPress={onSave} />
+      {flag?.leftover_material && flag.leftover_photo_path && <Pressable onPress={async () => { const u = await openDocLink('site-photos', flag.leftover_photo_path as string); if (u) viewDoc(u); }}><Muted style={{ fontSize: 12, color: base.blue, fontWeight: '600' }}>📷 Leftover photo added — tap to view</Muted></Pressable>}
+      <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 4 }}><Button small title="Submit" onPress={onSave} /></View>
     </Card>
   );
 }

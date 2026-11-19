@@ -109,6 +109,15 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
     const picked = await pickPhotos(source);
     if ('error' in picked) { showAlert(picked.error); return; }
     if (!picked.length) return;
+    // A task still To Commence: pre-start photos, or has the work started? Started: the photos go in In Progress and the
+    // task moves to In Progress (Andy, 19 Nov 2026: "when it's still to commence and I upload photos make sure that it asks
+    // if the job is in progress or pre start photos? If in progress make sure photos go into the in progress section").
+    let stage = photoStage(task.status), started = false;
+    if (mode === 'add' && status === 'todo') {
+      const k = await chooseAction('Pre-Start Or In Progress?', [{ key: 'pre', label: '📷 Pre-Start Photos (Work Not Started)' }, { key: 'progress', label: '🔨 In Progress (Work Has Started)' }]);
+      if (!k) return;
+      if (k === 'progress') { stage = 'progress'; started = true; }
+    }
     setBusy(true);
     toast(`Getting ${picked.length === 1 ? 'your photo' : `${picked.length} photos`} ready…`);
     try {
@@ -120,10 +129,11 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
           if (status === 'todo') await moveToProgressAfterPhotos(task);
         }
       } else {
-        // To Commence: pre-start photos. In progress / complete: progress photos.
-        await addPhotos(me, site, task, picked, photoStage(task.status));
+        // To Commence: pre-start photos (or In Progress, as answered above). In progress / complete: progress photos.
+        await addPhotos(me, site, task, picked, stage);
+        if (started) await moveToProgressAfterPhotos(task);
         // 480: a progress photo asks for the new % complete (skippable).
-        if (task.status === 'progress') setPercentPrompt(true);
+        if (task.status === 'progress' || started) setPercentPrompt(true);
       }
     } catch {
       toast('One photo could not be read — please try that one again.');
@@ -160,7 +170,7 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
   // On the laptop it goes straight to choosing files; on a phone: camera or the photo library.
   const addPhotosNow = async (mode: 'add' | 'complete') => {
     if (Platform.OS === 'web') { void take('library', mode); return; }
-    const k = await chooseAction(mode === 'complete' ? 'Completed photos' : status === 'todo' ? 'Pre-start photos' : 'Add photos', [{ key: 'camera', label: '📸 Take a photo' }, { key: 'library', label: '🖼 Choose from your photos' }]);
+    const k = await chooseAction(mode === 'complete' ? 'Completed photos' : 'Add photos', [{ key: 'camera', label: '📸 Take a photo' }, { key: 'library', label: '🖼 Choose from your photos' }]);
     if (k === 'camera' || k === 'library') void take(k, mode);
   };
 

@@ -1,5 +1,5 @@
-// Back on a project's home screen goes to Home (Andy, 18 Nov 2026: "When I'm in the Home Screen of projects and I click
-// back it needs to take me to the Home Screen"), coming from the Projects list too; a page inside the project still steps
+// Back on a project's home goes up to Projects, and Projects up to Home (Andy, 19 Nov 2026: "When I click back in the
+// Home Screen of a job, is taking me to the app home page rather than up a folder"); a page inside the project steps
 // back to the project's home. A manager on a phone and on a laptop. Fake database. node backhome18-check.js
 const {chromium, makeContext, S1} = require('./harness');
 const B = 'http://localhost:8081';
@@ -22,7 +22,10 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
     let at = await back();
     check(at === `/sites/${S1}`, `${dev}: Back from Health & Safety goes to the project's home (${at})`);
     at = await back();
-    check(at === '/home', `${dev}: Back from the project's home goes to Home (${at})`);
+    // 19 Nov: a project's home goes up to Projects ("rather than up a folder"), and Projects up to Home.
+    check(at === '/sites', `${dev}: Back from the project's home goes up to Projects (${at})`);
+    at = await back();
+    check(at === '/home', `${dev}: Back from Projects goes to Home (${at})`);
     await ctx.close();
   }
   check(!errs.length, `no page errors ${errs.slice(0, 2).join(' | ')}`);
