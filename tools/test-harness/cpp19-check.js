@@ -87,10 +87,18 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
       // Site layout plan: a map snapshot of the job, marked up in the app.
       await tab(/^Details/);
       await ctx.unroute(/tiles\.openfreemap\.org/); // the real map for the picture (works without it, just blank)
+      // Satellite (Andy, 19 Nov 2026): Esri World Imagery with the key from app_settings; tiles caught here.
+      db.app_settings = [{key: 'esri_basemap_key', value: 'TESTKEY123'}];
+      const satTiles = [], SAMPLE = fs.readFileSync(path.join(__dirname, 'shots', 'samples', 'site-photo.jpg'));
+      await ctx.route(/ibasemaps-api\.arcgis\.com/, (r) => { satTiles.push(r.request().url()); r.fulfill({status: 200, contentType: 'image/jpeg', headers: {'Access-Control-Allow-Origin': '*'}, body: SAMPLE}); });
       await page.getByText('Add Plan', {exact: true}).first().click(); await page.waitForTimeout(800);
       await page.getByText('🗺 Map Snapshot Of The Job', {exact: true}).click(); await page.waitForTimeout(3000);
       t = await text();
       check(/Choose A Map Snapshot/.test(t), 'laptop: Map Snapshot opens the map on the job');
+      await page.getByText('Use This View', {exact: true}).waitFor({timeout: 20000}).catch(() => {});
+      check(/Satellite/.test(t) && /Street Map/.test(t) && satTiles.some((u) => /World_Imagery.*token=TESTKEY123/.test(u)), `laptop: it opens on Satellite (Esri, with the key) and can switch to Street Map (${satTiles.length} satellite tiles)`);
+      await page.screenshot({path: path.join(SHOTS, 'laptop-satellite.png')});
+      await page.getByText('Street Map', {exact: true}).click(); await page.waitForTimeout(500);
       await page.getByText('Use This View', {exact: true}).waitFor({timeout: 20000}).catch(() => {});
       await page.waitForTimeout(6000);
       await page.screenshot({path: path.join(SHOTS, 'laptop-snapshot.png')});

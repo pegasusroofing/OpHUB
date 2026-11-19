@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { OPHUB_SALES, welcomeHtml, welcomeSubject, welcomeText } from './welcome.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, pragma',
@@ -233,7 +234,7 @@ Deno.serve(withCors(async (req) => {
 
     // Confirm this invite belongs to the caller's own org, hasn't been used,
     // and hasn't expired before emailing anything out.
-    const { data: invite } = await admin.from('invites').select('id, org_id, used_at, expires_at').eq('id', invite_id).maybeSingle();
+    const { data: invite } = await admin.from('invites').select('id, org_id, used_at, expires_at, role').eq('id', invite_id).maybeSingle();
     if (!invite || (!isSuper && invite.org_id !== callerProfile.org_id)) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
@@ -289,6 +290,13 @@ Deno.serve(withCors(async (req) => {
     if (requesterEmail) {
       emailPayload.reply_to = [requesterEmail];
     }
+    // A new company's first admin, invited by the platform owner (Andy, 19 Nov 2026): the OpHUB welcome email (welcome.ts)
+    // - all OpHUB, from "OpHUB", replies to sales@. Invites a company sends its own people are unchanged.
+    if (isSuper && invite.role === 'admin') {
+      const addr = ((/<([^>]+)>/.exec(FROM_EMAIL || '') || [])[1] || FROM_EMAIL || 'invites@ophub.app').trim();
+      const w = { company: org?.name || '', link: inviteLink, expires: expiresLabel };
+      Object.assign(emailPayload, { from: `"OpHUB" <${addr}>`, subject: welcomeSubject(w.company), text: welcomeText(w), html: welcomeHtml(w), reply_to: [OPHUB_SALES] });
+    }
 
     const emailRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -301,7 +309,7 @@ Deno.serve(withCors(async (req) => {
       return new Response(JSON.stringify({ error: 'The email service didn’t accept the email — please try again.' }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    await logEmailSend(admin, { fn: 'send-invite-email', sender_id: userData.user.id, org_id: invite.org_id, to: [toAddr], subject });
+    await logEmailSend(admin, { fn: 'send-invite-email', sender_id: userData.user.id, org_id: invite.org_id, to: [toAddr], subject: emailPayload.subject });
 
     // Record who it was sent to, for reference in the pending invites list — non-fatal if it fails.
     try { await admin.from('invites').update({ email: toAddr }).eq('id', invite_id); } catch (_e) { /* non-fatal */ }
