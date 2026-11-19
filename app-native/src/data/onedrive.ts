@@ -33,6 +33,10 @@ export async function connectOneDrive(): Promise<string | null> {
   return null;
 }
 export const disconnectOneDrive = async (orgId: string) => !(await db.from('onedrive_connections').delete().eq('org_id', orgId)).error;
+/** The company's main OneDrive folder (Andy, 19 Nov 2026: "when i connect to the onedrive i need to be able to choose what main file i want"). */
+export const setMainFolder = async (path: string) => { const r = await rpc('onedrive_set_main_folder', { p_path: path }); return !r.error && r.data === true; };
+/** The folder every connection starts with, until the admin chooses their own. */
+export const DEFAULT_MAIN_FOLDER = 'OpHUB Progress Reports';
 
 /** One level of folders. At the very top, "Shared with me" and "Company Sites" are offered too. */
 export async function listFolders(at: OdFolder | null): Promise<{ folders: OdFolder[]; error?: string }> {

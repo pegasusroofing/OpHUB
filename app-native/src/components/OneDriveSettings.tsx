@@ -4,8 +4,8 @@
 // automatically, + Add Something To Save; Quick Links; and each job's folders. Everything saves as it's changed.
 // Items save into jobs whose folder the job pack made; a folder linked by hand keeps working as before.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinTabs } from '@/components/FinNav';
@@ -14,7 +14,7 @@ import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toa
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { syncSiteFolder } from '@/data/drawings';
 import { saveJobPackSettings, setupJobPack, useJobPackSettings } from '@/data/jobPack';
-import { connectOneDrive, disconnectOneDrive, listFolders, setQuickLinks, unlinkFolder, useOdSites, useOneDriveStatus, useQuickLinks, type OdFolder, type OdTarget } from '@/data/onedrive';
+import { connectOneDrive, DEFAULT_MAIN_FOLDER, disconnectOneDrive, listFolders, setMainFolder, setQuickLinks, unlinkFolder, useOdSites, useOneDriveStatus, useQuickLinks, type OdFolder, type OdTarget } from '@/data/onedrive';
 import { saveQuoteSettings, useQuoteSettings } from '@/data/quotes';
 import { useAuth } from '@/lib/auth';
 import { cleanFolder, folderLabel, foldersUnder, PACK_RULES, ruleTab, startingPack, WEEK_MARK, type PackConfig } from '@/lib/rules/jobPack';
@@ -126,7 +126,11 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
   const [busy, setBusy] = useState('');
   const [q, setQ] = useState('');
   const [open, setOpen] = useState<string | null>(null);
-  const [pick, setPick] = useState<{ kind: 'rule'; key: string } | { kind: 'parent' | 'template' } | { kind: 'quote'; key: QKey } | null>(null);
+  const [pick, setPick] = useState<{ kind: 'rule'; key: string } | { kind: 'parent' | 'template' | 'main' } | { kind: 'quote'; key: QKey } | null>(null);
+  // Just connected (or reconnected): ask which main folder this company uses (Andy, 19 Nov 2026).
+  const { onedrive: justConnected } = useLocalSearchParams<{ onedrive?: string }>();
+  const askedMain = useRef(false);
+  useEffect(() => { if (justConnected === 'success' && st && !askedMain.current) { askedMain.current = true; setPick({ kind: 'main' }); } }, [justConnected, st]);
   const { data: qs } = useQuoteSettings(hasPm ? me?.org_id : null);
   const [adding, setAdding] = useState<{ key: string; folder: string; on: boolean; extra?: string[] } | null>(null);
   if (!me) return null;
@@ -162,6 +166,8 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
             ? <Text style={{ color: '#B23B2E' }}>Not syncing — the connection to {st.account_email || 'your OneDrive'} has {st.reason === 'expired' ? 'run out (not used for over 90 days)' : 'stopped working'}. Reconnect it.</Text>
             : st ? <Text style={{ color: base.ink }}><Text style={{ color: '#1E7A43', fontWeight: '600' }}>● Connected</Text>  <Muted>· {st.account_email || 'Your OneDrive'}</Muted></Text>
               : <Muted>Not connected. Connect your company’s OneDrive so jobs get their folders and things save there.</Muted>}
+          {/* This company's own main folder (19 Nov 2026): two companies on one Microsoft account each pick their own. */}
+          {!!st && !st.needs_reconnect && <Text onPress={() => setPick({ kind: 'main' })} style={{ marginTop: 6, color: base.blue, fontWeight: '600' }}>Main Folder: 📁 {st.folder_path && st.folder_path !== DEFAULT_MAIN_FOLDER ? st.folder_path.split('/').join(' › ') : 'Choose Your Main Folder'} ▾</Text>}
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <Button small kind={st && !st.needs_reconnect ? 'ghost' : undefined} busy={busy === 'connect'} title={st ? 'Reconnect' : 'Connect OneDrive'} onPress={() => void connect()} />
@@ -179,7 +185,11 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
           <View style={{ alignItems: 'center', gap: 8 }}>
             <Muted>Not set up yet. Every new job can get its own folder, built from your template, with things saving in the right place.</Muted>
             <Button small busy={busy === 'setup'} title="Set It Up" onPress={async () => {
-              setBusy('setup'); await save(startingPack(!/\bRTB\b/i.test(org?.name || '')), true); setBusy('');
+              // A company's own folders only (19 Nov 2026): it starts from its main folder, never another company's paths
+              // (it used RTB Roofing's for any company with "RTB" in its name).
+              const main = st?.folder_path && st.folder_path !== DEFAULT_MAIN_FOLDER ? st.folder_path : '';
+              setBusy('setup'); await save({ ...startingPack(true), parent_path: main }, true); setBusy('');
+              if (!main) setPick({ kind: 'parent' });
             }} />
           </View>
         ) : (
@@ -312,6 +322,15 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
         return <TemplateFolderPop title={`${caps(r?.when || 'It')}: Save In`} cfg={cfg} start={cfg.rules[pick.key]?.folder || r?.folder || ''} weekly={(r?.folder || '').includes(WEEK_MARK)}
           onClose={() => setPick(null)} onPick={(f, extra) => { if (adding && adding.key === pick.key) setAdding({ ...adding, folder: f, extra }); else setRule(pick.key, { folder: f }, extra); setPick(null); }} />;
       })()}
+      {pick?.kind === 'main' && (
+        <DrivePathPop title="Choose This Company’s Main OneDrive Folder" onClose={() => setPick(null)} onPick={async (p) => {
+          setPick(null);
+          if (!(await setMainFolder(p))) { toast('Could not save the main folder — try again.'); return; }
+          refresh();
+          // New job folders start in the main folder until another is chosen.
+          if (cfg && !cleanFolder(cfg.parent_path)) void save({ ...cfg, parent_path: p });
+        }} />
+      )}
       {(pick?.kind === 'parent' || pick?.kind === 'template') && cfg && (
         <DrivePathPop title={pick.kind === 'parent' ? 'New Job Folders Go In' : 'Your Template Folder'} onClose={() => setPick(null)}
           onPick={(p) => { void save(pick.kind === 'parent' ? { ...cfg, parent_path: p } : { ...cfg, template_path: p }); setPick(null); }} />
