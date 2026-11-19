@@ -51,7 +51,8 @@ function escHtml(s: unknown): string {
 // the signed state, but is checked anyway).
 function allowedReturnOrigin(o: unknown): boolean {
   const s = String(o || '');
-  return ['https://operativehub.co.uk', 'https://www.operativehub.co.uk', 'https://ophub-ten.vercel.app', 'https://localhost', 'http://localhost'].includes(s)
+  // The new app's own addresses (Andy, 19 Nov 2026: connecting OneDrive in the new app came back to the old app).
+  return ['https://operativehub.co.uk', 'https://www.operativehub.co.uk', 'https://ophub-ten.vercel.app', 'https://app.operativehub.co.uk', 'https://ophub-beta.vercel.app', 'https://localhost', 'http://localhost'].includes(s)
     || /^https:\/\/ophub-[a-z0-9-]+-op-hub\.vercel\.app$/.test(s) || /^http:\/\/localhost:\d{2,5}$/.test(s)
     // the office network: the laptop's dev server opened from another device (8 Nov 2026)
     || /^http:\/\/(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(:\d{2,5})?$/.test(s);
