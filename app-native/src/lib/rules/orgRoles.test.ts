@@ -40,3 +40,19 @@ test('who can be moved to what', () => {
   // not their own level: that would say "Role changed" and change nothing (bug review, 16 Nov 2026)
   assert.deepEqual(roleChoices(['pm', 'estimator'], roles, false, 'pm').map((r) => r.name), ['Estimator']);
 });
+
+test('invites: an admin can invite a Project Manager or a Quantity Surveyor; others operatives, drivers and clients (19 Nov 2026)', async () => {
+  const { inviteChoices } = await import('./orgRoles.ts');
+  const saved: OrgRole[] = roles.map((r, i) => ({ ...r, id: `r${i}` }));
+  const a = inviteChoices(saved, true);
+  assert.deepEqual(a.map((c) => c.label), ['Contracts Administrator', 'Project Manager', 'Quantity Surveyor', 'Document Controller', 'Contracts Manager', 'Estimator', 'Operative', 'Delivery Driver', 'Client']);
+  const qs = a.find((c) => c.label === 'Quantity Surveyor');
+  assert.deepEqual(qs && [qs.role, qs.is_estimator, qs.org_role_id], ['pm', false, saved.find((r) => r.name === 'Quantity Surveyor')?.id]);
+  const pm = a.find((c) => c.label === 'Project Manager');
+  assert.deepEqual(pm && [pm.role, pm.org_role_id], ['pm', null]); // the default for its level: nothing extra needed
+  const est = a.find((c) => c.label === 'Estimator');
+  assert.deepEqual(est && [est.role, est.is_estimator], ['pm', true]);
+  assert.deepEqual(inviteChoices(saved, false).map((c) => c.label), ['Operative', 'Delivery Driver', 'Client']);
+  // roles not saved yet: no role id on the invite
+  assert.ok(inviteChoices(roles, true).every((c) => c.org_role_id === null));
+});

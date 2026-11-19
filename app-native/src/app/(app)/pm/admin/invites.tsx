@@ -9,18 +9,27 @@ import { Platform, Pressable, ScrollView, Share, Text, TextInput, View } from 'r
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { createInvite, createPermanentInvite, emailInvite, joinLink, revokeInvite, useInvites } from '@/data/admin';
+import { useOrgRoles } from '@/data/orgRoles';
+import { inviteChoices } from '@/lib/rules/orgRoles';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
-const ROLES = [{ key: 'operative', label: 'Operative' }, { key: 'driver', label: 'Delivery Driver' }, { key: 'client', label: 'Client (view-only)' }];
+// Before the company's roles load (and for invites made before 19 Nov 2026): the levels by name.
+const ROLES = [{ key: 'operative', label: 'Operative' }, { key: 'driver', label: 'Delivery Driver' }, { key: 'client', label: 'Client (view-only)' }, { key: 'pm', label: 'Project Manager' }];
 
 export default function Invites() {
   const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data } = useInvites(me?.org_id);
-  const [role, setRole] = useState('operative');
+  // Who it's for: one of the company's own roles (Andy, 19 Nov 2026: "i cant invite as a project manager or qs"). Admins
+  // can invite Project Managers, Quantity Surveyors and the rest at that level; everyone else operatives, drivers, clients.
+  const { data: orgRoles = [] } = useOrgRoles(me?.org_id);
+  const choices = me ? inviteChoices(orgRoles, me.role === 'admin') : [];
+  const [choiceKey, setChoiceKey] = useState<string | null>(null);
+  const choice = choices.find((c) => c.key === choiceKey) ?? choices.find((c) => c.role === 'operative') ?? null;
+  const role = choice?.role ?? 'operative';
   const [newId, setNewId] = useState<string | null>(null);
   // Which link was just copied: its button says Copied ✓ and its box goes green for a moment (Andy, 18 Nov 2026: "When I
   // click copy link it doesn't animate that anything has been copied").
@@ -76,11 +85,11 @@ export default function Invites() {
         ) : (
           <>
             <Muted style={{ marginBottom: 8 }}>Prefer a single-use link for one person instead of the permanent link above?</Muted>
-            <Pressable onPress={async () => { const k = await chooseAction('Invite as', ROLES); if (k) setRole(k); }} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 12, marginBottom: 8 }}>
-              <Text style={{ color: base.ink }}>▼ Invite as: {ROLES.find((r) => r.key === role)?.label}</Text>
+            <Pressable onPress={async () => { const k = await chooseAction('Invite As', choices.length ? choices.map((c) => ({ key: c.key, label: c.label })) : ROLES.slice(0, 3)); if (k) setChoiceKey(k); }} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 12, marginBottom: 8 }}>
+              <Text style={{ color: base.ink }}>Invite As: {choice?.label ?? 'Operative'} ▾</Text>
             </Pressable>
-            <Button kind="ghost" busy={busy === 'one'} title="Generate One-Time Invite Link" onPress={async () => { setBusy('one'); const id = await createInvite(me, role); setBusy(null); if (id) { setNewId(id); toast('Invite link created'); refresh(); } else toast('Could not create — try again.'); }} />
-            <Muted style={{ marginTop: 8 }}>A Client invite gives read-only access (RAMS, COSHH, Toolbox Talks, Schedule of Works, completed inspections, snagging and the operative dashboard) once a PM assigns them to a site — they can view and export, but never sign or edit anything. An Operative can be promoted to Project Manager in Users once they&apos;ve joined.</Muted>
+            <Button kind="ghost" busy={busy === 'one'} title="Generate One-Time Invite Link" onPress={async () => { setBusy('one'); const id = await createInvite(me, role, { is_estimator: choice?.is_estimator, org_role_id: choice?.org_role_id }); setBusy(null); if (id) { setNewId(id); toast('Invite link created'); refresh(); } else toast('Could not create — try again.'); }} />
+            <Muted style={{ marginTop: 8 }}>A Client invite gives read-only access (RAMS, COSHH, Toolbox Talks, Schedule of Works, completed inspections, snagging and the operative dashboard) once a PM assigns them to a site — they can view and export, but never sign or edit anything. {me.role === 'admin' ? 'They join with the role chosen here. Site Managers and Finance Controllers: invite them as anything, then change their role in People once they’ve joined.' : 'Only a company admin can invite a Project Manager.'}</Muted>
           </>
         )}
         {!!data?.pending.length && (
@@ -90,7 +99,7 @@ export default function Invites() {
               <View key={i.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: base.line }}>
                 <View style={{ flex: 1 }}>
                   {!!i.email && <Text style={{ fontWeight: '600', color: base.ink }}>{i.email}</Text>}
-                  <Muted>{ROLES.find((r) => r.key === i.role)?.label || i.role} · created {new Date(i.created_at).toLocaleDateString('en-GB')} · expires {new Date(i.expires_at).toLocaleDateString('en-GB')}</Muted>
+                  <Muted>{orgRoles.find((r) => r.id === i.org_role_id)?.name || (i.role === 'pm' && i.is_estimator ? 'Estimator' : ROLES.find((r) => r.key === i.role)?.label) || i.role} · created {new Date(i.created_at).toLocaleDateString('en-GB')} · expires {new Date(i.expires_at).toLocaleDateString('en-GB')}</Muted>
                 </View>
                 <Pressable onPress={async () => { if (!(await confirmAsk('Revoke this invite link?', 'Revoke'))) return; toast((await revokeInvite(i.id)) ? 'Invite revoked' : 'Could not revoke — try again.'); if (newId === i.id) setNewId(null); refresh(); }}><Text style={{ color: base.warn, fontWeight: '600' }}>Revoke</Text></Pressable>
               </View>

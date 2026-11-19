@@ -45,7 +45,7 @@ export async function removeMember(id: string): Promise<{ ok: boolean; msg: stri
 }
 
 /* ---------- invites ---------- */
-export type Invite = { id: string; email: string | null; role: string; created_at: string; expires_at: string; use_count?: number | null; is_reusable?: boolean | null };
+export type Invite = { id: string; email: string | null; role: string; created_at: string; expires_at: string; use_count?: number | null; is_reusable?: boolean | null; is_estimator?: boolean | null; org_role_id?: string | null };
 export function useInvites(orgId: string | null | undefined) {
   return useQuery({
     queryKey: ['invites', orgId],
@@ -59,8 +59,10 @@ export function useInvites(orgId: string | null | undefined) {
     },
   });
 }
-export async function createInvite(me: Profile, role: string): Promise<string | null> {
-  const r = await db.from('invites').insert({ org_id: me.org_id, role, created_by: me.id } as never).select('id').single();
+/** extra: an estimator, or one of the company's own roles (e.g. Quantity Surveyor) given when they join (19 Nov 2026). */
+export async function createInvite(me: Profile, role: string, extra: { is_estimator?: boolean; org_role_id?: string | null } = {}): Promise<string | null> {
+  const more = { ...(extra.is_estimator ? { is_estimator: true } : {}), ...(extra.org_role_id ? { org_role_id: extra.org_role_id } : {}) };
+  const r = await db.from('invites').insert({ org_id: me.org_id, role, created_by: me.id, ...more } as never).select('id').single();
   return r.error || !r.data ? null : (r.data as { id: string }).id;
 }
 /** Never really expires (10 years) and can be used by any number of people. */

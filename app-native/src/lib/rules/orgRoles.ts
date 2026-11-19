@@ -60,3 +60,20 @@ export function groupByRole<P extends RolePerson>(people: P[], roles: OrgRole[])
 export function roleChoices(allowed: string[], roles: OrgRole[], iAmAdmin: boolean, currentAccess?: string): OrgRole[] {
   return roles.filter((r) => allowed.includes(r.access) && (iAmAdmin || (r.is_default && r.access !== currentAccess)));
 }
+
+/** The levels an invite can carry (the invites table's own list), and how each is made. */
+const INVITE_LEVEL: Record<string, { role: string; is_estimator?: boolean }> = {
+  pm: { role: 'pm' }, estimator: { role: 'pm', is_estimator: true }, operative: { role: 'operative' }, driver: { role: 'driver' }, client: { role: 'client' },
+};
+export type InviteChoice = { key: string; label: string; role: string; is_estimator: boolean; org_role_id: string | null };
+/** Who an invite can be for (Andy, 19 Nov 2026: "i cant invite as a project manager or qs"): the company's own roles, in
+ *  its order. A company admin can invite at Project Manager level (Project Manager, Quantity Surveyor and the rest) and
+ *  estimators; anyone else operatives, drivers and clients only. Site managers and finance-only people are invited at
+ *  another level and given their role in People once they've joined. A role that isn't the default for its level goes
+ *  on the invite, so they join with it. */
+export function inviteChoices(roles: OrgRole[], admin: boolean): InviteChoice[] {
+  return roles.filter((r) => INVITE_LEVEL[r.access] && (admin || ['operative', 'driver', 'client'].includes(r.access))).map((r) => ({
+    key: r.id, label: r.name, role: INVITE_LEVEL[r.access].role, is_estimator: !!INVITE_LEVEL[r.access].is_estimator,
+    org_role_id: isUnsaved(r) || r.is_default ? null : r.id,
+  }));
+}
