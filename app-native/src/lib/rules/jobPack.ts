@@ -9,7 +9,14 @@ export type PackConfig = {
   weekly: { name: string; addDate: boolean; weekStart: number; week1: 'start' | 'first' };
   /** Make a folder for every new job (Andy, 8 Nov 2026). Missing = yes. A job can still be unticked, or a client set to never. */
   create_new?: boolean;
+  /** When the folders and documents were last read from the company's own template in OneDrive (19 Nov 2026). */
+  template_read?: string;
 };
+/** RTB Roofing's own template: its pack was written from it, so it isn't read again by itself. */
+export const RTB_TEMPLATE = 'RTB Roofing Ltd/Live Projects/- New Job Pack - Template';
+/** A pack whose folders came from somewhere other than its own template (copied from another company before 19 Nov
+ *  2026): its folder list is read from its own template the next time the OneDrive page opens. */
+export const needsTemplateRead = (c: PackConfig | null | undefined) => !!c && !!cleanFolder(c.template_path || '') && !c.template_read && cleanFolder(c.template_path).toLowerCase() !== RTB_TEMPLATE.toLowerCase();
 
 const PROG = '5. OpHUB x Photos & Inspections/1. Progress Reports (Safety Culture)';
 const WEEK = `${PROG}/{week folder}`;
@@ -44,7 +51,7 @@ export const PACK_RULES: { key: string; area: string; when: string; folder: stri
 /** Which tab of Where Things Save a rule sits on. */
 export const ruleTab = (key: string) => PACK_RULES.find((r) => r.key === key)?.tab ?? 'projects';
 /** A rule's place in the template, shown as "Job › 2. Health & Safety › 1. RAMS"; the week folder as "This Week's Folder". */
-export const folderLabel = (f: string) => ['Job', ...cleanFolder(f).split('/').map((x) => (x === WEEK_MARK ? 'This Week’s Folder' : x))].join(' › ');
+export const folderLabel = (f: string) => ['Each Job’s Folder', ...cleanFolder(f).split('/').filter(Boolean).map((x) => (x === WEEK_MARK ? 'This Week’s Folder' : x))].join(' › ');
 /** The folders straight under a path in the template's list (the path itself included as needed). */
 export function foldersUnder(all: string[], at: string): string[] {
   const base = cleanFolder(at), pre = base ? `${base}/` : '';

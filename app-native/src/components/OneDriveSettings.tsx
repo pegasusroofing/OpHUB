@@ -14,10 +14,10 @@ import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toa
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { syncSiteFolder } from '@/data/drawings';
 import { saveJobPackSettings, setupJobPack, useJobPackSettings } from '@/data/jobPack';
-import { connectOneDrive, DEFAULT_MAIN_FOLDER, disconnectOneDrive, listFolders, readTemplateTree, setMainFolder, setQuickLinks, unlinkFolder, useOdSites, useOneDriveStatus, useQuickLinks, type OdFolder, type OdTarget } from '@/data/onedrive';
+import { connectOneDrive, DEFAULT_MAIN_FOLDER, disconnectOneDrive, folderStack, listFolders, readTemplateTree, setMainFolder, setQuickLinks, unlinkFolder, useOdSites, useOneDriveStatus, useQuickLinks, type OdFolder, type OdTarget } from '@/data/onedrive';
 import { saveQuoteSettings, useQuoteSettings } from '@/data/quotes';
 import { useAuth } from '@/lib/auth';
-import { cleanFolder, folderLabel, foldersUnder, PACK_RULES, ruleTab, startingPack, WEEK_MARK, type PackConfig } from '@/lib/rules/jobPack';
+import { cleanFolder, folderLabel, foldersUnder, needsTemplateRead, PACK_RULES, ruleTab, startingPack, WEEK_MARK, type PackConfig } from '@/lib/rules/jobPack';
 import { base, page, radius, space } from '@/theme/theme';
 
 type Tab = 'projects' | 'finance' | 'company';
@@ -64,19 +64,37 @@ const folderRow = (name: string, onPress: () => void, sel = false) => (
   </Pressable>
 );
 
-/** Choose a folder inside the job folder, from the template's folder list. A new folder joins the list (so new jobs get it). */
+/** Choose a folder inside each job's folder. It browses the company's own template in OneDrive (Andy, 19 Nov 2026: "it
+ *  should just go to the main folder the company sets up", not folders copied from another company), plus any folder
+ *  made here; without a template that can be opened, the folders saved for new jobs. The top is each job's own folder.
+ *  A new folder joins the list, so new jobs get it. */
 function TemplateFolderPop({ title, cfg, start, weekly, onPick, onClose }: { title: string; cfg: PackConfig; start: string; weekly?: boolean; onPick: (folder: string, newFolders: string[]) => void; onClose: () => void }) {
-  const startAt = cleanFolder(start.replace(WEEK_MARK, '')).split('/').slice(0, -1).join('/');
-  const [at, setAt] = useState(startAt);
+  const tpl = cleanFolder(cfg.template_path || '');
+  const { data: home, isLoading: opening } = useQuery({ queryKey: ['odStack', tpl], enabled: !!tpl, staleTime: 300000, queryFn: async () => { const s = await folderStack(tpl); return Array.isArray(s) && s.length ? s[s.length - 1] : null; } });
+  const live = home ?? null;
+  const startAt = live ? '' : cleanFolder(start.replace(WEEK_MARK, '')).split('/').slice(0, -1).join('/');
+  const [at0, setAt] = useState<string | null>(null);
+  const at = at0 ?? startAt;
+  const [refs, setRefs] = useState<Record<string, OdFolder>>({});
   const [extra, setExtra] = useState<string[]>([]);
-  const all = [...cfg.folders, ...extra];
-  const kids = foldersUnder(all, at);
+  const curRef = live ? (at ? refs[at] : live) : null;
+  const { data: got } = useQuery({ queryKey: ['odFolders', curRef?.id ?? 'none', curRef?.driveId ?? ''], enabled: !!curRef, queryFn: () => listFolders(curRef) });
+  const liveKids = live && curRef ? (got?.folders || []).filter((f) => !f.virtual) : [];
+  const listed = foldersUnder(live ? extra : [...cfg.folders, ...extra], at);
+  const kids = [...liveKids.map((f) => f.name), ...listed.filter((n) => !liveKids.some((f) => f.name.toLowerCase() === n.toLowerCase()))];
   const parts = at ? at.split('/') : [];
+  const open = (name: string) => {
+    const next = at ? `${at}/${name}` : name;
+    const ref = liveKids.find((f) => f.name === name);
+    if (ref) setRefs((r) => ({ ...r, [next]: ref }));
+    setAt(next);
+  };
+  const loading = !!tpl && opening;
   return (
-    <Pop title={title} onClose={onClose} footer={(
+    <Pop title={title} onClose={onClose} footer={!loading && (
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-        {!!at && <Button small title={`Use “${parts[parts.length - 1]}”`} onPress={() => onPick(at, extra)} />}
-        {!!at && weekly && <Button small kind="ghost" title="Use This Week’s Folder In It" onPress={() => onPick(`${at}/${WEEK_MARK}`, extra)} />}
+        <Button small title={at ? `Use “${parts[parts.length - 1]}”` : 'Use Each Job’s Folder'} onPress={() => onPick(at, extra)} />
+        {weekly && <Button small kind="ghost" title="Use This Week’s Folder In It" onPress={() => onPick(at ? `${at}/${WEEK_MARK}` : WEEK_MARK, extra)} />}
         <Button small kind="ghost" title="+ New Folder" onPress={async () => {
           const n = (await promptText('New folder name', ''))?.trim(); if (!n) return;
           const f = cleanFolder(at ? `${at}/${n}` : n); setExtra((x) => [...x, f]); setAt(f);
@@ -84,30 +102,38 @@ function TemplateFolderPop({ title, cfg, start, weekly, onPick, onClose }: { tit
       </View>
     )}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 6 }}>
-        <Text onPress={() => setAt('')} style={{ fontSize: 13, fontWeight: '600', color: at ? base.blue : base.ink }}>Job Folder</Text>
+        <Text onPress={() => setAt('')} style={{ fontSize: 13, fontWeight: '600', color: at ? base.blue : base.ink }}>Each Job’s Folder</Text>
         {parts.map((p, i) => <Text key={i} onPress={() => setAt(parts.slice(0, i + 1).join('/'))} style={{ fontSize: 13, fontWeight: '600', color: i === parts.length - 1 ? base.ink : base.blue }}>  ›  {p}</Text>)}
       </View>
-      {kids.length ? kids.map((k) => folderRow(k, () => setAt(at ? `${at}/${k}` : k))) : <Muted>No folders in here.</Muted>}
-      <Muted style={{ marginTop: 8 }}>These are the folders every new job gets. A new one is added to that list too.</Muted>
+      {loading ? <Muted>Opening Your Template…</Muted> : live && curRef && !got ? <Muted>Loading…</Muted>
+        : kids.length ? kids.map((k) => folderRow(k, () => open(k))) : <Muted>No folders in here.</Muted>}
+      <Muted style={{ marginTop: 8 }}>{live
+        ? `Each job’s folder is made in ${cleanFolder(cfg.parent_path).split('/').join(' › ') || 'your new job folder'}, from your template (${tpl.split('/').pop()}). A new folder is added to every new job.`
+        : 'These are the folders every new job gets. A new one is added to that list too.'}</Muted>
     </Pop>
   );
 }
 
-/** Choose a folder in OneDrive itself (where new job folders go, the template), as a path from the top of the drive. */
-function DrivePathPop({ title, onPick, onClose }: { title: string; onPick: (path: string) => void; onClose: () => void }) {
-  const [stack, setStack] = useState<OdFolder[]>([]);
+/** Choose a folder in OneDrive itself (where new job folders go, the template), as a path from the top of the drive. It
+ *  opens in the company's main folder when one is set (Andy, 19 Nov 2026), and My Files is one tap up. */
+function DrivePathPop({ title, start, onPick, onClose }: { title: string; start?: string; onPick: (path: string) => void; onClose: () => void }) {
+  const from = cleanFolder(start || '');
+  const { data: home, isLoading: opening } = useQuery({ queryKey: ['odStack', from], enabled: !!from, staleTime: 300000, queryFn: async () => { const s = await folderStack(from); return Array.isArray(s) ? s : []; } });
+  const [stack0, setStack] = useState<OdFolder[] | null>(null);
+  const stack = stack0 ?? home ?? [];
+  const waiting = !!from && stack0 === null && opening;
   const cur = stack[stack.length - 1] ?? null;
-  const { data } = useQuery({ queryKey: ['odFolders', cur?.id ?? 'root', cur?.driveId ?? ''], queryFn: () => listFolders(cur) });
+  const { data } = useQuery({ queryKey: ['odFolders', cur?.id ?? 'root', cur?.driveId ?? ''], enabled: !waiting, queryFn: () => listFolders(cur) });
   const list = data ? data.folders.filter((f) => !f.virtual) : null, err = data?.error || '';
   return (
-    <Pop title={title} onClose={onClose} footer={!!cur && (
+    <Pop title={title} onClose={onClose} footer={!!cur && !waiting && (
       <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 10 }}><Button small title={`Use “${cur.name}”`} onPress={() => onPick(stack.map((s) => s.name).join('/'))} /></View>
     )}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 6 }}>
         <Text onPress={() => setStack([])} style={{ fontSize: 13, fontWeight: '600', color: stack.length ? base.blue : base.ink }}>My Files</Text>
         {stack.map((s, i) => <Text key={s.id} onPress={() => setStack(stack.slice(0, i + 1))} style={{ fontSize: 13, fontWeight: '600', color: i === stack.length - 1 ? base.ink : base.blue }}>  ›  {s.name}</Text>)}
       </View>
-      {err ? <Text style={{ color: '#C0392B' }}>{err}</Text> : !list ? <Muted>Loading…</Muted> : list.length ? list.map((f) => folderRow(f.name, () => setStack([...stack, f]))) : <Muted>No folders in here.</Muted>}
+      {waiting ? <Muted>Opening Your Main Folder…</Muted> : err ? <Text style={{ color: '#C0392B' }}>{err}</Text> : !list ? <Muted>Loading…</Muted> : list.length ? list.map((f) => folderRow(f.name, () => setStack([...stack, f]))) : <Muted>No folders in here.</Muted>}
     </Pop>
   );
 }
@@ -133,9 +159,25 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
   useEffect(() => { if (justConnected === 'success' && st && !askedMain.current) { askedMain.current = true; setPick({ kind: 'main' }); } }, [justConnected, st]);
   const { data: qs } = useQuoteSettings(hasPm ? me?.org_id : null);
   const [adding, setAdding] = useState<{ key: string; folder: string; on: boolean; extra?: string[] } | null>(null);
+  // A folder list copied from another company (before 19 Nov 2026) is read again from this company's own template, so
+  // the folders it saves into are its own (Andy: "its just defaulting to rtb folders still which shouldnt happen").
+  const autoRead = useRef(false);
+  useEffect(() => {
+    const c = pack?.config;
+    if (!me?.org_id || !st || st.needs_reconnect || autoRead.current || !c || !needsTemplateRead(c)) return;
+    autoRead.current = true;
+    void readTemplateTree(c.template_path).then(async (t) => {
+      if (typeof t === 'string') return;
+      const ruleFolders = Object.values(c.rules || {}).filter((r) => r.on && r.folder && !r.folder.includes('{')).map((r) => cleanFolder(r.folder));
+      const next = { ...c, folders: [...new Set([...t.folders, ...ruleFolders])], files: t.files, template_read: new Date().toISOString() };
+      if (await saveJobPackSettings(me.org_id as string, me.id, { enabled: pack?.enabled ?? true, config: next })) void qc.invalidateQueries({ queryKey: ['jobPackSettings'] });
+    });
+  }, [pack, st, me, qc]);
   if (!me) return null;
   if (me.role !== 'admin' && me.role !== 'superadmin') return <Muted style={{ padding: space.l }}>Admins only.</Muted>;
   const cfg = pack?.config ?? null;
+  // Pickers open in this company's main folder (Andy, 19 Nov 2026), not at the top of OneDrive.
+  const mainPath = st?.folder_path && st.folder_path !== DEFAULT_MAIN_FOLDER ? st.folder_path : '';
   const refresh = () => ['odStatus', 'odQuick', 'odSites', 'jobPackSettings'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
   const save = async (next: PackConfig, enabled = pack?.enabled ?? true) => {
     if (!(await saveJobPackSettings(me.org_id as string, me.id, { enabled, config: next }))) { toast('Could not save — try again.'); return false; }
@@ -148,7 +190,7 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
     if (typeof t === 'string') { toast(t); if (cleanFolder(p) !== cleanFolder(cfg.template_path)) await save({ ...cfg, template_path: p }); return; }
     // Folders things already save into stay on the list (each job gets them too).
     const ruleFolders = Object.values(cfg.rules).filter((r) => r.on && r.folder && !r.folder.includes('{')).map((r) => cleanFolder(r.folder));
-    await save({ ...cfg, template_path: p, folders: [...new Set([...t.folders, ...ruleFolders])], files: t.files });
+    await save({ ...cfg, template_path: p, folders: [...new Set([...t.folders, ...ruleFolders])], files: t.files, template_read: new Date().toISOString() });
   };
   const connect = async () => { setBusy('connect'); try { const e = await connectOneDrive(); if (e) toast(e); } finally { setBusy(''); } };
   const pickSite = (target: OdTarget, id = '') => router.push({ pathname: '/pm/onedrive-pick', params: { target, id } } as never);
@@ -364,11 +406,11 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
         }} />
       )}
       {(pick?.kind === 'parent' || pick?.kind === 'template') && cfg && (
-        <DrivePathPop title={pick.kind === 'parent' ? 'New Job Folders Go In' : 'Your Template Folder'} onClose={() => setPick(null)}
+        <DrivePathPop title={pick.kind === 'parent' ? 'New Job Folders Go In' : 'Your Template Folder'} start={mainPath} onClose={() => setPick(null)}
           onPick={(p) => { if (pick.kind === 'parent') void save({ ...cfg, parent_path: p }); else void fromTemplate(p); setPick(null); }} />
       )}
       {pick?.kind === 'quote' && (
-        <DrivePathPop title={Q_TITLES[pick.key]} onClose={() => setPick(null)} onPick={async (p) => {
+        <DrivePathPop title={Q_TITLES[pick.key]} start={mainPath} onClose={() => setPick(null)} onPick={async (p) => {
           const k = pick.key; setPick(null);
           let patch: Record<string, unknown>;
           if (k === 'awaiting' || k === 'checking') {
@@ -388,7 +430,7 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
           <>
             <Pop title="Add Something To Save" onClose={() => setAdding(null)} footer={(
               <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 10 }}>
-                <Button title="Add" onPress={() => { if (!adding.folder) { setPick({ kind: 'rule', key: adding.key }); return; } setRule(adding.key, { on: adding.on, folder: adding.folder }, adding.extra); setAdding(null); }} />
+                <Button title="Add" onPress={() => { setRule(adding.key, { on: adding.on, folder: adding.folder }, adding.extra); setAdding(null); }} />
                 <Button kind="ghost" title="Cancel" onPress={() => setAdding(null)} />
               </View>
             )}>
@@ -402,7 +444,7 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
               <Muted style={{ fontWeight: '500' }}>When</Muted>
               <Text style={{ color: base.ink, marginBottom: 10 }}>{caps(r?.when || '')}</Text>
               <Muted style={{ fontWeight: '500' }}>Save It In</Muted>
-              <View style={{ marginBottom: 10, marginTop: 2 }}><FolderLink label={adding.folder ? `📁 ${folderLabel(adding.folder)}` : 'Choose A Folder'} onPress={() => setPick({ kind: 'rule', key: adding.key })} /></View>
+              <View style={{ marginBottom: 10, marginTop: 2 }}><FolderLink label={`📁 ${folderLabel(adding.folder)}`} onPress={() => setPick({ kind: 'rule', key: adding.key })} /></View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: base.ink }}>Save Automatically?</Text><Muted style={{ fontSize: 12 }}>No: it stays on the list, not saving, ready to switch on</Muted></View>
                 <YesNo label="Save automatically" value={adding.on} onChange={(v) => setAdding({ ...adding, on: v })} />

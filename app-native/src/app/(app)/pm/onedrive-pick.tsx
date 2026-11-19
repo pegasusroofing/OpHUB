@@ -12,7 +12,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Empty, Muted, SectionTitle } from '@/components/ui';
 import { linkHrFolder, useHrAccess } from '@/data/hrRecords';
-import { linkFolder, listFolders, setQuickLinks, useQuickLinks, type OdFolder, type OdTarget } from '@/data/onedrive';
+import { DEFAULT_MAIN_FOLDER, folderStack, linkFolder, listFolders, setQuickLinks, useOneDriveStatus, useQuickLinks, type OdFolder, type OdTarget } from '@/data/onedrive';
 import { estimatingRoot, linkEstimatingFolder } from '@/data/quotes';
 import { syncRepairPhotos } from '@/data/repairOneDrive';
 import { useAuth } from '@/lib/auth';
@@ -34,10 +34,14 @@ export default function OneDrivePick() {
   const { data: estRoot, isLoading: estLoading } = useQuery({ queryKey: ['estRoot', me?.org_id], enabled: est, queryFn: estimatingRoot });
   // Starts in the Estimating folder; once you move, it's your own path.
   const [stack0, setStack] = useState<OdFolder[] | null>(null);
-  const stack = stack0 ?? (est && estRoot ? [{ id: estRoot.id, name: estRoot.name, driveId: estRoot.driveId }] : []);
+  // Anything else starts in the company's main folder (Andy, 19 Nov 2026), with OneDrive one tap up.
+  const { data: odSt } = useOneDriveStatus(me?.org_id);
+  const mainPath = !est && odSt?.folder_path && odSt.folder_path !== DEFAULT_MAIN_FOLDER ? odSt.folder_path : '';
+  const { data: home, isLoading: homeLoading } = useQuery({ queryKey: ['odStack', mainPath], enabled: !!mainPath, staleTime: 300000, queryFn: async () => { const s = await folderStack(mainPath); return Array.isArray(s) ? s : []; } });
+  const stack = stack0 ?? (est ? (estRoot ? [{ id: estRoot.id, name: estRoot.name, driveId: estRoot.driveId }] : []) : home ?? []);
   const [busy, setBusy] = useState(false);
   const cur = stack[stack.length - 1] ?? null;
-  const { data, isLoading } = useQuery({ queryKey: ['odFolders', cur?.id ?? 'root', cur?.driveId ?? ''], enabled: !est || !estLoading, queryFn: () => listFolders(cur) });
+  const { data, isLoading } = useQuery({ queryKey: ['odFolders', cur?.id ?? 'root', cur?.driveId ?? ''], enabled: est ? !estLoading : !(mainPath && stack0 === null && homeLoading), queryFn: () => listFolders(cur) });
   const { data: quick = [] } = useQuickLinks(me?.org_id);
   // The HR folder (only the people HR Access lets in see it here) is never pinned or linked to anything else.
   const hrId = useHrAccess(me?.org_id).data?.onedrive?.id ?? null;
@@ -95,7 +99,7 @@ export default function OneDrivePick() {
           void qc.invalidateQueries({ queryKey: ['odQuick'] });
         }} /></View>
       )}
-      {!stack.length && quick.length > 0 && target !== 'quicklink' && target !== 'hr' && (
+      {(!stack.length || stack0 === null) && quick.length > 0 && target !== 'quicklink' && target !== 'hr' && (
         <>
           <SectionTitle>⭐ Quick Links</SectionTitle>
           {quick.map((q) => row({ id: q.id, name: q.name, driveId: q.driveId }, () => setStack([{ id: q.id, name: q.name, driveId: q.driveId }])))}

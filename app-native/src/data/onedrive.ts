@@ -62,19 +62,27 @@ async function listFolderItems(at: OdFolder): Promise<{ folders: OdFolder[]; fil
 /** A company's own template (Andy, 19 Nov 2026: "a clean slate for every company, that then set up themselves"): every
  *  folder in it and every document, as paths inside it, so each new job is built just like it. Found by its path from
  *  the top of the company's OneDrive (through a library shortcut too). Up to 6 levels deep and 300 folders. */
-export async function readTemplateTree(path: string): Promise<{ folders: string[]; files: { folder: string; name: string }[] } | string> {
+/** The folders from the top of the company's OneDrive down to a path (through a library shortcut too), so a picker can
+ *  open there (Andy, 19 Nov 2026: pickers open in the company's main folder). A message if a level isn't there. */
+export async function folderStack(path: string): Promise<OdFolder[] | string> {
   const parts = String(path || '').replace(/\\/g, '/').split('/').map((x) => x.trim()).filter(Boolean);
-  if (!parts.length) return 'Choose the template folder first.';
-  let cur: OdFolder | null = null;
+  const stack: OdFolder[] = [];
   for (const p of parts) {
-    const r = await listFolders(cur);
+    const r = await listFolders(stack[stack.length - 1] ?? null);
     if (r.error) return r.error;
     const f = r.folders.find((x) => !x.virtual && x.name.trim().toLowerCase() === p.toLowerCase());
-    if (!f) return `Could not find “${p}” in OneDrive. Choose the template folder again.`;
-    cur = f;
+    if (!f) return `Could not find “${p}” in OneDrive.`;
+    stack.push(f);
   }
+  return stack;
+}
+export async function readTemplateTree(path: string): Promise<{ folders: string[]; files: { folder: string; name: string }[] } | string> {
+  if (!String(path || '').trim()) return 'Choose the template folder first.';
+  const st = await folderStack(path);
+  if (typeof st === 'string') return `${st} Choose the template folder again.`;
+  const cur = st[st.length - 1];
   const folders: string[] = [], files: { folder: string; name: string }[] = [];
-  let level: { ref: OdFolder; rel: string }[] = [{ ref: cur as OdFolder, rel: '' }];
+  let level: { ref: OdFolder; rel: string }[] = [{ ref: cur, rel: '' }];
   for (let depth = 0; depth < 6 && level.length && folders.length < 300; depth++) {
     const next: { ref: OdFolder; rel: string }[] = [];
     for (let i = 0; i < level.length; i += 6) {

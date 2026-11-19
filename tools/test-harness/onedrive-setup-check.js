@@ -50,10 +50,10 @@ const IN_RTB = [{id: 'f-live', name: 'Live Projects', driveId: 'd1'}, {id: 'f-ar
   let t = await text();
   check(/Connected/.test(t) && /andy@rtb\.example/.test(t), 'the connection');
   check(/Create A OneDrive Folder For Every New Job\?/.test(t) && /RTB Roofing Ltd › Live Projects/.test(t) && /New Job Pack - Template/.test(t), 'New Jobs: the question, where they go, the template');
-  check(/WHERE THINGS SAVE/.test(t) && /Job › 2\. Health & Safety › 1\. RAMS/.test(t) && /Not Saving/.test(t), 'Where Things Save: each item’s folder, and one not saving');
+  check(/WHERE THINGS SAVE/.test(t) && /Each Job’s Folder › 2\. Health & Safety › 1\. RAMS/.test(t) && /Not Saving/.test(t), 'Where Things Save: each item’s folder, and one not saving');
   await page.screenshot({path: 'shots/od-page.png', fullPage: true});
   // Change where RAMS save: Toolbox Talks' folder, from the template's folders.
-  await page.getByLabel('Folder: Job › 2. Health & Safety › 1. RAMS').click(); await page.waitForTimeout(700);
+  await page.getByLabel('Folder: Each Job’s Folder › 2. Health & Safety › 1. RAMS').click(); await page.waitForTimeout(700);
   await page.screenshot({path: 'shots/od-folder-pop.png'});
   await page.getByLabel('Open 3. Toolbox Talks').click(); await page.waitForTimeout(300);
   await page.getByText('Use “3. Toolbox Talks”', {exact: true}).click(); await page.waitForTimeout(1500);
@@ -74,8 +74,8 @@ const IN_RTB = [{id: 'f-live', name: 'Live Projects', driveId: 'd1'}, {id: 'f-ar
   await page.getByText('+ Add Something To Save', {exact: true}).click(); await page.waitForTimeout(600);
   await page.getByLabel('What', {exact: true}).click(); await page.waitForTimeout(400);
   await menu('Applications For Payment: Application PDF Made').click(); await page.waitForTimeout(400);
-  // No folder until one is chosen (19 Nov 2026: a clean slate, never RTB's folders by default).
-  await page.getByText('Choose A Folder ▾', {exact: true}).last().click(); await page.waitForTimeout(600);
+  // Each job's own folder until another is chosen (19 Nov 2026: never RTB's folders by default).
+  await page.getByText('📁 Each Job’s Folder ▾', {exact: true}).last().click(); await page.waitForTimeout(2500);
   await page.getByText('1. Contract & Commercial', {exact: true}).last().click(); await page.waitForTimeout(400);
   await page.getByText('4. Applications for Payment & Certificates', {exact: true}).last().click(); await page.waitForTimeout(400);
   await page.getByText('Use “4. Applications for Payment & Certificates”', {exact: true}).click(); await page.waitForTimeout(600);
