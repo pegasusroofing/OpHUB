@@ -1,6 +1,7 @@
 // Snags. Ported from 500-snagging.js (operative side: list and close with a photo;
 // managers also add snags). PDF export/email come with the PM screens.
 import { useQuery } from '@tanstack/react-query';
+import { packPut } from '@/data/jobPack';
 import { mustHit } from '@/lib/mustHit';
 
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
@@ -42,6 +43,8 @@ export function useSnagFolderCounts(siteId: string | undefined) {
 }
 
 const rid = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}${Math.random().toString(16).slice(2)}`);
+/** A snag's title as a file name. */
+const snagFileName = (t: string | null | undefined) => `Snag - ${String(t || 'Untitled').replace(/[\\/:*?"<>|]+/g, '-').trim().slice(0, 60) || 'Untitled'}`;
 async function upload(path: string, p: Picked): Promise<string | null> {
   const uri = await compressOne(p);
   const up = await supabase.storage.from('site-photos').upload(path, await (await fetch(uri)).arrayBuffer(), { contentType: 'image/jpeg' });
@@ -54,6 +57,8 @@ export async function closeSnag(me: Profile, site: Site, snag: Snag, p: Picked):
   if (!path) return 'Could not upload the photo — check your signal and try again.';
   const r = mustHit(await db.from('snags').update({ status: 'closed', closed_photo_path: path, closed_by: me.id, closed_at: new Date().toISOString() } as never).eq('id', snag.id).select('id'));
   if (r.error) return 'Could not save — try again.';
+  // The fixed photo into the job's OneDrive folder, when the company has added it (19 Nov 2026).
+  void packPut(site.id, 'snag_photo', `${snagFileName(snag.title)} - Fixed ${new Date().toISOString().slice(0, 10)}.jpg`, { photo_path: path }).catch(() => undefined);
   if (me.org_id) {
     void db.from('messages').insert({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'managers', kind: 'snag_closed', body: `${me.name} closed a snag: "${snag.title || 'Untitled'}"` } as never).then(undefined, () => undefined);
     void db.from('site_activity_log').insert({ site_id: site.id, org_id: me.org_id, actor_id: me.id, action: 'snag_closed', description: `Closed snag "${snag.title || 'Untitled'}"` } as never).then(undefined, () => undefined);
@@ -67,6 +72,8 @@ export async function addSnag(me: Profile, site: Site, title: string, location: 
   for (const p of picked) { const path = await upload(`${site.id}/snags/${rid()}.jpg`, p); if (path) paths.push(path); else failed++; }
   const r = await db.from('snags').insert({ site_id: site.id, title, location, photo_path: paths[0] || null, photo_paths: paths.length ? paths : null, status: 'open', created_by: me.id, ...(tagged.length ? { tagged } : {}) } as never).select('id').single();
   if (r.error) return 'Could not save — try again.';
+  // Its photos into the job's OneDrive folder, when the company has added it (19 Nov 2026).
+  paths.forEach((p, i) => { void packPut(site.id, 'snag_photo', `${snagFileName(title)} - Raised ${new Date().toISOString().slice(0, 10)}${paths.length > 1 ? ` (${i + 1})` : ''}.jpg`, { photo_path: p }).catch(() => undefined); });
   if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'operatives', kind: 'snag_raised', body: `New snag raised: "${title}"` } as never).then(undefined, () => undefined);
   void tellTagged(me, site, (r.data as { id: string }).id, title, tagged);
   if (failed) return `Snag added, but ${failed} photo${failed > 1 ? 's' : ''} failed to upload — check your connection.`;

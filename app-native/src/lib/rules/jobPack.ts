@@ -44,9 +44,19 @@ export const PACK_RULES: { key: string; area: string; when: string; folder: stri
   { key: 'drawing_out', area: 'Drawings', when: 'File added in the app', folder: '3. Drawings & Technical/1. Project Drawings & Generic Spec', on: true },
   { key: 'drawing_in', area: 'Drawings', when: 'File added in OneDrive comes into the app', folder: '3. Drawings & Technical/1. Project Drawings & Generic Spec', on: true },
   { key: 'material_orders_in', area: 'Material orders', when: 'File added in OneDrive comes into the app', folder: '4. Subcontractors & Suppliers/4. Supplier Material Orders', on: true },
+  // More things that can save (Andy, 19 Nov 2026: "are there no more areas for it to auto save to the one drive?" ...
+  // "Add them all"). Off until a company adds them.
+  { key: 'cpp_issued', area: 'Construction Phase Plan', when: 'Plan issued (each version)', folder: `${MC}/1. Construction Phase Plan`, on: false },
+  { key: 'snag_report', area: 'Snagging', when: 'Snagging list PDF made', folder: '8. Handover/3. Defects  Snagging', on: false },
+  { key: 'snag_photo', area: 'Snagging', when: 'Snag raised or closed (its photos)', folder: '8. Handover/3. Defects  Snagging', on: false },
+  { key: 'havs_record', area: 'HAVS', when: 'HAVS record PDF made', folder: HS, on: false },
+  { key: 'puwer_inspection', area: 'PUWER', when: 'PUWER inspection PDF made', folder: HS, on: false },
+  { key: 'ppe_issued', area: 'PPE', when: 'PPE issue record PDF made', folder: HS, on: false },
+  { key: 'delivery_completed', area: 'Deliveries', when: 'Delivery completed (its photos)', folder: '4. Subcontractors & Suppliers/4. Supplier Material Orders', on: false },
   // Finance (Andy, 8 Nov 2026): off until a company adds them under Admin › OneDrive.
   { key: 'fin_application', area: 'Applications For Payment', when: 'Application PDF made', folder: '1. Contract & Commercial/4. Applications for Payment & Certificates', on: false, tab: 'finance' },
   { key: 'fin_invoice', area: 'Sales Invoices', when: 'Invoice issued', folder: '1. Contract & Commercial/4. Applications for Payment & Certificates', on: false, tab: 'finance' },
+  { key: 'fin_sub_notice', area: 'Subcontractor Notices', when: 'Payment or pay less notice made', folder: '4. Subcontractors & Suppliers/1. Subcontractor Quotes & Orders', on: false, tab: 'finance' },
 ];
 /** Which tab of Where Things Save a rule sits on. */
 export const ruleTab = (key: string) => PACK_RULES.find((r) => r.key === key)?.tab ?? 'projects';

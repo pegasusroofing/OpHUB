@@ -16,6 +16,7 @@ import {
 } from '@/data/havs';
 import { canSignOffHs } from '@/lib/roles';
 import { usePeople } from '@/data/hs';
+import { packPdfBytes } from '@/data/jobPack';
 import { useAuth } from '@/lib/auth';
 import { useFlushOnLeave } from '@/lib/useFlushOnLeave';
 import { buildHavsPdf, emailHavsPdf } from '@/lib/pdfLazy';
@@ -88,7 +89,7 @@ export function HavsManager({ site }: { site: Site }) {
       const ops = data?.ops?.length ? data.ops : [];
       const list = ops.length ? ops : (await (async () => { const { supabase } = await import('@/lib/supabase'); const a = (((await supabase.from('site_assignments').select('user_id').eq('site_id', site.id)).data ?? []) as { user_id: string }[]).map((x) => x.user_id); return a.length ? ((((await supabase.from('profiles').select('id,name,role').in('id', a)).data ?? []) as { id: string; name: string; role: string }[]).filter((p) => p.role === 'operative')) : []; })());
       if (!list.length) { toast(k === 'pdf' ? 'No operatives to export.' : 'No operatives to email.'); return; }
-      const b = await buildHavsPdf(site, org, wsDays, weekLabel(wsDays), list, 'All Operatives');
+      const b = await buildHavsPdf(site, org, wsDays, weekLabel(wsDays), list, 'All Operatives'); packPdfBytes(site.id, 'havs_record', b.filename, b.bytes);
       if (k === 'pdf') { if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); }
       else toast(await emailHavsPdf(site.id, b.bytes, b.filename, weekLabel(wsDays), cc));
     } catch { toast(k === 'pdf' ? 'Export failed — try again.' : 'Email failed — try again.'); } finally { setBusy(null); }
@@ -210,7 +211,7 @@ export function HavsManager({ site }: { site: Site }) {
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                           <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{o.name}</Text>
                           <Muted>Week {by.reduce((t, x) => t + x, 0).toFixed(0)} pts</Muted>
-                          <Text style={{ color: base.blue }} onPress={async () => { setBusy('sel'); try { const b = await buildHavsPdf(site, org, days, weekLabel(days), [o], o.name); if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); } catch { toast('Could not build the PDF.'); } finally { setBusy(''); } }}>Export</Text>
+                          <Text style={{ color: base.blue }} onPress={async () => { setBusy('sel'); try { const b = await buildHavsPdf(site, org, days, weekLabel(days), [o], o.name); packPdfBytes(site.id, 'havs_record', b.filename, b.bytes); if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); } catch { toast('Could not build the PDF.'); } finally { setBusy(''); } }}>Export</Text>
                         </View>
                         <Muted>{by.map((x, i) => `${HAVS_DAY_LABELS[i]} ${x.toFixed(0)}`).join(' · ')}</Muted>
                       </View>
@@ -237,7 +238,7 @@ export function HavsManager({ site }: { site: Site }) {
                   {data.ops.map((o) => <Check key={o.id} label={o.name} value={pick.includes(o.id)} onChange={(v) => setPick(v ? [...pick, o.id] : pick.filter((x) => x !== o.id))} />)}
                   <Button busy={busy === 'sel'} disabled={!pick.length} title={`Export Selected (${pick.length})`} onPress={async () => {
                     const ops = data.ops.filter((o) => pick.includes(o.id)).sort((x, y) => x.name.localeCompare(y.name)); setBusy('sel');
-                    try { const b = await buildHavsPdf(site, org, days, weekLabel(days), ops, ops.length === 1 ? ops[0].name : 'Selected Operatives'); if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); } catch { toast('Export failed — try again.'); } finally { setBusy(null); }
+                    try { const b = await buildHavsPdf(site, org, days, weekLabel(days), ops, ops.length === 1 ? ops[0].name : 'Selected Operatives'); packPdfBytes(site.id, 'havs_record', b.filename, b.bytes); if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); } catch { toast('Export failed — try again.'); } finally { setBusy(null); }
                   }} />
                 </Card>
               )}

@@ -1,5 +1,6 @@
 // Driver data and actions. Ported from 840-delivery-driver.js and 9219zz-driver-time-off.js.
 import { driverCount } from '@/data/deliveries';
+import { packPut } from '@/data/jobPack';
 import { useQuery } from '@tanstack/react-query';
 import { mustHit } from '@/lib/mustHit';
 
@@ -226,6 +227,12 @@ export async function completeDelivery(me: Profile, t: Delivery, sites: Site[]):
   const now = new Date().toISOString();
   const r = mustHit(await db.from('delivery_tasks').update({ status: 'completed', completed_at: now, completed_by: me.id, completion_photo_paths: photos, completion_photo_path: photos[0] } as never).eq('id', t.id).select('id'));
   if (r.error) return 'Could not save — try again.';
+  // The delivery's photos into the job's OneDrive folder, when the company has added it (19 Nov 2026). The server lets the
+  // driver file this delivery's photos only.
+  if (t.site_id) {
+    const label = String(t.description || 'Delivery').replace(/[\\/:*?"<>|]+/g, '-').trim().slice(0, 60) || 'Delivery';
+    photos.forEach((p, i) => { void packPut(t.site_id as string, 'delivery_completed', `Delivery ${now.slice(0, 10)} - ${label}${photos.length > 1 ? ` (${i + 1})` : ''}.jpg`, { file: { bucket: 'site-photos', path: p } }, { task_id: t.id }).catch(() => undefined); });
+  }
   // Tell the people the database says should know (site contact, PM…).
   try {
     const site = sites.find((s) => s.id === t.site_id);

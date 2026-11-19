@@ -59,8 +59,9 @@ export async function hasJobPack(siteId: string): Promise<boolean> {
 const b64 = (u: Uint8Array) => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s); };
 type Src = { photo_path: string } | { file: { bucket: string; path: string } } | { bytes: Uint8Array };
 /** Puts a file in the job's pack by rule. false if the job has no pack, so the caller can do what it did before. */
-export async function packPut(siteId: string, rule: string, filename: string, src: Src): Promise<boolean> {
-  if (!(await hasJobPack(siteId))) return false;
+export async function packPut(siteId: string, rule: string, filename: string, src: Src, extra: Record<string, string> = {}): Promise<boolean> {
+  // A driver may not be able to look the job up; the server says if it has no pack.
+  if (!extra.task_id && !(await hasJobPack(siteId))) return false;
   let source: object;
   if ('bytes' in src) source = { content_base64: b64(src.bytes) };
   else if ('file' in src && !src.file.path.startsWith(`${siteId}/`)) {
@@ -69,7 +70,8 @@ export async function packPut(siteId: string, rule: string, filename: string, sr
     if (d.error || !d.data) return true;
     source = { content_base64: b64(new Uint8Array(await d.data.arrayBuffer())) };
   } else source = src;
-  await invokeAsUser('onedrive-job-pack', { action: 'put', site_id: siteId, rule, filename, ...source });
+  // extra: task_id lets a driver file the photos of a delivery they completed (19 Nov 2026; the server checks it).
+  await invokeAsUser('onedrive-job-pack', { action: 'put', site_id: siteId, rule, filename, ...source, ...extra });
   return true;
 }
 const pdfName = (name: string) => (/\.pdf$/i.test(name) ? name : `${name}.pdf`);

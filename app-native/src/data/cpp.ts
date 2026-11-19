@@ -4,6 +4,7 @@
 // (cpp_defaults). Issuing makes the PDF and files it in the job's Construction Phase Plan folder (mc_documents 'cpp').
 import { useQuery } from '@tanstack/react-query';
 
+import { packPdfBytes } from '@/data/jobPack';
 import { loadSettings } from '@/data/ramsBuilder';
 import { buildCppPdf } from '@/lib/pdfLazy';
 import { fullSiteAddress } from '@/lib/rules/checkin';
@@ -209,6 +210,8 @@ export async function issueCpp(me: Me, org: Org, row: CppRow, p: CppPlan, note: 
   const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
   const up = await supabase.storage.from('mc-documents').upload(`${row.site_id}/cpp/${rid}-Construction_Phase_Plan_v${plan.version}.pdf`, out.bytes, { contentType: 'application/pdf' });
   if (up.error) return 'Upload failed - check signal and try again.';
+  // Into the job's OneDrive folder when the company has added it (Where Things Save, 19 Nov 2026).
+  packPdfBytes(row.site_id, 'cpp_issued', `Construction Phase Plan v${plan.version} - ${plan.siteName || 'Job'}.pdf`, out.bytes);
   const doc = await db.from('mc_documents').insert({ org_id: me.org_id, site_id: row.site_id, category: 'cpp', name: `Construction Phase Plan v${plan.version} - ${plan.siteName || 'Job'}`, storage_path: up.data.path, uploaded_by: me.id } as never).select('id').single();
   const docId = (doc.data as { id: string } | null)?.id;
   if (!docId) return 'Could not file the plan - try again.';

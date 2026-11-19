@@ -10,6 +10,7 @@ import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { orThrow } from '@/lib/offlineCache';
 import { nameOf, usePeople } from '@/data/hs';
+import { packPdfBytes } from '@/data/jobPack';
 import { useAuth } from '@/lib/auth';
 import { isFullManager } from '@/lib/roles';
 import { deliverPdf } from '@/lib/fileOut';
@@ -171,7 +172,7 @@ export function PpeManager({ site }: { site: Site }) {
                     {i.kind === 'issuance' && i.status === 'signed' && (
                       <Pressable hitSlop={6} onPress={async () => {
                         toast('Building PDF…');
-                        try { const b = await ppeExportPdf([i.id], site, org, (u) => nameOf(people, u)); if (!b || !(await deliverPdf(b.bytes, b.filename))) toast('Could not build the PDF.'); } catch { toast('Could not build the PDF.'); }
+                        try { const b = await ppeExportPdf([i.id], site, org, (u) => nameOf(people, u)); if (b) packPdfBytes(site.id, 'ppe_issued', b.filename, b.bytes); if (!b || !(await deliverPdf(b.bytes, b.filename))) toast('Could not build the PDF.'); } catch { toast('Could not build the PDF.'); }
                       }}><Text style={{ color: base.blue, fontSize: 12 }}>Export signed PDF ↗</Text></Pressable>
                     )}
                     {i.kind === 'issuance' && (
@@ -196,14 +197,14 @@ export function PpeManager({ site }: { site: Site }) {
           <View style={{ flex: 1 }}><Button kind="ghost" busy={pdfBusy === 'pdf'} title={`Export ${picked.size} (PDF)`} onPress={async () => {
             setPdfBusy('pdf'); toast('Building PDF…');
             try {
-              const b = await ppeExportPdf([...picked], site, org, (u) => nameOf(people, u));
+              const b = await ppeExportPdf([...picked], site, org, (u) => nameOf(people, u)); if (b) packPdfBytes(site.id, 'ppe_issued', b.filename, b.bytes);
               if (!b) toast('Could not build any of the selected records.');
               else if (await deliverPdf(b.bytes, b.filename)) setPicked(new Set());
             } catch { toast('Could not build the combined PDF.'); } finally { setPdfBusy(null); }
           }} /></View>
           <View style={{ flex: 1 }}><Button kind="ghost" busy={pdfBusy === 'email'} title={`Email ${picked.size}`} onPress={async () => {
             setPdfBusy('email'); toast('Building PDFs…');
-            try { const r = await ppeEmailPdfs([...picked], site, org, (u) => nameOf(people, u)); toast(r.msg); if (r.ok) setPicked(new Set()); } catch { toast('Email failed — could not reach the server.'); } finally { setPdfBusy(null); }
+            try { const ids = [...picked]; const r = await ppeEmailPdfs(ids, site, org, (u) => nameOf(people, u)); toast(r.msg); if (r.ok) { setPicked(new Set()); void ppeExportPdf(ids, site, org, (u) => nameOf(people, u)).then((b) => { if (b) packPdfBytes(site.id, 'ppe_issued', b.filename, b.bytes); }).catch(() => undefined); } } catch { toast('Email failed — could not reach the server.'); } finally { setPdfBusy(null); }
           }} /></View>
         </View>
       )}

@@ -208,7 +208,14 @@ Deno.serve(async (req) => {
     if (!site || site.org_id !== me.org_id) return reply(req, { error: 'Forbidden' }, 403);
     const access = await fetch(`${SUPABASE_URL}/rest/v1/rpc/has_site_access`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, apikey: ANON, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_site_id: site.id }) });
     const isManager = ['pm', 'admin'].includes(String(me.role));
-    if (!isManager && (await access.json().catch(() => false)) !== true) return reply(req, { error: 'Forbidden' }, 403);
+    // A driver filing the photos of a delivery they completed (19 Nov 2026, Where Things Save › Deliveries): only that
+    // delivery's job, and only that item. Drivers aren't on the job, so the job check alone would turn them away.
+    let ownDelivery = false;
+    if (!isManager && body.action === 'put' && String(body.rule || '') === 'delivery_completed' && body.task_id) {
+      const { data: t } = await admin.from('delivery_tasks').select('site_id, org_id, completed_by, driver_id').eq('id', String(body.task_id)).maybeSingle();
+      ownDelivery = !!t && t.site_id === site.id && t.org_id === me.org_id && (t.completed_by === me.id || t.driver_id === me.id);
+    }
+    if (!isManager && !ownDelivery && (await access.json().catch(() => false)) !== true) return reply(req, { error: 'Forbidden' }, 403);
 
     const { data: settings } = await admin.from('job_pack_settings').select('enabled, config').eq('org_id', me.org_id).maybeSingle();
     if (!settings?.enabled || !settings.config) return reply(req, { error: 'not_enabled' });

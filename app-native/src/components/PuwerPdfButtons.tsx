@@ -6,6 +6,7 @@ import { View } from 'react-native';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
+import { packPdfBytes } from '@/data/jobPack';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
@@ -31,7 +32,7 @@ export function PuwerPdfButtons({ siteId, weekStart, one, picked = [] }: { siteI
         ops = a.length ? ((((await supabase.from('profiles').select('id,name,role').in('id', a)).data ?? []) as { id: string; name: string; role: string }[]).filter((p) => p.role === 'operative').sort((x, y) => x.name.localeCompare(y.name))) : [];
       }
       if (!ops.length) { toast(k === 'pdf' ? 'No operatives to export.' : 'No operatives to email.'); return; }
-      const b = await buildPuwerPdf(site, org, weekStart, ops, one ? one.name : 'All Operatives', (u) => nameOf(people, u));
+      const b = await buildPuwerPdf(site, org, weekStart, ops, one ? one.name : 'All Operatives', (u) => nameOf(people, u)); packPdfBytes(siteId, 'puwer_inspection', b.filename, b.bytes);
       if (k === 'pdf') { if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); }
       else toast(await emailPuwerPdf(siteId, b.bytes, b.filename, b.weekLabel, one ? one.name : 'All Operatives', cc));
     } catch { toast(k === 'pdf' ? 'Export failed — try again.' : 'Email failed — try again.'); } finally { setBusy(null); }
@@ -41,7 +42,7 @@ export function PuwerPdfButtons({ siteId, weekStart, one, picked = [] }: { siteI
     setBusy('sel'); toast('Building PDF…');
     try {
       const ops = [...picked].sort((x, y) => x.name.localeCompare(y.name));
-      const b = await buildPuwerPdf(site, org, weekStart, ops, ops.length === 1 ? ops[0].name : 'Selected Operatives', (u) => nameOf(people, u));
+      const b = await buildPuwerPdf(site, org, weekStart, ops, ops.length === 1 ? ops[0].name : 'Selected Operatives', (u) => nameOf(people, u)); packPdfBytes(siteId, 'puwer_inspection', b.filename, b.bytes);
       if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.');
     } catch { toast('Export failed — try again.'); } finally { setBusy(null); }
   };

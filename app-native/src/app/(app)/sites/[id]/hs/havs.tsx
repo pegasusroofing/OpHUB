@@ -12,6 +12,7 @@ import { confirmAsk, useToast } from '@/components/toast';
 import { HavsManager } from '@/components/HavsManager';
 import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
 import { addHavsEntry, deleteHavsEntry, editHavsEntry, useHavsWeek, type HavsTool } from '@/data/havs';
+import { packPdfBytes } from '@/data/jobPack';
 import { useSite } from '@/data/sites';
 import { buildHavsPdf, emailHavsPdf } from '@/lib/pdfLazy';
 import { deliverPdf } from '@/lib/fileOut';
@@ -175,7 +176,7 @@ export default function Havs() {
                     ops = a.length ? ((((await supabase.from('profiles').select('id,name,role').in('id', a)).data ?? []) as { id: string; name: string; role: string }[]).filter((p) => p.role === 'operative').sort((x, y) => x.name.localeCompare(y.name))) : [];
                   }
                   if (!ops.length) { toast(k === 'pdf' ? 'No operatives to export.' : 'No operatives to email.'); return; }
-                  const b = await buildHavsPdf(site, org, days, weekLabel(days), ops, isManager(me) ? 'All Operatives' : me.name);
+                  const b = await buildHavsPdf(site, org, days, weekLabel(days), ops, isManager(me) ? 'All Operatives' : me.name); packPdfBytes(site.id, 'havs_record', b.filename, b.bytes);
                   if (k === 'pdf') { if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); }
                   else toast(await emailHavsPdf(site.id, b.bytes, b.filename, weekLabel(days), cc));
                 } catch { toast(k === 'pdf' ? 'Export failed — try again.' : 'Email failed — try again.'); } finally { setPdfBusy(null); }

@@ -19,6 +19,7 @@ import { StorageImage } from '@/components/StorageImage';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
+import { packPdfBytes } from '@/data/jobPack';
 import { useSite } from '@/data/sites';
 import { addSnag, closeSnag, emailSnagPdf, replaceSnagPhoto, snagPhotos, snagsForPdf, tagSnag, useSnags, type Snag } from '@/data/snags';
 import { useAuth } from '@/lib/auth';
@@ -149,6 +150,7 @@ export default function SnagList() {
       const list = await snagsForPdf(site.id, scope);
       if (!list.length) { toast('No snags to export for that filter.'); return; }
       const b = await buildSnagPdf(list, site, org, scope, (u) => nameOf(people, u));
+      packPdfBytes(site.id, 'snag_report', b.filename, b.bytes); // the job's OneDrive folder, when added (19 Nov 2026)
       if (email) toast(await emailSnagPdf(site.id, site.name, b.bytes, b.filename, scope === 'live' ? 'Live' : scope === 'closed' ? 'Closed' : 'All', cc));
       else if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.');
     } catch { toast('Could not build the PDF.'); } finally { setPdfBusy(null); }
