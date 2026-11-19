@@ -177,6 +177,36 @@ export const HR_TRY_AGAIN = 'OneDrive didn’t answer about the HR folder, so th
 export class HrLockUnknown extends Error { constructor() { super(HR_TRY_AGAIN); this.name = 'HrLockUnknown'; } }
 // ---- end HR folder lock ----
 
+// Shortcuts to a whole SharePoint library ("Add shortcut to My files" - RTB's purple "RTB Roofing Ltd") aren't in
+// Microsoft's list of the top folders, though they open by name (Andy, 19 Nov 2026: "i cant connect to the purple one
+// drive folder or any folder within it"). They're found by a search and by the names the company's settings already
+// use, and each is opened by name to check it really is a shortcut at the top of the drive before it is shown.
+async function topShortcuts(accessToken: string, extraNames: string[], have: Set<string>, hrLock: HrLock | null): Promise<any[]> {
+  const g = 'https://graph.microsoft.com/v1.0';
+  const auth = { headers: { Authorization: `Bearer ${accessToken}` } };
+  const cands = new Map<string, string>();
+  const add = (n: unknown) => { const s = String(n ?? '').trim(); const k = s.toLowerCase(); if (s && !have.has(k) && !cands.has(k)) cands.set(k, s); };
+  extraNames.forEach(add);
+  let url: string | null = `${g}/me/drive/root/search(q='')?$select=name,remoteItem&$top=200`;
+  for (let page = 0; url && page < 2; page++) {
+    const r = await fetchT(url, auth, 12000).catch(() => null);
+    if (!r || !r.ok) break;
+    const d = await r.json().catch(() => null);
+    (d?.value || []).forEach((it: any) => { if (it?.remoteItem?.folder) add(it.name); });
+    url = d?.['@odata.nextLink'] || null;
+  }
+  const found = await Promise.all([...cands.values()].slice(0, 12).map(async (name) => {
+    try {
+      const r = await fetchT(`${g}/me/drive/root:/${encodeURIComponent(name)}?$select=id,name,remoteItem,parentReference`, auth, 10000);
+      if (!r.ok) return null;
+      const it = await r.json();
+      if (!it?.remoteItem?.folder || !it.remoteItem.id || hrInside(hrLock, it)) return null;
+      return { id: it.remoteItem.id, name: it.name, driveId: it.remoteItem.parentReference?.driveId || null };
+    } catch (_e) { return null; }
+  }));
+  return found.filter((f) => f && f.driveId);
+}
+
 // ---- CORS allow-list (security review L8, 25 Oct 2026) ----
 // Only the OpHUB web app (live domain, Vercel production + preview URLs) and
 // the phone apps get a CORS grant; every other website's browser is refused.
@@ -326,6 +356,15 @@ Deno.serve(withCors(async (req) => {
         ? { id: it.remoteItem.id, name: it.name, driveId: it.remoteItem.parentReference?.driveId || null }
         : { id: it.id, name: it.name, driveId: it.parentReference?.driveId || driveId || null }
       );
+    // The top of the drive: add the library shortcuts Microsoft leaves out (see topShortcuts).
+    if (!driveId && !parentId) {
+      const first = (p: unknown) => String(p ?? '').split('/').map((s) => s.trim()).filter(Boolean)[0] || '';
+      const { data: pack } = await admin.from('job_pack_settings').select('config').eq('org_id', callerProfile.org_id).maybeSingle();
+      const extra = [first(conn.folder_path), first(pack?.config?.parent_path), first(pack?.config?.template_path)];
+      const have = new Set<string>((data.value || []).map((it: any) => String(it.name || '').toLowerCase()));
+      try { folders.push(...(await topShortcuts(accessToken, extra, have, hrLock))); } catch (e) { console.error('onedrive-list-folders: shortcuts', e); }
+      folders.sort((a: any, b: any) => String(a.name).localeCompare(String(b.name), 'en', { sensitivity: 'base' }));
+    }
     const files = includeFiles
       ? (data.value || [])
         .filter((it: any) => it.file && !it.folder)

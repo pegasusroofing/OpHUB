@@ -236,6 +236,23 @@ export const HR_TRY_AGAIN = 'OneDrive didn’t answer about the HR folder, so th
 export class HrLockUnknown extends Error { constructor() { super(HR_TRY_AGAIN); this.name = 'HrLockUnknown'; } }
 // ---- end HR folder lock ----
 
+// The company's main folder, followed one level at a time (19 Nov 2026), as onedrive-job-pack does: a level can be a
+// shortcut to a SharePoint library (RTB's purple "RTB Roofing Ltd"), which a plain path from the top of the drive
+// can't see through. Nothing is made here: null if a level isn't there (saving by path then makes it, as it always did).
+async function mainFolderRef(token: string, path: string): Promise<{ drive: string; id: string } | null> {
+  const g = 'https://graph.microsoft.com/v1.0';
+  let cur: { drive: string | null; id: string } = { drive: null, id: 'root' };
+  for (const p of String(path).split('/').map((s) => s.trim()).filter(Boolean)) {
+    const at = cur.drive ? `${g}/drives/${encodeURIComponent(cur.drive)}/items/${encodeURIComponent(cur.id)}` : `${g}/me/drive/root`;
+    const r = await fetch(`${at}:/${encodeURIComponent(p)}?$select=id,parentReference,remoteItem`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) return null;
+    const i = await r.json();
+    cur = i.remoteItem ? { drive: i.remoteItem.parentReference?.driveId || null, id: i.remoteItem.id } : { drive: i.parentReference?.driveId || null, id: i.id };
+    if (!cur.drive || !cur.id) return null;
+  }
+  return cur.drive ? { drive: cur.drive, id: cur.id } : null;
+}
+
 // Microsoft Graph's simple "PUT .../content" upload only accepts files up
 // to 4MB — anything bigger goes through Graph's resumable upload session
 // instead, which has no such size cap. See
@@ -381,7 +398,15 @@ Deno.serve(withCors(async (req) => {
 
     let itemBaseUrl: string;
     let pathFolder: string | null = null; // the folder (from the top of the company's own drive) when saving by path
-    if (site?.onedrive_folder_id && site?.onedrive_drive_id) {
+    let fileRel = safeName; // the file, inside the folder it's saved in by id
+    const mainRef = site?.onedrive_folder_id ? null : await mainFolderRef(accessToken, conn.folder_path || 'OpHUB Progress Reports').catch(() => null);
+    if (mainRef) {
+      // Inside the company's main folder, by its id (it may sit in a library shortcut); the job's folder is made on the way.
+      const folderName = safeSub || cleanSegment(site?.name);
+      site = { ...site, onedrive_folder_id: mainRef.id, onedrive_drive_id: mainRef.drive };
+      fileRel = folderName ? `${folderName}/${safeName}` : safeName;
+      itemBaseUrl = `https://graph.microsoft.com/v1.0/drives/${encodeURIComponent(mainRef.drive)}/items/${encodeURIComponent(mainRef.id)}:/${encodePath(fileRel)}`;
+    } else if (site?.onedrive_folder_id && site?.onedrive_drive_id) {
       const path = encodePath(safeName);
       itemBaseUrl = `https://graph.microsoft.com/v1.0/drives/${encodeURIComponent(site.onedrive_drive_id)}/items/${encodeURIComponent(site.onedrive_folder_id)}:/${path}`;
     } else if (site?.onedrive_folder_id) {
@@ -400,7 +425,7 @@ Deno.serve(withCors(async (req) => {
     try { hrLock = await hrLockFor(admin, callerProfile.org_id, accessToken, SUPABASE_URL, ANON_KEY, token); }
     catch (e) { if (e instanceof HrLockUnknown) { await cleanup(); return new Response(JSON.stringify({ error: HR_TRY_AGAIN }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }); } throw e; }
     if (hrLock) {
-      const dir = hrRel(safeName.split('/').slice(0, -1).join('/'));
+      const dir = hrRel(fileRel.split('/').slice(0, -1).join('/'));
       let verdict: 'ok' | 'hr' | 'unknown' = 'ok';
       try {
         if (pathFolder === null) {
