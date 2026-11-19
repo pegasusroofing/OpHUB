@@ -46,22 +46,45 @@ export async function saveCppDefaults(orgId: string, p: CppPlan): Promise<boolea
   return !(await db.from('cpp_defaults').upsert({ org_id: orgId, data, updated_at: new Date().toISOString() } as never, { onConflict: 'org_id' })).error;
 }
 
-/** Where the site is: its check-in point, or its postcode (postcodes.io, as the weather and Sites Map do). */
-async function sitePoint(site: Site): Promise<{ lat: number; lon: number } | null> {
-  if (typeof site.geofence_lat === 'number' && typeof site.geofence_lon === 'number') return { lat: site.geofence_lat, lon: site.geofence_lon };
-  const pc = String(site.postcode || '').trim();
-  if (!pc) return null;
-  try {
-    let at = (await (await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(pc)}`)).json())?.result;
-    if (!at) at = (await (await fetch(`https://api.postcodes.io/outcodes/${encodeURIComponent(pc.split(/\s+/)[0])}`)).json())?.result;
-    return at && typeof at.latitude === 'number' ? { lat: at.latitude, lon: at.longitude } : null;
-  } catch { return null; }
+/** The company's CPP template (Admin > H&S): the saved wording, or the standard wording if none is saved yet. */
+export async function loadCppTemplate(orgId: string | null | undefined): Promise<CppPlan> {
+  const d = await loadDefaults(orgId), p = blankCpp(d.sections);
+  if (d.advisor) p.advisor = d.advisor;
+  if (d.wasteLicence) p.wasteLicence = d.wasteLicence;
+  if (d.siteHours) p.siteHours = d.siteHours;
+  if (d.hse) p.hse = d.hse;
+  if (d.utilities?.length) p.utilities = d.utilities;
+  if (d.contacts?.length) p.contacts = d.contacts;
+  return p;
 }
+
+/** Where to search from: the job's check-in point while the postcode is still the job's; otherwise the postcode typed
+ *  in (postcodes.io, as the weather and Sites Map do); otherwise the address typed in (OpenStreetMap's Nominatim). */
+export async function pointFor(from: { address: string; postcode: string }, site?: Site | null): Promise<{ lat: number; lon: number } | null> {
+  const norm = (x: unknown) => String(x || '').replace(/\s+/g, '').toUpperCase();
+  const pc = String(from.postcode || '').trim();
+  if (site && typeof site.geofence_lat === 'number' && typeof site.geofence_lon === 'number' && (!pc || norm(pc) === norm(site.postcode))) return { lat: site.geofence_lat, lon: site.geofence_lon };
+  try {
+    if (pc) {
+      let at = (await (await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(pc)}`)).json())?.result;
+      if (!at) at = (await (await fetch(`https://api.postcodes.io/outcodes/${encodeURIComponent(pc.split(/\s+/)[0])}`)).json())?.result;
+      if (at && typeof at.latitude === 'number') return { lat: at.latitude, lon: at.longitude };
+    }
+    const q = String(from.address || '').replace(/\n/g, ', ').trim();
+    if (q) {
+      const r = (await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=gb&limit=1&q=${encodeURIComponent(q)}`)).json()) as { lat: string; lon: string }[];
+      if (r?.[0]) return { lat: Number(r[0].lat), lon: Number(r[0].lon) };
+    }
+  } catch { /* falls through */ }
+  return null;
+}
+/** The job's address and postcode, to start the A&E search from. */
+export const siteFrom = (site: Site) => ({ address: String(fullSiteAddress(site) || site.name || '').trim(), postcode: String(site.postcode || '').trim() });
 /** The nearest A&E from OpenStreetMap (free Overpass service): hospitals marked emergency=yes within 25 km, nearest
  *  first; any hospital if none is marked. Gives a reason when it can't. */
-export async function findHospital(site: Site): Promise<CppHospital | string> {
-  const at = await sitePoint(site);
-  if (!at) return 'Add the job\'s postcode (or its check-in point) first.';
+export async function findHospital(from: { address: string; postcode: string }, site?: Site | null): Promise<CppHospital | string> {
+  const at = await pointFor(from, site);
+  if (!at) return 'Could not find that address - check the postcode, or type the address in full.';
   const q = `[out:json][timeout:20];(nwr["amenity"="hospital"](around:25000,${at.lat},${at.lon}););out center tags 60;`;
   const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 20000);
   try {
@@ -116,7 +139,8 @@ export async function createCpp(me: Me, org: Org, site: Site): Promise<string | 
   p.issues = [{ copy: '1', version: '1', issuedTo: p.client.contact || p.client.name, date: '' }];
   p.contacts = p.contacts.map((c) => (/project manager/i.test(c.role) && !c.name ? { ...c, name: p.pm.name, day: p.pm.phone, ooh: p.emergencyMobile } : /first aid/i.test(c.role) && !c.name && faPeople.length ? { ...c, name: faPeople.map((f) => f.name).join(', '), day: faPeople[0].phone || '', ooh: p.emergencyMobile } : c));
   // The nearest A&E (best effort; there's a button to try again).
-  const h = await findHospital(site);
+  p.hospitalFrom = siteFrom(site);
+  const h = await findHospital(p.hospitalFrom, site);
   if (typeof h !== 'string') p.hospital = h;
   const r = await db.from('cpp_plans').insert({ org_id: me.org_id, site_id: site.id, title: `Construction Phase Plan - ${site.name || 'Job'}`, data: p } as never).select('id').single();
   return (r.data as { id: string } | null)?.id ?? null;
@@ -148,9 +172,13 @@ async function jobDocs(siteId: string): Promise<{ rams: string[]; coshh: string[
 export async function previewCpp(org: Org, siteId: string, p: CppPlan) {
   return buildCppPdf(p, org, await jobDocs(siteId));
 }
-/** Issues the plan: the PDF goes into the job's Construction Phase Plan folder. Re-issuing makes the next version. */
-export async function issueCpp(me: Me, org: Org, row: CppRow, p: CppPlan): Promise<{ plan: CppPlan } | string> {
+/** Issues the plan: the PDF goes into the job's Construction Phase Plan folder. Issuing again is a revision (Andy, 19 Nov
+ *  2026: "allow revisions to be made"): the next version, with what changed in the revision history, and the earlier
+ *  PDF stays in the folder, named as superseded. */
+export async function issueCpp(me: Me, org: Org, row: CppRow, p: CppPlan, note: string): Promise<{ plan: CppPlan; docId: string } | string> {
   const plan: CppPlan = { ...p, version: row.status === 'issued' ? p.version + 1 : p.version };
+  const today = new Date().toISOString().slice(0, 10);
+  plan.revisions = [...plan.revisions.filter((r) => r.version !== plan.version), { version: plan.version, date: today, by: me.name || '', note: note.trim() || (plan.version === 1 ? 'First issue' : ''), docId: null, path: null }];
   if (row.status === 'issued') plan.issues = [...plan.issues, { copy: String(plan.issues.length + 1), version: String(plan.version), issuedTo: plan.client.contact || plan.client.name, date: new Date().toISOString().slice(0, 10) }];
   else plan.issues = plan.issues.map((i, k) => (k === 0 && !i.date ? { ...i, date: new Date().toISOString().slice(0, 10) } : i));
   const out = await buildCppPdf(plan, org, await jobDocs(row.site_id));
@@ -160,6 +188,14 @@ export async function issueCpp(me: Me, org: Org, row: CppRow, p: CppPlan): Promi
   const doc = await db.from('mc_documents').insert({ org_id: me.org_id, site_id: row.site_id, category: 'cpp', name: `Construction Phase Plan v${plan.version} - ${plan.siteName || 'Job'}`, storage_path: up.data.path, uploaded_by: me.id } as never).select('id').single();
   const docId = (doc.data as { id: string } | null)?.id;
   if (!docId) return 'Could not file the plan - try again.';
+  plan.revisions = plan.revisions.map((r) => (r.version === plan.version ? { ...r, docId, path: up.data.path } : r));
+  // The version this replaces stays in the folder, named as superseded.
+  // Which PDF was current comes from the database, not the screen, so it's right however the page was opened.
+  const prevDoc = row.status === 'issued' ? ((((await db.from('cpp_plans').select('mc_document_id').eq('id', row.id).maybeSingle()).data as { mc_document_id: string | null } | null)?.mc_document_id) ?? row.mc_document_id) : null;
+  if (prevDoc) {
+    const old = (await db.from('mc_documents').select('name').eq('id', prevDoc).maybeSingle()).data as { name: string } | null;
+    if (old && !/superseded/i.test(old.name)) await db.from('mc_documents').update({ name: `${old.name} (Superseded by v${plan.version})` } as never).eq('id', prevDoc);
+  }
   const ok = !!(await db.from('cpp_plans').update({ data: plan, version: plan.version, status: 'issued', mc_document_id: docId, updated_at: new Date().toISOString() } as never).eq('id', row.id).select('id')).data?.length;
-  return ok ? { plan } : 'The PDF is filed, but the plan could not be updated - try again.';
+  return ok ? { plan, docId } : 'The PDF is filed, but the plan could not be updated - try again.';
 }

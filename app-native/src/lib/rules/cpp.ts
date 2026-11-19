@@ -13,6 +13,10 @@ export type CppUtility = { service: string; company: string; phone: string; emer
 export type CppContact = { role: string; name: string; day: string; ooh: string };
 export type CppSection = { id: string; num: string; title: string; body: string };
 export type CppHospital = { name: string; address: string; phone: string; distance: string; route: string };
+/** One issued version: what changed, when, by whom, and its PDF in the CPP folder. */
+export type CppRevision = { version: number; date: string; by: string; note: string; docId?: string | null; path?: string | null };
+/** A picture's mark-up: the plain picture (map snapshot or photo) and the marks drawn on it, so it can be marked up again. */
+export type CppMarks = { base: string | null; ops: unknown[] };
 export type CppPlan = {
   pc: CppParty; siteName: string; siteAddress: string;
   version: number; preparedDate: string; preparedBy: string; issues: CppIssue[];
@@ -22,6 +26,10 @@ export type CppPlan = {
   pm: { name: string; phone: string; email: string }; firstAiders: string;
   hse: string; hospital: CppHospital; utilities: CppUtility[]; contacts: CppContact[];
   sections: CppSection[]; sitePlan: string | null; firePlan: string | null;
+  sitePlanMarks: CppMarks; firePlanMarks: CppMarks;
+  /** Where the A&E search starts from: the job's address and postcode, changeable (Andy, 19 Nov 2026). */
+  hospitalFrom: { address: string; postcode: string };
+  revisions: CppRevision[];
 };
 
 export const cppUid = () => `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
@@ -199,6 +207,7 @@ export function blankCpp(sections?: Omit<CppSection, 'id'>[] | null): CppPlan {
     pm: { name: '', phone: '', email: '' }, firstAiders: '', hse: CPP_HSE, hospital: { name: '', address: '', phone: '', distance: '', route: '' },
     utilities: CPP_UTILITIES.map((u) => ({ ...u })), contacts: CPP_CONTACT_ROLES.map((role) => ({ role, name: '', day: '', ooh: '' })),
     sections: (sections?.length ? sections : CPP_TEMPLATE).map((s) => ({ ...s, id: cppUid() })), sitePlan: null, firePlan: null,
+    sitePlanMarks: { base: null, ops: [] }, firePlanMarks: { base: null, ops: [] }, hospitalFrom: { address: '', postcode: '' }, revisions: [],
   };
 }
 
@@ -208,6 +217,8 @@ export function normaliseCpp(raw: Partial<CppPlan> | null | undefined): CppPlan 
   return {
     ...b, ...r,
     pc: { ...b.pc, ...(r.pc || {}) }, client: { ...b.client, ...(r.client || {}) }, pm: { ...b.pm, ...(r.pm || {}) }, hospital: { ...b.hospital, ...(r.hospital || {}) },
+    sitePlanMarks: { ...b.sitePlanMarks, ...(r.sitePlanMarks || {}) }, firePlanMarks: { ...b.firePlanMarks, ...(r.firePlanMarks || {}) }, hospitalFrom: { ...b.hospitalFrom, ...(r.hospitalFrom || {}) },
+    revisions: Array.isArray(r.revisions) ? r.revisions : [],
     issues: Array.isArray(r.issues) ? r.issues : [], utilities: Array.isArray(r.utilities) ? r.utilities : b.utilities, contacts: Array.isArray(r.contacts) ? r.contacts : b.contacts,
     sections: Array.isArray(r.sections) && r.sections.length ? r.sections.map((s) => ({ ...s, id: s.id || cppUid() })) : b.sections,
     version: Number(r.version) > 0 ? Number(r.version) : 1,

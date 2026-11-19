@@ -7,6 +7,7 @@
 // libraries and registers.
 // Then sub tabs (Andy, the same day: "can we make the admin centre more tab style please and sub tabs"): each tab's
 // rows are a second row of tabs, and the one chosen opens straight under them (components/AdminTabs).
+import { isBetaSite } from '@/lib/betaOnly';
 import { isFinanceUser, isFullManager, isManager } from '@/lib/roles';
 import { can } from '@/lib/rules/rolePerms';
 import type { Organization, Profile } from '@/lib/types';
@@ -68,6 +69,8 @@ export const ADMIN_ITEMS: AdminItem[] = [
   { key: 'havstools', page: 'hs', group: 'Policy & Registers', icon: '🛠️', label: 'HAVS Tools', sub: 'Vibration tool list', kw: 'havs vibration tools', route: '/pm/admin/havstools', show: isFullManager },
   { key: 'ramslibrary', page: 'hs', group: 'Libraries', icon: '🦺', label: 'RAMS Library', sub: 'Hazards, method statements, templates', kw: 'rams risk assessment method statement hazard template', route: '/pm/admin/ramslibrary', show: isFullManager },
   { key: 'coshhbuilder', page: 'hs', group: 'Libraries', icon: '🧪', label: 'COSHH Library', sub: 'Data sheets → products → assessments in folders', kw: 'coshh substance product data sheet', route: '/pm/admin/coshh', show: isFullManager },
+  // The Construction Phase Plan template (Andy, 19 Nov 2026), beta link only like the builder.
+  { key: 'cpptemplate', page: 'hs', group: 'Libraries', icon: '📘', label: 'CPP Template', sub: 'Construction Phase Plan wording for new plans', kw: 'cpp construction phase plan template main contractor', route: '/pm/admin/cpptemplate', show: (me) => isFullManager(me) && isBetaSite() },
   { key: 'tbt', page: 'hs', group: 'Toolbox Talks', icon: '🗣️', label: 'Toolbox Talk Templates', sub: 'All sites', kw: 'toolbox talk tbt', route: '/pm/admin/tbt', show: (me) => isFullManager(me) && admin(me) },
   // How often each live project needs a talk (Andy, 14 Nov 2026).
   { key: 'tbtrule', page: 'hs', group: 'Toolbox Talks', icon: '🗓️', label: 'Toolbox Talks Required', sub: 'How often on each live project', kw: 'toolbox talk tbt how often monthly frequency rule required', route: '/pm/admin/tbtrule', show: admin },

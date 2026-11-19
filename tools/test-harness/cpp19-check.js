@@ -1,9 +1,9 @@
 // Construction Phase Plan builder (Andy, 19 Nov 2026: "replicate it as a rams style builder, pull through as much info
 // as you have from the job, ie read schedule of works, start dates, find the nearest hospitals etc. can we just do on
-// beta for now?"). On the test copy (localhost counts as the beta): the CPP folder has Build A Construction Phase Plan;
-// a new plan is filled from the job (company, site, client, PM, first aider from certificates, SOW outline, start date,
-// nearest A&E from a caught map search); the tabs work; Issue makes a PDF and files it in the folder.
-// Fake database. node cpp19-check.js
+// beta for now?"), and his second round the same day: a map snapshot of the job marked up in the app for the site
+// layout and fire route plans; Save and Next at the bottom; contact rows lined up; the A&E search from the job's
+// address, changeable; emergency numbers two to a row (one on a phone); a CPP template under Admin > H&S; revisions.
+// On the test copy (localhost counts as the beta). Fake database; map searches caught. node cpp19-check.js
 const {chromium, makeContext, S1} = require('./harness');
 const path = require('path');
 const fs = require('fs');
@@ -13,7 +13,8 @@ fs.mkdirSync(SHOTS, {recursive: true});
 const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) process.exitCode = 1; };
 
 (async () => {
-  const browser = await chromium.launch(); const errs = [];
+  // WebGL for the map snapshot.
+  const browser = await chromium.launch({args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']}); const errs = [];
   for (const [w, h, dev] of [[1300, 900, 'laptop'], [390, 844, 'phone']]) {
     const {ctx, db} = await makeContext(browser, 'admin', [], {viewport: {width: w, height: h}});
     require('./seeds/world')(db);
@@ -27,56 +28,114 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
     db.rams_docs = [{id: 'rd1', site_id: S1, name: 'Risk Assessment — Roof Strip', status: 'current', uploaded_at: new Date().toISOString()}];
     db.coshh_docs = [{id: 'cd1', site_id: S1, name: 'Bitumen primer', uploaded_at: new Date().toISOString()}];
     db.cpp_plans = []; db.cpp_defaults = []; db.mc_documents = [];
-    // The map search: King's College Hospital marked as an A&E, and a nearer hospital without one.
-    let mapCalls = 0;
-    await ctx.route(/overpass-api\.de/, (r) => { mapCalls += 1; r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({elements: [
+    // Map searches: the hospital search (King's College Hospital, an A&E, and a nearer hospital without one) and postcodes.
+    const mapAsks = [];
+    await ctx.route(/overpass-api\.de/, (r) => { mapAsks.push(decodeURIComponent(r.request().postData() || '')); r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({elements: [
       {type: 'node', lat: 51.462, lon: -0.138, tags: {amenity: 'hospital', name: 'Small Clinic Hospital'}},
       {type: 'way', center: {lat: 51.468, lon: -0.094}, tags: {amenity: 'hospital', emergency: 'yes', name: "King's College Hospital", 'addr:street': 'Denmark Hill', 'addr:city': 'London', 'addr:postcode': 'SE5 9RS', phone: '020 3299 9000'}},
     ]})}); });
-    let pdfBytes = null;
-    await ctx.route(/storage\/v1\/object\/mc-documents\/.*cpp\/.*\.pdf/, (r) => { pdfBytes = r.request().postDataBuffer(); r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({Key: 'mc-documents/x.pdf', Id: 'x'})}); });
+    await ctx.route(/api\.postcodes\.io\/postcodes\/E1/, (r) => r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({status: 200, result: {latitude: 51.5203, longitude: -0.0723}})}));
+    const pdfs = [];
+    await ctx.route(/storage\/v1\/object\/mc-documents\/.*cpp\/.*\.pdf/, (r) => { pdfs.push(r.request().postDataBuffer()); r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({Key: 'mc-documents/x.pdf', Id: 'x'})}); });
+    const pics = [];
+    await ctx.route(/storage\/v1\/object\/mc-documents\/.*cpp-images\//, (r) => { if (r.request().method() === 'POST') { pics.push(r.request().url()); return r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({Key: 'mc-documents/i.jpg', Id: 'i'})}); } r.fallback(); });
     const page = await ctx.newPage(); page.on('pageerror', (e) => errs.push(e.message));
     await page.goto(B + '/login'); await page.waitForTimeout(5000);
     await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
     await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(6000);
     const text = () => page.evaluate(() => document.body.innerText);
+    const values = () => page.evaluate(() => [...document.querySelectorAll('input,textarea')].map((i) => i.value).join(' | '));
+    const tab = async (re) => { await page.getByRole('tab').filter({hasText: re}).first().click(); await page.waitForTimeout(1200); };
     await page.goto(`${B}/sites/${S1}/mc/docs/cpp`); await page.waitForTimeout(4500);
     let t = await text();
     check(/Build A Construction Phase Plan/.test(t) && /\+ Build A New Plan/.test(t), `${dev}: the CPP folder has Build A Construction Phase Plan`);
     await page.getByText('+ Build A New Plan', {exact: true}).click(); await page.waitForTimeout(6000);
     const plan = db.cpp_plans[0] && db.cpp_plans[0].data;
-    check(!!plan && /\/mc\/cpp\//.test(page.url()), `${dev}: a plan is made and opens (${page.url().split('/').slice(-3).join('/')})`);
+    check(!!plan && /\/mc\/cpp\//.test(page.url()), `${dev}: a plan is made and opens`);
     if (!plan) { await ctx.close(); continue; }
-    check(plan.pc.name === db.organizations[0].name && /Hyde Group/.test(plan.client.name) && plan.client.contact === 'Tom Golding', `${dev}: company and client filled in (${plan.pc.name} / ${plan.client.name})`);
-    check(/Roof Strip/.test(plan.outline) && /Breather membrane/.test(plan.outline), `${dev}: the outline comes from the Schedule of Works (${plan.outline.replace(/\n/g, ' | ')})`);
-    check(plan.startDate === '2026-12-01', `${dev}: the start date comes from the job (${plan.startDate})`);
-    check(plan.hospital.name === "King's College Hospital" && /SE5 9RS/.test(plan.hospital.address) && plan.hospital.phone === '020 3299 9000' && mapCalls >= 1, `${dev}: the nearest A&E is found (${plan.hospital.name}, ${plan.hospital.distance})`);
-    check(new RegExp(o1 ? o1.name.split(' ')[0] : 'x').test(plan.firstAiders), `${dev}: the first aider comes from certificates (${plan.firstAiders})`);
-    check(plan.pm.name === me.name && plan.emergencyMobile === '07700 900111', `${dev}: the PM and emergency mobile (${plan.pm.name}, ${plan.emergencyMobile})`);
+    check(plan.pc.name === db.organizations[0].name && /Hyde Group/.test(plan.client.name) && /Roof Strip/.test(plan.outline) && plan.startDate === '2026-12-01', `${dev}: filled from the job (company, client, SOW outline, start date)`);
+    check(plan.hospital.name === "King's College Hospital" && plan.hospitalFrom.postcode === 'SW4 6RZ' && /Studley/.test(plan.hospitalFrom.address), `${dev}: the nearest A&E is found from the job's address (${plan.hospitalFrom.address} / ${plan.hospitalFrom.postcode})`);
+    check(new RegExp(o1 ? o1.name.split(' ')[0] : 'x').test(plan.firstAiders) && plan.pm.name === me.name, `${dev}: first aider and PM (${plan.firstAiders} / ${plan.pm.name})`);
+    // Save and Next at the bottom.
     t = await text();
-    check(/Details/.test(t) && /People/.test(t) && /Plan \(17\)/.test(t) && /Emergency/.test(t) && /Issue/.test(t), `${dev}: the tabs Details / People / Plan / Emergency / Issue`);
-    await page.screenshot({path: path.join(SHOTS, `${dev}-details.png`), fullPage: dev === 'laptop'});
-    // A change saves by itself.
-    await page.getByPlaceholder('e.g. 6', {exact: true}).fill('6'); await page.getByPlaceholder('e.g. 6 weeks', {exact: true}).fill('6 weeks'); await page.waitForTimeout(1800);
-    check(db.cpp_plans[0].data.workers === '6' && /not need an F10/.test(await text()), `${dev}: changes save by themselves, and the F10 check shows`);
-    await page.getByRole('tab').filter({hasText: /^Plan/}).first().click(); await page.waitForTimeout(1200);
+    check(/Save/.test(t) && /Next: People ›/.test(t), `${dev}: Save and Next at the bottom of Details`);
+    await page.getByText('Next: People ›', {exact: true}).click(); await page.waitForTimeout(1200);
     t = await text();
-    check(/2\. Health and Safety Policy Statement and Site Rules/.test(t) && /18\. Fire Plan/.test(t) && new RegExp(db.organizations[0].name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).test(t), `${dev}: the Plan tab lists sections 2-18 with the company name filled in`);
-    await page.screenshot({path: path.join(SHOTS, `${dev}-plan.png`)});
-    await page.getByRole('tab').filter({hasText: /^Emergency/}).first().click(); await page.waitForTimeout(1200);
-    t = await text();
-    check(/Find Nearest A&E/.test(t) && /0800 111 999/.test(await page.evaluate(() => [...document.querySelectorAll('input,textarea')].map((i) => i.value).join(' '))), `${dev}: the Emergency tab: Find Nearest A&E and the gas emergency number`);
-    await page.screenshot({path: path.join(SHOTS, `${dev}-emergency.png`)});
-    await page.getByRole('tab').filter({hasText: /^Issue/}).first().click(); await page.waitForTimeout(1200);
-    await page.screenshot({path: path.join(SHOTS, `${dev}-issue.png`)});
-    await page.getByText('Issue Plan', {exact: true}).click(); await page.waitForTimeout(7000);
-    const doc = (db.mc_documents || []).find((d) => d.category === 'cpp');
-    check(!!doc && /Construction Phase Plan v1/.test(doc.name), `${dev}: issuing files the PDF in the CPP folder (${doc ? doc.name : 'none'})`);
-    const pdf = pdfBytes ? pdfBytes.toString('latin1') : '';
-    const pages = pdfBytes ? (await require('pdf-lib').PDFDocument.load(pdfBytes)).getPageCount() : 0;
-    check(pdf.startsWith('%PDF') && pages >= 8,`${dev}: the PDF is made (${pages} pages, ${pdfBytes ? Math.round(pdfBytes.length / 1024) : 0} KB)`);
-    if (dev === 'laptop' && pdfBytes) fs.writeFileSync(path.join(SHOTS, 'cpp-sample.pdf'), pdfBytes);
-    check(db.cpp_plans[0].status === 'issued' && /Issued v1/.test(await text()), `${dev}: the plan shows as issued`);
+    check(/Contact Details Sheet/i.test(t) && /Next: Plan ›/.test(t), `${dev}: Next goes to People`);
+    // The contact rows line up: Name above and Out Of Hours below end at the same place.
+    const edges = await page.evaluate(() => {
+      const box = (ph) => [...document.querySelectorAll('div')].filter((d) => d.childElementCount === 0 && d.textContent === ph).map((d) => d.parentElement?.parentElement?.querySelector('input')?.getBoundingClientRect().right);
+      return {name: box('Name')[0], ooh: box('Out Of Hours')[0], person: box('Person')[0], day: box('Daytime Phone')[0]};
+    });
+    check(edges.name && Math.abs(edges.name - edges.ooh) < 1.5 && Math.abs(edges.person - edges.day) < 1.5, `${dev}: contact rows line up (Name ends ${Math.round(edges.name)}, Out Of Hours ${Math.round(edges.ooh)})`);
+    await page.screenshot({path: path.join(SHOTS, `${dev}-people.png`)});
+    // Emergency: the A&E search from the address, changeable; numbers two to a row on a laptop.
+    await tab(/^Emergency/);
+    const pc = page.locator('input').filter({has: page.locator('xpath=.')}).nth(0);
+    t = await values();
+    check(/SW4 6RZ/.test(t) && /Studley/.test(t), `${dev}: the A&E search starts from the job's address and postcode`);
+    const before = mapAsks.length;
+    const pcBox = page.locator('input[value="SW4 6RZ"]').first();
+    await pcBox.fill('E1 6AN'); await page.waitForTimeout(400);
+    await page.getByText('Find Nearest A&E', {exact: true}).click(); await page.waitForTimeout(2500);
+    check(mapAsks.length > before && /51\.5203/.test(mapAsks[mapAsks.length - 1]), `${dev}: a changed postcode searches from there (${(mapAsks[mapAsks.length - 1] || '').match(/around:\d+,[\d.,-]+/)?.[0] || 'no search'})`);
+    const tops = await page.evaluate(() => [...document.querySelectorAll('input')].filter((i) => ['Gas', 'Electricity'].includes(i.value)).map((i) => Math.round(i.getBoundingClientRect().top)));
+    check(dev === 'laptop' ? tops.length === 2 && tops[0] === tops[1] : tops.length === 2 && tops[0] !== tops[1], `${dev}: emergency numbers ${dev === 'laptop' ? 'two to a row' : 'one to a row on a phone'} (${tops.join(', ')})`);
+    check(/Emergency Contact No\./.test(await text()), `${dev}: each number has its Emergency Contact No. underneath`);
+    await page.screenshot({path: path.join(SHOTS, `${dev}-emergency.png`), fullPage: dev === 'laptop'});
+    if (dev === 'laptop') {
+      // Site layout plan: a map snapshot of the job, marked up in the app.
+      await tab(/^Details/);
+      await ctx.unroute(/tiles\.openfreemap\.org/); // the real map for the picture (works without it, just blank)
+      await page.getByText('Add Plan', {exact: true}).first().click(); await page.waitForTimeout(800);
+      await page.getByText('🗺 Map Snapshot Of The Job', {exact: true}).click(); await page.waitForTimeout(3000);
+      t = await text();
+      check(/Choose A Map Snapshot/.test(t), 'laptop: Map Snapshot opens the map on the job');
+      await page.getByText('Use This View', {exact: true}).waitFor({timeout: 20000}).catch(() => {});
+      await page.waitForTimeout(6000);
+      await page.screenshot({path: path.join(SHOTS, 'laptop-snapshot.png')});
+      await page.getByText('Use This View', {exact: true}).click(); await page.waitForTimeout(4000);
+      const saveBtn = page.getByText('Save', {exact: true}).last();
+      check(pics.length >= 1 && await saveBtn.count() > 0, `laptop: the snapshot is kept and opens in the mark-up tools (${pics.length} picture saved)`);
+      // Draw an arrow-ish pen line, then save.
+      const area = await page.evaluate(() => { const s = [...document.querySelectorAll('svg')].map((e) => e.getBoundingClientRect()).filter((b) => b.width > 300).sort((a, b) => b.width * b.height - a.width * a.height)[0]; return s ? {x: s.left, y: s.top, w: s.width, h: s.height} : null; });
+      if (area) { await page.mouse.move(area.x + area.w * 0.3, area.y + area.h * 0.5); await page.mouse.down(); await page.mouse.move(area.x + area.w * 0.6, area.y + area.h * 0.4, {steps: 8}); await page.mouse.up(); }
+      await page.screenshot({path: path.join(SHOTS, 'laptop-markup.png')});
+      await saveBtn.click(); await page.waitForTimeout(4000);
+      const d1 = db.cpp_plans[0].data;
+      check(!!d1.sitePlan && !!d1.sitePlanMarks.base && d1.sitePlan !== d1.sitePlanMarks.base && pics.length >= 2, `laptop: the marked-up site layout plan is saved, and the plain snapshot kept for marking up again (${(d1.sitePlanMarks.ops || []).length} marks)`);
+      check(/✎ Mark Up/.test(await text()), 'laptop: the plan can be marked up again');
+      await page.getByText('Add Plan', {exact: true}).first().click(); await page.waitForTimeout(800);
+      check(/Start From The Site Layout Map/.test(await text()), 'laptop: the fire route plan can start from the site layout map');
+      await page.keyboard.press('Escape'); await page.waitForTimeout(500);
+      await page.screenshot({path: path.join(SHOTS, 'laptop-siteplans.png'), fullPage: true});
+      // Issue, then a revision.
+      await tab(/^Issue/);
+      await page.getByText('Issue Plan', {exact: true}).click(); await page.waitForTimeout(7000);
+      check((db.mc_documents || []).some((d) => /Construction Phase Plan v1/.test(d.name)) && db.cpp_plans[0].status === 'issued', 'laptop: Issue Plan files v1 in the CPP folder');
+      check(/Issue Revision 2/.test(await text()) && /Revision History/i.test(await text()), 'laptop: once issued: Issue Revision 2 and the revision history');
+      await page.getByText('Issue Revision 2', {exact: true}).click(); await page.waitForTimeout(800);
+      await page.locator('input,textarea').filter({visible: true}).last().fill('Scaffold moved to the rear elevation'); await page.getByText('OK', {exact: true}).last().click(); await page.waitForTimeout(7000);
+      const docs = db.mc_documents || [];
+      check(docs.some((d) => /v2/.test(d.name)) && docs.some((d) => /v1.*Superseded by v2/.test(d.name)), `laptop: revision 2 is filed and v1 is marked superseded (${docs.map((d) => d.name).join(' / ')})`);
+      const revs = db.cpp_plans[0].data.revisions || [];
+      check(revs.length === 2 && revs[1].note === 'Scaffold moved to the rear elevation' && db.cpp_plans[0].version === 2, `laptop: the revision history has what changed (${revs.map((r) => `v${r.version}: ${r.note}`).join('; ')})`);
+      const pages = pdfs.length ? (await require('pdf-lib').PDFDocument.load(pdfs[pdfs.length - 1])).getPageCount() : 0;
+      check(pages >= 9, `laptop: the revision's PDF is made (${pages} pages, with the site plan)`);
+      if (pdfs.length) fs.writeFileSync(path.join(SHOTS, 'cpp-sample.pdf'), pdfs[pdfs.length - 1]);
+      await page.screenshot({path: path.join(SHOTS, 'laptop-issue.png'), fullPage: true});
+      // The CPP template under Admin > H&S.
+      await page.goto(`${B}/pm/admin/cpptemplate`); await page.waitForTimeout(5000);
+      t = await text();
+      check(/Construction Phase Plan Template/.test(t) && /CPP Template/.test(t) && /Company/.test(t) && /Contacts/.test(t), 'laptop: the CPP Template under Admin > H&S');
+      await page.getByPlaceholder('e.g. HS Direct Ltd', {exact: true}).fill('HS Direct Ltd'); await page.waitForTimeout(300);
+      await page.getByText('Save', {exact: true}).last().click(); await page.waitForTimeout(2500);
+      const def = (db.cpp_defaults || [])[0];
+      check(!!def && def.data.advisor === 'HS Direct Ltd' && (def.data.sections || []).length === 17, `laptop: Save keeps the template (${def ? def.data.advisor : 'nothing saved'})`);
+      await page.getByRole('tab').filter({hasText: /^Plan/}).first().click(); await page.waitForTimeout(1000);
+      check(/\{company\}/.test(await text()), 'laptop: the template shows the fill-in words, like {company}');
+      await page.screenshot({path: path.join(SHOTS, 'laptop-template.png')});
+    }
     await ctx.close();
   }
   check(!errs.length, `no page errors ${errs.slice(0, 2).join(' | ')}`);

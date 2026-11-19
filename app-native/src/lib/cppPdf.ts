@@ -98,6 +98,12 @@ export async function buildCppPdf(p: CppPlan, org: { name?: string | null; color
   kv([['Version Number', String(p.version)], ['Date Prepared', ukDate(p.preparedDate)], ['Prepared By', p.preparedBy], ['Start Date', ukDate(p.startDate)], ['Expected Duration', p.duration]]);
   txt('Construction Phase Plan Issue Record', M, y - 12, 12, bold); y -= 22;
   table([['Copy Number', 0.18], ['Version', 0.14], ['Issued To', 0.46], ['Date', 0.22]], (p.issues.length ? p.issues : [{ copy: '1', version: String(p.version), issuedTo: '', date: '' }]).map((i) => [i.copy, i.version, i.issuedTo, ukDate(i.date)]));
+  // Revisions (Andy, 19 Nov 2026: "allow revisions to be made"): each issued version, when, by whom and what changed.
+  const revs = (p.revisions || []).filter((r) => r.version <= p.version).sort((a, b) => a.version - b.version);
+  if (revs.length) {
+    txt('Revision History', M, y - 12, 12, bold); y -= 22;
+    table([['Version', 0.12], ['Date', 0.16], ['By', 0.22], ['What Changed', 0.5]], revs.map((r) => [String(r.version), ukDate(r.date), r.by, r.note]));
+  }
   txt('Outline Of Works To Be Carried Out', M, y - 12, 12, bold); y -= 22;
   para(p.outline || 'To be confirmed.', 10);
 
@@ -127,7 +133,7 @@ export async function buildCppPdf(p: CppPlan, org: { name?: string | null; color
     if (/^11$/.test(s.num.trim())) {
       txt('Emergency Telephone Numbers', M, y - 11, 10.5, bold); y -= 17;
       para('Should undetected services not shown on drawings become affected during works, emergency telephone numbers are listed below.', 9);
-      table([['Service', 0.22], ['Company', 0.36], ['Telephone', 0.21], ['Emergency', 0.21]], [...p.utilities.filter((u) => u.service || u.company || u.phone || u.emergency).map((u) => [u.service, u.company, u.phone, u.emergency]), ...(p.hospital.name ? [['Hospital', [p.hospital.name, p.hospital.address].filter(Boolean).join(', '), p.hospital.phone, '999']] : [])]);
+      table([['Service', 0.24], ['Company', 0.46], ['Emergency Contact No.', 0.3]], [...p.utilities.filter((u) => u.service || u.company || u.phone || u.emergency).map((u) => [u.service, u.company, u.emergency || u.phone]), ...(p.hospital.name ? [['Hospital (A&E)', [p.hospital.name, p.hospital.address].filter(Boolean).join(', '), [p.hospital.phone, '999'].filter(Boolean).join(' / ')]] : [])]);
     }
     if (/^12$/.test(s.num.trim()) && p.hospital.name) {
       txt('Nearest A&E Hospital', M, y - 11, 10.5, bold); y -= 17;
