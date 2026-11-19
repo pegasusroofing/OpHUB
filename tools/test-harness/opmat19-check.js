@@ -1,5 +1,6 @@
 // An operative's Materials on a job, in Finance-style tabs (Andy, 19 Nov 2026: "Change this layout a little more finance
-// tab style"): To Collect, Deliveries and My Requests, each with its count, opening on the first with something in it.
+// tab style"), each with its count. My Requests is first unless there is something to collect, when To Collect jumps to
+// the front (Andy, 19 Nov: "if nothing to collect leave as second tab"); it opens on the first tab.
 // Phone. Fake database. node opmat19-check.js
 const {chromium, makeContext, S1} = require('./harness');
 const path = require('path');
@@ -28,7 +29,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   const tabs = async () => page.evaluate(() => [...document.querySelectorAll('[role="tab"]')].filter((e) => e.getBoundingClientRect().width).map((e) => [e.innerText.replace(/\s+/g, ' ').trim(), String(getComputedStyle(e).borderBottomColor !== 'rgba(0, 0, 0, 0)' && getComputedStyle(e).borderBottomColor !== 'transparent')]));
   const body = () => page.evaluate(() => document.body.innerText);
   let tb = await tabs();
-  check(tb.length === 3 && /^To Collect 1/.test(tb[0][0]) && /^Deliveries 1/.test(tb[1][0]) && /^My Requests 1/.test(tb[2][0]), `three tabs with counts (${tb.map((x) => x[0]).join(' | ')})`);
+  check(tb.length === 3 && /^To Collect 1/.test(tb[0][0]) && /^My Requests 1/.test(tb[1][0]) && /^Deliveries 1/.test(tb[2][0]), `something to collect: To Collect first, then My Requests, Deliveries (${tb.map((x) => x[0]).join(' | ')})`);
   let t = await body();
   check(tb[0][1] === 'true' && /Lead flashing/.test(t) && !/Slates/.test(t), 'opens on To Collect, with only the collection list');
   const box = await page.evaluate(() => [...document.querySelectorAll('[role="tab"]')].filter((e) => e.getBoundingClientRect().width).map((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.top), Math.round(r.right)]; }));
@@ -42,13 +43,15 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   t = await body();
   check(/Batten/.test(t) && /Waiting for manager/.test(t) && /\+ Request Materials/.test(t) && /See All My Requests/.test(t), 'My Requests: what is waiting, Request Materials, See All');
   await page.screenshot({path: path.join(__dirname, 'shots', 'opmat19-requests.png')});
-  // Nothing to collect: it opens on Deliveries.
+  // Nothing to collect: My Requests first, To Collect second, and it opens on My Requests.
   db.material_required_items = [];
   await page.goto(`${B}/home`); await page.waitForTimeout(2500);
   await page.evaluate(() => { try { Object.keys(localStorage).filter((k) => /opMaterials/.test(k)).forEach((k) => localStorage.removeItem(k)); } catch (e) { /* none */ } });
   await page.goto(`${B}/sites/${S1}/materials`); await page.waitForTimeout(5000);
   tb = await tabs();
-  check(tb[1] && tb[1][1] === 'true', `nothing to collect: it opens on Deliveries (${tb.map((x) => x.join(':')).join(' | ')})`);
+  check(tb.length === 3 && /^My Requests 1/.test(tb[0][0]) && /^To Collect/.test(tb[1][0]) && /^Deliveries 1/.test(tb[2][0]), `nothing to collect: My Requests first, To Collect second (${tb.map((x) => x[0]).join(' | ')})`);
+  check(tb[0][1] === 'true' && /Batten/.test(await body()), 'and it opens on My Requests');
+  await page.screenshot({path: path.join(__dirname, 'shots', 'opmat19-nothing-to-collect.png')});
   check(!errs.length, `no page errors ${errs.slice(0, 2).join(' | ')}`);
   await browser.close();
 })();

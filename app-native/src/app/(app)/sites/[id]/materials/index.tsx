@@ -134,17 +134,23 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
   const showPlant = canSeeMatTile(vis, 'plant', me.role) || plantMine > 0;
   const showExp = canSeeMatTile(vis, 'expenses', me.role);
   const toggle = (x: string) => { const n = new Set(sel); if (n.has(x)) n.delete(x); else n.add(x); setSel(n); };
-  // Finance-style tabs (Andy, 19 Nov 2026: "Change this layout a little more finance tab style"): Collect, Deliveries and
-  // Requests, each with its count; it opens on the first with something in it. Plant and Expenses sit under every tab.
+  // Finance-style tabs (Andy, 19 Nov 2026: "Change this layout a little more finance tab style"), each with its count.
+  // My Requests comes first, unless there is something to collect: then To Collect jumps to the front (Andy, 19 Nov:
+  // "if nothing to collect leave as second tab (so it could chop and change mid project)"). It opens on the first tab.
+  // Plant and Expenses sit under every tab.
   const comingN = (data?.coming ?? []).filter((m) => !m.grn).length, mineN = (data?.mine ?? []).length;
-  const cur = tab ?? (openIds.length ? 'collect' : comingN ? 'coming' : mineN ? 'mine' : 'collect');
+  const collectFirst = openIds.length > 0;
+  const tabItems: [string, string, number][] = collectFirst
+    ? [['collect', 'To Collect', openIds.length], ['mine', 'My Requests', mineN], ['coming', 'Deliveries', comingN]]
+    : [['mine', 'My Requests', mineN], ['collect', 'To Collect', 0], ['coming', 'Deliveries', comingN]];
+  const cur = tab ?? (collectFirst ? 'collect' : 'mine');
 
   return (
     <ScrollView contentContainerStyle={page(720)}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       {isLoading ? <Muted>Loading…</Muted> : (
         <>
-          <FinTabs even value={cur} onChange={(k) => setTab(k as typeof cur)} items={[['collect', 'To Collect', openIds.length], ['coming', 'Deliveries', comingN], ['mine', 'My Requests', mineN]]} />
+          <FinTabs even value={cur} onChange={(k) => setTab(k as typeof cur)} items={tabItems} />
           {cur === 'collect' && (<>
           {openIds.length > 1 && picked.length > 0 && (
             <Pressable onPress={() => setSel(picked.length >= openIds.length ? new Set() : new Set(openIds))} style={{ marginBottom: 8 }}>
