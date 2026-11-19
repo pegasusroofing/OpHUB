@@ -20,6 +20,11 @@ const SAY: Record<string, string> = {
   bad_email: 'Enter a proper email address.',
   in_this_company_now: "They're in this company right now - use Remove on their row instead.",
   superadmin_uses_open_company: 'The platform owner opens companies from Platform Admin instead.',
+  code_wrong: "That code isn't right - check the email and try again.",
+  code_expired: 'That code has run out - ask for a new one.',
+  wait: 'A code was sent less than a minute ago - check that inbox first.',
+  limit: "You've asked for 10 codes today - try again tomorrow.",
+  not_sent: "The email couldn't be sent - check the address and try again.",
 };
 const say = (d: { error?: string } | null, fallback: string) => (d?.error && SAY[d.error]) || fallback;
 
@@ -43,8 +48,23 @@ export async function joinCompanyWithInvite(inviteId: string): Promise<{ orgId: 
   if (r.error || !d?.ok || !d.org_id) return say(d, 'Could not add the company - try again.');
   return { orgId: d.org_id, company: d.company || 'the company' };
 }
+/** Back to the sign-in email (no code needed). Any other address: sendCompanyEmailCode, then confirmCompanyEmail. */
 export async function setCompanyEmail(orgId: string, email: string): Promise<string | null> {
   const r = await rpc('set_company_email', { p_org_id: orgId, p_email: email });
+  const d = r.data as { ok?: boolean; error?: string } | null;
+  return r.error || !d?.ok ? say(d, 'Could not save the email - try again.') : null;
+}
+/** Emails a 6-digit code to the address; it only becomes the email for that company once the code is typed in
+ *  (security review, 19 Nov 2026: nobody can claim an address they can't open). */
+export async function sendCompanyEmailCode(orgId: string, email: string): Promise<string | null> {
+  const r = await supabase.functions.invoke('send-company-email-code', { body: { org_id: orgId, email } });
+  let d = (r.data ?? null) as { ok?: boolean; error?: string } | null;
+  if (!d && r.error && 'context' in r.error) { try { d = await (r.error as { context: Response }).context.json(); } catch { /* no body */ } }
+  return !d?.ok ? say(d, "Couldn't send the code - check your signal and try again.") : null;
+}
+export const CODE_WRONG = SAY.code_wrong;
+export async function confirmCompanyEmail(orgId: string, email: string, code: string): Promise<string | null> {
+  const r = await rpc('confirm_company_email', { p_org_id: orgId, p_email: email, p_code: code });
   const d = r.data as { ok?: boolean; error?: string } | null;
   return r.error || !d?.ok ? say(d, 'Could not save the email - try again.') : null;
 }

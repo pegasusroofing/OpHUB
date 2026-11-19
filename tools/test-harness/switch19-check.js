@@ -25,6 +25,8 @@ const shot = (p, n) => p.screenshot({path: path.join(__dirname, 'shots', 'switch
   const mem = [{org_id: O, role: 'admin', work_email: 'a@x.co'}];
   let elsewhere = [{user_id: 'u-sam', name: 'Sam Other', work_email: 'sam@other.example', role: 'pm', last_used_at: null}];
   const calls = [];
+  let codeSent = null;
+  global.__fn = (n, b) => { if (n === 'send-company-email-code') { codeSent = b.email; return {ok: true}; } return null; };
   global.__rpc = (n, b) => {
     if (['my_companies', 'switch_company', 'set_company_email', 'company_access_elsewhere', 'remove_company_access', 'join_company_with_invite', 'get_invite_info'].includes(n)) calls.push(n);
     if (n === 'my_companies') return mem.map((m) => ({...m, name: db.organizations.find((o) => o.id === m.org_id).name, logo_path: null, is_current: m.org_id === me.org_id})).sort((a, c) => (c.is_current ? 1 : 0) - (a.is_current ? 1 : 0));
@@ -33,7 +35,13 @@ const shot = (p, n) => p.screenshot({path: path.join(__dirname, 'shots', 'switch
       const cur = mem.find((x) => x.org_id === me.org_id); cur.role = me.role; cur.work_email = me.email;
       Object.assign(me, {org_id: m.org_id, role: m.role, email: m.work_email}); return {ok: true};
     }
-    if (n === 'set_company_email') { const m = mem.find((x) => x.org_id === b.p_org_id); m.work_email = b.p_email; if (m.org_id === me.org_id) me.email = b.p_email; return {ok: true}; }
+    // Only the sign-in email can be set straight away; any other address needs the code emailed to it (19 Nov 2026).
+    if (n === 'set_company_email') { if (b.p_email !== 'a@x.co') return {ok: false, error: 'needs_code'}; const m = mem.find((x) => x.org_id === b.p_org_id); m.work_email = b.p_email; if (m.org_id === me.org_id) me.email = b.p_email; return {ok: true}; }
+    if (n === 'confirm_company_email') {
+      calls.push(n + ':' + b.p_code);
+      if (!codeSent || b.p_email !== codeSent || b.p_code !== '123456') return {ok: false, error: 'code_wrong'};
+      const m = mem.find((x) => x.org_id === b.p_org_id); m.work_email = b.p_email; if (m.org_id === me.org_id) me.email = b.p_email; return {ok: true};
+    }
     if (n === 'company_access_elsewhere') return elsewhere;
     if (n === 'remove_company_access') { elsewhere = elsewhere.filter((p) => p.user_id !== b.p_user_id); return {ok: true}; }
     if (n === 'get_invite_info') return [{org_name: 'RTB Construction Group', is_valid: true, logo_path: null, color_primary: '#1F4E79', color_secondary: '#111111'}];
@@ -82,8 +90,17 @@ const shot = (p, n) => p.screenshot({path: path.join(__dirname, 'shots', 'switch
   check(!/Switch To This Company/.test(await text()), 'the current company offers only the email change');
   await page.getByText('Change The Email For This Company', {exact: true}).click(); await page.waitForTimeout(700);
   await page.locator('input').last().fill('andy@rtbconstruction.example');
+  await page.getByText('OK', {exact: true}).last().click().catch(() => page.keyboard.press('Enter')); await page.waitForTimeout(2500);
+  // A code goes to that address first; nothing is saved until it is typed in.
+  check(codeSent === 'andy@rtbconstruction.example' && /We've emailed a 6-digit code to andy@rtbconstruction\.example/.test(await text()), 'a code is emailed to the new address and asked for');
+  check(mem.find((m) => m.org_id === O2).work_email !== 'andy@rtbconstruction.example', 'nothing is saved before the code is typed');
+  await shot(page, 'email-code');
+  await page.locator('input').last().fill('000000');
+  await page.getByText('OK', {exact: true}).last().click().catch(() => page.keyboard.press('Enter')); await page.waitForTimeout(2000);
+  check(/That code isn't right/.test(await text()) && mem.find((m) => m.org_id === O2).work_email !== 'andy@rtbconstruction.example', 'a wrong code is refused and asked again');
+  await page.locator('input').last().fill('123456');
   await page.getByText('OK', {exact: true}).last().click().catch(() => page.keyboard.press('Enter')); await page.waitForTimeout(3500);
-  check(mem.find((m) => m.org_id === O2).work_email === 'andy@rtbconstruction.example' && me.email === 'andy@rtbconstruction.example', 'the construction email is saved, and is your email while you are in it');
+  check(mem.find((m) => m.org_id === O2).work_email === 'andy@rtbconstruction.example' && me.email === 'andy@rtbconstruction.example', 'the right code saves the construction email, and it is your email while you are in it');
   t = await text();
   check(/andy@rtbconstruction\.example/.test(t), 'My Companies shows the new email');
   await shot(page, 'my-companies');

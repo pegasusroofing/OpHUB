@@ -11,7 +11,7 @@ import { Text, View } from 'react-native';
 import { useCompanySwitcher } from '@/components/CompanySwitch';
 import { ListGroup, PlainRow } from '@/components/ListRows';
 import { chooseAction, promptText, showAlert, useToast } from '@/components/toast';
-import { setCompanyEmail } from '@/data/companies';
+import { CODE_WRONG, confirmCompanyEmail, sendCompanyEmailCode, setCompanyEmail } from '@/data/companies';
 import { Button, Field, Muted, Screen } from '@/components/ui';
 import { saveMyPhone } from '@/data/onboarding';
 import { resetHowTo } from '@/lib/howto';
@@ -22,7 +22,7 @@ import { onQueueChange, pendingUploads } from '@/lib/uploadQueue';
 import { base } from '@/theme/theme';
 
 export default function Account() {
-  const { me, org, signOut, refresh } = useAuth();
+  const { me, org, signOut, refresh, session } = useAuth();
   const toast = useToast();
   const [queued, setQueued] = useState(0);
   const [busy, setBusy] = useState<'' | 'out' | 'phone'>('');
@@ -87,9 +87,20 @@ export default function Account() {
                 const k = await chooseAction(c.name, [...(c.is_current ? [] : [{ key: 'switch', label: 'Switch To This Company' }]), { key: 'email', label: 'Change The Email For This Company' }]);
                 if (k === 'switch') { await switcher.choose(); return; }
                 if (k !== 'email') return;
-                const e = (await promptText(`Your email for ${c.name} (replies to what you send from ${c.name} go here):`, c.work_email || ''))?.trim();
-                if (!e || e === c.work_email) return;
-                const err = await setCompanyEmail(c.org_id, e);
+                const e = (await promptText(`Your email for ${c.name} (replies to what you send from ${c.name} go here):`, c.work_email || ''))?.trim().toLowerCase();
+                if (!e || e === (c.work_email || '').toLowerCase()) return;
+                // Your sign-in email needs no code; any other address gets a 6-digit code to prove it's yours (19 Nov 2026).
+                let err: string | null;
+                if (e === (session?.user?.email || '').toLowerCase()) err = await setCompanyEmail(c.org_id, e);
+                else {
+                  err = await sendCompanyEmailCode(c.org_id, e);
+                  for (let i = 0; !err && i < 3; i++) {
+                    const code = (await promptText(i ? `That code isn't right. Type the 6-digit code we emailed to ${e}:` : `We've emailed a 6-digit code to ${e}. Type it here:`, ''))?.replace(/\s+/g, '');
+                    if (!code) return;
+                    err = await confirmCompanyEmail(c.org_id, e, code);
+                    if (err === CODE_WRONG && i < 2) err = null; else break;
+                  }
+                }
                 if (err) { showAlert(err); return; }
                 void qc.invalidateQueries({ queryKey: ['myCompanies'] }); void refresh();
               }} />
