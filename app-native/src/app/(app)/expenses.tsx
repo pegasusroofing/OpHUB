@@ -8,9 +8,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
-import { confirmAsk, showAlert, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { SelectBox } from '@/components/SelectBox';
 import { Button, Card, Check, Empty, Field, Muted, Row, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
@@ -48,11 +48,27 @@ export default function Expenses() {
     if ('error' in p) { showAlert(p.error); return; }
     upd(g.key, { files: [...g.files, ...p.map((x) => ({ name: 'receipt.jpg', uri: x.uri, isPdf: false, picked: x }))] });
   };
-  const addPdf = async (g: ExpGroup) => {
-    const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', multiple: true, copyToCacheDirectory: true });
+  // Photos of receipts or PDFs, several at once. On an iPhone the website's chooser is the phone's own: Take Photo,
+  // Photo Library or Choose File. Photos are made smaller before they go, as from the camera.
+  const addFiles = async (g: ExpGroup) => {
+    const r = await DocumentPicker.getDocumentAsync({ type: ['image/*', 'application/pdf'], multiple: true, copyToCacheDirectory: true });
     if (r.canceled) return;
     const ok = r.assets.filter((a) => { if ((a.size || 0) > 15 * 1024 * 1024) { toast(`${a.name || 'That file'} is over 15MB — too big to send.`); return false; } return true; });
-    upd(g.key, { files: [...g.files, ...ok.map((a) => ({ name: a.name || 'receipt.pdf', uri: a.uri, isPdf: true, size: a.size }))] });
+    const size = (uri: string) => new Promise<{ width: number; height: number } | null>((res) => Image.getSize(uri, (width, height) => res({ width, height }), () => res(null)));
+    const files = await Promise.all(ok.map(async (a) => {
+      const isPdf = /pdf/i.test(a.mimeType || '') || /\.pdf$/i.test(a.name || '');
+      if (isPdf) return { name: a.name || 'receipt.pdf', uri: a.uri, isPdf: true, size: a.size };
+      const d = await size(a.uri);
+      return { name: 'receipt.jpg', uri: a.uri, isPdf: false, size: a.size, ...(d ? { picked: { uri: a.uri, ...d } } : {}) };
+    }));
+    setGroups((gs) => gs.map((x) => (x.key === g.key ? { ...x, files: [...x.files, ...files] } : x)));
+  };
+  // One Upload button (Andy, 19 Nov 2026: "remove the 3 buttons and have it as an upload button which is camera, photos
+  // or files as normal"). In the phone apps, where the chooser is only files, it asks which first.
+  const upload = async (g: ExpGroup) => {
+    if (Platform.OS === 'web') { await addFiles(g); return; }
+    const k = await chooseAction('Upload Receipt', [{ key: 'camera', label: '📷 Take Photo' }, { key: 'library', label: '🖼 Photo Library' }, { key: 'files', label: '📎 Files' }]);
+    if (k === 'camera' || k === 'library') await addPhotos(g, k); else if (k === 'files') await addFiles(g);
   };
   const save = async () => {
     const p = expProblem(groups);
@@ -97,16 +113,14 @@ export default function Expenses() {
             </View>
           )}
           {g.files.length > 0 && <Muted style={{ marginBottom: 4 }}>Tap a receipt to remove it.</Muted>}
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <View style={{ flex: 1 }}><Button kind="ghost" disabled={!!busy} title="📷 Take Photo" onPress={() => addPhotos(g, 'camera')} /></View>
-            <View style={{ flex: 1 }}><Button kind="ghost" disabled={!!busy} title="🖼 Photos" onPress={() => addPhotos(g, 'library')} /></View>
-            <View style={{ flex: 1 }}><Button kind="ghost" disabled={!!busy} title="📎 PDF" onPress={() => addPdf(g)} /></View>
-          </View>
+          <Button kind="ghost" disabled={!!busy} title={g.files.length ? '📎 Upload Another Receipt' : '📎 Upload Receipt'} onPress={() => void upload(g)} />
         </Card>
       ))}
+      {/* The page's buttons all full width and the same height (Andy, 19 Nov 2026: "the buttons need to be the same size"). */}
       <Button kind="ghost" disabled={!!busy} title="+ Add Receipts For Another Job" onPress={() => setGroups([...groups, newGroup(null)])} />
-      <Check label={`CC Me A Copy${me.email ? ` (${me.email})` : ''}`} value={ccMe} onChange={setCcMe} />
+      <View style={{ marginVertical: 6 }}><Check label={`CC Me A Copy${me.email ? ` (${me.email})` : ''}`} value={ccMe} onChange={setCcMe} /></View>
       <Button disabled={!!busy || !total} busy={!!busy} title={busy || (total ? `Save & Send ${total} Receipt${total === 1 ? '' : 's'}` : 'Add A Receipt To Send')} onPress={save} />
+      <View style={{ height: 14 }} />
 
       <SectionTitle>Sent Receipts</SectionTitle>
       <Muted style={{ marginBottom: 8 }}>Kept for {recent?.months ?? 3} months, then deleted automatically.</Muted>

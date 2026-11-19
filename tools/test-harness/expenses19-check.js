@@ -34,9 +34,13 @@ const navOrder = (page) => page.evaluate(() => [...document.querySelectorAll('[r
     let t = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
     check(/goes to Finance to check and book in/.test(t) && /Which Job Is This For\?/.test(t) && !/A job not on the app/.test(t), 'every receipt is put against a job on the app, and goes to Finance');
     // Add a receipt without choosing a job: it won't save.
-    const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByText('📎 PDF', {exact: true}).first().click()]);
-    await chooser.setFiles(tmp); await page.waitForTimeout(800);
-    await page.getByText(/^Save & Send 1 Receipt$/).click(); await page.waitForTimeout(800);
+    // One Upload button: the phone's own chooser for photos (camera or library) and files (Andy, 19 Nov 2026).
+    check(!/Take Photo|🖼 Photos|📎 PDF/.test(t) && /📎 Upload Receipt/.test(t), 'one Upload Receipt button instead of three');
+    const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByText('📎 Upload Receipt', {exact: true}).first().click()]);
+    const accept = await chooser.element().getAttribute('accept');
+    check(/image\/\*/.test(accept || '') && /application\/pdf/.test(accept || '') && chooser.isMultiple(), `it takes photos and PDFs, several at once (${accept})`);
+    await chooser.setFiles([tmp, path.join(__dirname, 'shots', 'receipt-photo-test.png')].filter((f) => fs.existsSync(f))); await page.waitForTimeout(1500);
+    await page.getByText(/^Save & Send 2 Receipts$/).click(); await page.waitForTimeout(800);
     t = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
     check(/Choose which job each set of receipts is for\./.test(t) && db.expenses.length === 0, 'without a job it asks for one and saves nothing');
     await page.getByText('Choose The Job…', {exact: true}).first().click(); await page.waitForTimeout(800);
@@ -44,9 +48,11 @@ const navOrder = (page) => page.evaluate(() => [...document.querySelectorAll('[r
     await page.getByText(new RegExp(site.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$')).last().click(); await page.waitForTimeout(600);
     await page.getByText('This Is Fuel', {exact: true}).click(); await page.waitForTimeout(300);
     await page.screenshot({path: path.join(__dirname, 'shots', 'expenses19-page.png')});
-    await page.getByText(/^Save & Send 1 Receipt$/).click(); await page.waitForTimeout(4000);
+    await page.setViewportSize({width: 390, height: 844}); await page.waitForTimeout(800);
+    await page.screenshot({path: path.join(__dirname, 'shots', 'expenses19-phone.png'), fullPage: true});
+    await page.getByText(/^Save & Send 2 Receipts$/).click(); await page.waitForTimeout(5000);
     const row = db.expenses[0] || {};
-    check(row.site_id === S1 && row.category === 'fuel', `saved against the job, as fuel (${row.site_id}, ${row.category})`);
+    check(row.site_id === S1 && row.category === 'fuel' && (row.file_paths || []).length === 2 && (row.file_paths || []).some((p) => /.jpg$/.test(p)) && (row.file_paths || []).some((p) => /.pdf$/.test(p)), `saved against the job, as fuel, with the photo and the PDF (${row.site_id}, ${row.category}, ${(row.file_paths || []).length} files)`);
     t = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
     check(new RegExp(`${site.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} — Fuel`).test(t), 'it shows under Sent Receipts with its job');
     // Not on the job's Materials page any more; the old link opens Expenses with the job chosen.
