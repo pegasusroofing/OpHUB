@@ -35,12 +35,14 @@ function useDone(me: Profile | null) {
       const one = async (t: string, cols: string) => { try { return ((await db.from(t).select(cols).eq('org_id', org).maybeSingle()).data as Record<string, unknown> | null) ?? null; } catch { return null; } };
       const [people, sites, od, pack, hr, pol, qs, sup, orgRow] = await Promise.all([
         n('profiles', (q) => q.eq('org_id' as never, org as never)), n('sites', (q) => q.eq('org_id' as never, org as never)),
-        n('onedrive_connections', (q) => q.eq('org_id' as never, org as never)), one('job_pack_settings', 'org_id'), one('hr_settings', 'approvers'),
-        n('hr_policies', (q) => q.eq('org_id' as never, org as never)), one('quote_settings', 'open_path,cc_email'), n('suppliers', (q) => q.eq('org_id' as never, org as never)),
+        // onedrive_connections has no id column (keyed by org_id), and policies are company_policies: both read as "not
+        // done" before (19 Nov 2026), so Link OneDrive and Policies never ticked.
+        one('onedrive_connections', 'org_id'), one('job_pack_settings', 'org_id'), one('hr_settings', 'approvers'),
+        n('company_policies', (q) => q.eq('org_id' as never, org as never)), one('quote_settings', 'open_path,cc_email'), n('suppliers', (q) => q.eq('org_id' as never, org as never)),
         db.from('organizations').select('logo_path').eq('id', org).maybeSingle(),
       ]);
       return {
-        branding: !!(orgRow.data as { logo_path?: string | null } | null)?.logo_path, team: people > 1, onedrive: od > 0, folders: !!pack,
+        branding: !!(orgRow.data as { logo_path?: string | null } | null)?.logo_path, team: people > 1, onedrive: !!od, folders: !!pack,
         holidays: !!((hr?.approvers as string[] | undefined)?.length), policies: pol > 0, quotes: !!qs?.open_path, suppliers: sup > 0, project: sites > 0,
       } as Record<string, boolean>;
     },
