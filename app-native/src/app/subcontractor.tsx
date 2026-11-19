@@ -4,13 +4,17 @@
 // applications land in Admin › People › Subcontractor Sign-Up either way. No sign-in: /subcontractor?org=<company id>.
 // subcontractor.html stays for the current app's links.
 import * as DocumentPicker from 'expo-document-picker';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { DateBox } from '@/components/DateField';
 import { SelectBox } from '@/components/SelectBox';
 import { Button } from '@/components/ui';
+import { loadSubformTemplate } from '@/data/subform';
+import { rememberAfterSignIn } from '@/lib/afterSignIn';
+import { useAuth } from '@/lib/auth';
+import { subQShown, type SubQ, type SubSection } from '@/lib/rules/subform';
 import { fnUrl, SUPABASE_ANON_KEY } from '@/lib/supabase';
 import { base, radius, useDesk } from '@/theme/theme';
 
@@ -18,21 +22,10 @@ type Org = { name?: string; colour?: string; logo?: string };
 type Pick = { label: string; name: string; size: number; type: string; file: Blob | null; uri: string };
 type Op = { name: string; trade: string; card: string; expiry: string };
 
-const TRADES = ['Flat roofing — felt', 'Single ply / EPDM', 'Liquid roofing', 'Pitched roofing — tiling / slating', 'Leadwork', 'Roof carpentry', 'Cladding', 'Fascias, soffits & gutters', 'Green roofs', 'Scaffolding', 'Labour only', 'Other'];
-const ACCREDS = ['CHAS', 'SMAS Worksafe', 'Constructionline', 'SafeContractor', 'Acclaim', 'NFRC', 'CompetentRoofer', 'ISO 9001', 'ISO 14001', 'ISO 45001'];
 const opt = (l: string[]): [string, string][] => l.map((x) => [x, x]);
-// Each document box: what it's called on the application, whether one or several, required, and what it takes.
-const FILES = [
-  { label: 'Public liability certificate', title: 'Public Liability Certificate', multi: false, req: true },
-  { label: 'Employers liability certificate', title: 'Employers Liability Certificate', multi: false, req: false },
-  { label: 'Accreditation certificate', title: 'Accreditation Certificates', multi: true, req: false },
-  { label: 'H&S policy', title: 'H&S Policy Document', multi: false, req: false },
-  { label: 'CSCS / skills card', title: 'CSCS / Skills Cards', multi: true, req: false },
-];
+// The questions come from the company's sign-up form (its own copy, or the standard one; Andy, 19 Nov 2026: the form
+// can be edited) - lib/rules/subform. What each upload may be stays here.
 const OK_TYPE = /^(application\/pdf|image\/(jpeg|png|webp|heic|heif|gif)|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)$/;
-const REQ: [string, string][] = [['company_name', 'Company Name'], ['company_type', 'Business Type'], ['cis_status', 'CIS Status'], ['address', 'Business Address'], ['postcode', 'Postcode'],
-  ['contact_name', 'Your Name'], ['email', 'Email'], ['phone', 'Mobile'], ['trades', 'Trades'], ['pl_cover', 'Public Liability Cover'], ['pl_expiry', 'Public Liability Expiry'],
-  ['hs_policy', 'H&S Policy'], ['rams_ability', 'Own RAMS'], ['riddor', 'RIDDOR Incidents'], ['enforcement', 'HSE Notices']];
 
 /** A key for this form's uploads (made once, when it opens). */
 const newKey = () => `${Date.now().toString(36)}${Math.random().toString(16).slice(2)}`.replace(/[^a-z0-9-]/gi, '').slice(0, 36);
@@ -57,12 +50,32 @@ async function api<T>(org: string, payload: Record<string, unknown>): Promise<T>
   return d as T;
 }
 
-export default function SubcontractorSignUp() {
+// The sign-up link (Andy, 19 Nov 2026: it "needs to take them to the sign up page that when they sign up, then takes them
+// straight to the subcontractor sign up page ... then i have them signed up to the app and the details i need to pay"):
+// /subcontractor?invite=<the company's joining invite> remembers the form, then opens the sign-up page; once they've
+// signed up and signed in, Home opens the form (lib/afterSignIn). Signed in already: the form now. Links sent before,
+// /subcontractor?org=<company>, still open the form without an account.
+export default function SubcontractorLink() {
+  const { invite } = useLocalSearchParams<{ invite?: string }>();
+  return typeof invite === 'string' && /^[0-9a-f-]{36}$/i.test(invite) ? <SignUpThenForm invite={invite} /> : <SubcontractorSignUp />;
+}
+function SignUpThenForm({ invite }: { invite: string }) {
+  const { me, status } = useAuth();
+  useEffect(() => {
+    if (status === 'loading') return;
+    if (me) { router.replace('/subform' as never); return; }
+    void rememberAfterSignIn('/subform').then(() => router.replace(`/join/${invite}` as never));
+  }, [me, status, invite]);
+  return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: base.paper }}><Text style={{ color: base.slate }}>Opening the sign-up…</Text></View>;
+}
+
+function SubcontractorSignUp() {
   const { org: orgParam } = useLocalSearchParams<{ org?: string }>();
   const org = typeof orgParam === 'string' ? orgParam : '';
   const desk = useDesk();
   const [key] = useState(newKey); // this form's own folder for its uploads
   const [info, setInfo] = useState<Org | null>(null);
+  const [form, setForm] = useState<SubSection[] | null>(null);
   const [fetchErr, setFetchErr] = useState('');
   const loadErr = org ? fetchErr : 'This link is missing its company. Ask for the link again.';
   const [v, setV] = useState<Record<string, string | string[]>>({ trades: [], accreditations: [] });
@@ -76,6 +89,7 @@ export default function SubcontractorSignUp() {
   const [done, setDone] = useState(false);
   useEffect(() => {
     if (org) api<Org>(org, { action: 'org' }).then(setInfo).catch((e: Error) => setFetchErr(e.message));
+    if (org) void loadSubformTemplate(org).then((t) => setForm(t.sections));
   }, [org]);
   const brand = info?.colour && /^#[0-9a-f]{6}$/i.test(info.colour) ? info.colour : base.blue;
   const name = info?.name || 'us';
@@ -110,8 +124,8 @@ export default function SubcontractorSignUp() {
       </View>
     </QBox>
   );
-  const ticks = (k: string, label: string, opts: string[], req?: boolean) => (
-    <QBox desk={desk} bad={isBad(k)} label={label} req={req} hint="Tick all that apply">
+  const ticks = (k: string, label: string, opts: string[], req?: boolean, hint = 'Tick all that apply') => (
+    <QBox desk={desk} bad={isBad(k)} label={label} req={req} hint={hint}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 14 }}>
         {opts.map((x) => (
           <Pressable key={x} accessibilityRole="checkbox" accessibilityState={{ checked: list(k).includes(x) }} accessibilityLabel={x} onPress={() => flip(k, x)}
@@ -123,11 +137,11 @@ export default function SubcontractorSignUp() {
       </View>
     </QBox>
   );
-  const fileBox = (label: string) => {
-    const f = FILES.find((x) => x.label === label)!;
+  const fileBox = (q: SubQ) => {
+    const label = q.f as string, f = { title: q.l, multi: !!q.multi, req: !!q.req };
     const mine = files.filter((x) => x.label === label);
     return (
-      <QBox desk={desk} bad={isBad(`file:${label}`)} label={f.title} req={f.req}>
+      <QBox desk={desk} bad={isBad(`file:${label}`)} label={f.title} req={f.req} hint={q.hint}>
         <Pressable accessibilityRole="button" accessibilityLabel={`Choose ${f.title}`} onPress={async () => {
           const r = await DocumentPicker.getDocumentAsync({ multiple: f.multi, copyToCacheDirectory: true, type: ['application/pdf', 'image/*', ...(label === 'H&S policy' ? ['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'] : [])] });
           if (r.canceled) return;
@@ -147,14 +161,52 @@ export default function SubcontractorSignUp() {
       {children}
     </View>
   );
+  const opsTable = (
+    <View style={{ marginTop: 8 }}>
+      {ops.map((o, i) => {
+        const upd = (k: keyof Op) => (x: string) => setOps((l) => l.map((y, j) => (j === i ? { ...y, [k]: x } : y)));
+        return (
+          <View key={i} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+            <TextInput value={o.name} onChangeText={upd('name')} placeholder="Full Name" accessibilityLabel={`Operative ${i + 1} name`} placeholderTextColor={base.slateLight} style={[box(), { flexGrow: 1.4, flexBasis: desk ? 160 : '100%' }]} />
+            <TextInput value={o.trade} onChangeText={upd('trade')} placeholder="Trade" placeholderTextColor={base.slateLight} style={[box(), { flexGrow: 1, flexBasis: desk ? 110 : '40%' }]} />
+            <TextInput value={o.card} onChangeText={upd('card')} placeholder="CSCS Card No." placeholderTextColor={base.slateLight} style={[box(), { flexGrow: 1, flexBasis: desk ? 110 : '40%' }]} />
+            <DateBox value={o.expiry || null} onChange={upd('expiry')} title="Card Expiry" placeholder="Card Expiry" style={{ flexGrow: 1, flexBasis: desk ? 130 : '60%', paddingVertical: 9 }} />
+            <Pressable accessibilityLabel={`Remove operative ${i + 1}`} hitSlop={8} onPress={() => setOps((l) => l.filter((_, j) => j !== i))}><Text style={{ fontSize: 22, color: base.slate, paddingHorizontal: 6 }}>×</Text></Pressable>
+          </View>
+        );
+      })}
+      <View style={{ alignSelf: 'flex-start' }}><Button small kind="ghost" title="+ Add Operative" onPress={() => setOps((l) => [...l, { name: '', trade: '', card: '', expiry: '' }])} /></View>
+    </View>
+  );
   // Two questions side by side on a laptop, one under the other on a phone.
   const two = (a: ReactNode, b: ReactNode) => (desk ? <View style={{ flexDirection: 'row', gap: 12 }}><View style={{ flex: 1, minWidth: 0 }}>{a}</View><View style={{ flex: 1, minWidth: 0 }}>{b}</View></View> : <>{a}{b}</>);
 
+  // One question as its box (19 Nov 2026: from the company's form).
+  const one = (q: SubQ): ReactNode => {
+    const k = q.k as string, req = !!q.req, t = q.type || 'text';
+    if (t === 'file') return fileBox(q);
+    if (t === 'radio') return choose(k, q.l, q.o || [], req);
+    if (t === 'checks') return ticks(k, q.l, q.o || [], req, q.hint || 'Tick all that apply');
+    if (t === 'date') return date(k, q.l, req);
+    if (t === 'yesno') return yesNo(k, q.l, req, q.first === 'No' ? 'No' : 'Yes');
+    if (t === 'ops') return opsTable;
+    return text(k, q.l, { req, ph: q.ph, multi: t === 'textarea', kb: t === 'email' ? 'email-address' : t === 'tel' ? 'phone-pad' : t === 'number' ? 'number-pad' : undefined });
+  };
+  // Two half-width questions next to each other on a laptop.
+  const rows = (qs: SubQ[]) => {
+    const out: ReactNode[] = []; const shown = qs.filter((q) => subQShown(q, v));
+    for (let i = 0; i < shown.length; i++) {
+      const q = shown[i], nx = shown[i + 1];
+      if (q.half && nx?.half) { out.push(<View key={`${q.k || q.f}-pair`}>{two(one(q), one(nx))}</View>); i++; } else out.push(<View key={q.k || q.f}>{one(q)}</View>);
+    }
+    return out;
+  };
   const submit = async () => {
     setErr('');
-    const missing = REQ.filter(([k]) => (Array.isArray(v[k]) ? !(v[k] as string[]).length : !s(k).trim())).map(([k]) => k);
+    const qs = (form || []).flatMap((x) => x.q).filter((q) => q.req && subQShown(q, v));
+    const missing = qs.filter((q) => q.type !== 'file' && q.type !== 'ops' && (Array.isArray(v[q.k as string]) ? !(v[q.k as string] as string[]).length : !s(q.k as string).trim())).map((q) => q.k as string);
     if (s('email') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s('email').trim())) missing.push('email');
-    FILES.filter((f) => f.req && !files.some((x) => x.label === f.label)).forEach((f) => missing.push(`file:${f.label}`));
+    qs.filter((q) => q.type === 'file' && !files.some((x) => x.label === q.f)).forEach((q) => missing.push(`file:${q.f}`));
     setBad(missing);
     if (missing.length) { setErr('Please fill in the questions marked in red.'); return; }
     if (!agree || !signed.trim()) { setErr('Please tick the declaration and type your name to sign.'); return; }
@@ -176,7 +228,8 @@ export default function SubcontractorSignUp() {
       }
       setBusy('Sending…');
       const data = Object.fromEntries(Object.entries(v).map(([k, x]) => [k, Array.isArray(x) ? x : x.trim()]));
-      await api(org, { action: 'submit', key: key, data: { ...data, operatives: ops.map((o) => ({ ...o, name: o.name.trim() })).filter((o) => o.name) }, files: uploaded, signed_name: signed.trim(), agree, website: '' });
+      const askOps = (form || []).some((x) => x.q.some((q) => q.type === 'ops'));
+      await api(org, { action: 'submit', key: key, data: { ...data, ...(askOps ? { operatives: ops.map((o) => ({ ...o, name: o.name.trim() })).filter((o) => o.name) } : {}) }, files: uploaded, signed_name: signed.trim(), agree, website: '' });
       setDone(true);
     } catch (e) { setErr((e as Error).message); } finally { setBusy(''); }
   };
@@ -201,73 +254,9 @@ export default function SubcontractorSignUp() {
           <Text style={{ fontSize: 19, fontWeight: '700', color: base.ink }}>Thanks — That&apos;s Sent</Text>
           <Text style={{ fontSize: 14.5, color: base.slate, marginTop: 6, textAlign: 'center' }}>{name} has your details and documents. A copy has been emailed to {s('email')}.</Text>
         </View>
-      ) : !info ? null : (
+      ) : !info || !form ? null : (
         <>
-          {sec('1. Your Company', <>
-            {text('company_name', 'Company Name', { req: true })}
-            {two(text('trading_name', 'Trading Name (If Different)'), choose('company_type', 'Business Type', ['Limited company', 'Sole trader', 'Partnership', 'LLP'], true))}
-            {two(text('company_number', 'Company Number'), text('vat_number', 'VAT Number'))}
-            {two(text('utr', 'UTR'), choose('cis_status', 'CIS Status', ['Gross payment', '20% deduction', '30% deduction (not registered)'], true))}
-            {text('address', 'Business Address', { req: true, multi: true })}
-            {two(text('postcode', 'Postcode', { req: true }), text('website_url', 'Website'))}
-          </>)}
-          {sec('2. Main Contact', <>
-            {two(text('contact_name', 'Your Name', { req: true }), text('contact_role', 'Position'))}
-            {two(text('email', 'Email', { req: true, kb: 'email-address' }), text('phone', 'Mobile', { req: true, kb: 'phone-pad' }))}
-            {text('office_phone', 'Office Phone', { kb: 'phone-pad' })}
-          </>)}
-          {sec('3. Your Work', <>
-            {ticks('trades', 'Trades', TRADES, true)}
-            {text('other_trade', 'Other Trade')}
-            {two(text('areas', 'Areas You Cover', { ph: 'e.g. London & Home Counties' }), text('team_size', 'Operatives Available', { kb: 'number-pad' }))}
-            {yesNo('own_access', 'Do You Have Your Own Access Equipment?')}
-            {text('plant', 'Plant / Equipment You Supply')}
-          </>)}
-          {sec('4. Insurance', <>
-            {two(choose('pl_cover', 'Public Liability Cover', ['£1 million', '£2 million', '£5 million', '£10 million', 'Other'], true), date('pl_expiry', 'Public Liability Expiry', true))}
-            {two(choose('el_cover', 'Employers Liability Cover', ['£5 million', '£10 million', 'Not applicable (no employees)', 'Other']), date('el_expiry', 'Employers Liability Expiry'))}
-            {two(text('pi_cover', 'Professional Indemnity', { ph: 'If held' }), text('car_cover', 'Contract Works Cover', { ph: 'If held' }))}
-            {fileBox('Public liability certificate')}
-            {fileBox('Employers liability certificate')}
-          </>, 'Upload your current certificates.')}
-          {sec('5. Accreditations', <>
-            {ticks('accreditations', 'Which Do You Hold?', ACCREDS)}
-            {text('other_accreditation', 'Other Accreditation')}
-            {fileBox('Accreditation certificate')}
-          </>)}
-          {sec('6. Health & Safety', <>
-            {yesNo('hs_policy', 'Do You Have A Written Health & Safety Policy?', true)}
-            {fileBox('H&S policy')}
-            {yesNo('rams_ability', 'Can You Produce Your Own RAMS?', true)}
-            {text('competent_person', 'Who Is Your Competent Person For Health & Safety?', { ph: 'Name and company' })}
-            {yesNo('riddor', 'Any RIDDOR-Reportable Incidents In The Last 3 Years?', true, 'No')}
-            {text('riddor_detail', 'If Yes, Give Details', { multi: true })}
-            {yesNo('enforcement', 'Any HSE Improvement / Prohibition Notices In The Last 3 Years?', true, 'No')}
-            {text('enforcement_detail', 'If Yes, Give Details', { multi: true })}
-          </>)}
-          {sec('7. Your Operatives', <>
-            <View style={{ marginTop: 8 }}>
-              {ops.map((o, i) => {
-                const upd = (k: keyof Op) => (x: string) => setOps((l) => l.map((y, j) => (j === i ? { ...y, [k]: x } : y)));
-                return (
-                  <View key={i} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                    <TextInput value={o.name} onChangeText={upd('name')} placeholder="Full Name" accessibilityLabel={`Operative ${i + 1} name`} placeholderTextColor={base.slateLight} style={[box(), { flexGrow: 1.4, flexBasis: desk ? 160 : '100%' }]} />
-                    <TextInput value={o.trade} onChangeText={upd('trade')} placeholder="Trade" placeholderTextColor={base.slateLight} style={[box(), { flexGrow: 1, flexBasis: desk ? 110 : '40%' }]} />
-                    <TextInput value={o.card} onChangeText={upd('card')} placeholder="CSCS Card No." placeholderTextColor={base.slateLight} style={[box(), { flexGrow: 1, flexBasis: desk ? 110 : '40%' }]} />
-                    <DateBox value={o.expiry || null} onChange={upd('expiry')} title="Card Expiry" placeholder="Card Expiry" style={{ flexGrow: 1, flexBasis: desk ? 130 : '60%', paddingVertical: 9 }} />
-                    <Pressable accessibilityLabel={`Remove operative ${i + 1}`} hitSlop={8} onPress={() => setOps((l) => l.filter((_, j) => j !== i))}><Text style={{ fontSize: 22, color: base.slate, paddingHorizontal: 6 }}>×</Text></Pressable>
-                  </View>
-                );
-              })}
-              <View style={{ alignSelf: 'flex-start' }}><Button small kind="ghost" title="+ Add Operative" onPress={() => setOps((l) => [...l, { name: '', trade: '', card: '', expiry: '' }])} /></View>
-            </View>
-            {fileBox('CSCS / skills card')}
-          </>, 'Everyone who may work on our sites.')}
-          {sec('8. References', <>
-            {text('ref1', 'Reference 1', { ph: 'Company, contact name, phone or email' })}
-            {text('ref2', 'Reference 2', { ph: 'Company, contact name, phone or email' })}
-          </>, 'Two recent clients or main contractors.')}
-          {sec('9. Anything Else', text('notes', 'Anything Else We Should Know?', { multi: true }))}
+          {(form || []).map((sc, i) => <View key={`sec${i}`}>{sec(`${i + 1}. ${sc.t}`, <>{rows(sc.q)}</>, sc.hint)}</View>)}
           {sec('Declaration', <>
             <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: agree }} accessibilityLabel="I confirm the declaration" onPress={() => setAgree(!agree)} style={{ flexDirection: 'row', gap: 9, alignItems: 'flex-start', marginTop: 10 }}>
               <Text style={{ fontSize: 18, color: agree ? brand : base.slate }}>{agree ? '☑' : '☐'}</Text>

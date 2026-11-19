@@ -3,11 +3,30 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { plainGet, plainSet, plainDelete } from '@/lib/kv';
-import type { SubDraft } from '@/lib/rules/subform';
+import { subTemplate, type SubDraft, type SubSection } from '@/lib/rules/subform';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
+const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
+
+/** A company's sign-up form questions (Andy, 19 Nov 2026: the form can be edited): its own copy, or the standard form.
+ *  Works signed out too (the public sign-up page), through get_subform_template. */
+export async function loadSubformTemplate(orgId: string | null | undefined): Promise<{ sections: SubSection[]; custom: boolean }> {
+  if (!orgId) return { sections: subTemplate(null), custom: false };
+  try {
+    const r = await rpc('get_subform_template', { p_org: orgId });
+    const raw = r.error ? null : r.data;
+    return { sections: subTemplate(raw), custom: Array.isArray(raw) && raw.length > 0 };
+  } catch { return { sections: subTemplate(null), custom: false }; }
+}
+export const useSubformTemplate = (orgId: string | null | undefined) => useQuery({ queryKey: ['subformTemplate', orgId], enabled: !!orgId, queryFn: () => loadSubformTemplate(orgId) });
+/** Saves the company's own copy (admins). */
+export async function saveSubformTemplate(orgId: string, sections: SubSection[]): Promise<boolean> {
+  return !(await db.from('subform_templates').upsert({ org_id: orgId, sections: subTemplate(sections), updated_at: new Date().toISOString() } as never, { onConflict: 'org_id' })).error;
+}
+/** Back to the standard form (the company's copy is removed). */
+export const resetSubformTemplate = async (orgId: string) => !(await db.from('subform_templates').delete().eq('org_id', orgId)).error;
 
 /** Operatives only, unless an admin switched it off for them; done once they've sent one. */
 export function useSubformNeeded(me: Profile | null) {

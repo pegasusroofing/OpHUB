@@ -1,6 +1,7 @@
 // Each role lands on its own home. Clients and subcontractor-company logins land
 // on their projects list, as in the current app.
-import { Redirect } from 'expo-router';
+import { Redirect, router } from 'expo-router';
+import { useEffect } from 'react';
 import { Text, View } from 'react-native';
 
 import { DriverHome } from '@/components/DriverHome';
@@ -9,6 +10,7 @@ import { PlatformAdmin } from '@/components/PlatformAdmin';
 import { PmHome } from '@/components/PmHome';
 import { Card, Muted, Screen } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
+import { takeAfterSignIn } from '@/lib/afterSignIn';
 import { homeKind, roleLabel, type HomeKind } from '@/lib/roles';
 import { base, useTheme } from '@/theme/theme';
 
@@ -36,6 +38,8 @@ const HOME_COMING: Record<HomeKind, string> = {
 export default function Home() {
   const { me, org } = useAuth();
   const t = useTheme();
+  // Straight on to the page a sign-up link asked for (the subcontractor form; 19 Nov 2026).
+  useEffect(() => { if (me) void takeAfterSignIn().then((next) => { if (next) router.replace(next as never); }); }, [me]);
   const kind = homeKind(me, org);
   if (kind === 'operative') return <OperativeHome />;
   if (kind === 'driver') return <DriverHome />;

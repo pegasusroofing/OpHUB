@@ -11,6 +11,7 @@ import { viewDoc } from '@/components/DocViewer';
 import { useTeam } from '@/data/admin';
 import { subSignUpLink } from '@/data/admin';
 import { openDocLink } from '@/data/hs';
+import { useSubformTemplate } from '@/data/subform';
 import { useAuth } from '@/lib/auth';
 import { isFullManager, isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
@@ -36,12 +37,18 @@ export default function SubApp() {
   const toast = useToast();
   const qc = useQueryClient();
   const { data: team = [] } = useTeam(me?.org_id);
+  // Answers labelled as the company's form asks them, so new questions show too (19 Nov 2026: the form can be edited).
+  const { data: tpl } = useSubformTemplate(me?.org_id);
   const { data: r, isLoading } = useQuery({ queryKey: ['subApp', id], enabled: !!id, queryFn: async () => ((await db.from('subcontractor_applications').select('*').eq('id', id).maybeSingle()).data as App | null) });
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   if (isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!r) return <Muted style={{ padding: space.l }}>That application has gone.</Muted>;
   const d = r.data || {};
+  const label: Record<string, string> = { ...LABELS };
+  (tpl?.sections ?? []).forEach((sc) => sc.q.forEach((q) => { if (q.k && q.type !== 'file') label[q.k] = q.l; }));
+  const keys = [...new Set([...(tpl?.sections ?? []).flatMap((sc) => sc.q.map((q) => q.k || '')), ...Object.keys(LABELS), ...Object.keys(d)])]
+    .filter((k) => k && !['company_name', 'contact_name', 'email'].includes(k) && d[k] != null && subAppValue(d[k]).trim() !== '');
   const st = ({ new: 'New', approved: 'Approved', rejected: 'Sent Back' } as Record<string, string>)[r.status] || r.status;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['subApp', id] }); void qc.invalidateQueries({ queryKey: ['subApps'] }); };
   // Sent back for more information (Andy, 18 Nov 2026: "if it's rejected for missing info sort a process for this"): what's
@@ -75,13 +82,13 @@ export default function SubApp() {
         {!!r.reviewed_at && <Muted>{st} by {team.find((p) => p.id === r.reviewed_by)?.name || ''} {new Date(r.reviewed_at).toLocaleDateString('en-GB')}{r.review_note ? ` — ${r.review_note}` : ''}</Muted>}
       </Card>
       <Card>
-        {Object.keys(LABELS).filter((k) => d[k] != null && subAppValue(d[k]).trim() !== '').map((k) => (
+        {keys.map((k) => (
           <View key={k} style={{ paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: base.line }}>
-            <Text style={{ fontWeight: '600', color: base.ink, fontSize: 12.5 }}>{LABELS[k]}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink, fontSize: 12.5 }}>{label[k] || 'Other Answer'}</Text>
             <Text style={{ color: base.ink }}>{subAppValue(d[k])}</Text>
           </View>
         ))}
-        {!Object.keys(LABELS).some((k) => d[k] != null && subAppValue(d[k]).trim() !== '') && <Empty>No other details.</Empty>}
+        {!keys.length && <Empty>No other details.</Empty>}
       </Card>
       <Card>
         <SectionTitle>Documents ({(r.files || []).length})</SectionTitle>

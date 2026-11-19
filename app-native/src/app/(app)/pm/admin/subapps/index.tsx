@@ -8,7 +8,7 @@ import { Linking, Platform, Pressable, ScrollView, Share, Text, View } from 'rea
 import { SelectBox } from '@/components/SelectBox';
 import { useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
-import { subSignUpLink, useTeam } from '@/data/admin';
+import { createPermanentInvite, subSignUpLink, useInvites, useTeam } from '@/data/admin';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
@@ -51,9 +51,14 @@ export default function SubApps() {
     queryKey: ['subApps', me?.org_id], enabled: !!me,
     queryFn: async () => ((await db.from('subcontractor_applications').select('id,company_name,contact_name,email,phone,status,created_at,data').eq('org_id', me?.org_id as string).order('created_at', { ascending: false }).limit(300)).data as SubApp[] | null) ?? [],
   });
+  // The link signs them up to the app, then opens the form (Andy, 19 Nov 2026), using the company's joining invite.
+  const { data: inv, refetch: reloadInv } = useInvites(me?.org_id);
+  const [making, setMaking] = useState(false);
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
-  const link = subSignUpLink(me.org_id as string); // the new app's page on the beta (18 Nov 2026)
+  const web = Platform.OS === 'web' && typeof window !== 'undefined';
+  const joinId = inv?.permanent?.id || null;
+  const link = joinId && web ? `${window.location.origin}/subcontractor?invite=${joinId}` : subSignUpLink(me.org_id as string);
   const counts = { new: 0, approved: 0, rejected: 0 } as Record<string, number>;
   rows.forEach((r) => { counts[r.status] = (counts[r.status] || 0) + 1; });
   return (
@@ -61,7 +66,17 @@ export default function SubApps() {
       <Stack.Screen options={{ title: 'Subcontractor sign-up' }} />
       <Card>
         <SectionTitle>Your sign-up form</SectionTitle>
-        <Muted style={{ marginBottom: 8 }}>Send this link to any subcontractor. They fill in their company details, insurance, accreditations and operatives, upload their documents and sign — it lands here.</Muted>
+        <Muted style={{ marginBottom: 8 }}>{joinId && web
+          ? 'Send this link to any subcontractor. They sign up to the app first, then go straight to the form: company details, insurance, accreditations, operatives and their documents. It lands here, and they’re on your team in the app.'
+          : 'Send this link to any subcontractor. They fill in their company details, insurance, accreditations and operatives, upload their documents and sign — it lands here.'}</Muted>
+        {web && !joinId && me.role === 'admin' && (
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 8 }}>
+            <Button small busy={making} title="Make The Sign-Up Link (They Join The App First)" onPress={async () => {
+              setMaking(true); const ok = await createPermanentInvite(me); setMaking(false);
+              if (ok) void reloadInv(); else toast('Could not make the link — try again.');
+            }} />
+          </View>
+        )}
         <Text selectable style={{ fontSize: 12, color: base.ink, padding: 8, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, marginBottom: 8 }}>{link}</Text>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <View style={{ flex: 1 }}><Button title={Platform.OS === 'web' ? '📋 Copy link' : '📋 Share link'} onPress={async () => {
@@ -69,6 +84,8 @@ export default function SubApps() {
           }} /></View>
           <View style={{ flex: 1 }}><Button kind="ghost" title="👁 Open the form" onPress={() => void Linking.openURL(link)} /></View>
         </View>
+        {/* Edit the form's questions (Andy, 19 Nov 2026). */}
+        {(me.role === 'admin' || me.role === 'superadmin') && <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8 }}><Button kind="ghost" title="✎ Edit The Form" onPress={() => router.push('/pm/admin/subapps/form' as never)} /></View>}
       </Card>
       <SignupChecker />
       <View style={{ flexDirection: 'row', gap: 6, marginVertical: 10 }}>

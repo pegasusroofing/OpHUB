@@ -11,7 +11,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import { DateBox } from '@/components/DateField';
-import { lastSubAnswers, loadSubDraft, saveSubDraft, sendSubform, uploadSubFile, useSubformNeeded } from '@/data/subform';
+import { lastSubAnswers, loadSubDraft, saveSubDraft, sendSubform, uploadSubFile, useSubformNeeded, useSubformTemplate } from '@/data/subform';
 import { useAuth } from '@/lib/auth';
 import { SUBFORM_SECTIONS, subformMissing, subQShown, type SubDraft, type SubQ } from '@/lib/rules/subform';
 import { base, page, radius, space } from '@/theme/theme';
@@ -26,6 +26,9 @@ export default function SubForm() {
   const [d, setD] = useState<SubDraft | null>(null);
   const [miss, setMiss] = useState<Set<string> | null>(null);
   const [busy, setBusy] = useState(false);
+  // The company's own form, or the standard one (19 Nov 2026: the form can be edited).
+  const { data: tpl } = useSubformTemplate(me?.org_id);
+  const sections = tpl?.sections ?? SUBFORM_SECTIONS;
   useEffect(() => { if (me) void loadSubDraft(me).then(setD); }, [me]);
   // Sent back (18 Nov 2026): a fresh form starts from the answers and documents they sent before.
   const lastId = need?.returned != null ? need.lastId ?? null : null;
@@ -53,12 +56,14 @@ export default function SubForm() {
     if (!subQShown(q, d.data)) return null;
     const id = (q.k || q.f) as string, bad = !!miss?.has(id), v = q.k ? d.data[q.k] : undefined;
     let body;
-    if (q.type === 'radio' || q.type === 'checks') body = (
-      <View style={{ gap: 4 }}>{(q.o || []).map((o) => {
-        const on = q.type === 'radio' ? v === o : Array.isArray(v) && v.includes(o);
+    const opts = q.type === 'yesno' ? (q.first === 'No' ? ['No', 'Yes'] : ['Yes', 'No']) : q.o || [];
+    const one = q.type === 'radio' || q.type === 'yesno';
+    if (q.type === 'radio' || q.type === 'checks' || q.type === 'yesno') body = (
+      <View style={{ gap: 4 }}>{opts.map((o) => {
+        const on = one ? v === o : Array.isArray(v) && v.includes(o);
         return (
-          <Pressable key={o} onPress={() => set(q.k as string, q.type === 'radio' ? o : on ? (v as string[]).filter((x) => x !== o) : [...(Array.isArray(v) ? v : []), o])} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 }}>
-            <Text style={{ fontSize: 17, color: base.ink }}>{q.type === 'radio' ? (on ? '◉' : '○') : on ? '☑' : '☐'}</Text><Text style={{ color: base.ink, flex: 1 }}>{o}</Text>
+          <Pressable key={o} onPress={() => set(q.k as string, one ? o : on ? (v as string[]).filter((x) => x !== o) : [...(Array.isArray(v) ? v : []), o])} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 }}>
+            <Text style={{ fontSize: 17, color: base.ink }}>{one ? (on ? '◉' : '○') : on ? '☑' : '☐'}</Text><Text style={{ color: base.ink, flex: 1 }}>{o}</Text>
           </Pressable>
         );
       })}</View>
@@ -89,9 +94,11 @@ export default function SubForm() {
       );
     } else if (q.type === 'date') body = <DateBox value={String(v ?? '')} onChange={(t) => set(q.k as string, t)} title="Date" style={{ marginBottom: 8 }} />;
     else body = (
-      <TextInput value={String(v ?? '')} onChangeText={(t) => set(q.k as string, t)} placeholder={q.ph || 'Your answer'} multiline={q.type === 'textarea'}
-        keyboardType={q.type === 'email' ? 'email-address' : q.type === 'tel' ? 'phone-pad' : 'default'} autoCapitalize={q.type === 'email' ? 'none' : 'sentences'}
-        style={[box, q.type === 'textarea' ? { minHeight: 70 } : null]} />
+      // The operatives list is typed here, one person a line (the sign-up page has a table).
+      <TextInput value={Array.isArray(v) ? (v as { name?: string; trade?: string; card?: string; expiry?: string }[]).map((o) => [o.name, o.trade, o.card, o.expiry].filter(Boolean).join(' — ')).join('\n') : String(v ?? '')} onChangeText={(t) => set(q.k as string, t)}
+        placeholder={q.ph || (q.type === 'ops' ? 'Name — trade — CSCS card — expiry, one person a line' : 'Your answer')} multiline={q.type === 'textarea' || q.type === 'ops'}
+        keyboardType={q.type === 'email' ? 'email-address' : q.type === 'tel' ? 'phone-pad' : q.type === 'number' ? 'number-pad' : 'default'} autoCapitalize={q.type === 'email' ? 'none' : 'sentences'}
+        style={[box, q.type === 'textarea' || q.type === 'ops' ? { minHeight: 70 } : null]} />
     );
     return (
       <View key={id} style={{ marginBottom: 14, ...(bad ? { borderLeftWidth: 3, borderLeftColor: base.red, paddingLeft: 8 } : null) }}>
@@ -117,7 +124,7 @@ export default function SubForm() {
         <Muted>Please fill this in for {org?.name || 'us'} — your company details, insurance, cards and health &amp; safety. It saves as you go, so you can come back to it.</Muted>
         <Text style={{ color: base.red, marginTop: 4 }}>* Required</Text>
       </Card>
-      {SUBFORM_SECTIONS.map((s, i) => (
+      {sections.map((s, i) => (
         <Card key={s.t}>
           <Text style={{ fontWeight: '600', fontSize: 16, color: base.ink, marginBottom: 2 }}>{i + 1}. {s.t}</Text>
           {!!s.hint && <Muted style={{ marginBottom: 8 }}>{s.hint}</Muted>}
@@ -133,7 +140,7 @@ export default function SubForm() {
         <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 4 }}>Type your full name to sign<Text style={{ color: base.red }}> *</Text></Text>
         <TextInput value={d.signed} onChangeText={(t) => update({ ...d, signed: t })} style={[box, miss?.has('__signed') ? { borderColor: base.red } : null]} />
         <View style={{ marginTop: 12 }}><Button busy={busy} title={busy ? 'Sending…' : 'Submit'} onPress={async () => {
-          const m = subformMissing(d);
+          const m = subformMissing(d, sections);
           if (m.size) { setMiss(m); toast('Please answer the questions marked in red.'); return; }
           setMiss(null); setBusy(true);
           const ok = await sendSubform(me, d); setBusy(false);
