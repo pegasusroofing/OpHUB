@@ -11,7 +11,19 @@ export type TplKind = 'application' | 'invoice' | 'certificate' | 'credit' | 'po
 export type Tpl = { id: string; kind: TplKind; name: string; subject: string | null; body: string | null; is_default: boolean; show_logo: boolean; logos: string[] };
 
 export const TPL_KINDS: [TplKind, string][] = [['application', 'Application for payment'], ['invoice', 'Invoice'], ['certificate', 'Payment certificate'], ['credit', 'Credit note'], ['po', 'Purchase order'], ['pi_query', 'Query on a supplier’s invoice'], ['signatures', 'Outstanding signatures (H&S)'], ['hsdocs', 'RAMS / COSHH documents (H&S)']];
-export const TPL_FIELDS = '{client} {project} {job_no} {number} {amount} {due} {client_po} {company} {my_name}';
+
+/** The fill-ins each kind of email can use, as add buttons in the template (Andy, 19 Nov 2026: "add in the place holders
+ *  that are possible as add buttons"). Each is filled in by the screen that sends that kind of email. */
+const NO_LABEL: Record<TplKind, string> = { application: 'Application No.', invoice: 'Invoice No.', certificate: 'Certificate No.', credit: 'Credit Note No.', po: 'PO No.', pi_query: 'Their Invoice No.', signatures: 'Document Type', hsdocs: 'Document Type' };
+export function tplFillIns(kind: TplKind): [string, string][] {
+  const no: [string, string] = ['{number}', NO_LABEL[kind] || 'Number'];
+  const us: [string, string][] = [['{company}', 'Our Company'], ['{my_name}', 'My Name']];
+  const job: [string, string][] = [['{project}', 'Project'], ['{job_no}', 'Job No.']];
+  if (kind === 'po') return [['{supplier}', 'Supplier'], ...job, no, ['{amount}', 'Amount'], ['{required_by}', 'Required By'], ...us];
+  if (kind === 'pi_query') return [['{supplier}', 'Supplier'], ...job, no, ['{amount}', 'Amount'], ...us];
+  if (kind === 'signatures' || kind === 'hsdocs') return [['{document}', 'Document Type (RAMS / COSHH)'], ['{client}', 'Client'], ...job, ...us];
+  return [['{client}', 'Client'], ...job, no, ['{amount}', 'Amount'], ['{due}', 'Due Date'], ['{client_po}', 'Client PO'], ...us];
+}
 
 /** OpHUB's own wording, used until a company saves its own. */
 export const TPL_STANDARD: Record<TplKind, { subject: string; body: string }> = {
@@ -19,8 +31,9 @@ export const TPL_STANDARD: Record<TplKind, { subject: string; body: string }> = 
   invoice: { subject: 'Invoice {number} — {project}', body: 'Hello,\n\nPlease find attached invoice {number} for {project}, for {amount}, due {due}.\n\nKind regards,' },
   certificate: { subject: 'Payment certificate No. {number} — {project}', body: 'Hello,\n\nPlease find attached payment certificate No. {number} for {project}.\n\nKind regards,' },
   credit: { subject: 'Credit note {number} — {project}', body: 'Hello,\n\nPlease find attached credit note {number} for {project}.\n\nKind regards,' },
-  signatures: { subject: 'Outstanding {number} signatures — {project}', body: 'Hello,\n\nPlease find attached the list of who is still to sign the {number} documents for {project}.\n\nKind regards,' },
-  hsdocs: { subject: '{number} — {project}', body: 'Hello,\n\nPlease find attached the signed {number} for {project}.\n\nKind regards,' },
+  // {document} is the kind of document, e.g. RAMS or COSHH (Andy, 19 Nov 2026); an older template's {number} still gives the same.
+  signatures: { subject: 'Outstanding {document} signatures — {project}', body: 'Hello,\n\nPlease find attached the list of who is still to sign the {document} documents for {project}.\n\nKind regards,' },
+  hsdocs: { subject: '{document} — {project}', body: 'Hello,\n\nPlease find attached the signed {document} for {project}.\n\nKind regards,' },
   // Sent back to a supplier about their invoice (Andy, 6 Nov 2026).
   pi_query: { subject: 'Query on your invoice {number} — {project}', body: 'Hello,\n\nWe have a query on your invoice {number} for {project} ({amount}), attached:\n\n\n\nPlease send us a corrected invoice or a credit note, or let us know.\n\nKind regards,' },
   po: { subject: 'Purchase order {number} — {project}', body: 'Hello,\n\nPlease find attached our purchase order {number} for {project}. Please quote the PO number on your delivery note and invoice.\n\nKind regards,' },

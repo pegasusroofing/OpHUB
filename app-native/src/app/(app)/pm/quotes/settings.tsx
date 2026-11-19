@@ -7,6 +7,8 @@ import { router, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { SignatureCard } from '@/components/EmailSignature';
+import { FillInButtons, useFillIns } from '@/components/FillIns';
 import { FinTabs } from '@/components/FinNav';
 import { YesNo } from '@/components/OneDriveSettings';
 import { Pop } from '@/components/Pop';
@@ -19,6 +21,7 @@ import { EVERY, everyText, REPORTS, reportLabel, type AutoExport, type ReportKey
 import { base, page, space } from '@/theme/theme';
 
 const SUBJECT = 'Our quotation for {project}';
+const CHASE_FILL_INS: [string, string][] = [['{contact}', 'Contact Name'], ['{client}', 'Client'], ['{project}', 'Project'], ['{date}', 'Date Quoted'], ['{sender}', 'My Name'], ['{company}', 'Our Company']];
 const BODY = 'Hi {contact},\n\nI hope you are well. We sent you our quotation for {project} on {date}, and I wanted to check how things are progressing.\n\nIf you need anything else from us, or there is any feedback, please let me know.\n\nKind regards,\n{sender}\n{company}';
 const EMAIL_OK = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/;
 type Tab = 'chaser' | 'sending' | 'folders' | 'auto' | 'old';
@@ -61,6 +64,7 @@ export default function QuoteSettingsPage() {
   const [busy, setBusy] = useState('');
   const [edit, setEdit] = useState<AutoExport | null>(null);
   const [v, setV] = useState({ first: '30', every: '14', max: '3', subject: SUBJECT, body: BODY, cc: '' });
+  const fill = useFillIns('body');
   useEffect(() => {
     if (data) setV({ first: String(data.chase_first_days), every: String(data.chase_every_days), max: String(data.chase_max), subject: data.chase_subject || SUBJECT, body: data.chase_body || BODY, cc: data.cc_email || '' });
   }, [data]);
@@ -112,10 +116,13 @@ export default function QuoteSettingsPage() {
             <View style={{ flex: 1 }}><QBox label="Most Sent" value={v.max} onChangeText={set('max')} keyboardType="number-pad" /></View>
           </View>
           <Muted style={{ marginTop: -6, marginBottom: 10, fontSize: 12 }}>The first chaser goes so many days after it’s quoted, then every so many days, up to the most sent.</Muted>
-          <QBox label="Email Subject" value={v.subject} onChangeText={set('subject')} />
-          <QBox label="Email Wording" value={v.body} onChangeText={set('body')} multiline tall />
-          <Muted style={{ marginBottom: 10 }}>The app fills in {'{contact}'}, {'{client}'}, {'{project}'}, {'{date}'}, {'{sender}'} and {'{company}'}.</Muted>
+          <QBox label="Email Subject" value={v.subject} onChangeText={set('subject')} bind={fill.bind('subject')} />
+          <QBox label="Email Wording" value={v.body} onChangeText={set('body')} multiline tall bind={fill.bind('body')} />
+          {/* Add buttons for the fill-ins (Andy, 19 Nov 2026); the app swaps each for the quote's own details when it chases. */}
+          <FillInButtons items={CHASE_FILL_INS} target={fill.target === 'subject' ? 'Subject' : 'Wording'} onPick={(token) => { const k = fill.target === 'subject' ? 'subject' : 'body'; setV((f) => ({ ...f, [k]: fill.add(k, f[k], token) })); }} />
           <View style={{ alignItems: 'center' }}><Button title="Save" onPress={() => void saveChaser()} /></View>
+          <View style={{ height: 14 }} />
+          <SignatureCard />
         </Card>
       )}
       {tab === 'sending' && (

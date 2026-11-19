@@ -5,7 +5,7 @@
 // saved, Save To Directory keeps the contact typed in as their estimator (Andy, 11 Nov 2026).
 import * as DocumentPicker from 'expo-document-picker';
 import { useState, type ReactNode } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { DateBox } from '@/components/DateField';
 import { Pop } from '@/components/Pop';
@@ -29,11 +29,12 @@ export const disciplineOf = (v: QForm) => (v.discipline === 'Other' && v.other.t
 const H = 44; // every box on the form is this tall
 const lab = { fontSize: 12, fontWeight: '600' as const, color: base.slate, marginBottom: 4 };
 const boxStyle = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 12, height: H, fontSize: 15, color: base.ink, backgroundColor: base.card };
-export function QBox({ label, value, onChangeText, placeholder, keyboardType, autoCapitalize, multiline, tall }: { label: string; value: string; onChangeText: (t: string) => void; placeholder?: string; keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'decimal-pad' | 'number-pad'; autoCapitalize?: 'none' | 'words'; multiline?: boolean; tall?: boolean }) {
+/** bind: from useFillIns, so add buttons put a fill-in where this box's cursor is (Andy, 19 Nov 2026). */
+export function QBox({ label, value, onChangeText, placeholder, keyboardType, autoCapitalize, multiline, tall, bind }: { label: string; value: string; onChangeText: (t: string) => void; placeholder?: string; keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'decimal-pad' | 'number-pad'; autoCapitalize?: 'none' | 'words'; multiline?: boolean; tall?: boolean; bind?: Partial<TextInputProps> }) {
   return (
     <View style={{ marginBottom: space.m }}>
       <Text style={lab}>{label}</Text>
-      <TextInput accessibilityLabel={label} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={base.slateLight} keyboardType={keyboardType} autoCapitalize={autoCapitalize} multiline={multiline}
+      <TextInput accessibilityLabel={label} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={base.slateLight} keyboardType={keyboardType} autoCapitalize={autoCapitalize} multiline={multiline} {...bind}
         style={[boxStyle, multiline ? { height: tall ? 220 : 88, paddingTop: 10, textAlignVertical: 'top' } : null]} />
     </View>
   );

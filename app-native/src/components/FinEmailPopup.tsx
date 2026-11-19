@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { useMyEmailHere } from '@/components/EmailSignature';
 import { SelectBox } from '@/components/SelectBox';
 import { Button, Check, Muted } from '@/components/ui';
 import { fillTpl, TPL_STANDARD, useTemplates, type TplKind } from '@/data/finTemplates';
@@ -16,6 +17,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** extra: shown above the buttons (e.g. a PO's calendar / folder ticks); more: further buttons such as Export PDF and Save Only (Andy, 5 Nov 2026). */
 export function FinEmailPopup({ kind, title, to: to0, vars, note, onSend, onClose, extra, more }: { kind: TplKind; title: string; to: string; vars: Record<string, string>; note?: string; onSend: (o: EmailOut) => Promise<string | null>; onClose: () => void; extra?: ReactNode; more?: { title: string; onPress: () => void | Promise<void> }[] }) {
   const { me } = useAuth();
+  // My email for this company (My Settings), else my sign-in email: copies come here, as the replies do (19 Nov 2026).
+  const myEmail = useMyEmailHere() || me?.email || '';
   const { data: all = [] } = useTemplates(me?.org_id);
   const list = all.filter((t) => t.kind === kind);
   // The default template first; choosing another starts its subject and message again. Words typed in are kept until then.
@@ -30,11 +33,11 @@ export function FinEmailPopup({ kind, title, to: to0, vars, note, onSend, onClos
   const tpl = list.find((x) => x.id === tplId), std = TPL_STANDARD[kind];
   const subject = subjectTyped ?? fillTpl(tpl?.subject || std.subject, vars), body = bodyTyped ?? fillTpl(tpl?.body || std.body, vars);
   const send = async (only: boolean) => {
-    const list2 = only ? [me?.email || ''] : to.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean);
+    const list2 = only ? [myEmail] : to.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean);
     if (!list2.length || list2.some((x) => !EMAIL_RE.test(x))) { setErr('Check the email address.'); return; }
     setBusy(only ? 'me' : 'send'); setErr('');
     try {
-      const e = await onSend({ to: list2, cc: !only && ccMe && me?.email ? [me.email] : [], subject, body, logos: tpl?.logos || [], hideLogo: tpl ? !tpl.show_logo : false });
+      const e = await onSend({ to: list2, cc: !only && ccMe && myEmail ? [myEmail] : [], subject, body, logos: tpl?.logos || [], hideLogo: tpl ? !tpl.show_logo : false });
       if (e) setErr(e); else onClose();
     } finally { setBusy(''); }
   };
@@ -51,7 +54,7 @@ export function FinEmailPopup({ kind, title, to: to0, vars, note, onSend, onClos
             <SelectBox label="Template" title="Template" value={tplId || 'std'} options={[...list.map((t) => [t.id, `${t.name}${t.is_default ? ' (default)' : ''}`] as [string, string]), ...(list.length ? [] : [['std', 'Standard wording'] as [string, string]])]} onChange={(k) => { setPicked(k); setSubject(null); setBody(null); }} />
             <Muted style={{ fontWeight: '500' }}>To</Muted>
             <TextInput value={to} onChangeText={setTo} placeholder="qs@client.co.uk (commas for more than one)" autoCapitalize="none" keyboardType="email-address" style={[box, { marginBottom: 6 }]} />
-            <Check label={`CC Me (${me?.email || ''})`} value={ccMe} onChange={setCcMe} />
+            <Check label={`CC Me (${myEmail})`} value={ccMe} onChange={setCcMe} />
             <Muted style={{ fontWeight: '500', marginTop: 6 }}>Subject</Muted>
             <TextInput value={subject} onChangeText={setSubject} style={[box, { marginBottom: 8 }]} />
             <Muted style={{ fontWeight: '500' }}>Message</Muted>

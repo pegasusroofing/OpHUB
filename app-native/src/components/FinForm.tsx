@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { CalendarPopup, DateBox } from '@/components/DateField';
+import { FillInButtons, useFillIns } from '@/components/FillIns';
 import { chooseAction, confirmAsk } from '@/components/toast';
 import { Button, Check, Muted } from '@/components/ui';
 import { plainDbText } from '@/lib/rules/plainError';
@@ -17,13 +18,15 @@ type V = Record<string, string | boolean>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card };
 
 /** onChange: when a field changes, return other fields to fill in (e.g. the approved value from the value issued). */
-export function FinForm({ title, fields, initial, onSave, onClose, onDelete, deleteLabel = 'Remove', deleteAsk = 'Remove this? This can’t be undone.', saveLabel = 'Save', note, extra, onChange, inline }: {
+export function FinForm({ title, fields, initial, onSave, onClose, onDelete, deleteLabel = 'Remove', deleteAsk = 'Remove this? This can’t be undone.', saveLabel = 'Save', note, extra: extraIn, onChange, inline, fillIns }: {
   /** fields: a list, or worked out from what's typed so far (e.g. an invoice job hides retention as soon as you pick Invoice). */
-  title: string; fields: Field[] | ((v: V) => Field[]); initial?: Record<string, unknown>; saveLabel?: string; note?: string; extra?: ReactNode;
+  title: string; fields: Field[] | ((v: V) => Field[]); initial?: Record<string, unknown>; saveLabel?: string; note?: string; extra?: ReactNode | ((v: V) => ReactNode);
   onSave: (v: V) => Promise<string | null | void>; onClose: () => void; onDelete?: () => Promise<string | null | void>; deleteLabel?: string; deleteAsk?: string;
   onChange?: (k: string, next: V, before: V) => Partial<V> | void;
   /** In the page rather than a pop-up, with Save and Cancel side by side under the boxes (Finance settings, Andy 11 Nov 2026). */
   inline?: boolean;
+  /** Add buttons for fill-ins such as {project}, under the last of these boxes; each adds to the box last tapped (Andy, 19 Nov 2026). */
+  fillIns?: { keys: string[]; items: (v: V) => [string, string][] };
 }) {
   const [v, setV] = useState<V>(() => {
     const o: V = {};
@@ -34,8 +37,18 @@ export function FinForm({ title, fields, initial, onSave, onClose, onDelete, del
   const [err, setErr] = useState('');
   const [dayOpen, setDayOpen] = useState('');
   const set = (k: string, x: string | boolean) => setV((o) => { const n = { ...o, [k]: x }; const more = onChange?.(k, n, o); return more ? { ...n, ...more } as V : n; });
+  const fill = useFillIns(fillIns?.keys[fillIns.keys.length - 1] || '');
+  const fillKey = (k: string) => !!fillIns?.keys.includes(k);
+  const extra = typeof extraIn === 'function' ? extraIn(v) : extraIn;
   const field = (f: Field) => {
     if (f.kind === 'check') return <Check key={f.k} label={f.label} value={!!v[f.k]} onChange={(x) => set(f.k, x)} />;
+    const box1 = field1(f);
+    if (!fillIns || f.k !== fillIns.keys[fillIns.keys.length - 1]) return box1;
+    const all = typeof fields === 'function' ? fields(v) : fields;
+    return [box1, <FillInButtons key="fill-ins" items={fillIns.items(v)} target={all.find((x) => x.k === fill.target)?.label || 'Message'}
+      onPick={(token) => set(fill.target, fill.add(fill.target, String(v[fill.target] ?? ''), token))} />];
+  };
+  const field1 = (f: Field) => {
     return (
       <View key={f.k} style={{ flexBasis: f.half ? '47%' : '100%', flexGrow: 1, marginBottom: 8 }}>
         <Muted style={{ fontWeight: '500' }}>{f.label}</Muted>
@@ -56,8 +69,10 @@ export function FinForm({ title, fields, initial, onSave, onClose, onDelete, del
         ) : (
           <TextInput accessibilityLabel={f.label} value={String(v[f.k] ?? '')} onChangeText={(x) => set(f.k, x)} placeholder={f.ph || (f.kind === 'money' ? '£0.00' : '')} multiline={f.kind === 'multiline'}
             keyboardType={f.kind === 'money' ? 'decimal-pad' : f.kind === 'number' ? 'decimal-pad' : f.kind === 'email' ? 'email-address' : 'default'} autoCapitalize={f.kind === 'email' ? 'none' : 'sentences'}
-            // Tapping in picks the whole figure, so typing replaces it (Andy, 11 Nov 2026).
-            selectTextOnFocus={f.kind !== 'multiline'}
+            // Tapping in picks the whole figure, so typing replaces it (Andy, 11 Nov 2026). Not in a box that takes
+            // fill-ins: a button there adds at the cursor, and must not replace the whole subject.
+            selectTextOnFocus={f.kind !== 'multiline' && !fillKey(f.k)}
+            {...(fillKey(f.k) ? fill.bind(f.k) : {})}
             style={[box, f.kind === 'multiline' ? { minHeight: f.tall ? 260 : 120, textAlignVertical: 'top' } : null]} />
         )}
         {f.note ? <Muted style={{ fontSize: 11.5 }}>{f.note}</Muted> : null}

@@ -50,7 +50,7 @@ const mainSiteOf = (lines: RLine[], fallback: string | null) => {
 /** start: from a statement's Add Missing Invoice — the supplier, number, gross amount and date already known.
  *  pi: a saved invoice, opened to check, change, query or approve; below: its conversation, Xero and paid rows. */
 export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, buttons, startEdit }: { inbox?: Row | null; siteId?: string; poId?: string; start?: { supplier?: string; no?: string; amount?: number; date?: string }; pi?: Row | null; below?: ReactNode; buttons?: ReactNode; startEdit?: boolean }) {
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const desk = useDesk();
@@ -356,7 +356,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
         {below}
         {!!mail && (
           <FinEmailPopup kind="pi_query" title={`Query ${mail.row.supplier_name || 'the supplier'}'s invoice ${mail.row.invoice_no || ''}`} to={mail.to} note="Their invoice goes back with it. Write the query in the message."
-            vars={{ number: String(mail.row.invoice_no || ''), project: site(mail.row.site_id)?.name || '', job_no: site(mail.row.site_id)?.job_number || '', supplier: mail.row.supplier_name || '', amount: money(mail.row.total) }}
+            vars={{ number: String(mail.row.invoice_no || ''), project: site(mail.row.site_id)?.name || '', job_no: site(mail.row.site_id)?.job_number || '', supplier: mail.row.supplier_name || '', amount: money(mail.row.total), company: org?.name || '', my_name: me?.name || '' }}
             onSend={async (o) => { const e = await emailPiQuery(me, mail.row, o); if (e) return e; toast(`Query emailed to ${o.to.join(', ')}`, { confirm: true }); refresh(); return null; }}
             onClose={() => { const id = mail.row.id; setMail(null); if (!pi) router.replace(`/fin/pinv/${id}` as never); else setEditing(false); }} />
         )}

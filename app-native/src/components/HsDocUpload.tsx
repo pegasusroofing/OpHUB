@@ -93,7 +93,7 @@ export function HsDocUpload({ kind, site, companyId = null, create, createLabel,
       {mailing && data && (
         <FinEmailPopup kind={mailing.what === 'outstanding' ? 'signatures' : 'hsdocs'} title={mailing.what === 'outstanding' ? `Email Outstanding ${label} Signatures` : `Email Signed ${label}`} to={site.client_email || ''}
           note={mailing.what === 'outstanding' ? 'The list of who is still to sign the ticked documents goes with it as a PDF.' : `The ticked ${label} documents go with it as one signed PDF.`}
-          vars={{ client: site.client_name || '', project: site.name || '', job_no: site.job_number || '', number: label, amount: '', due: '', client_po: '', company: org?.name || '', my_name: me.name || '' }}
+          vars={{ client: site.client_name || '', project: site.name || '', job_no: site.job_number || '', document: label, number: label, amount: '', due: '', client_po: '', company: org?.name || '', my_name: me.name || '' }}
           onSend={async (o) => {
             if (mailing.what === 'outstanding') {
               const t = table(mailing.ids); if (!t.rows.length) return `Everyone has signed the ticked ${label} documents.`;

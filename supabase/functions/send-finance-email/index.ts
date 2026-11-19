@@ -177,8 +177,20 @@ Deno.serve(withCors(async (req) => {
       extras.push({ filename: String((x && x.filename) || 'attachment.pdf').replace(/[\r\n"]/g, '').slice(0, 120), content: btoa(xbin) });
     }
 
-    const { data: org } = await admin.from('organizations').select('name, logo_path, color_primary').eq('id', caller.org_id).maybeSingle();
-    const { data: fset } = await admin.from('fin_settings').select('company_reg_no, company_vat_no').eq('org_id', caller.org_id).maybeSingle();
+    const { data: org } = await admin.from('organizations').select('name, logo_path, color_primary, rams_settings').eq('id', caller.org_id).maybeSingle();
+    const { data: fset } = await admin.from('fin_settings').select('company_reg_no, company_vat_no, company_address').eq('org_id', caller.org_id).maybeSingle();
+    // The signature filled in as the quote chasers' (Andy, 19 Nov 2026): the sender's phone and their email for this company
+    // (company switching), which also gets the replies; the company's address and phone (as printed on RAMS).
+    const [{ data: prof }, { data: mem }] = await Promise.all([
+      admin.from('profiles').select('phone').eq('id', userData.user.id).maybeSingle(),
+      admin.from('company_memberships').select('work_email').eq('user_id', userData.user.id).eq('org_id', caller.org_id).maybeSingle(),
+    ]);
+    const workEmail = String(mem?.work_email || '').trim();
+    const sigEmail = EMAIL_RE.test(workEmail) ? workEmail : String(caller.email || '').trim();
+    const rs = (org?.rams_settings || {}) as { address?: string; phone?: string };
+    const sigAddr = String(rs.address || fset?.company_address || '').split(/\s*\n\s*/).map((x: string) => x.replace(/[\s,]+$/, '')).filter(Boolean).join(', ');
+    const sigTel = String(rs.phone || '').trim();
+    const sigContact = [String(prof?.phone || '').trim(), sigEmail].filter(Boolean).join(' · ');
     const company = org?.name || 'OpHUB';
     const logoUrl = org?.logo_path ? `${SUPABASE_URL}/storage/v1/object/public/org-logos/${org.logo_path}` : null;
     // Email templates (3 Nov 2026): the company logo can be left off, and extra logos (e.g. accreditations) shown under
@@ -203,13 +215,16 @@ Deno.serve(withCors(async (req) => {
       greeting: 'Hello,', intro,
       bodyHtml: ophubRows(rows) + (message ? `<p style="margin:0 0 12px;font-size:15px;line-height:1.5;color:#101114;white-space:pre-wrap;">${ophubEsc(message)}</p>` : '') + `<p style="margin:18px 0 12px;font-size:15px;line-height:1.5;color:#101114;">Kind regards,<br>${ophubEsc(sender)}<br>${ophubEsc(company)}</p>`,
     });
-    // Signature under the message (Andy 26 Oct): who sent it, the company, their email, company number, then the logo.
+    // Signature under the message (Andy 26 Oct; filled in fuller 19 Nov): who sent it, their phone and email, the company,
+    // its address and phone, company and VAT numbers, then the logo. The app shows the same (components/EmailSignature.tsx).
     const regNo = String(fset?.company_reg_no || '').trim(), vatNo = String(fset?.company_vat_no || '').trim();
-    const sigLines = [caller.name || '', company, caller.email || '', regNo ? 'Company No. ' + regNo : '', vatNo ? 'VAT No. ' + vatNo : ''].filter(Boolean);
+    const sigLines = [caller.name || '', sigContact, company, sigAddr, sigTel ? 'Tel: ' + sigTel : '', regNo ? 'Company No. ' + regNo : '', vatNo ? 'VAT No. ' + vatNo : ''].filter(Boolean);
     const sigHtml = `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:18px 0 6px;border-top:1px solid #ECEEF2;padding-top:14px;width:100%;"><tr><td style="padding-top:14px;">`
       + (caller.name ? `<div style="font-size:15px;font-weight:700;color:#101114;">${ophubEsc(caller.name)}</div>` : '')
-      + `<div style="font-size:13.5px;color:#3A3B3E;line-height:1.6;">${ophubEsc(company)}</div>`
-      + (caller.email ? `<div style="font-size:13.5px;line-height:1.6;"><a href="mailto:${ophubEsc(caller.email)}" style="color:#2F6FDE;text-decoration:none;">${ophubEsc(caller.email)}</a></div>` : '')
+      + (sigContact ? `<div style="font-size:13.5px;color:#3A3B3E;line-height:1.6;">${prof?.phone ? ophubEsc(String(prof.phone).trim()) + (sigEmail ? ' · ' : '') : ''}${sigEmail ? `<a href="mailto:${ophubEsc(sigEmail)}" style="color:#2F6FDE;text-decoration:none;">${ophubEsc(sigEmail)}</a>` : ''}</div>` : '')
+      + `<div style="font-size:13.5px;font-weight:700;color:#101114;line-height:1.6;margin-top:4px;">${ophubEsc(company)}</div>`
+      + (sigAddr ? `<div style="font-size:13.5px;color:#3A3B3E;line-height:1.6;">${ophubEsc(sigAddr)}</div>` : '')
+      + (sigTel ? `<div style="font-size:13.5px;color:#3A3B3E;line-height:1.6;">Tel: ${ophubEsc(sigTel)}</div>` : '')
       + (regNo || vatNo ? `<div style="font-size:12.5px;color:#8A8D93;line-height:1.6;">${[regNo ? 'Company No. ' + ophubEsc(regNo) : '', vatNo ? 'VAT No. ' + ophubEsc(vatNo) : ''].filter(Boolean).join(' &nbsp;·&nbsp; ')}</div>` : '')
       + (logoUrl && !hideLogo ? `<div style="margin-top:12px;"><img src="${ophubEsc(logoUrl)}" alt="${ophubEsc(company)}" height="52" style="height:52px;width:auto;max-width:200px;display:block;border:0;"></div>` : '')
       + `</td></tr></table>`;
@@ -228,7 +243,7 @@ Deno.serve(withCors(async (req) => {
     const payload: Record<string, unknown> = { from: ophubFrom(FROM_EMAIL, company), to: recipients, subject, text, html, attachments: [...(attachment ? [{ filename, content: attachment }] : []), ...extras] };
     const ccList = cc.filter((c) => !recipients.some((r) => r.toLowerCase() === c.toLowerCase()));
     if (ccList.length) payload.cc = ccList;
-    if (caller.email && EMAIL_RE.test(caller.email)) payload.reply_to = caller.email;
+    if (sigEmail && EMAIL_RE.test(sigEmail)) payload.reply_to = sigEmail;
     const res = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (!res.ok) {
       console.error('send-finance-email: provider error', res.status, await res.text());
