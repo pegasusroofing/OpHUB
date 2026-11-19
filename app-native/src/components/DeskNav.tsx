@@ -6,6 +6,7 @@ import { router, usePathname } from 'expo-router';
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 
+import { useCompanySwitcher } from '@/components/CompanySwitch';
 import { OphIcon } from '@/components/OphIcon';
 import { StorageImage } from '@/components/StorageImage';
 import { useHubBadge } from '@/data/hub';
@@ -32,6 +33,7 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
   // Projects, Finance and the Company Chat (7 Nov 2026); managers only, as only they have the HUB in the menu.
   const hubCount = useHubBadge(mgr ? me : null, org, sites, path);
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const switcher = useCompanySwitcher();
   if (!me) return null;
   const kind = homeKind(me, org);
   // Managers: the HUB feed count, as the current app (130 computeMyOutstandingCount).
@@ -125,14 +127,16 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
     <View style={drawer ? { flex: 1, backgroundColor: NAV.bg, paddingBottom: 14 } : { width: 248, backgroundColor: NAV.bg, paddingBottom: 14 }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 12 }}>
         {/* The top in the company's colour, the name in the Home header's style with OpHUB under it (Andy, 14 Nov 2026). */}
-        <Pressable onPress={() => { if (drawer) closeSideMenu(); router.navigate('/home' as never); }} accessibilityRole="link" accessibilityLabel={`${org?.name || 'OpHUB'}: Home`}
+        {/* Someone in two or more companies: the name has a ▾ and switches company (Andy, 19 Nov 2026). */}
+        <Pressable onPress={() => { if (drawer) closeSideMenu(); if (switcher.multi) void switcher.choose(); else router.navigate('/home' as never); }}
+          accessibilityRole={switcher.multi ? 'button' : 'link'} accessibilityLabel={switcher.multi ? `${org?.name || 'OpHUB'}: Switch Company` : `${org?.name || 'OpHUB'}: Home`}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: t.brand1, marginHorizontal: -12, paddingHorizontal: 18, paddingTop: 22, paddingBottom: 18, marginBottom: 10 }}>
           <View style={{ width: 40, height: 40, borderRadius: 10, borderWidth: 1, borderColor: '#EEE', overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
             {org?.logo_path ? <StorageImage bucket="org-logos" path={org.logo_path} style={{ width: 38, height: 38, resizeMode: 'contain' }} /> : <Image source={require('@/../assets/images/icon.png')} style={{ width: 38, height: 38 }} />}
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text numberOfLines={2} style={[brand(700), { fontSize: 15.5, color: t.brand1Text, lineHeight: 19, letterSpacing: 0.4 }]}>{org?.name || 'OpHUB'}</Text>
-            <Text numberOfLines={1} style={[brand(800), { fontSize: 11.5, color: t.brand1Text, opacity: 0.85, letterSpacing: 0.4, marginTop: 2 }]}>OpHUB</Text>
+            <Text numberOfLines={1} style={[brand(800), { fontSize: 11.5, color: t.brand1Text, opacity: 0.85, letterSpacing: 0.4, marginTop: 2 }]}>{switcher.multi ? 'Switch Company ▾' : 'OpHUB'}</Text>
           </View>
         </Pressable>
         {kind !== 'finance' && kind !== 'superadmin' && (

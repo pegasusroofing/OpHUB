@@ -58,6 +58,12 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Forbidden — that person isn't in your company" }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // Someone who also belongs to another company (company switching, 19 Nov 2026): only this company's access goes and
+    // they're moved to their other company - removing them here never deletes their login or their other companies.
+    const { data: detached, error: detErr } = await admin.rpc('detach_from_company', { p_user_id: userId, p_org_id: callerProfile.org_id });
+    if (detErr) return new Response(JSON.stringify({ error: 'Could not remove them - please try again.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (detached === true) return new Response(JSON.stringify({ ok: true, deleted: target.name || target.email, kept_other_companies: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
     const { error: delErr } = await admin.auth.admin.deleteUser(userId);
     if (delErr) return new Response(JSON.stringify({ error: delErr.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 

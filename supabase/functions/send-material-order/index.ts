@@ -202,7 +202,7 @@ Deno.serve(withCors(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
 
-    const { data: callerProfile } = await admin.from('profiles').select('role, org_id, name').eq('id', userData.user.id).maybeSingle();
+    const { data: callerProfile } = await admin.from('profiles').select('role, org_id, name, email').eq('id', userData.user.id).maybeSingle();
     if (!callerProfile || (callerProfile.role !== 'pm' && callerProfile.role !== 'admin')) {
       return new Response(JSON.stringify({ error: 'Forbidden — project managers and admins only' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
@@ -294,7 +294,8 @@ Deno.serve(withCors(async (req) => {
       return new Response(JSON.stringify({ error: 'Email sending is not configured yet (missing RESEND_API_KEY secret) — the order was routed but not emailed.' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const requesterEmail = userData.user.email;
+    // Replies go to the email for the company they're in (company switching, 19 Nov 2026), else their login email.
+    const requesterEmail = callerProfile.email || userData.user.email;
     const companyName = org?.name || 'a company';
     const brand = org?.color_primary || null;
     const logoUrl = org?.logo_path ? `${SUPABASE_URL}/storage/v1/object/public/org-logos/${org.logo_path}` : null;

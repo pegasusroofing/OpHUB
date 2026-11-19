@@ -1,15 +1,21 @@
 // Invite-only account creation. Ported from 150-join-invite-only-account-creation.js.
-import { router, useLocalSearchParams } from 'expo-router';
+// Signed in already (company switching, 19 Nov 2026): the invite adds its company to that login instead.
+import { useQueryClient } from '@tanstack/react-query';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 
+import { confirmAsk } from '@/components/toast';
 import { Button, Card, Field, Muted, Notice, Screen, Title } from '@/components/ui';
+import { joinCompanyWithInvite, switchCompany } from '@/data/companies';
 import { getInviteInfo, useAuth } from '@/lib/auth';
+import { isBetaSite } from '@/lib/betaOnly';
 import type { InviteInfo } from '@/lib/types';
 import { ThemeProvider } from '@/theme/theme';
 
 export default function Join() {
   const { invite } = useLocalSearchParams<{ invite: string }>();
-  const { join } = useAuth();
+  const { join, me, refresh, signOut } = useAuth();
+  const qc = useQueryClient();
   const [info, setInfo] = useState<InviteInfo | null | undefined>(undefined);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -31,12 +37,14 @@ export default function Join() {
     else if (r.done) setDone(r.done);
   };
 
+  // Signed in, off the beta link: home, as before the page was opened to signed-in people.
+  if (me && (!isBetaSite() || me.role === 'superadmin')) return <Redirect href={'/home' as never} />;
   if (info === undefined) return <Screen center><Muted>Checking invite…</Muted></Screen>;
   if (done) {
     return (
       <Screen center>
         <Card>
-          <Title>You're all set</Title>
+          <Title>You&apos;re all set</Title>
           <Muted style={{ marginBottom: 16 }}>{done}</Muted>
           <Button title="Go to log in" onPress={() => router.replace('/login')} />
         </Card>
@@ -47,10 +55,39 @@ export default function Join() {
     return (
       <Screen center>
         <Card>
-          <Muted style={{ marginBottom: 12 }}>This invite link isn't valid — it may have already been used or expired. Ask your Project Manager for a new one.</Muted>
+          <Muted style={{ marginBottom: 12 }}>This invite link isn&apos;t valid — it may have already been used or expired. Ask your Project Manager for a new one.</Muted>
           <Button kind="ghost" title="Back to Sign In" onPress={() => router.replace('/login')} />
         </Card>
       </Screen>
+    );
+  }
+  // Already signed in (company switching, 19 Nov 2026): add this company to the same login instead of a new account.
+  if (me && isBetaSite() && me.role !== 'superadmin') {
+    return (
+      <ThemeProvider org={{ ...info, id: '', name: info.org_name, plan_tier: '', has_pm: true, has_finance: false }}>
+        <Screen center>
+          <Card>
+            <Title>Add {info.org_name}?</Title>
+            <Muted style={{ marginBottom: 12 }}>You&apos;re signed in as {me.name}. Add {info.org_name} to your account, and switch between your companies from the top of the menu. Each company keeps its own work, and your role in it is the one it gave you.</Muted>
+            {error && <Notice kind="error" text={error} />}
+            <Button title={busy || `Add ${info.org_name} To My Account`} busy={!!busy} onPress={async () => {
+              if (busy || !invite) return;
+              setError(null); setBusy('Adding…');
+              const r = await joinCompanyWithInvite(invite);
+              setBusy(null);
+              if (typeof r === 'string') { setError(r); return; }
+              void qc.invalidateQueries({ queryKey: ['myCompanies'] });
+              if (await confirmAsk(`${r.company} is on your account. Switch to it now?`, 'Yes', 'No')) {
+                const err = await switchCompany(r.orgId);
+                if (err) { setError(err); return; }
+                qc.clear(); await refresh();
+              }
+              router.replace('/home' as never);
+            }} />
+            <Button kind="ghost" title="Sign Out To Make A Separate Account" onPress={() => void signOut()} />
+          </Card>
+        </Screen>
+      </ThemeProvider>
     );
   }
   return (
@@ -58,7 +95,7 @@ export default function Join() {
       <Screen center>
         <Card>
           <Title>Join OpHUB</Title>
-          <Muted style={{ marginBottom: 12 }}>You've been invited to join {info.org_name} on OpHUB.</Muted>
+          <Muted style={{ marginBottom: 12 }}>You&apos;ve been invited to join {info.org_name} on OpHUB.</Muted>
           {error && <Notice kind="error" text={error} />}
           <Field label="Your Name" value={name} onChangeText={setName} placeholder="e.g. Andy Turner" autoComplete="name" />
           <Field label="Email" value={email} onChangeText={setEmail} placeholder="you@yourcompany.co.uk" autoCapitalize="none" keyboardType="email-address" autoComplete="email" />

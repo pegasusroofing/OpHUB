@@ -199,7 +199,10 @@ Deno.serve(withCors(async (req) => {
     const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
 
-    const { data: prof } = await admin.from('profiles').select('id, name, org_id').ilike('email', email.replace(/[\\%_]/g, (c) => '\\' + c)).limit(1).maybeSingle();
+    // By the login email (company switching, 19 Nov 2026: a profile's email can be the email for the company they're in).
+    const { data: login } = await admin.rpc('login_user_by_email', { p_email: email });
+    const loginRow = Array.isArray(login) && login[0] ? login[0] as { id: string } : null;
+    const { data: prof } = loginRow ? await admin.from('profiles').select('id, name, org_id').eq('id', loginRow.id).maybeSingle() : { data: null };
     if (!prof) return json({ ok: true });
 
     // L10: at most 3 reset emails per address per hour (stops this public

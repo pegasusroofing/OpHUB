@@ -9,6 +9,8 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Empty, Muted, SectionTitle } from '@/components/ui';
 import { removeMember, setPhone, setSubform, toggleFinance, useTeam, type TeamMember } from '@/data/admin';
+import { removeCompanyAccess, useAccessElsewhere } from '@/data/companies';
+import { isBetaSite } from '@/lib/betaOnly';
 import { setPersonRole, useOrgRoles } from '@/data/orgRoles';
 import { useAuth } from '@/lib/auth';
 import { isFinanceUser, isFullManager, isManager } from '@/lib/roles';
@@ -26,6 +28,7 @@ export default function Users() {
   const { data: team = [], isLoading } = useTeam(me?.org_id);
   const { data: roles = [], isLoading: rolesLoading } = useOrgRoles(me?.org_id);
   const th = useTheme();
+  const { data: elsewhere = [] } = useAccessElsewhere(isBetaSite() && me?.role === 'admin', me?.org_id);
   // Initials coloured by role, as the current app (260): admins the company's second colour, PMs and drivers the main colour, the rest grey.
   const swatch = (role: string) => (role === 'admin' ? th.brand2 || base.ink : role === 'pm' || role === 'driver' ? th.brand1 : role === 'site_manager' ? '#6B6F78' : '#4B4F58');
   const swatchText = (role: string) => (role === 'pm' || role === 'driver' ? th.brand1Text : '#fff');
@@ -125,6 +128,28 @@ Pass it on securely — it won’t be shown again.`, 'Password reset');
           </View>
         );
       })}
+      {/* Company switching (19 Nov 2026): people who can switch into this company but are in another of theirs right now.
+          The company's admin can take that access away. */}
+      {!!elsewhere.length && (
+        <View>
+          <SectionTitle>Also Has Access</SectionTitle>
+          <Muted style={{ marginBottom: 6 }}>These people also belong to another company and are using it right now. They can switch back here with the role shown.</Muted>
+          {elsewhere.map((p) => (
+            <View key={p.user_id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 4, backgroundColor: base.card }}>
+              <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, fontSize: 13.5 }}>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{p.name}</Text>
+                <Text style={{ fontSize: 12, color: base.slate }}>{p.work_email ? `  ${p.work_email}` : ''}{p.role ? ` · ${roleName({ id: p.user_id, role: p.role }, roles)}` : ''}</Text>
+              </Text>
+              {iAmAdmin && <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${p.name}'s access`} hitSlop={6} onPress={async () => {
+                if (!(await confirmAsk(`Remove ${p.name}'s access to ${org?.name || 'this company'}? Their other companies aren't affected.`, 'Yes', 'No'))) return;
+                const err = await removeCompanyAccess(p.user_id);
+                if (err) { showAlert(err); return; }
+                void qc.invalidateQueries({ queryKey: ['accessElsewhere'] });
+              }}><Text style={{ fontSize: 12, fontWeight: '600', color: base.warn }}>Remove Access</Text></Pressable>}
+            </View>
+          ))}
+        </View>
+      )}
       <Muted style={{ marginTop: 14 }}>Project Managers and Admins can remove Operatives and Drivers. Only a Company Admin can remove a Project Manager, Site Manager or another Admin.</Muted>
     </ScrollView>
   );

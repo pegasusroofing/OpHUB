@@ -232,7 +232,7 @@ Deno.serve(withCors(async (req) => {
     if (userErr || !userData?.user) return new Response(JSON.stringify({ error: 'Not authenticated' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
-    const { data: caller } = await admin.from('profiles').select('role, org_id, name').eq('id', userData.user.id).maybeSingle();
+    const { data: caller } = await admin.from('profiles').select('role, org_id, name, email').eq('id', userData.user.id).maybeSingle();
     // Anyone who can add a to-do (pm/admin/site_manager) can trigger this —
     // matches who the app lets add a to-do with an assignee in the first place.
     if (!caller) {
@@ -308,7 +308,7 @@ Deno.serve(withCors(async (req) => {
             note,
           });
 
-          const emailPayload = { from: ophubFrom(FROM_EMAIL, org?.name || ''), to: [target.email], subject, text, html, reply_to: [userData.user.email].filter(Boolean) };
+          const emailPayload = { from: ophubFrom(FROM_EMAIL, org?.name || ''), to: [target.email], subject, text, html, reply_to: [caller?.email || userData.user.email].filter(Boolean) }; // Replies go to the email for the company they're in (company switching, 19 Nov 2026), else their login email.
           const emailRes = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },

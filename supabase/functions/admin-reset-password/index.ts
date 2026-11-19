@@ -87,7 +87,12 @@ Deno.serve(withCors(async (req) => {
       return new Response(JSON.stringify({error:'Custom password must be at least 8 characters'}), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const { data: targetProfile } = await admin.from('profiles').select('id,email').ilike('email', targetEmail).maybeSingle();
+    // By their login email (company switching, 19 Nov 2026: a profile's email can be the email for the company they're
+    // in), then by a profile email as before.
+    const { data: login } = await admin.rpc('login_user_by_email', { p_email: targetEmail });
+    const loginRow = Array.isArray(login) && login[0] ? login[0] as { id: string; email: string } : null;
+    let targetProfile = loginRow ? (await admin.from('profiles').select('id,email').eq('id', loginRow.id).maybeSingle()).data : null;
+    if (!targetProfile) targetProfile = (await admin.from('profiles').select('id,email').ilike('email', targetEmail).maybeSingle()).data;
     if (!targetProfile) return new Response(JSON.stringify({error:'No user found with that email'}), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     const newPassword = customPassword || randomPassword();
@@ -96,7 +101,7 @@ Deno.serve(withCors(async (req) => {
     // rule) - shown to the superadmin on purpose, so it is kept.
     if (updErr) { console.error('admin-reset-password: update failed', updErr); return new Response(JSON.stringify({error: updErr.message}), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }); }
 
-    return new Response(JSON.stringify({ ok:true, email: targetProfile.email, new_password: newPassword, was_custom: !!customPassword }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ ok:true, email: loginRow?.email || targetProfile.email, new_password: newPassword, was_custom: !!customPassword }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     console.error('admin-reset-password failed', e);
     return new Response(JSON.stringify({error:'Something went wrong — please try again.'}), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

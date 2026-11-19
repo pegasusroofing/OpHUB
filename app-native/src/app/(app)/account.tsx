@@ -3,12 +3,15 @@
 // than closed and click to edit ... My employee record should be under hr ... Sign out should be a standalone button"):
 // plain rows as Finance's lists; the phone number shows as a row and opens to edit; My Employee Record only for people
 // with no HR page (managers have it in HR › Employee Records); Sign Out on its own under the card.
+import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 
+import { useCompanySwitcher } from '@/components/CompanySwitch';
 import { ListGroup, PlainRow } from '@/components/ListRows';
-import { useToast } from '@/components/toast';
+import { chooseAction, promptText, showAlert, useToast } from '@/components/toast';
+import { setCompanyEmail } from '@/data/companies';
 import { Button, Field, Muted, Screen } from '@/components/ui';
 import { saveMyPhone } from '@/data/onboarding';
 import { resetHowTo } from '@/lib/howto';
@@ -25,6 +28,8 @@ export default function Account() {
   const [busy, setBusy] = useState<'' | 'out' | 'phone'>('');
   const saved = (me as { phone?: string | null } | null)?.phone || '';
   const [phone, setPhone] = useState<string | null>(null); // null: closed
+  const switcher = useCompanySwitcher();
+  const qc = useQueryClient();
   useEffect(() => {
     pendingUploads().then((j) => setQueued(j.length));
     return onQueueChange((j) => setQueued(j.length));
@@ -72,6 +77,25 @@ export default function Account() {
         )}
         <PlainRow label="Show The How-To Tips Again" last onPress={async () => { await resetHowTo(me); toast('The how-to tips will show again as you open each page'); void refresh(); }} />
       </ListGroup>
+      {/* My Companies (company switching, 19 Nov 2026): each company on this login, and my email for it - replies to
+          what I send from a company go to its email. Tap one to switch to it or change its email. */}
+      {switcher.multi && (
+        <ListGroup title="My Companies">
+          {switcher.companies.map((c, i) => (
+            <PlainRow key={c.org_id} label={`${c.name}${c.is_current ? ' (Current)' : ''}`} value={c.work_email || ''} sub="Email for this company" last={i === switcher.companies.length - 1}
+              a11y={`${c.name}: switch or change email`} onPress={async () => {
+                const k = await chooseAction(c.name, [...(c.is_current ? [] : [{ key: 'switch', label: 'Switch To This Company' }]), { key: 'email', label: 'Change The Email For This Company' }]);
+                if (k === 'switch') { await switcher.choose(); return; }
+                if (k !== 'email') return;
+                const e = (await promptText(`Your email for ${c.name} (replies to what you send from ${c.name} go here):`, c.work_email || ''))?.trim();
+                if (!e || e === c.work_email) return;
+                const err = await setCompanyEmail(c.org_id, e);
+                if (err) { showAlert(err); return; }
+                void qc.invalidateQueries({ queryKey: ['myCompanies'] }); void refresh();
+              }} />
+          ))}
+        </ListGroup>
+      )}
       {queued > 0 && <Muted style={{ marginTop: 8 }}>{queued} photo{queued === 1 ? '' : 's'} waiting for signal to upload.</Muted>}
       {/* Sign Out on its own, under the card (Andy, 18 Nov 2026). */}
       <View style={{ alignItems: 'center', marginTop: 18 }}>

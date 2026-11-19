@@ -55,8 +55,10 @@ function Root() {
         </Stack.Protected>
         <Stack.Protected guard={!signedIn}>
           <Stack.Screen name="login" />
-          <Stack.Screen name="join/[invite]" />
         </Stack.Protected>
+        {/* Signed in or out (company switching, 19 Nov 2026): signed in, an invite adds its company to that login (beta
+            link; elsewhere the page sends a signed-in person home, as before). */}
+        <Stack.Screen name="join/[invite]" />
         {/* Reachable signed in or out, like the current app's #/reset. */}
         <Stack.Screen name="reset" />
         {/* The public subcontractor sign-up form (18 Nov 2026), signed in or out. */}
