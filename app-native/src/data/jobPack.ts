@@ -25,12 +25,16 @@ export async function setupJobPack(siteId: string): Promise<SetupResult> {
   packs.delete(siteId);
   return r.data;
 }
-/** After a new job: sets its folder up if the company uses the pack. Best effort: a button on the job can do it later.
- *  want: the new job form's "Create OneDrive folder" tick (Andy, 8 Nov 2026); false leaves the job without one. */
-export async function setupNewJobPack(orgId: string | null | undefined, siteId: string, want = true): Promise<void> {
-  if (!orgId || !want) return;
+/** After a new job: sets its folder up if the company uses the pack, which also links the job to that folder. Gives
+ *  what happened, or null when there's nothing to do. A button on the job can do it again later.
+ *  want: the new job form's "Create OneDrive folder" tick (Andy, 8 Nov 2026); false leaves the job without one.
+ *  Awaited by the new job form since 19 Nov 2026 (Andy: "when i create a job ... it still doesnt auto save to the one
+ *  drive i have to still link the folder"): it ran in the background, so the job opened before it was linked. */
+export async function setupNewJobPack(orgId: string | null | undefined, siteId: string, want = true): Promise<SetupResult | null> {
+  if (!orgId || !want) return null;
   const s = (await db.from('job_pack_settings').select('enabled').eq('org_id', orgId).maybeSingle()).data as { enabled: boolean } | null;
-  if (s?.enabled) void setupJobPack(siteId).catch(() => undefined);
+  if (!s?.enabled) return null;
+  return setupJobPack(siteId).catch(() => ({ error: 'Could not reach OneDrive.' }));
 }
 
 /** May a new job for this client get a folder? No only when the Directory says so (Andy, 8 Nov 2026). */

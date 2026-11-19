@@ -95,7 +95,14 @@ export default function NewProject() {
       setStep('');
       syncTracker(me.org_id as string, org);
       if (notes.length) showAlert(`The project is made. ${notes.join('. ')}.`);
-    } else void setupNewJobPack(me.org_id, r.id, wantFolder);
+    } else if (wantFolder) {
+      // The folders are made, and the job linked to them, before the job opens (Andy, 19 Nov 2026: "when i create a job
+      // ... it still doesnt auto save to the one drive i have to still link the folder"; it ran in the background before).
+      setStep('Making the OneDrive folders…');
+      const p = await setupNewJobPack(me.org_id, r.id, wantFolder);
+      setStep('');
+      if (p && 'error' in p) showAlert(`The project is made, but not its OneDrive folder: ${p.error} Try again from Settings & Admin › OneDrive sync folder › Set up job pack folder.`);
+    }
     setBusy(false);
     await qc.invalidateQueries({ queryKey: ['sites'] });
     await qc.invalidateQueries({ queryKey: ['quotes'] });

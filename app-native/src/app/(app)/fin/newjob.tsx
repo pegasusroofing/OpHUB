@@ -102,7 +102,9 @@ export default function FinNewJob() {
         else if (up.length < files.length) warn = warn || 'Project created. Some PO files didn’t upload — add them from Project Admin.';
       }
       const made = ((await fdb.from('sites').select('job_number').eq('id', id).maybeSingle()).data as Row | null) ?? row;
-      void setupNewJobPack(me.org_id, id, wantFolder);
+      // Folders made and the job linked to them before it opens (Andy, 19 Nov 2026).
+      const pk = await setupNewJobPack(me.org_id, id, wantFolder);
+      if (pk && 'error' in pk) warn = warn || `Project created, but not its OneDrive folder: ${pk.error}`;
       void qc.invalidateQueries();
       toast(warn || `Project ${made.job_number || ''} created`);
       router.replace(`/fin/job/${id}?setup=1` as never);

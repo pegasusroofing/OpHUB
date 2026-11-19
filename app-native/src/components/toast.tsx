@@ -1,7 +1,7 @@
 // Messages, Yes / No questions, prompts and menus. They all open in a tidy pop-up next to where you
 // tapped (components/Popup), with an ✕ to close. "Saved" / "Added" style messages aren't shown —
 // only the ones you need to act on (could not…, enter…, choose…).
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { DateAskHost } from '@/components/DateField';
 import { DocViewerHost } from '@/components/DocViewer';
 import { EmailPromptHost } from '@/components/EmailPrompt';
@@ -77,11 +77,21 @@ export function PromptHost() {
     promptListeners.add(l);
     return () => { promptListeners.delete(l); };
   }, []);
+  // Ready to type as soon as it opens (Andy, 19 Nov 2026: the mark-up's Text "pops up with a text box but doesnt
+  // automatically take me into the box"). autoFocus alone loses to the tap that opened it on a laptop, so the box is
+  // focused again just after the pop-up appears.
+  const input = useRef<ComponentRef<typeof TextInput>>(null);
+  const openN = req?.n;
+  useEffect(() => {
+    if (!openN) return;
+    const t = [60, 250].map((ms) => setTimeout(() => input.current?.focus(), ms));
+    return () => t.forEach(clearTimeout);
+  }, [openN]);
   if (!req) return null;
   const done = (v: string | null) => { popupClosed(); req.resolve(v); setReq(null); };
   return (
     <Popup key={req.n} title={req.message} onClose={() => done(null)} footer={<PopupButtons yes={req.opts.ok || 'OK'} onYes={() => done(val)} />}>
-      <TextInput value={val} onChangeText={setVal} autoFocus onSubmitEditing={() => done(val)} placeholder={req.opts.placeholder} placeholderTextColor="#9AA1AB" style={box} />
+      <TextInput ref={input} value={val} onChangeText={setVal} autoFocus onSubmitEditing={() => done(val)} placeholder={req.opts.placeholder} placeholderTextColor="#9AA1AB" style={box} />
     </Popup>
   );
 }

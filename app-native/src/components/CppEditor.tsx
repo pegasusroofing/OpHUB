@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Image, Linking, Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
 
 import { DateBox } from '@/components/DateField';
+import { promptEmail } from '@/components/EmailPrompt';
 import { FinTabs } from '@/components/FinNav';
 import { MapSnapshot } from '@/components/MapSnapshot';
 import { MarkupEditor } from '@/components/MarkupEditor';
@@ -18,7 +19,7 @@ import { deleteCpp, findHospital, issueCpp, pointFor, previewCpp, saveCpp, saveC
 import { openDocLink } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { showPdf } from '@/lib/fileOut';
+import { deliverPdf, emailPdf, showPdf } from '@/lib/fileOut';
 import { pickPhotos } from '@/lib/photos';
 import { blankCpp, cppMissing, cppUid, f10Needed, fillCpp, type CppMarks, type CppPlan, type CppSection } from '@/lib/rules/cpp';
 import type { MarkOp } from '@/lib/rules/markup';
@@ -333,20 +334,69 @@ export function CppEditor(props: JobProps | TemplateProps) {
   // ----- Issue and revisions -----
   const missing = cppMissing(p);
   const issued = row?.status === 'issued';
+  // The issued plan first, as a RAMS row: its version, when and who, and View / Export / Email; revising it underneath,
+  // smaller (Andy, 19 Nov 2026: "make this a bit more like the rams layout, so the issued CPP is more prominent rather
+  // than the preview pdf etc. also add export / email buttons in here please").
+  const cur = issued ? p.revisions.find((r) => r.version === row?.version && r.path) ?? null : null;
+  const older = p.revisions.filter((r) => r.version !== cur?.version).sort((a, b) => b.version - a.version);
+  const fileName = (v: number) => `Construction Phase Plan - ${(p.siteName || 'Job').replace(/[\\/:*?"<>|]+/g, '-')} - v${v}.pdf`;
+  const issuedBytes = async (path: string) => { const u = await openDocLink('mc-documents', path); if (!u) return null; try { return new Uint8Array(await (await fetch(u)).arrayBuffer()); } catch { return null; } };
+  const exportPdf = async (path: string, v: number) => {
+    setBusy('ex'); const b = await issuedBytes(path); setBusy('');
+    if (!b || !(await deliverPdf(b, fileName(v)))) toast('Could not save the PDF - try again.');
+  };
+  const emailIt = async (path: string, v: number) => {
+    const to = await promptEmail('Email the Construction Phase Plan to:', { myEmail: me.email, clientEmail: site?.client_email }); if (!to) return;
+    setBusy('em'); const b = await issuedBytes(path);
+    const err = b ? await emailPdf(b, fileName(v), `${siteId}/cpp-exports`, { site_id: siteId, recipient_email: to.to, cc_email: to.cc, client_cc_email: to.clientCc, doc_title: `Construction Phase Plan - ${p.siteName || 'Job'} (Version ${v})` }) : 'Could not open the PDF - try again.';
+    setBusy('');
+    if (err) showAlert(err);
+  };
+  const when = (r: { date?: string | null; by?: string | null }) => `${r.date ? new Date(`${r.date}T00:00:00`).toLocaleDateString('en-GB') : ''}${r.by ? ` by ${r.by}` : ''}`;
   const issue = () => (
     <>
+      {cur ? (
+        <Card>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Text style={{ fontSize: 28 }}>📘</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 17, fontWeight: '700', color: base.ink }}>Construction Phase Plan · Version {cur.version}</Text>
+              <Muted>Issued {when(cur)} · in the Construction Phase Plan folder{cur.note && cur.version > 1 ? ` · ${cur.note}` : ''}</Muted>
+            </View>
+          </View>
+          {centre(
+            <Button key="vw" small kind="ghost" title="👁 View" onPress={async () => { const u = await openDocLink('mc-documents', cur.path as string); if (u) viewDoc(u); else toast('Could not open the PDF.'); }} />,
+            <Button key="ex" small kind="ghost" busy={busy === 'ex'} title="⬇ Export" onPress={() => void exportPdf(cur.path as string, cur.version)} />,
+            <Button key="em" small kind="ghost" busy={busy === 'em'} title="✉ Email" onPress={() => void emailIt(cur.path as string, cur.version)} />,
+          )}
+          {older.length > 0 && (
+            <View style={{ marginTop: 12 }}>
+              <Muted style={{ fontWeight: '600', marginBottom: 2 }}>Earlier Versions</Muted>
+              {older.map((r) => (
+                <View key={r.version} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, borderTopWidth: 1, borderTopColor: base.line }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: base.ink }}>Version {r.version} (Superseded)</Text>
+                    <Muted style={{ fontSize: 12 }}>{when(r)}{r.note ? ` · ${r.note}` : ''}</Muted>
+                  </View>
+                  {r.path ? <Button small kind="ghost" title="View" onPress={async () => { const u = await openDocLink('mc-documents', r.path as string); if (u) viewDoc(u); else toast('Could not open the PDF.'); }} /> : null}
+                </View>
+              ))}
+            </View>
+          )}
+        </Card>
+      ) : null}
       <Card>
-        <SectionTitle>{issued ? `Issued As Version ${row?.version}` : 'Ready To Issue?'}</SectionTitle>
+        <SectionTitle>{issued ? 'Revise The Plan' : 'Ready To Issue?'}</SectionTitle>
         {missing.length ? <Muted style={{ color: base.warn, marginBottom: 8 }}>Still to fill in: {missing.join(', ')}.</Muted> : <Muted style={{ marginBottom: 8 }}>Everything needed is filled in.</Muted>}
-        <Muted style={{ marginBottom: 10 }}>{issued ? `To revise the plan, change what's needed on the other tabs, then issue revision ${p.version + 1} here. You'll be asked what has changed; the earlier version stays in the folder, marked superseded.` : 'Issuing makes the PDF and puts it in this job\'s Construction Phase Plan folder.'}</Muted>
+        <Muted style={{ marginBottom: 10 }}>{issued ? `Change what's needed on the other tabs, then issue revision ${p.version + 1} here. You'll be asked what has changed; the earlier version stays in the folder, marked superseded.` : 'Issuing makes the PDF and puts it in this job\'s Construction Phase Plan folder.'}</Muted>
         {centre(
-          <Button key="pv" kind="ghost" busy={busy === 'pv'} title="Preview PDF" onPress={async () => {
+          <Button key="pv" small={issued} kind="ghost" busy={busy === 'pv'} title="Preview PDF" onPress={async () => {
             if (timer.current) await saveNow();
             setBusy('pv');
             try { const out = await previewCpp(org as never, siteId, latest.current); await showPdf(out.bytes, `Construction Phase Plan - ${p.siteName || 'Job'}.pdf`); } catch { toast('Could not make the PDF - try again.'); }
             setBusy('');
           }} />,
-          <Button key="is" busy={busy === 'is'} title={issued ? `Issue Revision ${p.version + 1}` : 'Issue Plan'} onPress={async () => {
+          <Button key="is" small={issued} kind={issued ? 'ghost' : 'primary'} busy={busy === 'is'} title={issued ? `Issue Revision ${p.version + 1}` : 'Issue Plan'} onPress={async () => {
             if (missing.length && !(await confirmAsk(`Still to fill in: ${missing.join(', ')}.\n\nIssue it anyway?`, 'Yes', 'No'))) return;
             let note = 'First issue';
             if (issued) { const n = await promptText(`What has changed in revision ${p.version + 1}?`, ''); if (n === null) return; if (!n.trim()) { showAlert('Say briefly what has changed, so it shows in the revision history.'); return; } note = n.trim(); }
@@ -359,20 +409,6 @@ export function CppEditor(props: JobProps | TemplateProps) {
           }} />,
         )}
       </Card>
-      {!!p.revisions.length && (
-        <Card>
-          <SectionTitle>Revision History</SectionTitle>
-          {p.revisions.slice().sort((a, b) => b.version - a.version).map((r) => (
-            <View key={r.version} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: base.line }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '600', color: base.ink }}>Version {r.version}{r.version === row?.version ? ' (Current)' : ' (Superseded)'}</Text>
-                <Muted>{r.date ? new Date(`${r.date}T00:00:00`).toLocaleDateString('en-GB') : ''}{r.by ? ` · ${r.by}` : ''}{r.note ? ` · ${r.note}` : ''}</Muted>
-              </View>
-              {r.path ? <Button small kind="ghost" title="View PDF" onPress={async () => { const u = await openDocLink('mc-documents', r.path as string); if (u) viewDoc(u); else toast('Could not open the PDF.'); }} /> : null}
-            </View>
-          ))}
-        </Card>
-      )}
       <Card>
         {centre(
           <Button key="def" small kind="ghost" busy={busy === 'def'} title="Save Wording To Company Template" onPress={async () => {

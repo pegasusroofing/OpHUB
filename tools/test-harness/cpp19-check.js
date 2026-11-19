@@ -132,8 +132,14 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
       await tab(/^Issue/);
       await page.getByText('Issue Plan', {exact: true}).click(); await page.waitForTimeout(7000);
       check((db.mc_documents || []).some((d) => /Construction Phase Plan v1/.test(d.name)) && db.cpp_plans[0].status === 'issued', 'laptop: Issue Plan files v1 in the CPP folder');
-      check(/Issue Revision 2/.test(await text()) && /Revision History/i.test(await text()), 'laptop: once issued: Issue Revision 2 and the revision history');
+      // The issued plan first, as a RAMS row, with View / Export / Email; revising under it (Andy, 19 Nov 2026).
+      check(/Construction Phase Plan · Version 1/.test(await text()) && /👁 View/.test(await text()) && /⬇ Export/.test(await text()) && /✉ Email/.test(await text()) && /Revise The Plan/i.test(await text()) && /Issue Revision 2/.test(await text()), 'laptop: once issued: the issued plan with View / Export / Email, then Revise The Plan');
+      await page.screenshot({path: path.join(SHOTS, 'laptop-issued-v1.png'), fullPage: true});
       await page.getByText('Issue Revision 2', {exact: true}).click(); await page.waitForTimeout(800);
+      // Typing boxes that pop up are ready to type in (Andy, 19 Nov 2026: the mark-up's Text box "doesnt automatically
+      // take me into the box"): it's the same pop-up everywhere, so type without clicking into it.
+      await page.keyboard.type('Scaffold moved');
+      check(/Scaffold moved/.test(await page.locator('input,textarea').filter({visible: true}).last().inputValue()), 'laptop: the "what has changed" box is ready to type in without clicking it');
       await page.locator('input,textarea').filter({visible: true}).last().fill('Scaffold moved to the rear elevation'); await page.getByText('OK', {exact: true}).last().click(); await page.waitForTimeout(7000);
       const docs = db.mc_documents || [];
       check(docs.some((d) => /v2/.test(d.name)) && docs.some((d) => /v1.*Superseded by v2/.test(d.name)), `laptop: revision 2 is filed and v1 is marked superseded (${docs.map((d) => d.name).join(' / ')})`);
@@ -143,6 +149,18 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
       check(pages >= 9, `laptop: the revision's PDF is made (${pages} pages, with the site plan)`);
       if (pdfs.length) fs.writeFileSync(path.join(SHOTS, 'cpp-sample.pdf'), pdfs[pdfs.length - 1]);
       await page.screenshot({path: path.join(SHOTS, 'laptop-issue.png'), fullPage: true});
+      check(/Construction Phase Plan · Version 2/.test(await text()) && /Earlier Versions/i.test(await text()) && /Version 1 \(Superseded\)/.test(await text()), 'laptop: after a revision the top shows Version 2, with Version 1 under Earlier Versions');
+      const sent = []; global.__fn = (name, body) => { if (name === 'send-document-email') sent.push(body); return null; };
+      await page.getByText('✉ Email', {exact: true}).first().click(); await page.waitForTimeout(800);
+      await page.locator('input[placeholder="name@company.co.uk"]').fill('client@example.co.uk'); await page.getByText('Send', {exact: true}).last().click(); await page.waitForTimeout(4000);
+      check(sent.length === 1 && sent[0].recipient_email === 'client@example.co.uk' && /Construction Phase Plan .*Version 2/.test(sent[0].doc_title || ''), `laptop: ✉ Email sends the issued plan (${sent.length ? sent[0].doc_title : 'nothing sent'})`);
+      global.__fn = null;
+      // Export asks how, as everywhere (📄 PDF, or ☁️ OneDrive when it's linked): choose the PDF.
+      const [dl] = await Promise.all([page.waitForEvent('download', {timeout: 20000}).catch(() => null), (async () => {
+        await page.getByText('⬇ Export', {exact: true}).first().click(); await page.waitForTimeout(2500);
+        const pdfChoice = page.getByText('📄 PDF', {exact: true}); if (await pdfChoice.count()) await pdfChoice.last().click();
+      })()]);
+      check(!!dl && /Construction Phase Plan - .* - v2\.pdf$/.test(dl.suggestedFilename()), `laptop: ⬇ Export saves the issued plan (${dl ? dl.suggestedFilename() : 'no file: ' + ((await text()).match(/Could not[^.]*/) || ['no message'])[0]})`);
       // The CPP template under Admin > H&S.
       await page.goto(`${B}/pm/admin/cpptemplate`); await page.waitForTimeout(5000);
       t = await text();

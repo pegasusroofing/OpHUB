@@ -11,6 +11,7 @@ import { FinMode, Muted } from '@/components/ui';
 import { FinSlotCtx } from '@/components/FinSlotCtx';
 import { fdb } from '@/data/finance';
 import { useAuth } from '@/lib/auth';
+import { finTrialFor } from '@/lib/rules/finance';
 import { canEditFinance, canRaiseOrders, financeOnlyPerson, isFinanceUser } from '@/lib/roles';
 import { base, page, radius, useTheme } from '@/theme/theme';
 
@@ -226,7 +227,8 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide, to
           </View>
           {/* A role without Finance – Edit (Admin › Roles) sees Finance look-only. */}
           {!canEditFinance(me) && <Muted style={{ marginBottom: 8 }}>View Only</Muted>}
-          {section === 'overview' && <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 10 }}><Text style={{ color: '#111827', fontSize: 12 }}>🔒 Finance trial — nothing is sent from Finance (no emails, no Xero, no pushes to PMs) while it&apos;s being tested.</Text></View>}
+          {/* Only for a company still on the Finance trial: one put live (Platform Admin) is completely separate (Andy, 19 Nov 2026). */}
+          {section === 'overview' && finTrialFor(org?.id) && <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 10 }}><Text style={{ color: '#111827', fontSize: 12 }}>🔒 Finance trial — nothing is sent from Finance (no emails, no Xero, no pushes to PMs) while it&apos;s being tested.</Text></View>}
           {!!top && <FinMode.Provider value>{top}</FinMode.Provider>}
           {subs.length > 1 && onSub && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}><View style={{ flex: 1, minWidth: 0, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' }}><KeepInView on={sub} items={subs} render={(k, l) => <TabItem on={k === sub} label={l} n={badges?.[k]} amber onPress={() => onSub(k)} />} /></View>{subRight}{slot}</View>
