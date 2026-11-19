@@ -10110,7 +10110,7 @@ function renderSignaturePad(){
       <canvas id="sigCanvas" style="width:100%;height:160px;background:#fff;border:1.5px dashed var(--line);border-radius:8px;touch-action:none;display:block;"></canvas>
       <div class="row-gap" style="margin-top:12px;">
         <button class="ghostbtn" onclick="clearSignaturePad()">Clear</button>
-        <button class="darkbtn" onclick="saveSignaturePad()">Save Signature</button>
+        <button class="darkbtn" id="sigSaveBtn" onclick="saveSignaturePad()">Save Signature</button>
       </div>
     </div>
   `, {title:'My Signature', subtitle:ME.name, back:'#/sites', tabs:false}); }
@@ -10151,21 +10151,39 @@ window.clearSignaturePad = function(){
   const canvas = document.getElementById('sigCanvas');
   if(canvas && sigCtx){ sigCtx.clearRect(0,0,canvas.width,canvas.height); sigHasDrawn = false; }
 };
+// Bug fix (Andy, 18 Nov 2026: "when saving signature, it doesn't save but lets me click multiple times, now my screens
+// froze"): one save at a time, the button says Saving… meanwhile, and a failed or slow save says so and lets you try again.
+let sigSaving = false;
 window.saveSignaturePad = async function(){
+  if(sigSaving) return;
   if(!sigHasDrawn){ toast('Draw your signature first.'); return; }
   const canvas = document.getElementById('sigCanvas');
-  const dataUrl = canvas.toDataURL('image/png');
-  const path = ME.id+'/signature-'+Date.now()+'.png';
-  const stored = await uploadDataUrl('signatures', path, dataUrl);
-  if(!stored) return;
-  const row = await dbUpdate('profiles', ME.id, {signature_path: path});
-  if(row){
+  const btn = document.getElementById('sigSaveBtn');
+  sigSaving = true;
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+  const slow = setTimeout(()=>{ toast('Still saving — check your signal.'); }, 15000);
+  let done = false;
+  try {
+    const dataUrl = canvas.toDataURL('image/png');
+    const path = ME.id+'/signature-'+Date.now()+'.png';
+    const stored = await uploadDataUrl('signatures', path, dataUrl);
+    if(!stored){ toast('Your signature didn’t save — check your signal and try again.'); return; }
+    const row = await dbUpdate('profiles', ME.id, {signature_path: path});
+    if(!row){ toast('Your signature didn’t save — try again.'); return; }
     ME.signature_path = path;
+    done = true;
     toast('Signature saved');
     // Plain history.back() would now get caught by the popstate "go up one
     // level" safety net below anyway (see edge-swipe-to-go-back), so just go
     // there directly rather than round-tripping through a real back-nav.
     go(CURRENT_BACK_HASH || '#/sites');
+  } catch(e){
+    toast('Your signature didn’t save — check your signal and try again.');
+  } finally {
+    clearTimeout(slow);
+    sigSaving = false;
+    const b = document.getElementById('sigSaveBtn');
+    if(b && !done){ b.disabled = false; b.textContent = 'Save Signature'; }
   }
 };
 

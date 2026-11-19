@@ -90,7 +90,8 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   global.__fn = undefined;
 
   // ---- 4: viewer zoom ----
-  await page.getByText('View', {exact: true}).first().click(); await page.waitForTimeout(5000);
+  // The full-width View Document button since 18 Nov.
+  await page.getByText('📄 View Document', {exact: true}).filter({visible: true}).first().click(); await page.waitForTimeout(5000);
   const cw = () => page.evaluate(() => { const c = [...document.querySelectorAll('canvas')].filter((x) => x.getBoundingClientRect().width > 0); return c.length ? Math.round(c[0].getBoundingClientRect().width) : 0; });
   const w0 = await cw();
   check(w0 > 200, `the RAMS opens in the viewer (${w0}px wide)`);

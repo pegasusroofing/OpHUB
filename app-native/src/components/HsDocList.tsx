@@ -274,7 +274,6 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
               <View style={narrow ? { alignItems: 'flex-end', gap: 6 } : { flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <StatusPill text={issued.length ? `Issued ${d(issued[0].signed_at)}` : kind === 'coshh' && r.uploaded_at && !data.roster.length ? `Issued ${d(r.uploaded_at)}` : data.roster.length ? `${signed.length} of ${data.roster.length} Signed` : 'Not Issued'} tone={issued.length || (kind === 'coshh' && !data.roster.length) || (data.roster.length && !waiting.length) ? 'ok' : waiting.length ? 'warn' : 'grey'} />
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Pressable onPress={() => view(r)} hitSlop={6} style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 7, paddingHorizontal: 10, height: 26, justifyContent: 'center' }}><Text style={{ color: '#111827', fontSize: 12.5, fontWeight: '500' }}>View</Text></Pressable>
               {signOff && (
                 <Pressable hitSlop={8} onPress={async () => {
                   const k = await chooseAction(r.name, [...(kind === 'rams' && !companyId && isFullManager(me) ? [{ key: 'revise', label: '✏️ Revise RAMS' }] : []), // Export and Email live in the row under the list (Andy, 3 Nov 2026).
@@ -327,6 +326,12 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
               </View>
               </View>
             </View>
+            {/* View Document: a full-width button like Tap To Sign (Andy, 18 Nov 2026: "make the view document button the same as
+                tap to sign, ie a bigger button full row width? Same in coshh"). */}
+            <Pressable onPress={() => view(r)} accessibilityRole="button" accessibilityLabel={`View ${r.name}`}
+              style={{ marginTop: 8, borderWidth: 1.5, borderColor: base.line, backgroundColor: base.card, borderRadius: radius.input, padding: 12, alignItems: 'center' }}>
+              <Text style={{ color: base.ink, fontWeight: '600' }}>📄 View Document</Text>
+            </Pressable>
             {canTap && (
               <Pressable disabled={!!mine || busy} onPress={() => sign([r.id])}
                 style={{ marginTop: 8, borderWidth: 1.5, borderStyle: mine ? 'solid' : 'dashed', borderColor: mine ? base.ok : base.line, backgroundColor: mine ? base.okBg : base.card, borderRadius: radius.input, padding: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -337,7 +342,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
                       : <Text style={{ fontWeight: '600' }}>{me.name}</Text>}
                     <Text style={{ color: base.ok, fontWeight: '600' }}>Signed {d(mine.signed_at)}</Text>
                   </>
-                ) : <Text style={{ color: base.ink, fontWeight: '600' }}>✍ Tap to {kind === 'rams' && manager ? 'mark as issued' : 'sign'}</Text>}
+                ) : <Text style={{ color: base.ink, fontWeight: '600' }}>✍ Tap To {kind === 'rams' && manager ? 'Mark As Issued' : 'Sign'}</Text>}
               </Pressable>
             )}
             {client && sigsFor(r.id).length > 0 && (

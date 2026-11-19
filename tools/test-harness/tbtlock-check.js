@@ -15,7 +15,7 @@ const run = async (browser, role, status) => {
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto('http://localhost:8081/sites/'+S1+'/hs/tbt/t1'); await page.waitForTimeout(6000);
   if (role === 'client') {
-    console.log('client: tap to sign', await page.getByText(/Tap to sign/).count(), '| signed line', await page.getByText('1 signed').count(), '| export', await page.getByText('📄 Export Signed TBT').count());
+    console.log('client: tap to sign', await page.getByText(/Tap to sign/i).count(), '| signed line', await page.getByText('1 signed').count(), '| export', await page.getByText('📄 Export Signed TBT').count());
   } else {
     await page.locator('text="⋮" >> visible=true').first().click(); await page.waitForTimeout(500);
     console.log(status+': rename', await page.getByText('✏️ Rename').count(), '| replace', await page.getByText('🔁 Replace file').count(), '| delete', await page.getByText('🗑 Delete').count());
