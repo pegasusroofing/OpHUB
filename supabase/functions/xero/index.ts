@@ -76,6 +76,13 @@ const FIN_TRIAL = true;
 const FIN_SANDBOX_ORGS = ['2eb072b7-2704-48c0-8110-62e45e621ded'];
 const FIN_TRIAL_MSG = 'Finance trial — switched off while testing';
 
+// A company the platform's super admin has put live (Platform Admin › Finance: Live, 19 Nov 2026) isn't on the trial.
+async function financeLive(admin: any, orgId: string | null | undefined): Promise<boolean> {
+  if (!orgId) return false;
+  const { data } = await admin.from('organizations').select('finance_live').eq('id', orgId).maybeSingle();
+  return data?.finance_live === true;
+}
+
 const admin = createClient(SB_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { autoRefreshToken: false, persistSession: false } });
 
 const r2 = (n: unknown) => Math.round((Number(n) || 0) * 100) / 100;
@@ -216,7 +223,7 @@ Deno.serve(withCors(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body.action || '');
     const configured = !!(CLIENT_ID && CLIENT_SECRET);
-    if (FIN_TRIAL && !FIN_SANDBOX_ORGS.includes(orgId) && ['push_invoice', 'push_bill', 'push_sub_payment'].includes(action)) return json({ error: FIN_TRIAL_MSG }, 403);
+    if (FIN_TRIAL && !FIN_SANDBOX_ORGS.includes(orgId) && ['push_invoice', 'push_bill', 'push_sub_payment'].includes(action) && !(await financeLive(admin, orgId))) return json({ error: FIN_TRIAL_MSG }, 403);
 
     if (action === 'status') {
       const { data: c } = await admin.from('xero_connections').select('tenant_name, connected_at').eq('org_id', orgId).maybeSingle();

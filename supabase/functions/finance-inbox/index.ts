@@ -54,6 +54,13 @@ const MODEL = Deno.env.get('ANTHROPIC_MODEL') || 'claude-opus-5-5';
 // but not read or filed by themselves, except for the sandbox company. Switch off with the app's FIN_TRIAL.
 const FIN_TRIAL = true;
 const FIN_SANDBOX_ORGS = ['2eb072b7-2704-48c0-8110-62e45e621ded'];
+
+// A company the platform's super admin has put live (Platform Admin › Finance: Live, 19 Nov 2026) isn't on the trial.
+async function financeLive(admin: any, orgId: string | null | undefined): Promise<boolean> {
+  if (!orgId) return false;
+  const { data } = await admin.from('organizations').select('finance_live').eq('id', orgId).maybeSingle();
+  return data?.finance_live === true;
+}
 const r2 = (n: unknown) => Math.round((Number(n) || 0) * 100) / 100;
 const norm = (s: unknown) => String(s || '').toUpperCase().replace(/\s+/g, '');
 // L5: supplier names compared loosely ("Jewson Ltd" = "JEWSON LIMITED" = "Jewson").
@@ -104,7 +111,7 @@ async function matchJob(admin: any, orgId: string, ex: any) {
   return { why: byNo.length + byPc.length + byAddr.length > 1 ? 'More than one job matches — choose which' : 'Couldn’t find a PO, job number or site address on it' };
 }
 async function autoProcess(admin: any, orgId: string, inboxId: string, path: string, name: string, bytes: Uint8Array, type: string, from: string) {
-  if (FIN_TRIAL && !FIN_SANDBOX_ORGS.includes(orgId)) return; // the app shows it under Unallocated for someone to deal with
+  if (FIN_TRIAL && !FIN_SANDBOX_ORGS.includes(orgId) && !(await financeLive(admin, orgId))) return; // the app shows it under Unallocated for someone to deal with
   const ex: any = await readDoc(bytes, type).catch(() => null);
   if (!ex) return; // no reader configured — the app reads it when Finance opens
   const extracted: any = { read: true, ai: true, supplier: ex.supplier || null, invoice_no: ex.invoice_no || null, date: ex.date || null, net: ex.net ?? null, vat: ex.vat ?? null, total: ex.total ?? null, po_number: ex.po_number || null };

@@ -11,7 +11,7 @@ import { FinChip } from '@/components/FinNav';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Field, Muted, SectionTitle } from '@/components/ui';
 import { emailInvite, joinLink } from '@/data/admin';
-import { createCompany, deleteCompany, deleteUser, orgSystems, resetPassword, setOrgPlan, setOrgSystems, setUserRole, usePlatform, viewAsOrg, type OrgSystems } from '@/data/platform';
+import { createCompany, deleteCompany, deleteUser, orgSystems, resetPassword, setFinanceLive, setOrgPlan, setOrgSystems, setUserRole, usePlatform, viewAsOrg, type OrgSystems } from '@/data/platform';
 import { useAuth } from '@/lib/auth';
 import { base, page, space } from '@/theme/theme';
 
@@ -106,6 +106,24 @@ export function PlatformAdmin() {
                   }} />)}
                 </View>
                 <Muted style={{ fontSize: 11.5, marginBottom: 8 }}>With Finance on, their admins get Finance; they give it to anyone else per person.</Muted>
+                {/* Finance trial or live, per company (Andy, 19 Nov 2026: "i want to make construction live"). Only the
+                    platform's super admin can change it (the database checks). */}
+                {orgSystems(o) !== 'projects' && o.id !== '2eb072b7-2704-48c0-8110-62e45e621ded' && (
+                  <>
+                    <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Finance</Muted>
+                    <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
+                      {([[false, 'Trial'], [true, 'Live']] as const).map(([live, l]) => <FinChip key={l} on={!!(o as { finance_live?: boolean }).finance_live === live} label={l} onPress={async () => {
+                        if (!!(o as { finance_live?: boolean }).finance_live === live) return;
+                        const msg = live
+                          ? `Put ${o.name}'s Finance live? From now on it posts invoices and bills to their Xero, emails invoices, applications and orders to clients and suppliers, reads their finance inbox and pushes wages. Check their Xero and email settings first.`
+                          : `Put ${o.name}'s Finance back on the trial? Nothing goes to Xero or out by email from Finance until it's live again.`;
+                        if (!(await confirmAsk(msg, live ? 'Yes, Go Live' : 'Yes', 'No'))) return;
+                        if (!(await setFinanceLive(o.id, live))) toast('Could not save — only the platform’s super admin can change this.'); reload();
+                      }} />)}
+                    </View>
+                    <Muted style={{ fontSize: 11.5, marginBottom: 8 }}>{(o as { finance_live?: boolean }).finance_live ? 'Live: Xero posting, finance emails and the finance inbox all work.' : 'Trial: Finance works, but nothing goes to Xero or out by email, and the finance inbox isn’t read.'}</Muted>
+                  </>
+                )}
                 <CompanySetupSteps org={o as never} />
                 {/* Open and Delete side by side (Andy, 19 Nov 2026: "i need to be able to delete companies"; it was a small
                     orange link at the bottom). Deleting still asks, then needs the company's name typed in. */}

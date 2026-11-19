@@ -147,10 +147,13 @@ test('#8 calendar reminders take the company from the event’s site', () => {
   assert.doesNotMatch(s, /eq\('org_id', ev\.org_id\)|eq\('id', ev\.org_id\)/);
 });
 
-test('#7 the Finance trial is enforced on the server too (sandbox exempt)', () => {
+test('#7 the Finance trial is enforced on the server too (sandbox exempt, and companies the super admin puts live)', () => {
   for (const fn of ['xero', 'send-finance-email', 'finance-inbox']) {
     assert.match(src(fn), /const FIN_TRIAL = true;/, fn);
     assert.match(src(fn), /2eb072b7-2704-48c0-8110-62e45e621ded/, `${fn}: Sandbox Roofing exempt`);
+    // 19 Nov 2026: a company put live in Platform Admin (organizations.finance_live, super admin only) isn't on the trial.
+    assert.match(src(fn), /select\('finance_live'\)/, `${fn}: reads the company's live switch`);
+    assert.match(src(fn), /FIN_TRIAL && !FIN_SANDBOX_ORGS\.includes\([^)]*\)[^;]*!\(await financeLive\(admin, /, `${fn}: the trial check lets a live company through`);
   }
-  assert.match(src('xero'), /\['push_invoice', 'push_bill', 'push_sub_payment'\]\.includes\(action\)\) return json\(\{ error: FIN_TRIAL_MSG \}, 403\)/);
+  assert.match(src('xero'), /\['push_invoice', 'push_bill', 'push_sub_payment'\]\.includes\(action\) && !\(await financeLive\(admin, orgId\)\)\) return json\(\{ error: FIN_TRIAL_MSG \}, 403\)/);
 });

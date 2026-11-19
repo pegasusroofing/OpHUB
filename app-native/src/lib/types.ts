@@ -43,6 +43,8 @@ export type Organization = {
   plan_tier: string;
   has_pm: boolean;
   has_finance: boolean;
+  /** Finance out of the trial: Xero posting, finance emails, the inbox (Platform Admin, super admin only; 19 Nov 2026). */
+  finance_live?: boolean | null;
   /** Who sees the money on Home (lib/homeTiles). */
   home_tiles?: { finance_pm?: boolean; finance_site_manager?: boolean; finance_other?: boolean } | null;
   /** How often each live project needs a Toolbox Talk (lib/rules/tbt); null = every month. */

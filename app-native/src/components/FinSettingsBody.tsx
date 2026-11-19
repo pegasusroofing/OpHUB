@@ -28,7 +28,7 @@ import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { canEditFinance, isFinanceUser } from '@/lib/roles';
 import { SUPABASE_URL } from '@/lib/supabase';
-import { FIN_TRIAL, FIN_VAT_LABEL, num, vatList, type VatRate } from '@/lib/rules/finance';
+import { finTrialFor, FIN_VAT_LABEL, num, vatList, type VatRate } from '@/lib/rules/finance';
 import { base, radius } from '@/theme/theme';
 
 type Row = Record<string, any>;
@@ -163,7 +163,7 @@ export function FinSettingsBody({ only: one }: { only?: string | string[] }) {
                 ) : k === 'inbox' ? (
                   <>
                     <Muted style={{ marginBottom: 8 }}>Set up a shared mailbox such as invoices@ in Microsoft 365, and have its attachments sent to the address below — Power Automate (“When a new email arrives in a shared mailbox” → HTTP POST), Zapier or Make can all do this. Purchase invoices then appear in Finance › Purchases › Purchase invoices, already read. Keep this address private: anyone with it can add invoices to your inbox.</Muted>
-                    {FIN_TRIAL && <Muted style={{ marginBottom: 8, color: '#b45309' }}>While Finance is on trial, invoices that arrive are kept but not read or filed automatically — allocate them by hand.</Muted>}
+                    {finTrialFor(me.org_id) && <Muted style={{ marginBottom: 8, color: '#b45309' }}>While Finance is on trial, invoices that arrive are kept but not read or filed automatically — allocate them by hand.</Muted>}
                     {!!s.inbox_key && (
                       <>
                         <Text selectable style={{ fontSize: 12, color: base.ink, backgroundColor: '#F6F7F9', borderRadius: 6, padding: 8 }}>{`${SUPABASE_URL}/functions/v1/finance-inbox?key=${s.inbox_key}`}</Text>
@@ -175,7 +175,7 @@ export function FinSettingsBody({ only: one }: { only?: string | string[] }) {
                 ) : k === 'xero' ? (
                   <>
                     {xErr ? <Muted>{/not_configured|not connected/i.test(xErr) ? 'Xero isn’t connected.' : `Xero: ${xErr}`}</Muted> : xs ? <Text style={{ color: xs.connected ? '#1E7A3C' : base.slate }}>{xs.connected ? `Connected${xs.tenant_name ? ` to ${xs.tenant_name}` : ''}` : 'Not connected'}</Text> : <Muted>Checking…</Muted>}
-                    {FIN_TRIAL && <Muted style={{ marginTop: 6 }}>While Finance is on trial nothing is posted to Xero. Reading and adding clients and suppliers still works.</Muted>}
+                    {finTrialFor(me.org_id) && <Muted style={{ marginTop: 6 }}>While Finance is on trial nothing is posted to Xero. Reading and adding clients and suppliers still works.</Muted>}
                     {xs?.connected && me.role === 'admin' && <XeroSettings s={s} />}
                     {xs && !xs.connected && canEdit && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Connect Xero" onPress={async () => { const r = await finInvoke<Row>(me, 'xero', { action: 'connect', origin: Platform.OS === 'web' ? window.location.origin : null }); if (r.error || !r.data?.url) { toast(r.error || 'Could not start the Xero connection.'); return; } if (Platform.OS === 'web') window.location.href = r.data.url; else void Linking.openURL(r.data.url); }} /></View>}
                   </>

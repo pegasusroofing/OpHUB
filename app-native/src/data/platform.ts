@@ -59,6 +59,11 @@ export async function setOrgSystems(orgId: string, sys: OrgSystems): Promise<boo
   if (patch.has_finance) { try { await db.from('profiles').update({ finance_enabled: true } as never).eq('org_id', orgId).eq('role', 'admin'); } catch { /* best effort */ } }
   return true;
 }
+/** Finance live or on the trial, per company (Andy, 19 Nov 2026): only the platform's super admin can change it. */
+export const setFinanceLive = async (orgId: string, live: boolean) => {
+  const r = await db.from('organizations').update({ finance_live: live } as never).eq('id', orgId).select('finance_live');
+  return !r.error && (r.data as { finance_live: boolean }[] | null)?.[0]?.finance_live === live;
+};
 export const setOrgPlan = async (orgId: string, tier: string) => !!(await db.from('organizations').update({ plan_tier: tier } as never).eq('id', orgId).select('id')).data?.length;
 /** "estimator" is a PM with the no-notifications flag. */
 export async function setUserRole(userId: string, role: string): Promise<boolean> {

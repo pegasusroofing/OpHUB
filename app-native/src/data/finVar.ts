@@ -3,7 +3,7 @@
 // on the operatives' Schedule of Works; quick approve / reject.
 import { fdb, insertNumbered } from '@/data/finance';
 import { addSection } from '@/data/sowManager';
-import { FIN_SANDBOX_ORGS, FIN_TRIAL, num, round2, today } from '@/lib/rules/finance';
+import { finTrialFor, num, round2, today } from '@/lib/rules/finance';
 import { nextVariationName } from '@/lib/rules/sow';
 import { finStatusFor } from '@/lib/rules/clientStage';
 import type { Profile } from '@/lib/types';
@@ -69,7 +69,7 @@ export async function syncSiteVariationValues(siteId: string): Promise<number> {
 
 /** Puts a Finance variation on the Schedule of Works as its own section (no prices). Off during the trial. */
 export async function varToSow(me: Profile, siteId: string, v: Row, site: Row[]): Promise<{ ok?: string; error?: string }> {
-  if (FIN_TRIAL && !(me.org_id && FIN_SANDBOX_ORGS.includes(me.org_id))) return { error: 'Finance trial — switched off while testing (nothing is added to the Schedule of Works yet).' };
+  if (finTrialFor(me.org_id)) return { error: 'Finance trial — switched off while testing (nothing is added to the Schedule of Works yet).' };
   if (v.schedule_section_id) return { ok: 'Already on the Schedule of Works.' };
   const sv = v.variation_id ? site.find((x) => x.id === v.variation_id) : null;
   if (sv?.schedule_section_id) {

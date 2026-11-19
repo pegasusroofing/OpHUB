@@ -10,8 +10,17 @@ export const FIN_SANDBOX_ORGS = ['2eb072b7-2704-48c0-8110-62e45e621ded'];
 export const FIN_TRIAL_MSG = 'Finance trial — switched off while testing';
 /** Xero actions the Directory may still use during the trial (reading / adding contacts). */
 const XERO_CLIENT_OK = ['status', 'customers', 'suppliers', 'contact', 'create_contact', 'connect', 'disconnect'];
+/** Companies the platform's super admin has put live (Platform Admin › Finance: Live; organizations.finance_live,
+ *  Andy 19 Nov 2026: "i want to make construction live"). Filled in when the company loads. */
+const FIN_LIVE_ORGS = new Set<string>();
+export function markFinanceLive(orgId: string | null | undefined, live: boolean | null | undefined) {
+  if (!orgId) return;
+  if (live) FIN_LIVE_ORGS.add(orgId); else FIN_LIVE_ORGS.delete(orgId);
+}
+/** Is this company's Finance still on the trial? Not for the sandbox, or a company put live. */
+export const finTrialFor = (orgId: string | null | undefined) => FIN_TRIAL && !(orgId && (FIN_SANDBOX_ORGS.includes(orgId) || FIN_LIVE_ORGS.has(orgId)));
 export function finBlocked(fn: string, action: string | undefined, orgId: string | null | undefined): boolean {
-  if (!FIN_TRIAL || (orgId && FIN_SANDBOX_ORGS.includes(orgId))) return false;
+  if (!finTrialFor(orgId)) return false;
   if (fn === 'xero' && XERO_CLIENT_OK.includes(action || '')) return false;
   // A repair quote's approval link only (nothing sent) is fine during the trial.
   if (fn === 'send-repair-quote' && action === 'link') return false;

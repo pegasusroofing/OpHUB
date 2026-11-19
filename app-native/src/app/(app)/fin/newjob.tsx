@@ -22,7 +22,7 @@ import { fdb } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { isFinanceOnlyOrg } from '@/lib/roles';
-import { FIN_SANDBOX_ORGS, FIN_TRIAL, FIN_TRIAL_MSG, round2 } from '@/lib/rules/finance';
+import { FIN_SANDBOX_ORGS, FIN_TRIAL_MSG, finTrialFor, round2 } from '@/lib/rules/finance';
 import { jobNumberClash, jobNumberError } from '@/lib/rules/jobNumbers';
 import { supabase } from '@/lib/supabase';
 import { base, page, space } from '@/theme/theme';
@@ -37,7 +37,7 @@ export default function FinNewJob() {
   const qc = useQueryClient();
   const finOnly = isFinanceOnlyOrg(org);
   const sandbox = !!me?.org_id && FIN_SANDBOX_ORGS.includes(me.org_id);
-  const blocked = FIN_TRIAL && !finOnly && !sandbox;
+  const blocked = finTrialFor(me?.org_id) && !finOnly && !sandbox;
   const { data: allSites = [] } = useSites();
   const { data: nums } = useQuery({ queryKey: ['finOrgNums', me?.org_id], enabled: !!me && !blocked, queryFn: async () => (await fdb.from('organizations').select('auto_job_numbers,job_number_prefix,next_job_number').eq('id', me?.org_id as string).maybeSingle()).data as Row | null });
   const { data: clients } = useQuery({ queryKey: ['finClientsAll', me?.org_id], enabled: !!me && !blocked, queryFn: async () => ((await fdb.from('fin_clients').select('*').eq('org_id', me?.org_id as string).order('name')).data as Row[] | null) ?? [] });

@@ -58,3 +58,17 @@ test('retention halves come from what the certificate holds, not what is still h
   const jf = { ret1_invoice_id: 'r1' } as never, invs = [{ id: 'r1', status: 'sent', net: 500 }] as never[];
   assert.equal(retHalfAmt(1000, 1, jf, invs, apps), 500); assert.equal(retHalfAmt(1000, 2, jf, invs, apps), 500);
 });
+
+test('a company the super admin puts live is off the trial; others stay on it (19 Nov 2026)', async () => {
+  const { finTrialFor, markFinanceLive, finBlocked } = await import('./finance.ts');
+  const org = '61b2b0dc-f831-4198-b438-690111e04f92';
+  assert.equal(finTrialFor(org), true);
+  assert.equal(finBlocked('send-finance-email', undefined, org), true);
+  markFinanceLive(org, true);
+  assert.equal(finTrialFor(org), false);
+  assert.equal(finBlocked('send-finance-email', undefined, org), false);
+  assert.equal(finTrialFor('another-company'), true);
+  markFinanceLive(org, false);
+  assert.equal(finTrialFor(org), true);
+  assert.equal(finTrialFor('2eb072b7-2704-48c0-8110-62e45e621ded'), false); // the sandbox, as before
+});

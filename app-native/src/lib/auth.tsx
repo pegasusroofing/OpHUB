@@ -16,6 +16,7 @@ import { clearSignedCache } from './privateFiles';
 import { registerPush, unregisterPush } from './push';
 import { forgetRemembered, forgetRememberedPassword, saveRemembered } from './remember';
 import { deviceLockApplies } from './roles';
+import { markFinanceLive } from './rules/finance';
 import { fnUrl, SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from './supabase';
 import type { InviteInfo, Organization, Profile } from './types';
 
@@ -56,8 +57,11 @@ async function withPerms(p: Profile | null): Promise<Profile | null> {
 const supportMe = (p: Profile | null): Profile | null => (p && p.role === 'superadmin' && p.view_as_org_id ? { ...p, role: 'admin', org_id: p.view_as_org_id, _support: true, _realOrgId: p.org_id } : p);
 async function loadOrg(orgId: string | null): Promise<Organization | null> {
   if (!orgId) return null;
-  return cachedQuery(`org:${orgId}`, async () =>
+  const o = await cachedQuery(`org:${orgId}`, async () =>
     orThrow(await supabase.from('organizations').select('*').eq('id', orgId).maybeSingle()) as Organization | null);
+  // Finance live or on the trial, as the platform's super admin set it (19 Nov 2026).
+  markFinanceLive(orgId, !!o?.finance_live);
+  return o;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
