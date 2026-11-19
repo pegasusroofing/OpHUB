@@ -8,7 +8,7 @@ import { confirmAsk } from '@/components/toast';
 import { Button, Card, Field, Muted, Notice, Screen, Title } from '@/components/ui';
 import { joinCompanyWithInvite, switchCompany } from '@/data/companies';
 import { getInviteInfo, useAuth } from '@/lib/auth';
-import { isBetaSite } from '@/lib/betaOnly';
+import { isSwitchSite } from '@/lib/betaOnly';
 import type { InviteInfo } from '@/lib/types';
 import { ThemeProvider } from '@/theme/theme';
 
@@ -38,7 +38,7 @@ export default function Join() {
   };
 
   // Signed in, off the beta link: home, as before the page was opened to signed-in people.
-  if (me && (!isBetaSite() || me.role === 'superadmin')) return <Redirect href={'/home' as never} />;
+  if (me && (!isSwitchSite() || me.role === 'superadmin')) return <Redirect href={'/home' as never} />;
   if (info === undefined) return <Screen center><Muted>Checking invite…</Muted></Screen>;
   if (done) {
     return (
@@ -62,7 +62,7 @@ export default function Join() {
     );
   }
   // Already signed in (company switching, 19 Nov 2026): add this company to the same login instead of a new account.
-  if (me && isBetaSite() && me.role !== 'superadmin') {
+  if (me && isSwitchSite() && me.role !== 'superadmin') {
     return (
       <ThemeProvider org={{ ...info, id: '', name: info.org_name, plan_tier: '', has_pm: true, has_finance: false }}>
         <Screen center>

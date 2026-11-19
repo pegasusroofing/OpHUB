@@ -8,12 +8,12 @@ import { router } from 'expo-router';
 import { chooseAction, showAlert } from '@/components/toast';
 import { switchCompany, useMyCompanies, type MyCompany } from '@/data/companies';
 import { useAuth } from '@/lib/auth';
-import { isBetaSite } from '@/lib/betaOnly';
+import { isSwitchSite } from '@/lib/betaOnly';
 
 export function useCompanySwitcher(): { companies: MyCompany[]; multi: boolean; choose: () => Promise<void> } {
   const { me, refresh } = useAuth();
   const qc = useQueryClient();
-  const on = isBetaSite() && !!me && me.role !== 'superadmin';
+  const on = isSwitchSite() && !!me && me.role !== 'superadmin';
   const { data: companies = [] } = useMyCompanies(on, me ? `${me.id}:${me.org_id}` : null);
   const multi = on && companies.length > 1;
   const choose = async () => {

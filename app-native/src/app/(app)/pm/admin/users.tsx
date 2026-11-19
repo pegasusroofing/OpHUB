@@ -10,7 +10,7 @@ import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/com
 import { Empty, Muted, SectionTitle } from '@/components/ui';
 import { removeMember, setPhone, setSubform, toggleFinance, useTeam, type TeamMember } from '@/data/admin';
 import { removeCompanyAccess, useAccessElsewhere } from '@/data/companies';
-import { isBetaSite } from '@/lib/betaOnly';
+import { isSwitchSite } from '@/lib/betaOnly';
 import { setPersonRole, useOrgRoles } from '@/data/orgRoles';
 import { useAuth } from '@/lib/auth';
 import { isFinanceUser, isFullManager, isManager } from '@/lib/roles';
@@ -28,7 +28,7 @@ export default function Users() {
   const { data: team = [], isLoading } = useTeam(me?.org_id);
   const { data: roles = [], isLoading: rolesLoading } = useOrgRoles(me?.org_id);
   const th = useTheme();
-  const { data: elsewhere = [] } = useAccessElsewhere(isBetaSite() && me?.role === 'admin', me?.org_id);
+  const { data: elsewhere = [] } = useAccessElsewhere(isSwitchSite() && me?.role === 'admin', me?.org_id);
   // Initials coloured by role, as the current app (260): admins the company's second colour, PMs and drivers the main colour, the rest grey.
   const swatch = (role: string) => (role === 'admin' ? th.brand2 || base.ink : role === 'pm' || role === 'driver' ? th.brand1 : role === 'site_manager' ? '#6B6F78' : '#4B4F58');
   const swatchText = (role: string) => (role === 'pm' || role === 'driver' ? th.brand1Text : '#fff');

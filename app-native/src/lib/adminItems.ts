@@ -69,7 +69,7 @@ export const ADMIN_ITEMS: AdminItem[] = [
   { key: 'havstools', page: 'hs', group: 'Policy & Registers', icon: '🛠️', label: 'HAVS Tools', sub: 'Vibration tool list', kw: 'havs vibration tools', route: '/pm/admin/havstools', show: isFullManager },
   { key: 'ramslibrary', page: 'hs', group: 'Libraries', icon: '🦺', label: 'RAMS Library', sub: 'Hazards, method statements, templates', kw: 'rams risk assessment method statement hazard template', route: '/pm/admin/ramslibrary', show: isFullManager },
   { key: 'coshhbuilder', page: 'hs', group: 'Libraries', icon: '🧪', label: 'COSHH Library', sub: 'Data sheets → products → assessments in folders', kw: 'coshh substance product data sheet', route: '/pm/admin/coshh', show: isFullManager },
-  // The Construction Phase Plan template (Andy, 19 Nov 2026), beta link only like the builder.
+  // The Construction Phase Plan template (Andy, 19 Nov 2026), on the website (beta link and app.operativehub.co.uk) like the builder.
   { key: 'cpptemplate', page: 'hs', group: 'Libraries', icon: '📘', label: 'CPP Template', sub: 'Construction Phase Plan wording for new plans', kw: 'cpp construction phase plan template main contractor', route: '/pm/admin/cpptemplate', show: (me) => isFullManager(me) && isBetaSite() },
   // One tab since 19 Nov 2026 (Andy: "move the toolbox talks required into the toolbox talks templates and have the tab
   // header as toolbox talks"): how often each live project needs a talk (14 Nov), the templates, and Create A Toolbox Talk.

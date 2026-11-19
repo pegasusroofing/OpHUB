@@ -17,7 +17,7 @@ export default function CppScreen() {
   const { me } = useAuth();
   const { data, isLoading } = useQuery({ queryKey: ['cpp', planId], enabled: !!planId, gcTime: 0, queryFn: () => loadCpp(planId) });
   if (!me) return null;
-  if (!isBetaSite()) return <Muted style={{ padding: space.l }}>The Construction Phase Plan builder is on the beta link only for now.</Muted>;
+  if (!isBetaSite()) return <Muted style={{ padding: space.l }}>The Construction Phase Plan builder is on the website version of the app for now (app.operativehub.co.uk).</Muted>;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
   if (isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!data) return <Muted style={{ padding: space.l }}>Plan not found.</Muted>;
