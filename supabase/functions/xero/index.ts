@@ -57,7 +57,7 @@ function storagePathSafe(p: unknown): boolean {
 }
 // ---- end OpHUB storage path check ----
 
-const json =(o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
+const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 const text = (t: string, status = 200) => new Response(t, { status, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
 
 const CLIENT_ID = Deno.env.get('XERO_CLIENT_ID') || '';
