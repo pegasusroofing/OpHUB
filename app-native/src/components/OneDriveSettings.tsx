@@ -14,7 +14,7 @@ import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toa
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { syncSiteFolder } from '@/data/drawings';
 import { saveJobPackSettings, setupJobPack, useJobPackSettings } from '@/data/jobPack';
-import { connectOneDrive, DEFAULT_MAIN_FOLDER, disconnectOneDrive, listFolders, setMainFolder, setQuickLinks, unlinkFolder, useOdSites, useOneDriveStatus, useQuickLinks, type OdFolder, type OdTarget } from '@/data/onedrive';
+import { connectOneDrive, DEFAULT_MAIN_FOLDER, disconnectOneDrive, listFolders, readTemplateTree, setMainFolder, setQuickLinks, unlinkFolder, useOdSites, useOneDriveStatus, useQuickLinks, type OdFolder, type OdTarget } from '@/data/onedrive';
 import { saveQuoteSettings, useQuoteSettings } from '@/data/quotes';
 import { useAuth } from '@/lib/auth';
 import { cleanFolder, folderLabel, foldersUnder, PACK_RULES, ruleTab, startingPack, WEEK_MARK, type PackConfig } from '@/lib/rules/jobPack';
@@ -141,6 +141,15 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
     if (!(await saveJobPackSettings(me.org_id as string, me.id, { enabled, config: next }))) { toast('Could not save — try again.'); return false; }
     void qc.invalidateQueries({ queryKey: ['jobPackSettings'] }); return true;
   };
+  // The template chosen: every new job gets its folders and documents (a company's own, never another's: 19 Nov 2026).
+  const fromTemplate = async (p: string) => {
+    if (!cfg) return;
+    setBusy('tpl'); const t = await readTemplateTree(p); setBusy('');
+    if (typeof t === 'string') { toast(t); if (cleanFolder(p) !== cleanFolder(cfg.template_path)) await save({ ...cfg, template_path: p }); return; }
+    // Folders things already save into stay on the list (each job gets them too).
+    const ruleFolders = Object.values(cfg.rules).filter((r) => r.on && r.folder && !r.folder.includes('{')).map((r) => cleanFolder(r.folder));
+    await save({ ...cfg, template_path: p, folders: [...new Set([...t.folders, ...ruleFolders])], files: t.files });
+  };
   const connect = async () => { setBusy('connect'); try { const e = await connectOneDrive(); if (e) toast(e); } finally { setBusy(''); } };
   const pickSite = (target: OdTarget, id = '') => router.push({ pathname: '/pm/onedrive-pick', params: { target, id } } as never);
   const shown = sites.filter((s) => !q.trim() || s.name.toLowerCase().includes(q.trim().toLowerCase()));
@@ -148,7 +157,7 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
   const listed = cfg ? PACK_RULES.filter((r) => ruleTab(r.key) === tab && !!cfg.rules[r.key]) : [];
   const setRule = (key: string, patch: Partial<{ on: boolean; folder: string }>, newFolders: string[] = []) => {
     if (!cfg) return;
-    const cur = cfg.rules[key] ?? { on: false, folder: PACK_RULES.find((r) => r.key === key)?.folder || '' };
+    const cur = cfg.rules[key] ?? { on: false, folder: '' };
     const folders = [...cfg.folders];
     newFolders.concat(patch.folder ? [cleanFolder(patch.folder.replace(`/${WEEK_MARK}`, ''))] : []).forEach((f) => { if (f && !folders.map(cleanFolder).includes(cleanFolder(f))) folders.push(f); });
     void save({ ...cfg, folders, rules: { ...cfg.rules, [key]: { ...cur, ...patch } } });
@@ -203,7 +212,15 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
             <Row title="Create A OneDrive Folder For Every New Job?" sub="A job can be unticked when it’s made; a client can be set to never (Finance › Directory)"
               right={<YesNo label="Create a OneDrive folder for every new job" value={pack?.enabled !== false && cfg.create_new !== false} onChange={(v) => void save({ ...cfg, create_new: v }, v ? true : pack?.enabled ?? true)} />} />
             <Row title="New Job Folders Go In" sub="Each job gets its own folder here"><FolderLink label={`📁 ${cfg.parent_path ? cfg.parent_path.split('/').join(' › ') : 'Choose A Folder'}`} onPress={() => setPick({ kind: 'parent' })} /></Row>
-            <Row title="Built From" sub="Your template folder; its documents are copied in"><FolderLink label={`📁 ${cfg.template_path ? cfg.template_path.split('/').join(' › ') : 'Choose A Folder'}`} onPress={() => setPick({ kind: 'template' })} /></Row>
+            <Row title="Built From" sub="Your template folder; its folders and documents are copied in"><FolderLink label={`📁 ${cfg.template_path ? cfg.template_path.split('/').join(' › ') : 'Choose A Folder'}`} onPress={() => setPick({ kind: 'template' })} /></Row>
+            {!!cfg.template_path && (
+              <Row title="Every Job Gets" sub="Read from your template">
+                <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                  <Text style={{ fontSize: 13, color: base.ink }}>{busy === 'tpl' ? 'Reading Your Template…' : `${cfg.folders.length} Folders, ${cfg.files.length} Documents`}</Text>
+                  {busy !== 'tpl' && <Text onPress={() => void fromTemplate(cfg.template_path)} style={{ color: base.blue, fontWeight: '600', fontSize: 13 }}>↻ Read Again From The Template</Text>}
+                </View>
+              </Row>
+            )}
             {hasPm && <View style={{ alignItems: 'center', marginTop: 6 }}><Text onPress={() => router.push('/pm/admin/jobpack' as never)} style={{ color: base.blue, fontWeight: '600', fontSize: 13 }}>Template Folders, Documents And Week Folders ›</Text></View>}
           </>
         )}
@@ -267,7 +284,7 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
             {tab === 'finance' && <Row title="Purchase Orders" sub="Their PDF, when it’s made"><FolderLink muted label="Each job’s Material PO’s folder (set on the job)" /></Row>}
             {!groups.length && tab !== 'finance' && <Muted>Nothing saving here yet.</Muted>}
             <View style={{ alignItems: 'center', marginTop: 10 }}>
-              {addable.length ? <Button title="+ Add Something To Save" onPress={() => { const r = addable[0]; setAdding({ key: r.key, folder: cfg.rules[r.key]?.folder || r.folder, on: true }); }} />
+              {addable.length ? <Button title="+ Add Something To Save" onPress={() => { const r = addable[0]; setAdding({ key: r.key, folder: cfg.rules[r.key]?.folder || '', on: true }); }} />
                 : <Muted>Everything that can save from here is in the list.</Muted>}
             </View>
           </>
@@ -325,7 +342,7 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
       {/* ---- pop-ups ---- */}
       {pick?.kind === 'rule' && cfg && (() => {
         const r = PACK_RULES.find((x) => x.key === pick.key);
-        return <TemplateFolderPop title={`${caps(r?.when || 'It')}: Save In`} cfg={cfg} start={cfg.rules[pick.key]?.folder || r?.folder || ''} weekly={(r?.folder || '').includes(WEEK_MARK)}
+        return <TemplateFolderPop title={`${caps(r?.when || 'It')}: Save In`} cfg={cfg} start={cfg.rules[pick.key]?.folder || ''} weekly={(r?.folder || '').includes(WEEK_MARK)}
           onClose={() => setPick(null)} onPick={(f, extra) => { if (adding && adding.key === pick.key) setAdding({ ...adding, folder: f, extra }); else setRule(pick.key, { folder: f }, extra); setPick(null); }} />;
       })()}
       {pick?.kind === 'main' && (
@@ -348,7 +365,7 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
       )}
       {(pick?.kind === 'parent' || pick?.kind === 'template') && cfg && (
         <DrivePathPop title={pick.kind === 'parent' ? 'New Job Folders Go In' : 'Your Template Folder'} onClose={() => setPick(null)}
-          onPick={(p) => { void save(pick.kind === 'parent' ? { ...cfg, parent_path: p } : { ...cfg, template_path: p }); setPick(null); }} />
+          onPick={(p) => { if (pick.kind === 'parent') void save({ ...cfg, parent_path: p }); else void fromTemplate(p); setPick(null); }} />
       )}
       {pick?.kind === 'quote' && (
         <DrivePathPop title={Q_TITLES[pick.key]} onClose={() => setPick(null)} onPick={async (p) => {
@@ -371,21 +388,21 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
           <>
             <Pop title="Add Something To Save" onClose={() => setAdding(null)} footer={(
               <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 10 }}>
-                <Button title="Add" onPress={() => { setRule(adding.key, { on: adding.on, folder: adding.folder }, adding.extra); setAdding(null); }} />
+                <Button title="Add" onPress={() => { if (!adding.folder) { setPick({ kind: 'rule', key: adding.key }); return; } setRule(adding.key, { on: adding.on, folder: adding.folder }, adding.extra); setAdding(null); }} />
                 <Button kind="ghost" title="Cancel" onPress={() => setAdding(null)} />
               </View>
             )}>
               <Muted style={{ fontWeight: '500' }}>What</Muted>
               <Pressable accessibilityRole="button" accessibilityLabel="What" onPress={async () => {
                 const k = await chooseAction('What', addable.map((x) => ({ key: x.key, label: `${caps(x.area)}: ${caps(x.when)}` })));
-                const nx = addable.find((x) => x.key === k); if (nx) setAdding({ key: nx.key, folder: cfg.rules[nx.key]?.folder || nx.folder, on: true });
+                const nx = addable.find((x) => x.key === k); if (nx) setAdding({ key: nx.key, folder: cfg.rules[nx.key]?.folder || '', on: true });
               }} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, marginBottom: 10 }}>
                 <Text style={{ color: base.ink }}>{caps(r?.area || '')} ▾</Text>
               </Pressable>
               <Muted style={{ fontWeight: '500' }}>When</Muted>
               <Text style={{ color: base.ink, marginBottom: 10 }}>{caps(r?.when || '')}</Text>
               <Muted style={{ fontWeight: '500' }}>Save It In</Muted>
-              <View style={{ marginBottom: 10, marginTop: 2 }}><FolderLink label={`📁 ${folderLabel(adding.folder)}`} onPress={() => setPick({ kind: 'rule', key: adding.key })} /></View>
+              <View style={{ marginBottom: 10, marginTop: 2 }}><FolderLink label={adding.folder ? `📁 ${folderLabel(adding.folder)}` : 'Choose A Folder'} onPress={() => setPick({ kind: 'rule', key: adding.key })} /></View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: base.ink }}>Save Automatically?</Text><Muted style={{ fontSize: 12 }}>No: it stays on the list, not saving, ready to switch on</Muted></View>
                 <YesNo label="Save automatically" value={adding.on} onChange={(v) => setAdding({ ...adding, on: v })} />

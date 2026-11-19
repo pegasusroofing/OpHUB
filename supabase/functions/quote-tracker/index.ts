@@ -176,6 +176,44 @@ async function moveFolder(token: string, folder: Ref, to: Ref): Promise<'moved' 
 
 const DEFAULT_SUBJECT = 'Our quotation for {project}';
 const DEFAULT_BODY = 'Hi {contact},\n\nI hope you are well. We sent you our quotation for {project} on {date}, and I wanted to check how things are progressing.\n\nIf you need anything else from us, or there is any feedback, please let me know.\n\nKind regards,\n{sender}\n{company}';
+// The signature on emails to clients (Andy, 19 Nov 2026: "the email chasers for email need to pull through an email
+// footer or logos"): the sender's name, phone and email, then the company's logo, name, address and phone (Admin ›
+// company details). The sender's email is their email for this company when they've set one (company switching),
+// and replies go there too. The wording's own sign-off ("{sender}" and "{company}" on the last two lines) gives way to it.
+type Sig = { html: string; text: string; replyTo: string | null; tail: string };
+async function signatureFor(admin: any, orgId: string, sender: { id: string | null; name: string; email: string | null }): Promise<Sig> {
+  const [{ data: org }, { data: p }, { data: mem }] = await Promise.all([
+    admin.from('organizations').select('name, logo_path, color_primary, rams_settings').eq('id', orgId).maybeSingle(),
+    sender.id ? admin.from('profiles').select('phone').eq('id', sender.id).maybeSingle() : Promise.resolve({ data: null }),
+    sender.id ? admin.from('company_memberships').select('work_email').eq('user_id', sender.id).eq('org_id', orgId).maybeSingle() : Promise.resolve({ data: null }),
+  ]);
+  const company = String(org?.name || ''), st = (org?.rams_settings || {}) as { address?: string; phone?: string };
+  const email = String(mem?.work_email || sender.email || '').trim() || null;
+  const contact = [String(p?.phone || '').trim(), email].filter(Boolean).join(' · ');
+  const addr = String(st.address || '').split(/\s*\n\s*/).map((x) => x.replace(/[\s,]+$/, '')).filter(Boolean).join(', ');
+  const tel = String(st.phone || '').trim();
+  const logo = org?.logo_path ? `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/org-logos/${org.logo_path}` : null;
+  const brand = /^#[0-9a-f]{6}$/i.test(String(org?.color_primary || '')) ? String(org.color_primary) : '#101114';
+  const html = `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:18px;border-top:1px solid #E3E6EA;font-family:'Segoe UI',Arial,sans-serif;font-size:13px;line-height:1.45;color:#3B4048;"><tr>`
+    + (logo ? `<td style="vertical-align:top;padding:14px 16px 0 0;"><img src="${esc(logo)}" alt="${esc(company)}" height="52" style="height:52px;width:auto;max-width:170px;display:block;border:0;"></td>` : '')
+    + `<td style="vertical-align:top;padding-top:14px;"><div style="font-weight:600;font-size:14px;color:#101114;">${esc(sender.name)}</div>`
+    + (contact ? `<div>${esc(contact)}</div>` : '')
+    + (company ? `<div style="font-weight:600;color:${brand};margin-top:5px;">${esc(company)}</div>` : '')
+    + (addr ? `<div>${esc(addr)}</div>` : '') + (tel ? `<div>Tel: ${esc(tel)}</div>` : '')
+    + `</td></tr></table>`;
+  const text = `\n\n--\n${[sender.name, contact, company, addr, tel ? `Tel: ${tel}` : ''].filter(Boolean).join('\n')}`;
+  return { html, text, replyTo: email, tail: company ? `\n${sender.name}\n${company}` : `\n${sender.name}` };
+}
+/** The email's wording with the signature under it: its own last-two-lines sign-off gives way to the signature. */
+function signed(body: string, sig: Sig): { html: string; text: string } {
+  const t = body.replace(/\s+$/, '');
+  const main = t.endsWith(sig.tail) ? t.slice(0, -sig.tail.length) : t;
+  return {
+    html: `<div style="font-family:'Segoe UI',Arial,sans-serif;font-size:15px;line-height:1.5;color:#101114;white-space:pre-wrap;">${esc(main)}</div>${sig.html}`,
+    text: `${main}${sig.text}`,
+  };
+}
+
 // Every client the quote went to is chased, each by name (Andy, 4 Nov 2026): the main contact and the other clients
 // tendering the same job (quote_clients) that have a contact email. One round counts once towards the chase limit.
 async function sendChase(admin: any, q: any, settings: any, sender: { id: string | null; name: string; email: string | null }, automatic: boolean): Promise<string | null> {
@@ -192,16 +230,16 @@ async function sendChase(admin: any, q: any, settings: any, sender: { id: string
   const date = q.returned_at || q.return_date ? new Date(`${q.returned_at || q.return_date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : 'recently';
   const m = /<([^>]+)>/.exec(Deno.env.get('ORDERS_FROM_EMAIL') || '');
   const address = (m ? m[1] : Deno.env.get('ORDERS_FROM_EMAIL') || 'orders@ophub.app').trim();
+  const sig = await signatureFor(admin, q.org_id, sender);
   let sent = 0;
   for (const p of people) {
     const fill = (t: string) => t.replace(/\{contact\}/g, p.contact || 'there').replace(/\{client\}/g, p.client || '').replace(/\{project\}/g, q.title || '').replace(/\{date\}/g, date).replace(/\{sender\}/g, sender.name).replace(/\{company\}/g, company);
     const subject = fill(settings?.chase_subject || DEFAULT_SUBJECT).replace(/[\r\n]+/g, ' ').slice(0, 200);
-    const text = fill(settings?.chase_body || DEFAULT_BODY);
-    // Reads like a person's email, not a system notice: this one goes to clients.
-    const html = `<div style="font-family:'Segoe UI',Arial,sans-serif;font-size:15px;line-height:1.5;color:#101114;white-space:pre-wrap;">${esc(text)}</div>`;
+    // Reads like a person's email, not a system notice: this one goes to clients. Signed with the company's logo.
+    const { text, html } = signed(fill(settings?.chase_body || DEFAULT_BODY), sig);
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST', headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: `"${`${sender.name} - ${company}`.replace(/"/g, "'")}" <${address}>`, to: [p.email], subject, text, html, ...(sender.email ? { reply_to: [sender.email] } : {}) }),
+      body: JSON.stringify({ from: `"${`${sender.name} - ${company}`.replace(/"/g, "'")}" <${address}>`, to: [p.email], subject, text, html, ...(sig.replyTo ? { reply_to: [sig.replyTo] } : {}) }),
     });
     if (!res.ok) { console.error('quote-tracker: provider refused', res.status, await res.text()); continue; }
     sent++;
@@ -427,10 +465,13 @@ Deno.serve(async (req) => {
       const m = /<([^>]+)>/.exec(Deno.env.get('ORDERS_FROM_EMAIL') || '');
       const address = (m ? m[1] : Deno.env.get('ORDERS_FROM_EMAIL') || 'orders@ophub.app').trim();
       // Copied in: the sender, and the company's preset CC when it's left on (Andy, 11 Nov 2026), at most 5.
-      const cc = [...new Set([...(me.email ? [String(me.email)] : []), ...(Array.isArray(body.cc) ? body.cc : [])].map((e) => String(e || '').trim().toLowerCase()).filter((e) => EMAIL_OK.test(e) && e !== to.toLowerCase()))].slice(0, 5);
+      // Signed like the chaser: the sender's details and the company's logo (19 Nov 2026).
+      const sig = await signatureFor(admin, me.org_id, { id: me.id, name: me.name || 'Estimating', email: me.email || null });
+      const out = signed(text, sig);
+      const cc = [...new Set([...(sig.replyTo ? [String(sig.replyTo)] : []), ...(Array.isArray(body.cc) ? body.cc : [])].map((e) => String(e || '').trim().toLowerCase()).filter((e) => EMAIL_OK.test(e) && e !== to.toLowerCase()))].slice(0, 5);
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST', headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: `"${`${me.name || 'Estimating'} - ${org?.name || ''}`.replace(/"/g, "'")}" <${address}>`, to: [to], ...(cc.length ? { cc } : {}), ...(me.email ? { reply_to: [me.email] } : {}), subject, text, html: `<div style="font-family:'Segoe UI',Arial,sans-serif;font-size:15px;line-height:1.5;color:#101114;white-space:pre-wrap;">${esc(text)}</div>`, attachments }),
+        body: JSON.stringify({ from: `"${`${me.name || 'Estimating'} - ${org?.name || ''}`.replace(/"/g, "'")}" <${address}>`, to: [to], ...(cc.length ? { cc } : {}), ...(sig.replyTo ? { reply_to: [sig.replyTo] } : {}), subject, text: out.text, html: out.html, attachments }),
       });
       if (!res.ok) { console.error('quote-tracker: send refused', res.status, await res.text()); return reply(req, { error: 'The email service didn’t accept the email.' }); }
       await admin.from('edge_email_log').insert({ fn: 'quote-tracker', sender_id: me.id, org_id: me.org_id, to_email: to.toLowerCase(), cc, subject }).then(undefined, () => undefined);

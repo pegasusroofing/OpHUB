@@ -30,6 +30,16 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
     db.cpp_plans = []; db.cpp_defaults = []; db.mc_documents = [];
     // Map searches: the hospital search (King's College Hospital, an A&E, and a nearer hospital without one) and postcodes.
     const mapAsks = [];
+    // OpenStreetMap's own search first (19 Nov 2026: Overpass turns most requests away); the box's centre is noted.
+    await ctx.route(/nominatim\.openstreetmap\.org\/search/, (r) => {
+      const vb = (new URL(r.request().url()).searchParams.get('viewbox') || '').split(',').map(Number);
+      mapAsks.push(`around:${((vb[1] + vb[3]) / 2).toFixed(4)},${((vb[0] + vb[2]) / 2).toFixed(4)}`);
+      r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify([
+        {category: 'amenity', type: 'hospital', name: 'Small Clinic Hospital', lat: '51.462', lon: '-0.138', extratags: {}, address: {}},
+        {category: 'amenity', type: 'hospital', name: "King's College Hospital", lat: '51.468', lon: '-0.094', extratags: {emergency: 'yes', phone: '020 3299 9000'}, address: {road: 'Denmark Hill', city: 'London', postcode: 'SE5 9RS'}},
+        {category: 'highway', type: 'residential', name: 'Hospital Road', lat: '51.461', lon: '-0.137'},
+      ])});
+    });
     await ctx.route(/overpass-api\.de/, (r) => { mapAsks.push(decodeURIComponent(r.request().postData() || '')); r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({elements: [
       {type: 'node', lat: 51.462, lon: -0.138, tags: {amenity: 'hospital', name: 'Small Clinic Hospital'}},
       {type: 'way', center: {lat: 51.468, lon: -0.094}, tags: {amenity: 'hospital', emergency: 'yes', name: "King's College Hospital", 'addr:street': 'Denmark Hill', 'addr:city': 'London', 'addr:postcode': 'SE5 9RS', phone: '020 3299 9000'}},
@@ -73,12 +83,13 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
     await tab(/^Emergency/);
     const pc = page.locator('input').filter({has: page.locator('xpath=.')}).nth(0);
     t = await values();
-    check(/SW4 6RZ/.test(t) && /Studley/.test(t), `${dev}: the A&E search starts from the job's address and postcode`);
+    check(/SW4 6RZ/.test(t) && !/Search From/.test(await text()), `${dev}: the A&E search starts from the job's postcode (no address box)`);
+    check(plan.hospital.phone === '020 3299 9000' && /Denmark Hill, London, SE5 9RS/.test(plan.hospital.address), `${dev}: the A&E's phone and address come through (${plan.hospital.address})`);
     const before = mapAsks.length;
     const pcBox = page.locator('input[value="SW4 6RZ"]').first();
     await pcBox.fill('E1 6AN'); await page.waitForTimeout(400);
     await page.getByText('Find Nearest A&E', {exact: true}).click(); await page.waitForTimeout(2500);
-    check(mapAsks.length > before && /51\.5203/.test(mapAsks[mapAsks.length - 1]), `${dev}: a changed postcode searches from there (${(mapAsks[mapAsks.length - 1] || '').match(/around:\d+,[\d.,-]+/)?.[0] || 'no search'})`);
+    check(mapAsks.length > before && /51\.5203/.test(mapAsks[mapAsks.length - 1]), `${dev}: a changed postcode searches from there (${(mapAsks[mapAsks.length - 1] || '').match(/around:[\d.]+,[\d.-]+/)?.[0] || 'no search'})`);
     const tops = await page.evaluate(() => [...document.querySelectorAll('input')].filter((i) => ['Gas', 'Electricity'].includes(i.value)).map((i) => Math.round(i.getBoundingClientRect().top)));
     check(dev === 'laptop' ? tops.length === 2 && tops[0] === tops[1] : tops.length === 2 && tops[0] !== tops[1], `${dev}: emergency numbers ${dev === 'laptop' ? 'two to a row' : 'one to a row on a phone'} (${tops.join(', ')})`);
     check(/Emergency Contact No\./.test(await text()), `${dev}: each number has its Emergency Contact No. underneath`);

@@ -69,12 +69,14 @@ const FILES = [
   { folder: '6. Programme', name: 'RTB_Delivery_Schedule.xlsx' },
   { folder: '', name: 'RTB Handover Checklist.xlsx' },
 ];
-/** The starting pack. For RTB, its own folders and template documents; for any other company (generic), the standard
- *  folder list with no documents and no paths, so their admin chooses where their folders go (8 Nov 2026). */
+/** The starting pack. For RTB, its own folders, template documents and rules. Any other company (generic) starts with
+ *  a clean slate (Andy, 19 Nov 2026: "i need it to be a clean slate for every company, that then set up themselves"):
+ *  no paths, no folders or documents (they're read from the company's own template when it's chosen) and nothing
+ *  saving anywhere until its admin adds it. */
 export const startingPack = (generic = false): PackConfig => ({
   parent_path: generic ? '' : 'RTB Roofing Ltd/Live Projects', template_path: generic ? '' : 'RTB Roofing Ltd/Live Projects/- New Job Pack - Template',
-  folders: [...FOLDERS], files: generic ? [] : FILES.map((f) => ({ ...f })), create_new: true,
-  rules: Object.fromEntries(PACK_RULES.map((r) => [r.key, { on: r.on, folder: r.folder }])),
+  folders: generic ? [] : [...FOLDERS], files: generic ? [] : FILES.map((f) => ({ ...f })), create_new: true,
+  rules: generic ? {} : Object.fromEntries(PACK_RULES.map((r) => [r.key, { on: r.on, folder: r.folder }])),
   weekly: { name: '{order}. Week {n}', addDate: false, weekStart: 1, week1: 'start' },
 });
 /** What a week folder will be called, shown on the page as it's edited. */

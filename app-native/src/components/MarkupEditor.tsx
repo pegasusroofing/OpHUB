@@ -8,6 +8,9 @@
 // marks drawn in (the office laptop draws it full size; phones snapshot the
 // screen) plus the marks. pinch or − / + zoom in up to 4×, and ✋ Move scrolls round
 // the drawing (drawing is paused while moving).
+// 19 Nov 2026 (Andy): Line (a two-point pen line, so it opens in the current app too), sizes XL and XXL; and on CPP
+// site / fire plans (plan) a Hatch tool - draw round an area and it's filled with diagonal hatching - with
+// "Straight Lines" (on to start with) making hand-drawn pen lines and hatched areas into straight lines.
 import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { Image, Modal, PanResponder, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import Svg, { Circle, Ellipse, G, Path, Rect, Text as SvgText } from 'react-native-svg';
@@ -15,14 +18,16 @@ import { captureRef } from 'react-native-view-shot';
 
 import { confirmAsk, promptText, useToast } from '@/components/toast';
 import {
-  arrowParts, hitMark, hitStroke, scaleMark, shiftMark, PHOTO_COLOURS, ringBox, crossPath, haloOf, isLight, MARK_COLOURS, MARK_SIZES, markCanvas, markRadius, nearestOp, nextFree, numFont, penPath, refreshKeyColours, tickPath, warnPath,
+  arrowParts, hatchPath, hatchShape, hatchWidth, hitMark, hitStroke, scaleMark, shiftMark, straighten, PHOTO_COLOURS, ringBox, crossPath, haloOf, isLight, MARK_COLOURS, MARK_SIZES, markCanvas, markRadius, nearestOp, nextFree, numFont, penPath, refreshKeyColours, tickPath, warnPath,
   type MarkKey, type MarkOp, type MarkSize, type Pt,
 } from '@/lib/rules/markup';
 import { renderMarked } from '@/lib/markupRender';
 import { base } from '@/theme/theme';
 
-type Tool = 'num' | 'key' | 'cross' | 'tick' | 'warn' | 'arrow' | 'ring' | 'pen' | 'text' | 'erase' | 'select';
-const TOOLS: [Tool, string][] = [['num', '① Number'], ['cross', '✕ Cross'], ['tick', '✓ Tick'], ['warn', '⚠ Warning'], ['arrow', '➜ Arrow'], ['pen', '✎ Pen'], ['text', 'T Text'], ['erase', '⌫ Eraser'], ['select', '☝ Select']];
+type Tool = 'num' | 'key' | 'cross' | 'tick' | 'warn' | 'arrow' | 'line' | 'ring' | 'pen' | 'hatch' | 'text' | 'erase' | 'select';
+const TOOLS: [Tool, string][] = [['num', '① Number'], ['cross', '✕ Cross'], ['tick', '✓ Tick'], ['warn', '⚠ Warning'], ['arrow', '➜ Arrow'], ['line', '╱ Line'], ['pen', '✎ Pen'], ['text', 'T Text'], ['erase', '⌫ Eraser'], ['select', '☝ Select']];
+// Site layout and fire route plans (CPP, Andy 19 Nov 2026): also a hatched area, and hand-drawn lines made straight.
+const PLAN_TOOLS: [Tool, string][] = [...TOOLS.slice(0, 7), ['hatch', '▨ Hatch'], ...TOOLS.slice(7)];
 // Photos (snags, deliveries — 499 photoMarkup): pen, arrow, circle and text.
 const PHOTO_TOOLS: [Tool, string][] = [['pen', '✎ Pen'], ['arrow', '➜ Arrow'], ['ring', '◯ Circle'], ['text', 'T Text'], ['erase', '⌫ Eraser'], ['select', '☝ Select']];
 
@@ -38,12 +43,16 @@ function MarkShape({ o }: { o: MarkOp }) {
   if (!('pts' in o)) return null;
   if (o.t === 'ring') { if (!o.pts[1]) return null; const b = ringBox(o.pts[0], o.pts[1]); return <Ellipse cx={b.cx} cy={b.cy} rx={b.rx} ry={b.ry} stroke={o.c} strokeWidth={o.w} fill="none" />; }
   if (o.t === 'pen') return <Path d={penPath(o.pts)} stroke={o.c} strokeWidth={o.w} strokeLinecap="round" strokeLinejoin="round" fill="none" />;
+  if (o.t === 'hatch') {
+    const h = o.pts.length > 2 ? hatchPath(o.pts, o.w) : '';
+    return <G>{!!h && <Path d={h} stroke={o.c} strokeWidth={hatchWidth(o.w)} fill="none" />}<Path d={penPath(o.pts) + (o.pts.length > 2 ? 'Z' : '')} stroke={o.c} strokeWidth={o.w} strokeLinecap="round" strokeLinejoin="round" fill="none" /></G>;
+  }
   if (!o.pts[1]) return null;
   const a = arrowParts(o.pts[0], o.pts[1], o.w);
   return <G><Path d={a.shaft} stroke={o.c} strokeWidth={o.w} strokeLinecap="round" fill="none" /><Path d={a.head} fill={o.c} /></G>;
 }
 
-export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onClose }: { src: string; ops?: MarkOp[]; keys?: MarkKey[]; photo?: boolean; onClose: (out: { image: string; ops: MarkOp[] } | null) => void }) {
+export function MarkupEditor({ src, ops: initial, keys = [], photo = false, plan = false, onClose }: { src: string; ops?: MarkOp[]; keys?: MarkKey[]; photo?: boolean; plan?: boolean; onClose: (out: { image: string; ops: MarkOp[] } | null) => void }) {
   const toast = useToast();
   const [size, setSize] = useState<{ W: number; H: number } | null>(null);
   const [area, setArea] = useState({ w: 0, h: 0 });
@@ -53,6 +62,8 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
   const [colour, setColour] = useState(COLOURS[0].k);
   const [picked, setPicked] = useState(false);
   const [sz, setSz] = useState<MarkSize>('m');
+  // Hand-drawn pen lines and hatched areas made into straight lines: on to start with, on plans (Andy, 19 Nov 2026).
+  const [straight, setStraight] = useState(plan);
   const [z, setZ] = useState(1);
   const [moving, setMoving] = useState(false);
   const [keyPick, setKeyPick] = useState<number | null>(() => { const placed = new Set((initial || []).filter((o) => o.t === 'num').map((o) => +(o as { n: number }).n)); return keys.find((k) => !placed.has(+k.n))?.n ?? null; });
@@ -60,8 +71,8 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
   const [sel, setSel] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const view = useRef<ComponentRef<typeof View>>(null);
-  const st = useRef({ ops, tool, colour, picked, sz, keyPick, k: 1, size, cur: null as MarkOp | null, nextNum: 0, moving: false, z: 1, pinch: null as { d0: number; z0: number } | null, sel: null as number | null, drag: null as { i: number; dx: number; dy: number; lx: number; ly: number } | null });
-  useEffect(() => { Object.assign(st.current, { ops, tool, colour, picked, sz, keyPick, size, moving, z, sel }); }, [ops, tool, colour, picked, sz, keyPick, size, moving, z, sel]);
+  const st = useRef({ ops, tool, colour, picked, sz, keyPick, k: 1, size, straight, cur: null as MarkOp | null, nextNum: 0, moving: false, z: 1, pinch: null as { d0: number; z0: number } | null, sel: null as number | null, drag: null as { i: number; dx: number; dy: number; lx: number; ly: number } | null });
+  useEffect(() => { Object.assign(st.current, { ops, tool, colour, picked, sz, keyPick, size, moving, z, sel, straight }); }, [ops, tool, colour, picked, sz, keyPick, size, moving, z, sel, straight]);
 
   useEffect(() => { Image.getSize(src, (w, h) => setSize(markCanvas(w, h)), () => { toast('Could not open that drawing.'); onClose(null); }); }, [src]); // eslint-disable-line react-hooks/exhaustive-deps
   const k = size && area.w ? Math.min(area.w / size.W, area.h / size.H) * z : 0;
@@ -85,7 +96,8 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
         if (any >= 0 && hit < 0) { s.drag = { i: any, dx: 0, dy: 0, lx: p.x, ly: p.y }; s.sel = any; setSel(any); s.cur = null; (s as unknown as { tap: Pt | null }).tap = null; return; }
         if (hit >= 0) { const o = s.ops[hit] as { x: number; y: number }; s.drag = { i: hit, dx: o.x - p.x, dy: o.y - p.y, lx: p.x, ly: p.y }; s.sel = hit; setSel(hit); s.cur = null; (s as unknown as { tap: Pt | null }).tap = null; return; }
       }
-      if (s.tool === 'pen' || s.tool === 'arrow' || s.tool === 'ring') { s.cur = { t: s.tool, c: s.colour, w: Math.max(4, Math.round(markRadius(s.size.W, s.size.H, s.sz) / 4)), pts: [p] }; setCur({ ...s.cur }); }
+      // A Line is a two-point pen line.
+      if (s.tool === 'pen' || s.tool === 'arrow' || s.tool === 'ring' || s.tool === 'line' || s.tool === 'hatch') { s.cur = { t: s.tool === 'line' ? 'pen' : s.tool, c: s.colour, w: Math.max(4, Math.round(markRadius(s.size.W, s.size.H, s.sz) / 4)), pts: [p] }; setCur({ ...s.cur }); }
       else s.cur = null;
       (s as unknown as { tap: Pt }).tap = p;
     },
@@ -107,7 +119,7 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
       }
       if (s.pinch || !s.cur || !('pts' in s.cur) || !s.k) return;
       const p = { x: e.nativeEvent.locationX / s.k, y: e.nativeEvent.locationY / s.k };
-      if (s.cur.t === 'pen') s.cur.pts.push(p); else s.cur.pts[1] = p;
+      if ((s.cur.t === 'pen' && s.tool !== 'line') || s.cur.t === 'hatch') s.cur.pts.push(p); else s.cur.pts[1] = p;
       setCur({ ...s.cur, pts: [...s.cur.pts] });
     },
     onPanResponderRelease: () => { void release(); },
@@ -121,9 +133,17 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
     if (s.sel != null) { s.sel = null; setSel(null); return; }
     const r = markRadius(s.size.W, s.size.H, s.sz), p = (s as unknown as { tap: Pt }).tap;
     if (s.cur && 'pts' in s.cur) {
-      const o = s.cur; s.cur = null; setCur(null);
-      const ok = o.t === 'pen' ? o.pts.length > 1 : !!o.pts[1] && Math.hypot(o.pts[1].x - o.pts[0].x, o.pts[1].y - o.pts[0].y) > 8;
-      if (ok) setOps((x) => [...x, o]);
+      let o = s.cur; s.cur = null; setCur(null);
+      const tol = 10 / (s.k || 1); // about 10 screen pixels, however far it's zoomed
+      if (o.t === 'hatch') {
+        const shape = hatchShape(o.pts, tol, s.straight);
+        if (shape) setOps((x) => [...x, { ...o, pts: shape } as MarkOp]);
+        return;
+      }
+      const line = s.tool === 'line';
+      if (o.t === 'pen' && !line && s.straight) o = { ...o, pts: straighten(o.pts, tol) };
+      const ok = o.t === 'pen' && !line ? o.pts.length > 1 : !!o.pts[1] && Math.hypot(o.pts[1].x - o.pts[0].x, o.pts[1].y - o.pts[0].y) > 8;
+      if (ok) setOps((x) => [...x, o as MarkOp]);
       return;
     }
     if (!p) return;
@@ -176,14 +196,14 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
       <View style={{ flex: 1, backgroundColor: '#1c1f24' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: 10, gap: 8 }}>
           {chip(false, 'Cancel', () => void close())}
-          <Text style={{ flex: 1, color: '#fff', fontWeight: '600', textAlign: 'center' }}>{photo ? 'Mark up photo' : 'Mark up drawing'}</Text>
+          <Text style={{ flex: 1, color: '#fff', fontWeight: '600', textAlign: 'center' }}>{photo ? 'Mark up photo' : plan ? 'Mark Up Plan' : 'Mark up drawing'}</Text>
           {chip(false, '↶ Undo', () => setOps((x) => x.slice(0, -1)))}
           {chip(false, 'Clear', async () => { if (ops.length && (await confirmAsk('Remove all the marks?', 'Clear'))) setOps([]); })}
           <Pressable onPress={() => void save()} disabled={saving} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, backgroundColor: base.blue }}><Text style={{ color: '#fff', fontWeight: '600' }}>{saving ? 'Saving…' : 'Save'}</Text></Pressable>
         </View>
         {sel != null && ops[sel] ? (
           <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 6, paddingHorizontal: 10, paddingBottom: 6, alignItems: 'center' }}>
-            <Text style={{ color: '#fff', fontWeight: '600', marginRight: 4 }}>Selected {(() => { const o = ops[sel]; return o.t === 'num' ? o.n : o.t === 'text' ? 'text' : o.t; })()}</Text>
+            <Text style={{ color: '#fff', fontWeight: '600', marginRight: 4 }}>Selected {(() => { const o = ops[sel]; return o.t === 'num' ? o.n : o.t === 'text' ? 'text' : o.t === 'hatch' ? 'hatched area' : o.t === 'pen' ? 'line' : o.t === 'ring' ? 'circle' : o.t; })()}</Text>
             {chip(false, '−', () => setOps((x) => x.map((o, j) => (j === sel && size ? scaleMark(o, 1 / 1.2, size.W) : o))), 'sm')}
             {chip(false, '+', () => setOps((x) => x.map((o, j) => (j === sel && size ? scaleMark(o, 1.2, size.W) : o))), 'sb')}
             {ops[sel].t === 'text' && chip(false, '✎ Edit text', async () => { const o = ops[sel] as { s: string }; const t = (await promptText('Edit text', o.s))?.trim(); if (t) setOps((x) => x.map((q, j) => (j === sel ? { ...q, s: t } as MarkOp : q))); }, 'et')}
@@ -194,7 +214,8 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
         ) : (
         <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 6, paddingHorizontal: 10, paddingBottom: 6 }}>
           {keys.length > 0 && chip(tool === 'key', '📍 Report items', () => setTool('key'))}
-          {(photo ? PHOTO_TOOLS : TOOLS).map(([t, l]) => chip(tool === t && !moving, l, () => { setTool(t); setMoving(false); }, t))}
+          {(photo ? PHOTO_TOOLS : plan ? PLAN_TOOLS : TOOLS).map(([t, l]) => chip(tool === t && !moving, l, () => { setTool(t); setMoving(false); }, t))}
+          {plan && chip(straight, `📏 Straight Lines: ${straight ? 'On' : 'Off'}`, () => setStraight(!straight), 'st')}
           <View style={{ width: 8 }} />
           {chip(false, '−', () => setZ((x) => Math.max(1, x / 1.5)), 'zo')}
           {chip(false, `${Math.round(z * 100)}%`, () => { setZ(1); setMoving(false); }, 'zf')}
@@ -215,7 +236,7 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
           </ScrollView>
         )}
         <Text style={{ color: '#cbd2db', fontSize: 12, paddingHorizontal: 10, paddingBottom: 6 }}>
-          {sel != null ? 'Drag the mark to move it. Tap anywhere else to let go.' : moving ? 'Drag to move round the drawing. Tap a tool to carry on marking.' : tool === 'key' ? (keyPick != null ? `Tap the drawing to place number ${keyPick}.` : 'All the ticked items are placed.') : tool === 'pen' ? 'Draw with your finger.' : tool === 'arrow' ? 'Drag from the start to the point.' : tool === 'ring' ? 'Drag across what to circle.' : tool === 'erase' ? 'Tap a mark to remove it.' : 'Tap the drawing to place it.'}
+          {sel != null ? 'Drag the mark to move it. Tap anywhere else to let go.' : moving ? 'Drag to move round the drawing. Tap a tool to carry on marking.' : tool === 'key' ? (keyPick != null ? `Tap the drawing to place number ${keyPick}.` : 'All the ticked items are placed.') : tool === 'pen' ? (straight ? 'Draw with your finger: it is made into straight lines.' : 'Draw with your finger.') : tool === 'line' ? 'Drag from one end of the line to the other.' : tool === 'hatch' ? `Draw round the area: it is filled with hatching${straight ? ' and its edges made straight' : ''}.` : tool === 'arrow' ? 'Drag from the start to the point.' : tool === 'ring' ? 'Drag across what to circle.' : tool === 'erase' ? 'Tap a mark to remove it.' : 'Tap the drawing to place it.'}
         </Text>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} onLayout={(e) => setArea({ w: e.nativeEvent.layout.width - 16, h: e.nativeEvent.layout.height - 16 })}>
           {size && k > 0 ? (

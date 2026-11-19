@@ -21,13 +21,13 @@ export default function JobPackRules() {
   const toast = useToast();
   const qc = useQueryClient();
   const { data, isLoading } = useJobPackSettings(me?.org_id);
-  const [c, setC] = useState<PackConfig>(startingPack());
+  // A company's own settings only, never RTB's starting set (19 Nov 2026: a clean slate for every company).
+  const [c, setC] = useState<PackConfig>(startingPack(true));
   const [open, setOpen] = useState<Record<string, boolean>>({ sync: true });
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!data?.config) return;
-    // A rule added to the app later joins a company's saved set with its starting values.
-    setC({ ...startingPack(), ...data.config, rules: { ...startingPack().rules, ...data.config.rules } });
+    setC({ ...startingPack(true), ...data.config, rules: { ...(data.config.rules || {}) } });
   }, [data?.config]);
   if (!me?.org_id) return null;
   if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Admins only.</Muted>;
@@ -100,7 +100,7 @@ export default function JobPackRules() {
       {!!open.sync && (
         <Card>
           {PACK_RULES.map((r) => {
-            const v = c.rules[r.key] ?? { on: false, folder: r.folder };
+            const v = c.rules[r.key] ?? { on: false, folder: '' };
             const week = v.folder.includes(WEEK_MARK);
             return (
               <View key={r.key} style={{ paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: base.cardLine }}>
@@ -113,7 +113,7 @@ export default function JobPackRules() {
                 </View>
                 {v.on && (
                   <Pressable accessibilityRole="button" onPress={async () => { const f = await pickFolder(`${r.area}: file into`, true); if (f !== null) setC({ ...c, rules: { ...c.rules, [r.key]: { ...v, folder: f } } }); }} style={{ marginTop: 5 }}>
-                    <Text style={{ color: base.blue, fontSize: 13, fontWeight: '600' }}>📁 {week ? 'This week’s folder' : last(v.folder)} ▾</Text>
+                    <Text style={{ color: base.blue, fontSize: 13, fontWeight: '600' }}>📁 {week ? 'This week’s folder' : v.folder ? last(v.folder) : 'Choose A Folder'} ▾</Text>
                   </Pressable>
                 )}
               </View>

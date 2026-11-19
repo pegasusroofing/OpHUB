@@ -303,11 +303,14 @@ export function CppEditor(props: JobProps | TemplateProps) {
       {job && (
         <Card>
           <SectionTitle>Nearest A&amp;E</SectionTitle>
-          <Muted style={{ marginBottom: 6 }}>Search from the job&apos;s address. If anything is missing, type it in or change the postcode, then press Find Nearest A&amp;E.</Muted>
-          {two(input('Search From (Address)', p.hospitalFrom.address, (v) => setIn('hospitalFrom', 'address', v), { multi: true, lines: 2 }), input('Postcode', p.hospitalFrom.postcode, (v) => setIn('hospitalFrom', 'postcode', v.toUpperCase())))}
+          {/* Just the job's postcode, changeable (Andy, 19 Nov 2026: "delete this and just pull through the project postcode"). */}
+          <Muted style={{ marginBottom: 6 }}>Searches from the job&apos;s postcode. Change it if needed, then press Find Nearest A&amp;E.</Muted>
+          {two(input('Postcode', p.hospitalFrom.postcode || site?.postcode || '', (v) => setIn('hospitalFrom', 'postcode', v.toUpperCase())), <View />)}
           {centre(
             <Button key="find" small busy={busy === 'h'} title="Find Nearest A&E" onPress={async () => {
-              setBusy('h'); const h = await findHospital(latest.current.hospitalFrom, site); setBusy('');
+              const from = latest.current.hospitalFrom, pc = (from.postcode || site?.postcode || '').trim();
+              // The job's address only when there's no postcode at all.
+              setBusy('h'); const h = await findHospital({ address: pc ? '' : from.address, postcode: pc }, site); setBusy('');
               if (typeof h === 'string') { showAlert(h); return; }
               set('hospital', h);
             }} />,
@@ -397,7 +400,7 @@ export function CppEditor(props: JobProps | TemplateProps) {
       {body}
       <View style={{ marginTop: 6, marginBottom: 20 }}>{footer(tab)}</View>
       {snap && <MapSnapshot at={snap.at} onClose={(pic) => { const k = snap.k; setSnap(null); if (pic) void startMarkup(k, pic); }} />}
-      {mark && <MarkupEditor src={mark.src} ops={mark.ops} onClose={async (out) => {
+      {mark && <MarkupEditor plan src={mark.src} ops={mark.ops} onClose={async (out) => {
         const m = mark; setMark(null);
         const mkKey = m.k === 'sitePlan' ? 'sitePlanMarks' : 'firePlanMarks';
         if (!out) { if (!latest.current[m.k]) change((x) => ({ ...x, [m.k]: m.base, [mkKey]: { base: m.base, ops: [] } as CppMarks })); return; }

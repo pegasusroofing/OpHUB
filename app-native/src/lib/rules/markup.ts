@@ -7,7 +7,9 @@ export type MarkOp =
   | { t: 'num'; n: number; c: string; r: number; x: number; y: number; key?: boolean; auto?: boolean }
   | { t: 'cross' | 'tick' | 'warn'; c: string; r: number; x: number; y: number }
   | { t: 'text'; c: string; fs: number; s: string; x: number; y: number }
-  | { t: 'pen' | 'arrow' | 'ring'; c: string; w: number; pts: Pt[] };
+  // 'hatch' (CPP plans only, 19 Nov 2026): an area drawn round, filled with diagonal hatching. A straight line is a
+  // two-point 'pen', so drawings with lines still open in the current app.
+  | { t: 'pen' | 'arrow' | 'ring' | 'hatch'; c: string; w: number; pts: Pt[] };
 export type MarkKey = { n: number; label: string; color: string | null };
 
 export const MARK_MAX = 3600;
@@ -22,7 +24,8 @@ export const PHOTO_COLOURS = [
 ];
 /** A circle drawn by dragging across it: centre and radii from the two corners. */
 export function ringBox(a: Pt, b: Pt) { return { cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, rx: Math.abs(b.x - a.x) / 2, ry: Math.abs(b.y - a.y) / 2 }; }
-export const MARK_SIZES = { xs: 0.45, s: 0.7, m: 1, l: 1.45 } as const;
+// XL and XXL (Andy, 19 Nov 2026: "make lines bigger (the biggest currently isnt big enough").
+export const MARK_SIZES = { xs: 0.45, s: 0.7, m: 1, l: 1.45, xl: 2.3, xxl: 3.6 } as const;
 export type MarkSize = keyof typeof MARK_SIZES;
 
 /** The drawing's working size: its own, scaled down to MARK_MAX on the long side. */
@@ -41,7 +44,7 @@ export function nextFree(ops: MarkOp[], keys: MarkKey[]): number {
 export function nearestOp(ops: MarkOp[], p: Pt, r: number): number {
   let best = -1, bd = Infinity;
   ops.forEach((o, i) => {
-    const d = 'pts' in o ? Math.min(...o.pts.map((q) => Math.hypot(q.x - p.x, q.y - p.y))) : Math.hypot(o.x - p.x, o.y - p.y);
+    const d = o.t === 'hatch' && insideShape(o.pts, p) ? 0 : 'pts' in o ? Math.min(...o.pts.map((q) => Math.hypot(q.x - p.x, q.y - p.y))) : Math.hypot(o.x - p.x, o.y - p.y);
     const reach = ('r' in o ? o.r : 'fs' in o ? o.fs : 'w' in o ? o.w * 4 : r) * 1.6;
     if (d < reach && d < bd) { bd = d; best = i; }
   });
@@ -65,6 +68,66 @@ export function arrowParts(a: Pt, b: Pt, w: number) {
     shaft: `M${a.x} ${a.y}L${b.x - Math.cos(ang) * hl * 0.6} ${b.y - Math.sin(ang) * hl * 0.6}`,
     head: `M${b.x} ${b.y}L${b.x - hl * Math.cos(ang - 0.45)} ${b.y - hl * Math.sin(ang - 0.45)}L${b.x - hl * Math.cos(ang + 0.45)} ${b.y - hl * Math.sin(ang + 0.45)}Z`,
   };
+}
+/** The distance from p to the segment a-b. */
+function segDist(p: Pt, a: Pt, b: Pt) {
+  const dx = b.x - a.x, dy = b.y - a.y, l = dx * dx + dy * dy;
+  const t = l ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l)) : 0;
+  return Math.hypot(a.x + t * dx - p.x, a.y + t * dy - p.y);
+}
+/** A hand-drawn line made into straight lines (Andy, 19 Nov 2026: "the option to default the drawn lines to straight
+ *  lines"): only the corners further than tol from a straight run are kept (Ramer-Douglas-Peucker). */
+export function straighten(pts: Pt[], tol: number): Pt[] {
+  if (pts.length < 3) return pts.slice();
+  const keep = pts.map((_, i) => i === 0 || i === pts.length - 1);
+  const todo: [number, number][] = [[0, pts.length - 1]];
+  while (todo.length) {
+    const [a, b] = todo.pop() as [number, number];
+    let far = -1, fd = tol;
+    for (let i = a + 1; i < b; i++) { const d = segDist(pts[i], pts[a], pts[b]); if (d > fd) { fd = d; far = i; } }
+    if (far > 0) { keep[far] = true; todo.push([a, far], [far, b]); }
+  }
+  return pts.filter((_, i) => keep[i]);
+}
+/** An area drawn round, as its outline: straightened if asked, the end dropped when it comes back to the start.
+ *  null when it isn't an area (fewer than 3 corners, or too thin to see). */
+export function hatchShape(pts: Pt[], tol: number, straight: boolean): Pt[] | null {
+  let q = straight ? straighten(pts, tol) : pts.slice();
+  if (q.length > 3 && Math.hypot(q[q.length - 1].x - q[0].x, q[q.length - 1].y - q[0].y) < tol * 2.5) q = q.slice(0, -1);
+  if (q.length < 3) return null;
+  let a2 = 0;
+  q.forEach((p, i) => { const n = q[(i + 1) % q.length]; a2 += p.x * n.y - n.x * p.y; });
+  return Math.abs(a2) / 2 > tol * tol * 4 ? q : null;
+}
+/** The gap between hatching lines, and their thickness, for an outline w thick. */
+export const hatchGap = (w: number) => Math.max(10, w * 3.5);
+export const hatchWidth = (w: number) => Math.max(2, w * 0.55);
+/** Diagonal hatching inside an area (45°, like a drawing's hatch), as straight pieces, so the screen and the saved
+ *  picture draw it the same way. Even-odd: a shape that crosses itself is hatched where a drawing would be. */
+export function hatchLines(poly: Pt[], gap: number): [Pt, Pt][] {
+  if (poly.length < 3 || !(gap > 0)) return [];
+  const c = Math.SQRT1_2, s = Math.SQRT1_2;
+  const r = poly.map((p) => ({ x: p.x * c + p.y * s, y: -p.x * s + p.y * c }));
+  const ys = r.map((p) => p.y), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const out: [Pt, Pt][] = [];
+  for (let y = y0 + gap / 2, n = 0; y < y1 && n < 3000; y += gap, n++) {
+    const xs: number[] = [];
+    r.forEach((a, i) => { const b = r[(i + 1) % r.length]; if ((a.y <= y && b.y > y) || (b.y <= y && a.y > y)) xs.push(a.x + ((y - a.y) * (b.x - a.x)) / (b.y - a.y)); });
+    xs.sort((m, k) => m - k);
+    for (let i = 0; i + 1 < xs.length; i += 2) out.push([{ x: xs[i] * c - y * s, y: xs[i] * s + y * c }, { x: xs[i + 1] * c - y * s, y: xs[i + 1] * s + y * c }]);
+  }
+  return out;
+}
+/** The hatching as one SVG / Path2D path. */
+export const hatchPath = (poly: Pt[], w: number) => hatchLines(poly, hatchGap(w)).map(([a, b]) => `M${a.x.toFixed(1)} ${a.y.toFixed(1)}L${b.x.toFixed(1)} ${b.y.toFixed(1)}`).join('');
+/** Is p inside the area (even-odd)? */
+export function insideShape(poly: Pt[], p: Pt): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i], b = poly[j];
+    if ((a.y > p.y) !== (b.y > p.y) && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
 }
 export const numFont = (o: { n: number; r: number }) => { const s = String(o.n); return Math.round(o.r * (s.length > 2 ? 0.85 : s.length > 1 ? 1.05 : 1.2)); };
 
@@ -101,6 +164,8 @@ export function hitStroke(ops: MarkOp[], p: Pt, reach: number): number {
       const b = ringBox(o.pts[0], o.pts[o.pts.length - 1]);
       if (Math.abs(p.x - b.cx) <= b.rx + reach && Math.abs(p.y - b.cy) <= b.ry + reach) d = 0;
     }
+    // A hatched area: its closing edge, and pressing inside it, count.
+    if (o.t === 'hatch' && o.pts.length > 2) { d = Math.min(d, seg(o.pts[o.pts.length - 1], o.pts[0])); if (insideShape(o.pts, p)) d = 0; }
     if (d <= Math.max(reach, o.w) && d < bd) { bd = d; best = i; }
   });
   return best;

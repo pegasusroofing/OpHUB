@@ -49,6 +49,46 @@ export async function listFolders(at: OdFolder | null): Promise<{ folders: OdFol
     return { folders: at ? folders : [{ id: SHARED_ROOT, name: '🔗 Shared with me', virtual: true }, { id: SITES_ROOT, name: '🏢 Company Sites', virtual: true }, ...folders] };
   } catch { return { folders: [], error: 'Could not reach OneDrive.' }; }
 }
+/** One level of folders and the documents in it. */
+async function listFolderItems(at: OdFolder): Promise<{ folders: OdFolder[]; files: string[]; error?: string }> {
+  const body = at.driveId ? { parent_id: at.id, drive_id: at.driveId, includeFiles: true } : { parent_id: at.id, includeFiles: true };
+  try {
+    const r = await supabase.functions.invoke('onedrive-list-folders', { body });
+    const d = r.data as { folders?: OdFolder[]; files?: { name: string }[]; error?: string } | null;
+    if (r.error || d?.error) return { folders: [], files: [], error: d?.error || 'Could not load OneDrive folders.' };
+    return { folders: d?.folders || [], files: (d?.files || []).map((f) => f.name) };
+  } catch { return { folders: [], files: [], error: 'Could not reach OneDrive.' }; }
+}
+/** A company's own template (Andy, 19 Nov 2026: "a clean slate for every company, that then set up themselves"): every
+ *  folder in it and every document, as paths inside it, so each new job is built just like it. Found by its path from
+ *  the top of the company's OneDrive (through a library shortcut too). Up to 6 levels deep and 300 folders. */
+export async function readTemplateTree(path: string): Promise<{ folders: string[]; files: { folder: string; name: string }[] } | string> {
+  const parts = String(path || '').replace(/\\/g, '/').split('/').map((x) => x.trim()).filter(Boolean);
+  if (!parts.length) return 'Choose the template folder first.';
+  let cur: OdFolder | null = null;
+  for (const p of parts) {
+    const r = await listFolders(cur);
+    if (r.error) return r.error;
+    const f = r.folders.find((x) => !x.virtual && x.name.trim().toLowerCase() === p.toLowerCase());
+    if (!f) return `Could not find “${p}” in OneDrive. Choose the template folder again.`;
+    cur = f;
+  }
+  const folders: string[] = [], files: { folder: string; name: string }[] = [];
+  let level: { ref: OdFolder; rel: string }[] = [{ ref: cur as OdFolder, rel: '' }];
+  for (let depth = 0; depth < 6 && level.length && folders.length < 300; depth++) {
+    const next: { ref: OdFolder; rel: string }[] = [];
+    for (let i = 0; i < level.length; i += 6) {
+      const got = await Promise.all(level.slice(i, i + 6).map(async (l) => ({ l, r: await listFolderItems(l.ref) })));
+      for (const { l, r } of got) {
+        if (r.error) return r.error;
+        r.files.forEach((name) => files.push({ folder: l.rel, name }));
+        r.folders.forEach((f) => { const rel = l.rel ? `${l.rel}/${f.name}` : f.name; folders.push(rel); next.push({ ref: f, rel }); });
+      }
+    }
+    level = next;
+  }
+  return { folders: folders.slice(0, 300), files };
+}
 /** Links the chosen folder to whatever the picker was opened for. */
 export async function linkFolder(target: OdTarget, id: string, f: { id: string; name: string; driveId?: string | null }): Promise<boolean> {
   const d = f.driveId || null;

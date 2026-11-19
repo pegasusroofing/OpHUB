@@ -1,7 +1,7 @@
 // Draws a drawing with its marks into a JPEG (498 planRenderOps / plmDrawOp),
 // full size (up to 3600px), on the office laptop (web). Phones snapshot the
 // editor instead. Also used to re-colour numbers when a condition changes.
-import { ringBox, arrowParts, haloOf, isLight, markCanvas, numFont, type MarkOp } from '@/lib/rules/markup';
+import { ringBox, arrowParts, haloOf, hatchPath, hatchWidth, isLight, markCanvas, numFont, type MarkOp } from '@/lib/rules/markup';
 
 const FONT = '-apple-system, Segoe UI, Roboto, Arial, sans-serif';
 async function loadImg(src: string): Promise<HTMLImageElement> {
@@ -34,6 +34,10 @@ function drawOp(ctx: CanvasRenderingContext2D, o: MarkOp) {
     ctx.strokeStyle = o.c; ctx.fillStyle = o.c; ctx.lineWidth = o.w;
     if (o.t === 'ring') { if (o.pts[1]) { const b = ringBox(o.pts[0], o.pts[1]); ctx.beginPath(); ctx.ellipse(b.cx, b.cy, b.rx, b.ry, 0, 0, Math.PI * 2); ctx.stroke(); } }
     else if (o.t === 'pen') { ctx.beginPath(); ctx.moveTo(o.pts[0].x, o.pts[0].y); o.pts.forEach((q) => ctx.lineTo(q.x, q.y)); ctx.stroke(); }
+    else if (o.t === 'hatch') {
+      if (o.pts.length > 2) { ctx.lineCap = 'butt'; ctx.lineWidth = hatchWidth(o.w); ctx.stroke(new Path2D(hatchPath(o.pts, o.w) || 'M0 0')); ctx.lineCap = 'round'; }
+      ctx.lineWidth = o.w; ctx.beginPath(); ctx.moveTo(o.pts[0].x, o.pts[0].y); o.pts.forEach((q) => ctx.lineTo(q.x, q.y)); ctx.closePath(); ctx.stroke();
+    }
     else if (o.pts[1]) { const a = arrowParts(o.pts[0], o.pts[1], o.w); ctx.stroke(new Path2D(a.shaft)); ctx.fill(new Path2D(a.head)); }
   }
   ctx.restore();

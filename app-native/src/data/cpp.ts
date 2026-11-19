@@ -80,19 +80,43 @@ export async function pointFor(from: { address: string; postcode: string }, site
 }
 /** The job's address and postcode, to start the A&E search from. */
 export const siteFrom = (site: Site) => ({ address: String(fullSiteAddress(site) || site.name || '').trim(), postcode: String(site.postcode || '').trim() });
-/** The nearest A&E from OpenStreetMap (free Overpass service): hospitals marked emergency=yes within 25 km, nearest
- *  first; any hospital if none is marked. Gives a reason when it can't. */
+type OsmEl = { lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> };
+async function fetchT(url: string, init: RequestInit = {}, ms = 15000) {
+  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), ms);
+  try { return await fetch(url, { ...init, signal: ctrl.signal }); } finally { clearTimeout(timer); }
+}
+/** Hospitals in a box round the point from OpenStreetMap's own search (Nominatim), shaped like Overpass's answer.
+ *  km is half the box's width. */
+async function nominatimHospitals(at: { lat: number; lon: number }, km: number): Promise<OsmEl[]> {
+  const dy = km / 111, dx = km / (111 * Math.cos((at.lat * Math.PI) / 180));
+  const u = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=hospital&bounded=1&limit=50&extratags=1&addressdetails=1&viewbox=${(at.lon - dx).toFixed(4)},${(at.lat + dy).toFixed(4)},${(at.lon + dx).toFixed(4)},${(at.lat - dy).toFixed(4)}`;
+  const r = await fetchT(u);
+  if (!r.ok) throw new Error(`nominatim ${r.status}`);
+  const rows = (await r.json()) as { category?: string; type?: string; name?: string; lat: string; lon: string; extratags?: Record<string, string> | null; address?: Record<string, string> }[];
+  return (rows || []).filter((x) => x.category === 'amenity' && x.type === 'hospital' && x.name).map((x) => {
+    const a = x.address || {};
+    return { lat: Number(x.lat), lon: Number(x.lon), tags: { ...(x.extratags || {}), name: x.name as string, 'addr:housenumber': a.house_number || '', 'addr:street': a.road || '', 'addr:city': a.city || a.town || a.village || a.suburb || '', 'addr:postcode': a.postcode || '' } };
+  });
+}
+/** The nearest A&E from OpenStreetMap: hospitals marked emergency=yes, nearest first; any hospital if none is marked.
+ *  OpenStreetMap's own search, near the job first (8 km) then wider (25 km); the Overpass service only if that fails
+ *  (19 Nov 2026: Overpass turns most requests away - "at capacity" - so it can't be the only way). Gives a reason
+ *  when it can't. */
 export async function findHospital(from: { address: string; postcode: string }, site?: Site | null): Promise<CppHospital | string> {
   const at = await pointFor(from, site);
-  if (!at) return 'Could not find that address - check the postcode, or type the address in full.';
-  const q = `[out:json][timeout:20];(nwr["amenity"="hospital"](around:25000,${at.lat},${at.lon}););out center tags 60;`;
-  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 20000);
+  if (!at) return 'Could not find that postcode - check it, or type the hospital in.';
   try {
-    const r = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: `data=${encodeURIComponent(q)}`, headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: ctrl.signal });
+    const near = await nominatimHospitals(at, 8);
+    const els = near.some((e) => e.tags?.emergency === 'yes') ? near : [...near, ...(await nominatimHospitals(at, 25).catch(() => [] as OsmEl[]))];
+    const h = pickHospital(at, els);
+    if (h) return h;
+  } catch { /* try Overpass */ }
+  try {
+    const q = `[out:json][timeout:20];(nwr["amenity"="hospital"](around:25000,${at.lat},${at.lon}););out center tags 60;`;
+    const r = await fetchT('https://overpass-api.de/api/interpreter', { method: 'POST', body: `data=${encodeURIComponent(q)}`, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }, 20000);
     if (!r.ok) return 'The hospital search is busy - try again in a minute, or type it in.';
-    const h = pickHospital(at, ((await r.json()) as { elements?: [] })?.elements || []);
-    return h || 'No hospital found within 25 km - type it in.';
-  } catch { return 'Could not reach the hospital search - check signal, or type it in.'; } finally { clearTimeout(timer); }
+    return pickHospital(at, ((await r.json()) as { elements?: OsmEl[] })?.elements || []) || 'No hospital found within 25 km - type it in.';
+  } catch { return 'Could not reach the hospital search - check signal, or type it in.'; }
 }
 
 /** A new plan for this job, filled from everything the job already knows. */
