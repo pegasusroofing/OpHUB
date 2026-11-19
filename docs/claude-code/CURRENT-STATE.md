@@ -89,6 +89,14 @@
   - It uses the same `ANTHROPIC_API_KEY` secret as `finance-ai-read`.
   - 30 drafts a day per company. Each call is logged in the new table `ai_usage_log`, which only admins can read.
 
+## Construction Phase Plan builder (19 Nov 2026, beta link only)
+- **Andy asked:** "when a main contractor build a construction phase plan in the construction phase plan tile ... replicate it as a rams style builder, pull through as much info as you have from the job ... can we just do on beta for now?" His example is the Richardson Court CPP (Live Projects/Richardson Court/9. Richardson Court - Hyde/1. Health & Safety/2. Construction Phase Plan).
+- **Where:** Main Contractor > Construction Phase Plan folder > Build A Construction Phase Plan (managers). Editor `sites/[id]/mc/cpp/[p].tsx`, tabs Details / People / Plan / Emergency / Issue; saves by itself. Issue makes the PDF (`lib/cppPdf.ts`) and files it in the same folder (mc_documents 'cpp'); re-issuing makes the next version.
+- **Filled from the job** (`data/cpp.ts` createCpp): company (name, RAMS settings address/phone), site, client, PM, first aiders (people on the job with an in-date first aid certificate), outline (Schedule of Works), start date, duration (latest RAMS build), nearest A&E (OpenStreetMap Overpass, emergency=yes first; route link), national gas / power-cut / Environment Agency numbers, the job's current RAMS and COSHH (section 17). "Save Wording For Future Plans" keeps a company's wording (cpp_defaults).
+- **Beta only:** `lib/betaOnly.ts` isBetaSite() (ophub-beta.vercel.app and localhost); hidden on app.operativehub.co.uk and phones. To release: widen isBetaSite or remove the checks in mc/docs/[cat].tsx and mc/cpp/[p].tsx.
+- SQL: `sql/cpp-builder-19nov.sql` (applied). Checks: `cpp19-check.js` (laptop + phone), `src/lib/rules/cpp.test.ts`.
+- Not done yet: OneDrive job-pack copy of the issued plan; operatives signing the plan.
+
 ## The new app is live at app.operativehub.co.uk (19 Nov 2026)
 - **Andy asked (19 Nov):** "are we able to make this live now? but still keep the old html whilst we slowly transfer over?" Then: "Yes, set it up".
 - **Address:** https://app.operativehub.co.uk, added to the Vercel project `ophub-beta` (same deploys as the beta link, which keeps working). The domain's DNS is at GoDaddy, so Andy adds one record: **CNAME, name `app`, value `14dce9a353b21d09.vercel-dns-017.com`**. Added 19 Nov by Claude in Andy's own browser (he asked; he was signed in to GoDaddy there), certificate issued the same day (`vercel certs issue`); checked live: page, sign-up page and server calls all answer.

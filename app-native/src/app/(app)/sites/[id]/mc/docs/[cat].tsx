@@ -3,7 +3,7 @@
 // rename and delete.
 import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
@@ -11,14 +11,17 @@ import { confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
+import { createCpp, useCppPlans } from '@/data/cpp';
 import { deleteMcDoc, MC_DOC_LABEL, renameMcDoc, uploadMcDoc, useMcDocs } from '@/data/mc';
+import { useSite } from '@/data/sites';
+import { isBetaSite } from '@/lib/betaOnly';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
 export default function McDocs() {
   const { id, cat } = useLocalSearchParams<{ id: string; cat: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: docs, isLoading } = useMcDocs(id, cat);
@@ -27,6 +30,11 @@ export default function McDocs() {
   const [name, setName] = useState('');
   const [file, setFile] = useState<{ uri: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  // The Construction Phase Plan builder (Andy, 19 Nov 2026), on the beta link only for now.
+  const builder = cat === 'cpp' && isBetaSite();
+  const { data: site } = useSite(id);
+  const { data: plans } = useCppPlans(builder ? id : undefined);
+  const [making, setMaking] = useState(false);
   if (!me) return null;
   const mgr = isManager(me);
   const label = MC_DOC_LABEL[cat] ?? 'Documents';
@@ -35,6 +43,25 @@ export default function McDocs() {
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: label }} />
+      {builder && mgr && (
+        <Card>
+          <Text style={{ fontSize: 16.5, fontWeight: '600', color: base.ink }}>Build A Construction Phase Plan</Text>
+          <Muted style={{ marginBottom: 8 }}>Starts from this job: the client, PM, first aiders, Schedule of Works, start date and nearest A&amp;E are filled in for you. Issuing it puts the PDF in this folder.</Muted>
+          {(plans ?? []).map((pl) => (
+            <Pressable key={pl.id} onPress={() => router.push(`/sites/${id}/mc/cpp/${pl.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 9, borderTopWidth: 1, borderTopColor: base.line }}>
+              <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: base.ink }}>{pl.title}</Text><Muted>{pl.status === 'issued' ? `Issued · version ${pl.version}` : 'Draft'} · {new Date(pl.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted></View>
+              <Text style={{ color: base.slate }}>Open ›</Text>
+            </Pressable>
+          ))}
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 6 }}>
+            <Button small busy={making} title="+ Build A New Plan" onPress={async () => {
+              if (!site) return;
+              setMaking(true); const nid = await createCpp(me, org as never, site); setMaking(false);
+              if (nid) router.push(`/sites/${id}/mc/cpp/${nid}` as never); else toast('Could not start the plan - try again.');
+            }} />
+          </View>
+        </Card>
+      )}
       {isLoading ? <Muted>Loading…</Muted> : docs?.length ? docs.map((d) => (
         <Card key={d.id}>
           <View style={{ flexDirection: 'row', gap: 8 }}>

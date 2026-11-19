@@ -5,6 +5,7 @@
 export * from '@/data/hsPdf';
 export * from '@/lib/certBundlePdf';
 export * from '@/lib/coshhPdf';
+export * from '@/lib/cppPdf';
 export * from '@/lib/deliveryExport';
 export * from '@/lib/finAppPdf';
 export * from '@/lib/finCisPdf';

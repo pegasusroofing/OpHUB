@@ -28,6 +28,7 @@ export type PDFDocument = PdfDoc;
 export const buildAppPdf = lazy('buildAppPdf');
 export const buildCertBundlePdf = lazy('buildCertBundlePdf');
 export const buildCoshhPdf = lazy('buildCoshhPdf');
+export const buildCppPdf = lazy('buildCppPdf');
 export const buildHavsPdf = lazy('buildHavsPdf');
 export const buildIncidentPdf = lazy('buildIncidentPdf');
 export const buildInductionPdf = lazy('buildInductionPdf');
