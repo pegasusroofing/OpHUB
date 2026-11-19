@@ -12,11 +12,12 @@ import { HowTo } from '@/components/HowTo';
 import { OphIcon } from '@/components/OphIcon';
 import { SearchButton } from '@/components/SearchButton';
 import { SitesMapCard } from '@/components/SitesMap';
+import { useCompanyContact } from '@/components/EmailSignature';
 import { WeatherTile } from '@/components/WeatherSwap';
 import { Card, Muted, Screen, SectionTitle, Stat, Tile, TileGrid, TINTS } from '@/components/ui';
 import { useHubAll } from '@/data/hub';
 import { useDeliveryRequests } from '@/data/deliveries';
-import { useFinOverview } from '@/data/finance';
+import { useFinOverview, useFinSettings } from '@/data/finance';
 import { useQuotes } from '@/data/quotes';
 import { useOnSiteNow, usePmReports, usePmTodos, useTodayEvents } from '@/data/pmHome';
 import { useSites } from '@/data/sites';
@@ -25,8 +26,10 @@ import { useAuth } from '@/lib/auth';
 import { heading } from '@/lib/fonts';
 import { greeting, siteStatusKey } from '@/lib/rules/checkin';
 import { isQuoted } from '@/lib/rules/quotes';
+import { ukPostcode } from '@/lib/rules/weather';
 import { seesHomeFinance } from '@/lib/homeTiles';
 import { can } from '@/lib/rules/rolePerms';
+import type { Site } from '@/lib/types';
 import { base, space, useDesk, useTheme } from '@/theme/theme';
 
 export function PmHome() {
@@ -63,17 +66,26 @@ export function PmHome() {
   const where = (r: (typeof reports)[number]) => (r.site_id ? (sites ?? []).find((s) => s.id === r.site_id)?.name || 'Project' : r.general_label || 'General survey');
   const go = (p: string) => () => router.push(p as never);
   const { data: today = [] } = useTodayEvents();
+  const keyDates = today.filter((e) => !/^s*deliverys*:/i.test(e.title || ''));
   const siteName = (id: string) => (sites ?? []).find((x) => x.id === id)?.name || 'Project';
   const onSiteJobs = new Set(onSite.map((o) => o.site_id)).size;
   // Today (Andy, 6 Nov 2026: option 1): key dates and deliveries from the project calendars, who's on site, reports in progress.
   const todayRows: { ic: string; t: string; sub: string; go: string }[] = [
-    ...today.slice(0, 4).map((e) => ({ ic: /deliver|collect|\bPO\b/i.test(e.title) ? 'truck' : 'calendar', t: e.title, sub: siteName(e.site_id), go: `/sites/${e.site_id}/calendar` })),
+    // Not the drivers' deliveries ("Delivery: …" on the calendars): Andy, 19 Nov 2026: "remove delivery drivers from the
+    // tiles that go next to weather please. We don't need to see them constantly". They're still on the calendars.
+    ...keyDates.slice(0, 4).map((e) => ({ ic: /deliver|collect|\bPO\b/i.test(e.title) ? 'truck' : 'calendar', t: e.title, sub: siteName(e.site_id), go: `/sites/${e.site_id}/calendar` })),
     { ic: 'users', t: onSite.length ? `${onSite.length} on site` : 'Nobody on site yet', sub: onSite.length ? `across ${onSiteJobs} project${onSiteJobs === 1 ? '' : 's'}` : 'Signed in today', go: '/onsite' },
     ...(dlvN ? [{ ic: 'truck', t: `${dlvN} deliver${dlvN === 1 ? 'y' : 'ies'} to schedule`, sub: 'Delivery schedule', go: '/pm/deliveries' }] : []),
     ...(open.length ? [{ ic: 'reports', t: `${open.length} report${open.length === 1 ? '' : 's'} in progress`, sub: open[0] ? `${open[0].template_name || 'Report'} · ${where(open[0])}` : '', go: '/pm/reports' }] : []),
   ];
   // Today's weather first (Andy, 11 Nov 2026), for the first live project with a postcode; tap it for the week.
-  const wxSite = live.find((s2) => !!s2.postcode) ?? (sites ?? []).find((s2) => !!s2.postcode);
+  // With no project yet (a new company, e.g. RTB Construction on 19 Nov 2026), the company's own postcode: from its
+  // address (Admin › RAMS Library › Company, or Finance's company address).
+  const { data: contact } = useCompanyContact(org?.id);
+  const { data: finSet } = useFinSettings(org?.id);
+  const homePostcode = ukPostcode(String(contact?.address || '')) || ukPostcode(String((finSet as Record<string, unknown> | undefined)?.company_address || ''));
+  const wxSite = live.find((s2) => !!s2.postcode) ?? (sites ?? []).find((s2) => !!s2.postcode)
+    ?? (homePostcode ? ({ id: '', name: org?.name || 'Office', postcode: homePostcode } as unknown as Site) : undefined);
   const todayCard = (
     <Card style={{ paddingHorizontal: 0, paddingVertical: 10, marginBottom: desk ? 0 : space.m, ...(desk ? { flex: 1, minWidth: 0 } : {}) }}>
       <Text style={{ fontWeight: desk ? '700' : '600', color: base.ink, fontSize: desk ? 16 : 14, paddingHorizontal: desk ? 18 : 14, paddingBottom: 6 }}>Today</Text>
@@ -88,7 +100,7 @@ export function PmHome() {
           </View>
         </Pressable>
       ))}
-      {!today.length && <Text style={{ fontSize: 12, color: base.slateLight, paddingHorizontal: desk ? 18 : 14, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#f0f1f3' }}>No key dates or deliveries on the calendars today.</Text>}
+      {!keyDates.length && <Text style={{ fontSize: 12, color: base.slateLight, paddingHorizontal: desk ? 18 : 14, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#f0f1f3' }}>No key dates on the calendars today.</Text>}
     </Card>
   );
 

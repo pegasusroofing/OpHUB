@@ -17,3 +17,10 @@ export function rainDelayEmail(job: { name?: string | null; job_number?: string 
     message: `Dear ${who || 'Sir / Madam'},\n\nDue to the adverse weather today, ${when}, we are not in attendance at ${job.address || job.name || 'site'}. We will need to add additional time to the programme to allow for this.\n\nWe will return to site as soon as conditions allow.\n\nKind regards,\n${sender}\n${company}`,
   };
 }
+
+/** The UK postcode in an address, e.g. "Unit 7, Runwell Hall Farm, Hoe Lane, Rettendon, CM3 8DQ" → "CM3 8DQ"; '' if none.
+ *  For the home page weather when a company has no projects yet (19 Nov 2026). */
+export function ukPostcode(address: string | null | undefined): string {
+  const m = /\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/i.exec(String(address || ''));
+  return m ? `${m[1]} ${m[2]}`.toUpperCase() : '';
+}

@@ -195,7 +195,8 @@ function WeatherPopup({ me, site, company, pm, lat, lon, onClose, start = 'today
               </View>
             )}
           </ScrollView>
-          <View style={{ marginTop: 12 }}><Button title="✉ Email Weather Delay" onPress={() => setView('email')} /></View>
+          {/* Only for a project: the company's own weather (no projects yet) has no client to tell. */}
+          {!!site.id && <View style={{ marginTop: 12 }}><Button title="✉ Email Weather Delay" onPress={() => setView('email')} /></View>}
         </Pressable>
       </Pressable>
     </Modal>

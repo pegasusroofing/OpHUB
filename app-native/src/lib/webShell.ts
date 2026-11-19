@@ -27,3 +27,46 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
   `;
   document.head.appendChild(style);
 }
+
+// Tap the top of an iPhone's screen to go back to the top (Andy, 19 Nov 2026: "when I press the top of the screen everywhere
+// else it takes me to the top of the page but in this it doesn't"). The iPhone only does that for the page itself, which
+// never moves here (above), so the page is given one spare pixel to scroll: the app is fixed in place, so nothing on
+// screen moves. Tapping the top takes the page from that pixel back to 0; the app then scrolls whatever list is open to
+// the top, as the iPhone would, and puts the page back on its pixel. Not while typing: the keyboard moves the page too.
+if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof document !== 'undefined') {
+  const ua = navigator.userAgent || '';
+  const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1);
+  if (ios) {
+    const style = document.createElement('style');
+    style.textContent = 'html.tap-top { height: calc(100% + 1px); overflow-y: scroll; scrollbar-width: none; } html.tap-top::-webkit-scrollbar { display: none; }';
+    document.head.appendChild(style);
+    document.documentElement.classList.add('tap-top');
+    let typingUntil = 0;
+    const typing = () => {
+      const a = document.activeElement as HTMLElement | null;
+      return Date.now() < typingUntil || !!(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable));
+    };
+    document.addEventListener('focusin', () => { typingUntil = Date.now() + 900; });
+    document.addEventListener('focusout', () => { typingUntil = Date.now() + 900; });
+    const park = () => { if (window.scrollY < 1) window.scrollTo(0, 1); };
+    const toTop = () => {
+      document.querySelectorAll<HTMLElement>('div').forEach((el) => {
+        if (el.scrollTop <= 0 || el.scrollHeight <= el.clientHeight + 2) return;
+        const oy = getComputedStyle(el).overflowY;
+        if (oy !== 'auto' && oy !== 'scroll') return;
+        const r = el.getBoundingClientRect();
+        if (r.width < 40 || r.height < 40 || r.bottom <= 0 || r.top >= window.innerHeight) return;
+        el.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    };
+    let parked = false;
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 0) { parked = true; return; }
+      if (parked && !typing()) toTop();
+      parked = false;
+      setTimeout(park, 350);
+    }, { passive: true });
+    window.addEventListener('load', () => setTimeout(park, 300));
+    setTimeout(park, 1200);
+  }
+}

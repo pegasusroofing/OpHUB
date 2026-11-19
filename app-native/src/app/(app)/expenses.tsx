@@ -120,7 +120,8 @@ export default function Expenses() {
       <Button kind="ghost" disabled={!!busy} title="+ Add Receipts For Another Job" onPress={() => setGroups([...groups, newGroup(null)])} />
       <View style={{ marginVertical: 6 }}><Check label={`CC Me A Copy${me.email ? ` (${me.email})` : ''}`} value={ccMe} onChange={setCcMe} /></View>
       <Button disabled={!!busy || !total} busy={!!busy} title={busy || (total ? `Save & Send ${total} Receipt${total === 1 ? '' : 's'}` : 'Add A Receipt To Send')} onPress={save} />
-      <View style={{ height: 14 }} />
+      {/* A clear gap before the list (Andy, 19 Nov 2026: "the sent receipts sits too high"). */}
+      <View style={{ height: 32 }} />
 
       <SectionTitle>Sent Receipts</SectionTitle>
       <Muted style={{ marginBottom: 8 }}>Kept for {recent?.months ?? 3} months, then deleted automatically.</Muted>
