@@ -89,6 +89,13 @@
   - It uses the same `ANTHROPIC_API_KEY` secret as `finance-ai-read`.
   - 30 drafts a day per company. Each call is logged in the new table `ai_usage_log`, which only admins can read.
 
+## Also on 19 Nov 2026 (evening)
+- **Satellite map snapshots (CPP):** Esri World Imagery through MapLibre (), key in  row 'esri_basemap_key' ( shows how to set it). **Waiting for Andy** to create a free ArcGIS Location Platform account and an API key (Basemaps, limited to app.operativehub.co.uk and ophub-beta.vercel.app; keys last up to a year). Esri's agreement clause 6B allows output in PDF/JPEG "in an unalterable final form"; clause 4 needs Esri credited - drawn on every snapshot. Until the key is in, the snapshot shows the street map with a note.
+- **Company sign-up email:** a platform-owner invite for a company's first admin is now the OpHUB welcome (, v17): OpHUB logo and blue, from "OpHUB", replies to sales@operativehub.co.uk.  (every email's fallback logo) was missing - added (live on push).
+- **Delete Company:** clear button in Platform Admin;  v21 clears the 25 tables that block a delete (Finance, permits, yard) first.
+- **OneDrive from the new app:**  v33 sends app.operativehub.co.uk / the beta back to themselves. Connections, refreshes and folders are per company (RTB Construction Group connected 19 Nov 17:53 to the same Microsoft account; it picks its own main folder).
+- **Company colours by clicking:**  - Primary / Secondary, click the logo to take a colour, colours found in the logo, palette.
+
 ## Construction Phase Plan builder (19 Nov 2026, beta link only)
 - **Andy asked:** "when a main contractor build a construction phase plan in the construction phase plan tile ... replicate it as a rams style builder, pull through as much info as you have from the job ... can we just do on beta for now?" His example is the Richardson Court CPP (Live Projects/Richardson Court/9. Richardson Court - Hyde/1. Health & Safety/2. Construction Phase Plan).
 - **Where:** Main Contractor > Construction Phase Plan folder > Build A Construction Phase Plan (managers). Editor `sites/[id]/mc/cpp/[p].tsx`, tabs Details / People / Plan / Emergency / Issue; saves by itself. Issue makes the PDF (`lib/cppPdf.ts`) and files it in the same folder (mc_documents 'cpp'); re-issuing makes the next version.
