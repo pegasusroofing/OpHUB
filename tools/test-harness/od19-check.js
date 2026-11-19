@@ -42,6 +42,26 @@ const ROOT = [{id: 'f-rtb', name: 'RTB Roofing Ltd', driveId: 'd1'}, {id: 'f-con
   const c = (db.job_pack_settings[0] || {}).config || {};
   check(c.parent_path === 'RTB Construction' && !/RTB Roofing/.test(`${c.parent_path} ${c.template_path}`), `job folders start in its main folder, nothing of RTB Roofing’s (${c.parent_path} / template: ${c.template_path || 'none'})`);
   await page.screenshot({path: require('path').join(__dirname, 'shots', 'od19.png')});
+  // Job folders set up earlier in another company's folders: choosing the main folder offers to move them in.
+  Object.assign(db.job_pack_settings[0].config, {parent_path: 'RTB Roofing Ltd/Live Projects', template_path: 'RTB Roofing Ltd/Live Projects/- New Job Pack - Template'});
+  await page.goto(`${BASE}/pm/admin/onedrive`); await page.waitForTimeout(4500);
+  await page.getByText(/^Main Folder:/).first().click(); await page.waitForTimeout(1200);
+  await page.getByText('RTB Construction', {exact: true}).last().click(); await page.waitForTimeout(1200);
+  await page.getByText('Use “RTB Construction”', {exact: true}).click(); await page.waitForTimeout(1500);
+  t = await text();
+  check(/outside your main folder/.test(t), 'job folders in RTB Roofing’s folders: it says they’re outside the main folder');
+  await page.getByText('Yes', {exact: true}).last().click(); await page.waitForTimeout(2000);
+  const c2 = db.job_pack_settings[0].config;
+  check(c2.parent_path === 'RTB Construction' && !c2.template_path, `Yes moves new job folders into the main folder and clears the other company’s template (${c2.parent_path} / ${c2.template_path || 'none'})`);
+  // Disconnected: only the connection shows; the settings are kept.
+  main = null;
+  global.__rpc = (n) => (n === 'onedrive_status' ? {exists: false} : undefined);
+  db.onedrive_connections = [];
+  await page.goto(`${BASE}/pm/admin/onedrive`); await page.waitForTimeout(4500);
+  t = await text();
+  check(/Connect OneDrive/.test(t) && !/NEW JOBS|New Jobs/.test(t) && !/WHERE THINGS SAVE|Where Things Save/i.test(t) && /kept and shows again/.test(t), 'not connected: only the connection shows, with a note that the settings are kept');
+  check(db.job_pack_settings.length === 1 && db.job_pack_settings[0].config.parent_path === 'RTB Construction', 'and nothing set up is deleted');
+  await page.screenshot({path: require('path').join(__dirname, 'shots', 'od19-disconnected.png')});
   check(!errs.length, `no page errors ${errs.slice(0, 2).join(' | ')}`);
   await browser.close();
 })();

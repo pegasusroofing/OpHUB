@@ -178,6 +178,11 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
         </View>
       </Card>
 
+      {/* Not connected: only the connection shows (Andy, 19 Nov 2026: "dont delete it but dont show it until the onedrive
+          is connected"). Everything below is kept and comes back once it's connected again. */}
+      {isLoading ? null : !st ? (
+        <Muted style={{ textAlign: 'center', marginTop: 4 }}>Connect OneDrive to choose this company’s folders. Anything set up before is kept and shows again once it’s connected.</Muted>
+      ) : (<>
       {/* ---- New Jobs ---- */}
       <Card>
         {head('New Jobs')}
@@ -315,6 +320,7 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
           </Card>
         );
       }) : <Empty>No projects.</Empty>}
+      </>)}
 
       {/* ---- pop-ups ---- */}
       {pick?.kind === 'rule' && cfg && (() => {
@@ -328,7 +334,16 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
           if (!(await setMainFolder(p))) { toast('Could not save the main folder — try again.'); return; }
           refresh();
           // New job folders start in the main folder until another is chosen.
-          if (cfg && !cleanFolder(cfg.parent_path)) void save({ ...cfg, parent_path: p });
+          if (cfg && !cleanFolder(cfg.parent_path)) { void save({ ...cfg, parent_path: p }); return; }
+          // Job folders or the template outside the main folder (e.g. another company's, set up before): offer to move
+          // them in, so this company's jobs never go in someone else's folders (19 Nov 2026).
+          const inside = (x: string) => { const a = cleanFolder(x).toLowerCase(), b = cleanFolder(p).toLowerCase(); return a === b || a.startsWith(`${b}/`); };
+          if (cfg && (!inside(cfg.parent_path) || (cleanFolder(cfg.template_path) && !inside(cfg.template_path)))) {
+            const where = `New job folders go in “${cleanFolder(cfg.parent_path).split('/').join(' › ')}”${cleanFolder(cfg.template_path) && !inside(cfg.template_path) ? ` and are built from “${cleanFolder(cfg.template_path).split('/').join(' › ')}”` : ''}, outside your main folder.`;
+            if (await confirmAsk(`${where}\n\nMove new job folders into “${p.split('/').join(' › ')}”? You then choose its template.`, 'Yes', 'No')) {
+              await save({ ...cfg, parent_path: p, template_path: inside(cfg.template_path) ? cfg.template_path : '' });
+            }
+          }
         }} />
       )}
       {(pick?.kind === 'parent' || pick?.kind === 'template') && cfg && (
