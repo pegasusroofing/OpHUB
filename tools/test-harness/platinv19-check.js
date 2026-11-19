@@ -51,6 +51,17 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByText('OK', {exact: true}).last().click(); await page.waitForTimeout(2500);
   const s2 = sent.find((x) => x.invite_id === 'inv-old');
   check(!!s2 && s2.email === 'boss@acme.example', `Email Invite sends it to the saved address (${JSON.stringify(s2 || null)})`);
+  // Delete Company is a clear button beside Open (Andy, 19 Nov 2026), asks, then needs the name typed.
+  const deleted = [];
+  await ctx.route(/functions\/v1\/admin-delete-company/, (r) => { deleted.push(JSON.parse(r.request().postData() || '{}').org_id); r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({ok: true, deleted: 'Acme Construction Group'})}); });
+  await page.getByText('🗑 Delete Company', {exact: true}).first().click(); await page.waitForTimeout(700);
+  await page.getByText('Yes', {exact: true}).last().click(); await page.waitForTimeout(700);
+  await page.locator('input').filter({visible: true}).last().fill('Acme Construction Group'); await page.getByText('OK', {exact: true}).last().click(); await page.waitForTimeout(2000);
+  check(deleted[0] === 'org-new', `Delete Company asks, takes the typed name and deletes (${deleted.join(',') || 'nothing sent'})`);
+  // No Sign out in the middle of the page (the side bar keeps its own).
+  const mid = await page.evaluate(() => [...document.querySelectorAll('div,span')].filter((e) => e.childElementCount === 0 && /^Sign out$/i.test((e.textContent || '').trim())).map((e) => Math.round(e.getBoundingClientRect().left)));
+  check(!mid.some((x) => x > 300), `no Sign out in the middle of the page (Sign out found at x=${mid.join(',') || 'none'})`);
+  await page.screenshot({path: path.join(__dirname, 'shots', 'platinv19-delete.png')});
   check(!errs.length, `no page errors ${errs.slice(0, 2).join(' | ')}`);
   await browser.close();
 })();

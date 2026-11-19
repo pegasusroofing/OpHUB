@@ -21,7 +21,7 @@ const ROLES: [string, string][] = [['operative', 'Operative'], ['site_manager', 
 type Row = Record<string, any>;
 
 export function PlatformAdmin() {
-  const { me, signOut, refresh } = useAuth();
+  const { me, refresh } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data } = usePlatform(true);
@@ -107,17 +107,22 @@ export function PlatformAdmin() {
                 </View>
                 <Muted style={{ fontSize: 11.5, marginBottom: 8 }}>With Finance on, their admins get Finance; they give it to anyone else per person.</Muted>
                 <CompanySetupSteps org={o as never} />
-                <Button title="🛠 Open this company's app" onPress={async () => {
-                  if (!(await confirmAsk(`Open ${o.name} as their admin? You'll see and can change everything they can. Use Exit on the bar at the top to come back.`, 'Open'))) return;
-                  const err = await viewAsOrg(o.id); if (err) { toast(`Could not switch — ${err}`); return; }
-                  qc.clear(); await refresh();
-                }} />
-                <Muted style={{ fontSize: 11.5 }}>Go inside as their admin to look into issues or fix things. A bar at the top lets you exit.</Muted>
-                <Pressable onPress={async () => {
-                  if (!(await confirmAsk(`Permanently delete "${o.name}"? This removes the company, all its sites, and all its team members' access. This cannot be undone.`, 'Delete'))) return;
-                  if ((await promptText(`Type the company name to confirm deleting "${o.name}":`, '')) !== o.name) { toast("Names didn't match — nothing deleted."); return; }
-                  const r = await deleteCompany(o.id); toast(r.error ? `Delete failed — ${r.error}` : `Deleted ${r.data?.deleted || o.name}`); reload();
-                }} style={{ marginVertical: 10 }}><Text style={{ color: base.warn, fontWeight: '600' }}>Delete Company</Text></Pressable>
+                {/* Open and Delete side by side (Andy, 19 Nov 2026: "i need to be able to delete companies"; it was a small
+                    orange link at the bottom). Deleting still asks, then needs the company's name typed in. */}
+                <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <View style={{ flexGrow: 1, flexBasis: 200 }}><Button title="🛠 Open This Company's App" onPress={async () => {
+                    if (!(await confirmAsk(`Open ${o.name} as their admin? You'll see and can change everything they can. Use Exit on the bar at the top to come back.`, 'Open'))) return;
+                    const err = await viewAsOrg(o.id); if (err) { toast(`Could not switch — ${err}`); return; }
+                    qc.clear(); await refresh();
+                  }} /></View>
+                  <View style={{ flexGrow: 1, flexBasis: 200 }}><Button kind="ghost" busy={busy === `del-${o.id}`} title="🗑 Delete Company" onPress={async () => {
+                    if (!(await confirmAsk(`Permanently delete "${o.name}"? This removes the company, its ${people.length} member${people.length === 1 ? '' : 's'}' access, all its projects and its Finance records. This cannot be undone.`, 'Yes', 'No'))) return;
+                    if ((await promptText(`Type the company name to confirm deleting "${o.name}":`, ''))?.trim() !== o.name.trim()) { showAlert("The name didn't match, so nothing was deleted."); return; }
+                    setBusy(`del-${o.id}`); const r = await deleteCompany(o.id); setBusy('');
+                    if (r.error) showAlert(`Delete failed — ${r.error}`); else { setOpen(null); reload(); }
+                  }} /></View>
+                </View>
+                <Muted style={{ fontSize: 11.5, marginBottom: 10, textAlign: 'center' }}>Open goes inside as their admin to look into issues or fix things; a bar at the top lets you exit.</Muted>
                 {/* Their admin invite, still waiting to be used: email it (again) or copy the link (Andy, 19 Nov 2026). */}
                 {waiting.map((i: Row) => (
                   <View key={i.id} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: base.line }}>
@@ -152,7 +157,7 @@ export function PlatformAdmin() {
           </Card>
         );
       })}
-      <Pressable onPress={() => void signOut()} style={{ alignSelf: 'center', marginTop: 10 }}><Text style={{ color: base.slate, textDecorationLine: 'underline' }}>Sign out</Text></Pressable>
+      {/* No Sign out here (Andy, 19 Nov 2026): it's on the bar / menu already. */}
     </ScrollView>
   );
 }
