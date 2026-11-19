@@ -74,6 +74,11 @@ const IN_RTB = [{id: 'f-live', name: 'Live Projects', driveId: 'd1'}, {id: 'f-ar
   await page.getByText('+ Add Something To Save', {exact: true}).click(); await page.waitForTimeout(600);
   await page.getByLabel('What', {exact: true}).click(); await page.waitForTimeout(400);
   await menu('Applications For Payment: Application PDF Made').click(); await page.waitForTimeout(400);
+  // No folder until one is chosen (19 Nov 2026: a clean slate, never RTB's folders by default).
+  await page.getByText('Choose A Folder ▾', {exact: true}).last().click(); await page.waitForTimeout(600);
+  await page.getByText('1. Contract & Commercial', {exact: true}).last().click(); await page.waitForTimeout(400);
+  await page.getByText('4. Applications for Payment & Certificates', {exact: true}).last().click(); await page.waitForTimeout(400);
+  await page.getByText('Use “4. Applications for Payment & Certificates”', {exact: true}).click(); await page.waitForTimeout(600);
   await page.screenshot({path: 'shots/od-add.png'});
   await page.getByText('Add', {exact: true}).last().click(); await page.waitForTimeout(1500);
   check(cfg().rules.fin_application && cfg().rules.fin_application.on === true && /Applications for Payment/.test(cfg().rules.fin_application.folder), 'added: applications save into the job’s Applications folder');

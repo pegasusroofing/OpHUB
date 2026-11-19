@@ -16,10 +16,17 @@ const {chromium, makeContext} = require('./harness');
   await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
 
   await page.goto(BASE + '/pm/admin/onedrive'); await page.waitForTimeout(4000);
-  ok('OneDrive page: no Excel, a way in to the rules', /Set it up/i.test(await text()) && !/Excel/i.test(await text()));
+  // Not connected here: the page offers Connect OneDrive (19 Nov 2026), Set It Up once it's connected.
+  ok('OneDrive page: no Excel, a way in to the rules', /Set it up|Connect OneDrive/i.test(await text()) && !/Excel/i.test(await text()));
+  // A company with nothing saved starts with a clean slate (Andy, 19 Nov 2026), never RTB's folders and rules.
+  await page.goto(BASE + '/pm/admin/jobpack'); await page.waitForTimeout(4000);
+  ok('A company with nothing set up starts clean', /What the app files where \(0 on\)/.test(await text()) && /Folders made on each job \(0\)/.test(await text()), (await text()).replace(/\s+/g, ' ').slice(60, 200));
+  // RTB's own pack, saved, to edit.
+  const { startingPack } = await import(require('url').pathToFileURL(require('path').join(__dirname, '..', '..', 'app-native', 'src', 'lib', 'rules', 'jobPack.ts')).href);
+  db.job_pack_settings = [{ org_id: db.profiles[0].org_id, enabled: false, config: startingPack() }];
   await page.goto(BASE + '/pm/admin/jobpack'); await page.waitForTimeout(4000);
   await page.screenshot({path: 'shots/jobpack-1.png'});
-  ok('Starts from the template’s folders and rules', /Schedule of Works/.test(await text()) && /Folders made on each job \(38\)/.test(await text()), (await text()).replace(/\s+/g, ' ').slice(60, 200));
+  ok('Opens a saved pack: its folders and rules', /Schedule of Works/.test(await text()) && /Folders made on each job \(38\)/.test(await text()), (await text()).replace(/\s+/g, ' ').slice(60, 200));
 
   await page.locator('[aria-label="Incidents: Incident submitted"]').first().click(); await page.waitForTimeout(400);
   await page.screenshot({path: 'shots/jobpack-2.png', fullPage: false});
@@ -58,6 +65,7 @@ const {chromium, makeContext} = require('./harness');
   await page.goto(BASE + '/pm/quotes'); await page.waitForTimeout(4000);
   ok('Quotes page: no Excel load', !/Load Excel/i.test(await text()));
   await page.goto(BASE + '/pm/quotes/settings'); await page.waitForTimeout(4000);
+  await page.getByText('Old Quotes', {exact: true}).first().click().catch(() => {}); await page.waitForTimeout(800); // its own tab since 11 Nov 2026
   await page.screenshot({path: 'shots/quotesettings.png'});
   ok('Old tracker is a once-only job in settings', /Bring in the old tracker/i.test(await text()));
   await page.setViewportSize({width: 1300, height: 900});
