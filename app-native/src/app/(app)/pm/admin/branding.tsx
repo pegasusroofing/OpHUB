@@ -3,17 +3,19 @@
 // two company colours, or back to the OpHUB defaults.
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { Stack } from 'expo-router';
-import { useState } from 'react';
-import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 
+import { LogoColourPicker } from '@/components/LogoColourPicker';
 import { StorageImage } from '@/components/StorageImage';
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { DEFAULT_BRAND1 } from '@/lib/fileOut';
 import { pickPhotos } from '@/lib/photos';
+import { publicUrl, resolveStorageUrl } from '@/lib/privateFiles';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 const DEFAULT_BRAND2 = '#101114';
@@ -26,9 +28,16 @@ export default function Branding() {
   const [busy, setBusy] = useState<string | null>(null);
   const [c1, setC1] = useState((org as { color_primary?: string | null } | null)?.color_primary || DEFAULT_BRAND1);
   const [c2, setC2] = useState((org as { color_secondary?: string | null } | null)?.color_secondary || DEFAULT_BRAND2);
+  // The saved logo's address, for picking colours from it.
+  const logoPath = (org as { logo_path?: string | null } | null)?.logo_path || null;
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let gone = false;
+    if (logoPath) void resolveStorageUrl(publicUrl('org-logos', logoPath)).then((u) => { if (!gone) setLogoUrl(u); });
+    return () => { gone = true; };
+  }, [logoPath]);
   if (!me || !org) return null;
   if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Company admins only.</Muted>;
-  const swatch = (c: string) => <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: HEX.test(c) ? c : base.line, borderWidth: 1, borderColor: base.line }} />;
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: org && !org.logo_path ? 'Set Up Your Company' : 'Company Logo & Theme' }} />
@@ -67,16 +76,9 @@ export default function Branding() {
       </Card>
       <SectionTitle>Company Theme</SectionTitle>
       <Card>
-        <Muted style={{ marginBottom: 10 }}>Set your company&apos;s colours — these apply across the app for everyone at {org.name}. Type a colour code like #4E8FD1.</Muted>
-        {[['Primary colour', c1, setC1], ['Secondary colour', c2, setC2]].map(([l, v, set]) => (
-          <View key={l as string} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-            {swatch(v as string)}
-            <View style={{ flex: 1 }}>
-              <Muted style={{ fontWeight: '600' }}>{l as string}</Muted>
-              <TextInput value={v as string} onChangeText={set as (s: string) => void} autoCapitalize="none" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 8, color: base.ink }} />
-            </View>
-          </View>
-        ))}
+        <Muted style={{ marginBottom: 10 }}>Your company&apos;s two colours, used across the app for everyone at {org.name}.</Muted>
+        {/* Click to choose, or click the logo to take its colours (Andy, 19 Nov 2026). */}
+        <LogoColourPicker logoUri={logo || logoUrl} c1={c1} c2={c2} set1={setC1} set2={setC2} />
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <View style={{ flex: 1 }}><Button busy={busy === 'theme'} title="Save Theme" onPress={async () => {
             if (!HEX.test(c1.trim()) || !HEX.test(c2.trim())) { toast('Enter both colours as a code like #4E8FD1.'); return; }
