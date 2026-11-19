@@ -20,19 +20,16 @@ const fs = require('fs'), path = require('path');
   await page.getByText('Submit', {exact:true}).click(); await page.waitForTimeout(800);
   console.log('missing shown:', await page.getByText('This question is required').count());
   const fill = async (label, v)=>{ await page.getByText(label, {exact:true}).locator('xpath=..').locator('input,textarea').first().fill(v); };
-  await page.getByPlaceholder('Your answer').first().fill('Acme Roofing');
-  for(const o of ['Sole trader','20% deduction','Leadwork','£5 million']) await page.getByText(o, {exact:true}).first().click();
-  await page.getByText('Yes', {exact:true}).nth(1).click(); // H&S policy
-  const yes = page.getByText('Yes', {exact:true}); await yes.nth(3).click(); // RAMS
-  const no = page.getByText('No', {exact:true}); await no.nth(2).click(); await no.nth(3).click(); // RIDDOR, notices
-  const inputs = page.locator('input, textarea');
-  await page.locator('textarea').first().fill('1 Road, Town');
+  // Answered by each question's wording (19 Nov 2026: the form comes from the company's template, so positions can move).
+  const ans = async (re, opt) => page.getByText(re).first().locator(`xpath=following::div[text()="${opt}"][1]`).click();
+  const box = async (re, v) => page.getByText(re).first().locator('xpath=following::*[self::input or self::textarea][1]').fill(v);
+  await box(/^Company Name/, 'Acme Roofing');
+  await ans(/^Business Type/, 'Sole trader'); await ans(/^CIS Status/, '20% deduction'); await ans(/^Trades/, 'Leadwork'); await ans(/^Public Liability Cover/, '£5 million');
+  await ans(/^Do You Have A Written Health/, 'Yes'); await ans(/^Can You Produce Your Own RAMS/, 'Yes'); await ans(/^Any RIDDOR/, 'No'); await ans(/^Any HSE Improvement/i, 'No');
+  await box(/^Business Address/, '1 Road, Town');
   await page.getByText('Choose a date', {exact:true}).first().click(); await page.waitForTimeout(600); await page.getByText('Today', {exact:true}).last().click(); await page.waitForTimeout(400);
-  const all = await inputs.evaluateAll(els=>els.map((e,i)=>[i,e.placeholder,e.value]));
-  const pcIdx = all.findIndex(([i,ph,v],k)=>k>2 && ph==='Your answer' && !v); await inputs.nth(all[pcIdx][0]).fill('AB1 2CD');
   const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.getByText('⬆ Add file', {exact:true}).first().click()]); await fc.setFiles(pl); await page.waitForTimeout(2500);
-  await page.getByText(/^Postcode/).first().locator("xpath=following::input[1]").fill("AB1 2CD");
-  await page.getByText(/^Any HSE improvement/).first().locator("xpath=following::div[text()=\"No\"][1]").click();
+  await box(/^Postcode/, 'AB1 2CD');
   await page.getByText(/^I confirm the information/).click();
   await page.getByText('Submit', {exact:true}).click(); await page.waitForTimeout(3000);
   const left = await page.getByText('This question is required').count();
