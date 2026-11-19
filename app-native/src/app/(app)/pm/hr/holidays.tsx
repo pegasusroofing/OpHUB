@@ -6,7 +6,9 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
+
+import { FinTabs } from '@/components/FinNav';
 
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Muted, SectionTitle } from '@/components/ui';
@@ -35,6 +37,9 @@ export default function Holidays() {
   const [month, setMonth] = useState(() => { const t = new Date(); return { y: t.getFullYear(), m: t.getMonth() }; });
   const [sel, setSel] = useState(today);
   const [view, setView] = useState<'cal' | 'req' | 'set'>('cal');
+  // Deeper days on a laptop (Andy, 19 Nov 2026: "a little deeper for the cells"), with room for more names.
+  const wide = useWindowDimensions().width >= 900;
+  const cellH = wide ? 118 : 62, cellMax = wide ? 5 : 3;
   const [d, setD] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
   const [setMax, setSetMax] = useState<string | null>(null);
@@ -131,7 +136,8 @@ export default function Holidays() {
       <Muted style={{ marginBottom: 10 }}>{bhCount(me.id) ? `Includes 1 day for each bank holiday (${bhCount(me.id)} this year), allocated automatically.` : `PMs and site managers get 1 day for each bank holiday (${bankHolCount(y)} this year) allocated automatically.`}</Muted>
       {!d && <Button title="+ Book time off" onPress={() => open()} />}
       <Text style={{ fontSize: 12.5, color: base.slate, marginTop: 8 }}>Holidays Approved By: <Text style={{ color: base.ink, fontWeight: '600' }}>{approverNames}</Text></Text>
-      {canApprove && <View style={{ flexDirection: 'row', gap: 6, marginVertical: 10 }}><Chip on={view === 'cal'} label="Calendar" onPress={() => setView('cal')} /><Chip on={view === 'req'} label={`Requests${pending.length ? ` (${pending.length})` : ''}`} onPress={() => setView('req')} />{isAdmin && <Chip on={view === 'set'} label="Settings" onPress={() => setView('set')} />}</View>}
+      {/* Tabs, as across the app (Andy, 19 Nov 2026), for the people who approve; Settings for admins. */}
+      {canApprove && <View style={{ marginTop: 10 }}><FinTabs items={[['cal', 'Calendar'], ['req', 'Requests', pending.length || undefined], ...(isAdmin ? [['set', 'Settings'] as [string, string]] : [])]} value={view} onChange={(k) => setView(k as 'cal' | 'req' | 'set')} /></View>}
 
       {d && (
         <Card>
@@ -178,10 +184,10 @@ export default function Holidays() {
                 const dt = new Date(`${ds}T00:00:00`), offs = offOn(hr.leave, ds).filter((l) => !l.bank_holiday);
                 const bh = isBankHol(ds), we = dt.getDay() === 0 || dt.getDay() === 6;
                 return (
-                  <Pressable key={ds} onPress={() => setSel(ds)} style={{ width: `${100 / 7}%`, minHeight: 62, padding: 2, borderWidth: sel === ds ? 2 : 0.5, borderColor: sel === ds ? base.ink : base.line, backgroundColor: bh || we ? base.paper : base.card, opacity: dt.getMonth() === month.m ? 1 : 0.45 }}>
+                  <Pressable key={ds} onPress={() => setSel(ds)} style={{ width: `${100 / 7}%`, minHeight: cellH, padding: wide ? 4 : 2, borderWidth: sel === ds ? 2 : 0.5, borderColor: sel === ds ? base.ink : base.line, backgroundColor: bh || we ? base.paper : base.card, opacity: dt.getMonth() === month.m ? 1 : 0.45 }}>
                     <Text style={{ fontSize: 11, fontWeight: '600', color: ds === today ? base.red : base.ink }}>{dt.getDate()}{bh ? ' BH' : ''}</Text>
-                    {offs.slice(0, 3).map((l) => chip(l, true, ds))}
-                    {offs.length > 3 && <Text style={{ fontSize: 8, color: base.slate }}>+{offs.length - 3}</Text>}
+                    {offs.slice(0, cellMax).map((l) => chip(l, true, ds))}
+                    {offs.length > cellMax && <Text style={{ fontSize: 8, color: base.slate }}>+{offs.length - cellMax}</Text>}
                   </Pressable>
                 );
               })}
