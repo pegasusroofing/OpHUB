@@ -19,11 +19,13 @@ const sessionStorage = {
   removeItem: (key: string) => secureDelete(key),
 };
 
-// On the beta site (ophub-beta.vercel.app), calls to the server functions go through the site itself: the site passes
-// /functions/v1/… on to Supabase (tools/beta/make-beta.js). Most functions only answer browsers on the current app's
-// addresses, so from the beta they failed: invite emails, OneDrive, emails of documents (19 Nov 2026). Elsewhere unchanged.
+// On the new app's own web addresses (app.operativehub.co.uk, live from 19 Nov 2026, and the beta link
+// ophub-beta.vercel.app), calls to the server functions go through the site itself: the site passes /functions/v1/… on
+// to Supabase (tools/beta/make-beta.js). Most functions only answer browsers on the current app's addresses, so from
+// the beta they failed: invite emails, OneDrive, emails of documents (19 Nov 2026). Elsewhere unchanged.
 const FN = `${SUPABASE_URL}/functions/v1/`;
-const viaSite = typeof window !== 'undefined' && window.location?.host === 'ophub-beta.vercel.app';
+const SITE_HOSTS = ['app.operativehub.co.uk', 'ophub-beta.vercel.app'];
+const viaSite = typeof window !== 'undefined' && SITE_HOSTS.includes(window.location?.host);
 /** A server function's address: the beta site's own on the beta, Supabase's everywhere else. */
 export const fnUrl = (name: string) => (viaSite ? `/functions/v1/${name}` : `${FN}${name}`);
 

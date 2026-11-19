@@ -89,6 +89,13 @@
   - It uses the same `ANTHROPIC_API_KEY` secret as `finance-ai-read`.
   - 30 drafts a day per company. Each call is logged in the new table `ai_usage_log`, which only admins can read.
 
+## The new app is live at app.operativehub.co.uk (19 Nov 2026)
+- **Andy asked (19 Nov):** "are we able to make this live now? but still keep the old html whilst we slowly transfer over?" Then: "Yes, set it up".
+- **Address:** https://app.operativehub.co.uk, added to the Vercel project `ophub-beta` (same deploys as the beta link, which keeps working). The domain's DNS is at GoDaddy, so Andy adds one record: **CNAME, name `app`, value `14dce9a353b21d09.vercel-dns-017.com`**. Vercel issues the certificate once that is in.
+- **Old app untouched:** operativehub.co.uk/app.html and the store phone apps carry on as before. Both apps use the same database, so staff move over group by group (office and PMs on laptops first).
+- **Code for the address:** `app-native/src/lib/supabase.ts` (`SITE_HOSTS`: server calls go through the site) and `send-invite-email` (`JOIN_BASES`, v15, verify_jwt true): invite emails sent from the new app open its own sign-up page.
+- **Gaps while both run:** no phone alerts from the new app on the web (alerts come through the old phone app until the new store app is built); emailed links (notify-*, reminders) still open the old app. The device lock lets an operative's first sign-in on the new address straight in (the new app sends no hardware id), and their old app stays approved.
+
 ## Native app: web links for Andy's phone (11 Nov 2026)
 - **Live data: https://ophub-beta.vercel.app** (Vercel project `ophub-beta`, team op-hub; unlisted, not indexed; Andy OK'd it 11 Nov). It's the new app as a web page, signed in with real logins against the live Supabase, so everything done in it is real. It is a snapshot, so it only changes when redeployed.
   - Update it: `cd app-native && npx expo export --platform web --output-dir <folder>`, then `node tools/beta/make-beta.js <folder>`, then `npx vercel deploy --prod --yes --scope op-hub` in that folder.

@@ -218,7 +218,7 @@ Deno.serve(withCors(async (req) => {
     const { invite_id, email } = body;
     // The new app (the beta) asks for its own sign-up page (19 Nov 2026): only these addresses; anything else, and every
     // call from the current app (which doesn't send it), gets the current app's page as before.
-    const JOIN_BASES = new Set(['https://ophub-beta.vercel.app']);
+    const JOIN_BASES = new Set(['https://app.operativehub.co.uk', 'https://ophub-beta.vercel.app']); // the new app, live 19 Nov 2026
     const joinBase = typeof body.join_base === 'string' && JOIN_BASES.has(body.join_base) ? body.join_base : null;
     if (!invite_id || !email) {
       return new Response(JSON.stringify({ error: 'invite_id and email are required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
