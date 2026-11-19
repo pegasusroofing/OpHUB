@@ -39,34 +39,53 @@ export default function TbtRuleSettings() {
   );
 }
 
-/** How often each live project needs a Toolbox Talk: the choice and Save. Company admins. */
+/** How often each live project needs a Toolbox Talk. Once it's been set it shows as one line with ✎ Edit, and opens to
+ *  change it (Andy, 19 Nov 2026: "the how often does a toolbox talk is always open even tho it has been entered, and it
+ *  needs compacting its a massive section now"). Company admins. */
 export function TbtRequiredCard() {
   const { me, org, refresh } = useAuth();
   const toast = useToast();
   const [picked, setV] = useState<TbtEvery | null>(null);
   const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [editing, setEditing] = useState(false);
   const v = picked ?? tbtEvery(org?.tbt_every);
   if (!me || me.role !== 'admin') return null;
+  const set = !!org?.tbt_every;
+  const open = editing || !set;
   const save = async () => {
     setBusy(true);
     const r = await db.from('organizations').update({ tbt_every: v } as never).eq('id', me.org_id as string).select('id');
     setBusy(false);
     if (r.error || !(r.data as unknown[] | null)?.length) { toast('Could not save — try again.'); return; }
     await refresh();
-    // The Admin Centre has tabs now, with no list to step back to, so it stays here and the button says Saved until
-    // something changes (Andy, 18 Nov 2026: "more tab style please and sub tabs").
-    setSaved(true);
+    setEditing(false); setV(null);
   };
   const p = tbtPeriod(v);
   const fmt = (d: Date) => d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  const label = TBT_EVERY.find((x) => x.k === v)?.l || '';
+  if (!open) {
+    return (
+      <Card style={{ paddingVertical: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: base.ink }}>Toolbox Talks Required: {label}</Text>
+            <Muted style={{ fontSize: 12 }}>{WHEN[v]}{p ? ` The current one is due by ${fmt(p.due)}.` : ''}</Muted>
+          </View>
+          <Button small kind="ghost" title="✎ Edit" onPress={() => setEditing(true)} />
+        </View>
+      </Card>
+    );
+  }
   return (
-    <Card>
-      <Text style={{ fontSize: 15, fontWeight: '600', color: base.ink, marginBottom: 4 }}>How Often Does Each Live Project Need A Toolbox Talk?</Text>
-      <Muted style={{ marginBottom: 12 }}>A talk issued on a project counts for the period it was issued in. Projects that are due or overdue show in the Hub and on the project&apos;s Toolbox Talks page.</Muted>
-      <SelectBox title="Toolbox Talks Required" value={v} options={TBT_EVERY.map((x) => [x.k, x.l])} onChange={(x) => { setV(x as TbtEvery); setSaved(false); }} />
-      <Muted>{WHEN[v]}{p ? ` The current one is due by ${fmt(p.due)}.` : ''}</Muted>
-      <View style={{ marginTop: 14, alignItems: 'center' }}><Button busy={busy} disabled={saved} title={saved ? 'Saved' : 'Save'} onPress={() => void save()} /></View>
+    <Card style={{ paddingVertical: 10 }}>
+      <Text style={{ fontSize: 14, fontWeight: '600', color: base.ink, marginBottom: 2 }}>How Often Does Each Live Project Need A Toolbox Talk?</Text>
+      <Muted style={{ fontSize: 12, marginBottom: 8 }}>A talk issued on a project counts for the period it was issued in. Due or overdue projects show in the Hub and on the project&apos;s Toolbox Talks page.</Muted>
+      <SelectBox title="Toolbox Talks Required" value={v} options={TBT_EVERY.map((x) => [x.k, x.l])} onChange={(x) => setV(x as TbtEvery)} />
+      <Muted style={{ fontSize: 12 }}>{WHEN[v]}{p ? ` The current one is due by ${fmt(p.due)}.` : ''}</Muted>
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 10 }}>
+        <Button small busy={busy} title="Save" onPress={() => void save()} />
+        {set && <Button small kind="ghost" title="Cancel" onPress={() => { setEditing(false); setV(null); }} />}
+      </View>
     </Card>
   );
 }

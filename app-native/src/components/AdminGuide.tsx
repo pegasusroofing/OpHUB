@@ -33,17 +33,23 @@ function useDone(me: Profile | null) {
         try { const r = (await f(db.from(t).select('id', { count: 'exact', head: true }) as never)) as { count: number | null }; return r.count ?? 0; } catch { return 0; }
       };
       const one = async (t: string, cols: string) => { try { return ((await db.from(t).select(cols).eq('org_id', org).maybeSingle()).data as Record<string, unknown> | null) ?? null; } catch { return null; } };
-      const [people, sites, od, pack, hr, pol, qs, sup, orgRow] = await Promise.all([
+      const cnt = (t: string) => n(t, (q) => q.eq('org_id' as never, org as never));
+      const [people, sites, od, pack, hr, pol, qs, sup, orgRow, rpt, mail, rams, tbt, fs, coshh] = await Promise.all([
         n('profiles', (q) => q.eq('org_id' as never, org as never)), n('sites', (q) => q.eq('org_id' as never, org as never)),
         // onedrive_connections has no id column (keyed by org_id), and policies are company_policies: both read as "not
         // done" before (19 Nov 2026), so Link OneDrive and Policies never ticked.
         one('onedrive_connections', 'org_id'), one('job_pack_settings', 'org_id'), one('hr_settings', 'approvers'),
         n('company_policies', (q) => q.eq('org_id' as never, org as never)), one('quote_settings', 'open_path,cc_email'), n('suppliers', (q) => q.eq('org_id' as never, org as never)),
         db.from('organizations').select('logo_path').eq('id', org).maybeSingle(),
+        // Templates, the H&S libraries and Finance had no check, so they only ticked by hand (Andy, 19 Nov 2026: "the
+        // reports and templates on the set up guide, i have done but its not clearing", "neither is the rams/coshh/tbt"): a report or email template; a
+        // RAMS library item, COSHH library file or toolbox talk; the company's details in Finance.
+        cnt('report_templates'), cnt('fin_email_templates'), cnt('rams_library_items'), cnt('tbt_templates'), one('fin_settings', 'company_reg_no,company_vat_no,company_address'), cnt('coshh_library_files'),
       ]);
       return {
         branding: !!(orgRow.data as { logo_path?: string | null } | null)?.logo_path, team: people > 1, onedrive: !!od, folders: !!pack,
         holidays: !!((hr?.approvers as string[] | undefined)?.length), policies: pol > 0, quotes: !!qs?.open_path, suppliers: sup > 0, project: sites > 0,
+        templates: rpt + mail > 0, hs: rams + tbt + coshh > 0, finance: !!(fs?.company_reg_no || fs?.company_vat_no || fs?.company_address),
       } as Record<string, boolean>;
     },
   });

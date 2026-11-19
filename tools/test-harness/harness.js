@@ -87,7 +87,7 @@ async function makeContext(browser, role, log, opts){
       // lists only; a select with embedded tables, renames or casts is sent whole.
       const pick = (rows) => { const sel = sp.get('select'); if(!opts.project || !sel || /[()*:]/.test(sel)) return rows; const cols = sel.split(',').map(c=>c.trim()).filter(Boolean); return rows.map(r=>{ const o = {}; cols.forEach(c=>{ if(c in r) o[c] = r[c]; }); return o; }); };
       // A count (Prefer: count=exact, as .select(…, { count: 'exact', head: true }) sends) comes back in Content-Range.
-      if((m==='GET' || m==='HEAD') && /count=exact/.test(req.headers()['prefer']||'')){ const all = query(db, table, new URLSearchParams([...sp].filter(([k])=>k!=='limit'&&k!=='offset'))); return route.fulfill({status:200, contentType:'application/json', headers:{'content-range':`0-${Math.max(0,all.length-1)}/${all.length}`}, body: m==='HEAD' ? '' : JSON.stringify(pick(query(db, table, sp)))}); }
+      if((m==='GET' || m==='HEAD') && /count=exact/.test(req.headers()['prefer']||'')){ const all = query(db, table, new URLSearchParams([...sp].filter(([k])=>k!=='limit'&&k!=='offset'))); return route.fulfill({status:200, contentType:'application/json', headers:{'content-range':`0-${Math.max(0,all.length-1)}/${all.length}`, 'access-control-expose-headers':'content-range'}, body: m==='HEAD' ? '' : JSON.stringify(pick(query(db, table, sp)))}); }
       if(m==='GET' || m==='HEAD') return reply(pick(query(db, table, sp)));
       let body = null; try{ body = JSON.parse(req.postData()||'null'); }catch(e){}
       if(m==='POST'){
