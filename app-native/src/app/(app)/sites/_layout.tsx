@@ -62,9 +62,10 @@ function useJobGuard(): { to: string; why?: string } | null {
   if (page === 'todos' && !isManager(me) && site && !site.repair_contract) return { to: `/sites/${id}`, why: 'Project managers and admins only.' };
   // 890: the job's activity history is managers only.
   if (page === 'activity' && !isManager(me)) return { to: `/sites/${id}` };
-  // 890: Plant and Expenses hidden from your role on this job (the Materials ⋮ setting) don't open by link either.
+  // 890: Plant hidden from your role on this job (the Materials ⋮ setting) doesn't open by link either. Expenses left the job
+  // for its own page on 19 Nov 2026 (the old link opens it with this job chosen).
   if (page === 'plant' && plantMine.isLoading) return null;
-  if ((page === 'expenses' || page === 'plant') && site && !canSeeMatTile(site.materials_visibility, page, me.role) && !(page === 'plant' && (plantMine.data ?? 0) > 0)) return { to: `/sites/${id}/materials` };
+  if (page === 'plant' && site && !canSeeMatTile(site.materials_visibility, page, me.role) && !((plantMine.data ?? 0) > 0)) return { to: `/sites/${id}/materials` };
   // 890 mc: everything but Site Rules & Layout needs the job switched on as Main Contractor, and a tile hidden
   // from operatives can't be opened by link (a subcontractor operative still reaches their own company's folder).
   if (page === 'mc' && sub && sub !== 'index' && sub !== 'layout' && site && !site.acting_as_main_contractor) return { to: `/sites/${id}` };

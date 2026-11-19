@@ -54,7 +54,7 @@ function ManagerTiles({ siteId, vis, role, me, site }: { siteId: string; vis: Pa
         { k: 'req', ic: 'chat', t: 'Requests', s: sub || 'Nothing waiting', badge: pending?.length || 0, go: go('materials/requests') },
         { k: 'po', ic: 'reports', t: "Material PO's", s: office?.length ? `${office.length} raised by the office` : 'Orders to suppliers', go: go('materials/pos') },
         ...(canSeeMatTile(vis, 'plant', role) ? [{ k: 'plant', ic: 'truck', t: 'Plant', s: 'Hired plant on this job', go: go('plant'), ...visProps('plant', 'Plant') }] : []),
-        ...(canSeeMatTile(vis, 'expenses', role) ? [{ k: 'exp', ic: 'pound', t: 'Expenses', s: 'Receipts for this job', go: go('expenses'), ...visProps('expenses', 'Expenses') }] : []),
+        // Expenses has its own page from the menu since 19 Nov 2026 (Andy: "remove it from anywhere else in the app").
         // Raise a subcontract order from here when the job page doesn't show the row (not on a price) (Andy, 13 Nov 2026).
         ...(!site.price_enabled ? [{ k: 'subco', ic: 'users', t: 'Subcontract Orders', s: 'Raise an order to a subcontractor', go: go('materials/subcontracts') }] : []),
       ]} />
@@ -132,7 +132,6 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
   const picked = [...sel].filter((x) => openIds.includes(x));
   // Plant hidden from your role still shows while something there waits for your signature or is with you.
   const showPlant = canSeeMatTile(vis, 'plant', me.role) || plantMine > 0;
-  const showExp = canSeeMatTile(vis, 'expenses', me.role);
   const toggle = (x: string) => { const n = new Set(sel); if (n.has(x)) n.delete(x); else n.add(x); setSel(n); };
   // Finance-style tabs (Andy, 19 Nov 2026: "Change this layout a little more finance tab style"), each with its count.
   // My Requests comes first, unless there is something to collect: then To Collect jumps to the front (Andy, 19 Nov:
@@ -222,10 +221,9 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
           <Pressable onPress={() => router.push(`/sites/${siteId}/materials/requests` as never)} style={{ marginTop: 10, alignSelf: 'center' }}><Text style={{ color: base.slate, fontSize: 12, textDecorationLine: 'underline' }}>See All My Requests →</Text></Pressable>
           </>)}
 
-          {(showPlant || showExp) && (
+          {showPlant && (
             <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: space.l, paddingTop: space.m, borderTopWidth: 1, borderTopColor: base.line }}>
-              {showPlant && <Button grow kind="ghost" title={plantMine ? `🏗 Plant (${plantMine})` : '🏗 Plant'} onPress={() => router.push(`/sites/${siteId}/plant` as never)} />}
-              {showExp && <Button grow kind="ghost" title="🧾 Expenses" onPress={() => router.push(`/sites/${siteId}/expenses` as never)} />}
+              <Button grow kind="ghost" title={plantMine ? `🏗 Plant (${plantMine})` : '🏗 Plant'} onPress={() => router.push(`/sites/${siteId}/plant` as never)} />
             </View>
           )}
         </>

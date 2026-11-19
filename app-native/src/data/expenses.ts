@@ -13,22 +13,23 @@ import type { Organization, Profile } from '@/lib/types';
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
 export type ExpFile = { name: string; uri: string; isPdf: boolean; size?: number | null; picked?: Picked };
-export type ExpGroup = { key: string; job: string; manual: string; note: string; files: ExpFile[] };
+// job: 'site:<id>', always a job on the app since 19 Nov 2026 (Andy: "make sure we have to allocate it to a job on uploading");
+// fuel: a tick, with the vehicle in manual. Older rows may still be Fuel or a job not on the app with no site.
+export type ExpGroup = { key: string; job: string; fuel: boolean; manual: string; note: string; files: ExpFile[] };
 export type ExpenseRow = {
   id: string; batch_id: string; site_id: string | null; manual_label: string | null; category: string; note: string | null;
   file_paths: string[] | null; file_names: string[] | null; created_by: string; created_at: string; emailed_at: string | null; emailed_to: string | null;
 };
 
 const rid = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}${Math.random().toString(16).slice(2)}`);
-export const newGroup = (siteId?: string | null): ExpGroup => ({ key: rid(), job: siteId ? `site:${siteId}` : '', manual: '', note: '', files: [] });
+export const newGroup = (siteId?: string | null): ExpGroup => ({ key: rid(), job: siteId ? `site:${siteId}` : '', fuel: false, manual: '', note: '', files: [] });
 
 /** The problem with a set of receipt groups before saving, or ''. Same wording as today. */
 export function expProblem(groups: ExpGroup[]): string {
   const withFiles = groups.filter((g) => g.files.length);
   if (!withFiles.length) return 'Add at least one photo or file.';
   for (const g of withFiles) {
-    if (!g.job) return 'Choose which job each set of receipts is for.';
-    if (g.job === 'manual' && !g.manual.trim()) return "Type the job name for the one that's not on the app.";
+    if (!g.job.startsWith('site:') || g.job.length < 6) return 'Choose which job each set of receipts is for.';
   }
   return '';
 }
@@ -72,8 +73,8 @@ export async function saveExpenses(me: Profile, groups: ExpGroup[], onProgress: 
     if (ok.length < g.files.length) return { error: 'Some files did not upload — check your connection and try again.' };
     const siteId = g.job.startsWith('site:') ? g.job.slice(5) : null;
     rows.push({
-      batch_id: batchId, site_id: siteId, manual_label: siteId ? null : g.manual.trim() || null,
-      category: g.job === 'fuel' ? 'fuel' : siteId ? 'materials' : 'other', note: g.note.trim() || null,
+      batch_id: batchId, site_id: siteId, manual_label: g.fuel ? g.manual.trim() || null : null,
+      category: g.fuel ? 'fuel' : 'materials', note: g.note.trim() || null,
       file_paths: ok.map((x) => x.path), file_names: ok.map((x) => x.name),
     });
   }

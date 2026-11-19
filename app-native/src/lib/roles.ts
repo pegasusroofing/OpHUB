@@ -4,6 +4,9 @@ import type { Organization, Profile } from './types';
 
 export const isManager = (u: Profile | null) => !!u && ['pm', 'admin', 'site_manager'].includes(u.role);
 export const isFullManager = (u: Profile | null) => !!u && (u.role === 'pm' || u.role === 'admin');
+/** Expenses (Andy, 19 Nov 2026: "an expenses button on the taskbar ... for all users excl operatives"): the company's own
+ *  staff who aren't operatives - admins, PMs, site managers, Finance people and drivers. Not clients or subcontractors. */
+export const canUseExpenses = (u: Profile | null) => !!u && ['admin', 'pm', 'site_manager', 'driver'].includes(u.role);
 /** Things that cost money per use, such as the AI RAMS writer (Andy, 4 Nov 2026): company admins (and the platform admin) only. */
 export const isCompanyAdmin = (u: Profile | null) => !!u && (u.role === 'admin' || u.role === 'superadmin');
 export const isEstimator = (u: Profile | null) => !!u && u.role === 'pm' && !!u.is_estimator && !u.finance_only;

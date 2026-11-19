@@ -13,7 +13,7 @@ import { useHubBadge } from '@/data/hub';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { brand } from '@/lib/fonts';
-import { homeKind, isFinanceUser, isFullManager, isManager, roleLabel } from '@/lib/roles';
+import { canUseExpenses, homeKind, isFinanceUser, isFullManager, isManager, roleLabel } from '@/lib/roles';
 import { can } from '@/lib/rules/rolePerms';
 import { base, useTheme } from '@/theme/theme';
 import { closeSideMenu } from '@/lib/sideMenuBus';
@@ -38,9 +38,11 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
   const kind = homeKind(me, org);
   // Managers: the HUB feed count, as the current app (130 computeMyOutstandingCount).
   const hubN = hubCount;
-  const items: Item[] = kind === 'finance' ? [{ k: 'fin', ic: 'pound', lbl: 'OpHUB Finance', go: '/fin' }, ...(isManager(me) ? [{ k: 'pm/hr', ic: 'users', lbl: 'HR', go: '/pm/hr' }] : []), { k: 'account', ic: 'gear', lbl: 'Settings', go: '/account' }]
+  // Expenses below Finance and above HR, for everyone but operatives (Andy, 19 Nov 2026); drivers have it above Settings.
+  const exp: Item[] = canUseExpenses(me) ? [{ k: 'expenses', ic: 'receipt', lbl: 'Expenses', go: '/expenses', sec: 'Office' }] : [];
+  const items: Item[] = kind === 'finance' ? [{ k: 'fin', ic: 'pound', lbl: 'OpHUB Finance', go: '/fin' }, ...exp.map((x) => ({ ...x, sec: undefined })), ...(isManager(me) ? [{ k: 'pm/hr', ic: 'users', lbl: 'HR', go: '/pm/hr' }] : []), { k: 'account', ic: 'gear', lbl: 'Settings', go: '/account' }]
     : kind === 'superadmin' ? [{ k: 'home', ic: 'building', lbl: 'Platform Admin', go: '/home' }]
-    : me.role === 'driver' ? [{ k: 'home', ic: 'home', lbl: 'Home', go: '/home' }, { k: 'driver/schedule', ic: 'truck', lbl: 'My schedule', go: '/driver/schedule' }, { k: 'account', ic: 'gear', lbl: 'Settings', go: '/account' }]
+    : me.role === 'driver' ? [{ k: 'home', ic: 'home', lbl: 'Home', go: '/home' }, { k: 'driver/schedule', ic: 'truck', lbl: 'My schedule', go: '/driver/schedule' }, ...exp.map((x) => ({ ...x, sec: undefined })), { k: 'account', ic: 'gear', lbl: 'Settings', go: '/account' }]
     : mgr ? [
       ...(isFullManager(me) ? [{ k: 'home', ic: 'home', lbl: 'Home', go: '/home' }] : []),
       { k: 'sites', ic: 'projects', lbl: 'Projects', go: '/sites', sec: 'Work', kids: [
@@ -61,6 +63,7 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
         ...(can(me, 'team') ? [{ k: 'pm/operatives', ic: 'admin', lbl: 'Operatives', go: '/pm/operatives' }] : []),
       ] },
       ...(isFinanceUser(me, org) ? [{ k: 'fin', ic: 'pound', lbl: 'Finance', go: '/fin', sec: 'Office' }] : []),
+      ...exp,
       // HR on its own below Finance (Andy, 17 Nov 2026; it was under Dashboards).
       { k: 'pm/hr', ic: 'users', lbl: 'HR', go: '/pm/hr', sec: 'Office' },
       // On a phone your own Settings are under your name at the foot of the menu (one gear only: Admin; Andy, 15 Nov 2026).

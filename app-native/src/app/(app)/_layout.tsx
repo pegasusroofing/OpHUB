@@ -98,7 +98,8 @@ export default function AppLayout() {
   if (me && org && financeOnlyPerson(me, org) && me.role !== 'superadmin') {
     if (!isFinanceUser(me, org)) return <FinNoAccess />;
     // 160 company setup (logo) comes first, else the two redirects bounce off each other.
-    if (!(needsSetup && path === '/pm/admin/branding') && !/^\/(fin|account|signature|home)(\/|$)/.test(path)) return <Redirect href={'/fin' as never} />;
+    // Expenses too: it's on their menu (19 Nov 2026).
+    if (!(needsSetup && path === '/pm/admin/branding') && !/^\/(fin|account|signature|home|expenses)(\/|$)/.test(path)) return <Redirect href={'/fin' as never} />;
   }
   return (
     <View style={{ flex: 1 }}>
@@ -134,6 +135,8 @@ export default function AppLayout() {
       <Tabs.Screen name="yardcount" options={{ ...hidden, title: 'Yard Stock Take' }} />
       <Tabs.Screen name="pm" options={{ ...(siteMgr && !desk ? { tabBarIcon: icon('bell'), tabBarLabel: 'HUB', href: '/pm/hub' as never, tabBarBadge: inboxN || undefined } : hidden), title: 'Manager', headerShown: false }} />
       <Tabs.Screen name="fin" options={{ ...hidden, title: 'Finance', headerShown: false }} />
+      {/* Expenses, from the menu (19 Nov 2026). */}
+      <Tabs.Screen name="expenses" options={{ ...hidden, title: 'Expenses' }} />
     </Tabs>
     {!desk && projBar && <PhoneBar hubCount={hubN} inboxCount={(mgrInbox ? jobMsgs?.unread.length : opMsgs?.unread.length) || undefined} outstanding={opBar ? inboxN || undefined : undefined} />}
     </View>
