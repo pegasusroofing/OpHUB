@@ -10,7 +10,7 @@ import { CompanySetupSteps } from '@/components/CompanySetupSteps';
 import { FinChip } from '@/components/FinNav';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Field, Muted, SectionTitle } from '@/components/ui';
-import { joinLink } from '@/data/admin';
+import { emailInvite, joinLink } from '@/data/admin';
 import { createCompany, deleteCompany, deleteUser, orgSystems, resetPassword, setOrgPlan, setOrgSystems, setUserRole, usePlatform, viewAsOrg, type OrgSystems } from '@/data/platform';
 import { useAuth } from '@/lib/auth';
 import { base, page, space } from '@/theme/theme';
@@ -27,7 +27,7 @@ export function PlatformAdmin() {
   const { data } = usePlatform(true);
   const [open, setOpen] = useState<string | null>(null);
   const [co, setCo] = useState({ name: '', email: '' });
-  const [invite, setInvite] = useState<{ name: string; link: string } | null>(null);
+  const [invite, setInvite] = useState<{ name: string; link: string; sent?: string } | null>(null);
   const [busy, setBusy] = useState('');
   if (!me) return null;
   const reload = () => void qc.invalidateQueries({ queryKey: ['platform'] });
@@ -52,6 +52,8 @@ export function PlatformAdmin() {
       <Card>
         {invite ? (
           <>
+            {/* The invite is emailed when an email was given (Andy, 19 Nov 2026: "nothing in emails"); the link is still here to share. */}
+            {!!invite.sent && <Muted style={{ color: invite.sent.startsWith('Invite email sent') ? base.ok : base.warn, marginBottom: 6 }}>{invite.sent}</Muted>}
             <Muted style={{ color: base.ok, marginBottom: 6 }}>Company &quot;{invite.name}&quot; created — share this link with whoever should become their admin. It works once, for the next 14 days:</Muted>
             <TextInput value={invite.link} editable={false} selectTextOnFocus style={{ borderWidth: 1, borderColor: base.line, borderRadius: 8, padding: 8, color: base.ink, fontSize: 12, marginBottom: 8 }} />
             <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -62,20 +64,22 @@ export function PlatformAdmin() {
         ) : (
           <>
             <Field label="Company name" value={co.name} onChangeText={(v) => setCo({ ...co, name: v })} />
-            <Field label="Their email (optional)" value={co.email} onChangeText={(v) => setCo({ ...co, email: v })} keyboardType="email-address" autoCapitalize="none" />
+            <Field label="Their Email (We Email Them The Invite)" value={co.email} onChangeText={(v) => setCo({ ...co, email: v })} keyboardType="email-address" autoCapitalize="none" />
             <Button busy={busy === 'co'} title="Create Company & Invite" onPress={async () => {
               if (!co.name.trim()) { toast('Enter a company name.'); return; }
-              setBusy('co'); const r = await createCompany(co.name.trim(), co.email.trim() || null); setBusy('');
-              if (r.error || !r.data) { toast(`Could not create company — ${r.error}`); return; }
-              setInvite({ name: co.name.trim(), link: joinLink(r.data.invite_id) }); setCo({ name: '', email: '' }); toast('Company created'); reload();
+              setBusy('co'); const r = await createCompany(co.name.trim(), co.email.trim() || null);
+              if (r.error || !r.data) { setBusy(''); toast(`Could not create company — ${r.error}`); return; }
+              const sent = co.email.trim() ? await emailInvite(r.data.invite_id, co.email.trim()) : '';
+              setBusy('');
+              setInvite({ name: co.name.trim(), link: joinLink(r.data.invite_id), sent: sent && !sent.startsWith('Invite email sent') ? `The invite email didn't go — ${sent} Copy the link below and send it yourself.` : sent }); setCo({ name: '', email: '' }); reload();
             }} />
-            <Muted style={{ marginTop: 6 }}>Sets up a new company outside of Stripe checkout and gives you a founding-admin invite link to send them directly.</Muted>
+            <Muted style={{ marginTop: 6 }}>Sets up a new company outside of Stripe checkout, emails their founding-admin invite (if you give an email), and gives you the link as well.</Muted>
           </>
         )}
       </Card>
       <SectionTitle>All Companies ({data?.orgs.length ?? '…'})</SectionTitle>
       {data?.orgs.map((o) => {
-        const sub = data.subByOrg[o.id], people = data.byOrg[o.id] ?? [], ex = open === o.id;
+        const sub = data.subByOrg[o.id], people = data.byOrg[o.id] ?? [], waiting = data.invitesByOrg[o.id] ?? [], ex = open === o.id;
         return (
           <Card key={o.id}>
             <Pressable onPress={() => setOpen(ex ? null : o.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -114,6 +118,19 @@ export function PlatformAdmin() {
                   if ((await promptText(`Type the company name to confirm deleting "${o.name}":`, '')) !== o.name) { toast("Names didn't match — nothing deleted."); return; }
                   const r = await deleteCompany(o.id); toast(r.error ? `Delete failed — ${r.error}` : `Deleted ${r.data?.deleted || o.name}`); reload();
                 }} style={{ marginVertical: 10 }}><Text style={{ color: base.warn, fontWeight: '600' }}>Delete Company</Text></Pressable>
+                {/* Their admin invite, still waiting to be used: email it (again) or copy the link (Andy, 19 Nov 2026). */}
+                {waiting.map((i: Row) => (
+                  <View key={i.id} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: base.line }}>
+                    <View style={{ flex: 1, minWidth: 180 }}><Text style={{ fontWeight: '600', color: base.ink }}>Admin Invite — Not Signed Up Yet</Text><Muted>{i.email || 'No email given'}{i.expires_at ? ` · link works until ${new Date(i.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}</Muted></View>
+                    <FinChip on={false} label={busy === i.id ? 'Sending…' : 'Email Invite'} onPress={async () => {
+                      const to = (await promptText(`Email ${o.name}'s admin invite to:`, i.email || ''))?.trim();
+                      if (!to) return;
+                      setBusy(i.id); const msg = await emailInvite(i.id, to); setBusy('');
+                      if (msg.startsWith('Invite email sent')) reload(); else showAlert(msg);
+                    }} />
+                    <FinChip on={false} label="Copy Link" onPress={async () => { const l = joinLink(i.id); try { if (Platform.OS === 'web' && globalThis.navigator?.clipboard) { await globalThis.navigator.clipboard.writeText(l); toast('Link copied'); } else await Share.share({ message: l }); } catch { showAlert(l); } }} />
+                  </View>
+                ))}
                 {people.length ? people.map((p: Row) => (
                   <View key={p.id} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: base.line }}>
                     <View style={{ flex: 1, minWidth: 180 }}><Text style={{ fontWeight: '600', color: base.ink }}>{p.name}</Text><Muted>{p.email} · {p.is_estimator ? 'Estimator' : ROLES.find(([k]) => k === p.role)?.[1] || p.role}</Muted></View>

@@ -210,7 +210,9 @@ Deno.serve(withCors(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
 
     const { data: callerProfile } = await admin.from('profiles').select('role, org_id, name').eq('id', userData.user.id).maybeSingle();
-    if (!callerProfile || (callerProfile.role !== 'pm' && callerProfile.role !== 'admin')) {
+    // The platform owner (superadmin) may email any company's invite, e.g. a new company's founding-admin invite (19 Nov 2026).
+    const isSuper = callerProfile?.role === 'superadmin';
+    if (!callerProfile || (callerProfile.role !== 'pm' && callerProfile.role !== 'admin' && !isSuper)) {
       return new Response(JSON.stringify({ error: 'Forbidden — project managers and admins only' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -232,7 +234,7 @@ Deno.serve(withCors(async (req) => {
     // Confirm this invite belongs to the caller's own org, hasn't been used,
     // and hasn't expired before emailing anything out.
     const { data: invite } = await admin.from('invites').select('id, org_id, used_at, expires_at').eq('id', invite_id).maybeSingle();
-    if (!invite || invite.org_id !== callerProfile.org_id) {
+    if (!invite || (!isSuper && invite.org_id !== callerProfile.org_id)) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     if (invite.used_at) {
@@ -245,7 +247,7 @@ Deno.serve(withCors(async (req) => {
     const sentToday = await emailSendsSince(admin, 'send-invite-email', 'sender_id', userData.user.id, 24 * 60);
     if (sentToday != null && sentToday >= 60) return new Response(JSON.stringify({ error: 'You’ve reached today’s limit of 60 emails — try again tomorrow.' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-    const { data: org } = await admin.from('organizations').select('name, logo_path, color_primary').eq('id', callerProfile.org_id).maybeSingle();
+    const { data: org } = await admin.from('organizations').select('name, logo_path, color_primary').eq('id', invite.org_id).maybeSingle(); // the invited company's name and logo
 
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     const FROM_EMAIL = Deno.env.get('INVITES_FROM_EMAIL') || Deno.env.get('ORDERS_FROM_EMAIL') || 'invites@ophub.app';
@@ -299,7 +301,7 @@ Deno.serve(withCors(async (req) => {
       return new Response(JSON.stringify({ error: 'The email service didn’t accept the email — please try again.' }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    await logEmailSend(admin, { fn: 'send-invite-email', sender_id: userData.user.id, org_id: callerProfile.org_id, to: [toAddr], subject });
+    await logEmailSend(admin, { fn: 'send-invite-email', sender_id: userData.user.id, org_id: invite.org_id, to: [toAddr], subject });
 
     // Record who it was sent to, for reference in the pending invites list — non-fatal if it fails.
     try { await admin.from('invites').update({ email: toAddr }).eq('id', invite_id); } catch (_e) { /* non-fatal */ }

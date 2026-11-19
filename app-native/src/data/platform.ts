@@ -16,14 +16,18 @@ export function usePlatform(enabled: boolean) {
   return useQuery({
     queryKey: ['platform'], enabled,
     queryFn: async () => {
-      const [orgs, subs, people] = await Promise.all([
+      const [orgs, subs, people, invs] = await Promise.all([
         db.from('organizations').select('*').order('created_at', { ascending: false }),
         db.from('subscriptions').select('*'),
         db.from('profiles').select('*').order('name', { ascending: true }),
+        // Each company's founding-admin invite still waiting to be used, so it can be emailed (Andy, 19 Nov 2026).
+        db.from('invites').select('id, org_id, email, role, expires_at, created_at').eq('role', 'admin').is('used_at', null).order('created_at', { ascending: false }),
       ]);
       const subByOrg: Record<string, Row> = {}; ((subs.data as Row[] | null) ?? []).forEach((s) => { subByOrg[s.org_id] = s; });
       const byOrg: Record<string, Row[]> = {}; ((people.data as Row[] | null) ?? []).forEach((p) => { if (p.org_id) (byOrg[p.org_id] ||= []).push(p); });
-      return { orgs: (orgs.data as Row[] | null) ?? [], subByOrg, byOrg };
+      const now = Date.now(), invitesByOrg: Record<string, Row[]> = {};
+      ((invs.data as Row[] | null) ?? []).filter((i) => !i.expires_at || new Date(i.expires_at).getTime() > now).forEach((i) => { (invitesByOrg[i.org_id] ||= []).push(i); });
+      return { orgs: (orgs.data as Row[] | null) ?? [], subByOrg, byOrg, invitesByOrg };
     },
   });
 }
