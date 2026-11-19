@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { canSeeTile, currentCycleSigs, resignCycleStart, resignDue, signedHeadline, signers, tbtAllSigned, unsignedByMe } from './hs.ts';
+import { canSeeTile, currentCycleSigs, officeCopyEmail, resignCycleStart, resignDue, signedHeadline, signers, tbtAllSigned, unsignedByMe } from './hs.ts';
 
 const live = { status: 'active' }, closed = { status: 'closed' };
 
@@ -68,4 +68,14 @@ test('H&S policy gate', async () => {
   assert.equal(policyGatePending('pm', false, doc, [{ signed_at: '2026-05-01T00:00:00Z' }, { signed_at: '2026-07-01T00:00:00Z' }]), false);
   assert.equal(policyGatePending('superadmin', false, doc, []), false);
   assert.equal(policyGatePending('admin', true, doc, []), false);
+});
+
+test('office copy of H&S emails: blank clears it, a bad address is refused, a good one is tidied', () => {
+  assert.equal(officeCopyEmail(''), null);
+  assert.equal(officeCopyEmail('   '), null);
+  assert.equal(officeCopyEmail(null), null);
+  assert.equal(officeCopyEmail(' Office@Example.co.uk '), 'office@example.co.uk');
+  assert.equal(officeCopyEmail('office@example'), 'bad');
+  assert.equal(officeCopyEmail('office example.co.uk'), 'bad');
+  assert.equal(officeCopyEmail('a@b.co, c@d.co'), 'bad');
 });

@@ -74,6 +74,8 @@ export const ADMIN_ITEMS: AdminItem[] = [
   { key: 'tbt', page: 'hs', group: 'Toolbox Talks', icon: '🗣️', label: 'Toolbox Talk Templates', sub: 'All sites', kw: 'toolbox talk tbt', route: '/pm/admin/tbt', show: (me) => isFullManager(me) && admin(me) },
   // How often each live project needs a talk (Andy, 14 Nov 2026).
   { key: 'tbtrule', page: 'hs', group: 'Toolbox Talks', icon: '🗓️', label: 'Toolbox Talks Required', sub: 'How often on each live project', kw: 'toolbox talk tbt how often monthly frequency rule required', route: '/pm/admin/tbtrule', show: admin },
+  // The office copy of H&S emails, each company its own (19 Nov 2026; one fixed address for everyone until 15 Nov). Admins only.
+  { key: 'hsemails', page: 'hs', group: 'Emails', icon: '✉️', label: 'H&S Emails', sub: 'Office copy of reports, COSHH, HAVS, PUWER and incidents', kw: 'email emails copy cc office report reports coshh havs puwer incident accident health safety', route: '/pm/admin/hsemails', show: admin },
 
   // Company.
   { key: 'hometiles', page: 'company', group: 'Branding', icon: '🏠', label: 'Home Page', sub: 'Who sees the finance tiles on Home', kw: 'home page tiles finance money due in pm project manager site manager', route: '/pm/admin/hometiles', show: () => false }, // now Money On Home on Admin › Roles (18 Nov 2026)

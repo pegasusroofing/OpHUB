@@ -47,6 +47,8 @@ export type Organization = {
   home_tiles?: { finance_pm?: boolean; finance_site_manager?: boolean; finance_other?: boolean } | null;
   /** How often each live project needs a Toolbox Talk (lib/rules/tbt); null = every month. */
   tbt_every?: string | null;
+  /** The office copy of H&S emails (Admin › H&S › H&S Emails); null = none. Only admins can change it. */
+  report_cc_email?: string | null;
 };
 
 export type DeviceLockResult = {

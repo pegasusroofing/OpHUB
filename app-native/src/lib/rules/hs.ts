@@ -82,3 +82,12 @@ export function policyGatePending(role: string, financeOnly: boolean, doc: Cycle
   if (role === 'superadmin' || financeOnly || !doc) return false;
   return !policySigValid(doc, mySigsOldestFirst[mySigsOldestFirst.length - 1]);
 }
+
+/** The company's office copy of H&S emails (organizations.report_cc_email): reports, COSHH, HAVS, PUWER and
+ *  incident emails copy it in. What's typed, ready to save: blank = no office copy (null); a bad address = 'bad'.
+ *  The same check the server functions use (EMAIL_OK), so a saved address is one they send to. */
+export function officeCopyEmail(typed: string | null | undefined): string | null | 'bad' {
+  const v = String(typed ?? '').trim().toLowerCase();
+  if (!v) return null;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? v : 'bad';
+}
