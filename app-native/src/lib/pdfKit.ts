@@ -28,4 +28,5 @@ export * from '@/lib/signedPdf';
 export * from '@/lib/snagPdf';
 export * from '@/lib/sowPdf';
 export * from '@/lib/tableExport';
+export * from '@/lib/tbtPdf';
 export * from '@/lib/trainingMatrix';

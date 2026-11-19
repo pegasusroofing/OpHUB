@@ -25,15 +25,29 @@ const WHEN: Record<TbtEvery, string> = {
   off: 'No Toolbox Talk reminders in the Hub or on projects.',
 };
 
+// On its own page for old links; the Admin Centre shows it on the Toolbox Talks tab now, above the templates (Andy,
+// 19 Nov 2026: "move the toolbox talks required into the toolbox talks templates and have the tab header as toolbox talks").
 export default function TbtRuleSettings() {
+  const { me } = useAuth();
+  if (!me) return null;
+  if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Company admins only.</Muted>;
+  return (
+    <ScrollView contentContainerStyle={page(720)}>
+      <Stack.Screen options={{ title: 'Toolbox Talks Required' }} />
+      <TbtRequiredCard />
+    </ScrollView>
+  );
+}
+
+/** How often each live project needs a Toolbox Talk: the choice and Save. Company admins. */
+export function TbtRequiredCard() {
   const { me, org, refresh } = useAuth();
   const toast = useToast();
   const [picked, setV] = useState<TbtEvery | null>(null);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const v = picked ?? tbtEvery(org?.tbt_every);
-  if (!me) return null;
-  if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Company admins only.</Muted>;
+  if (!me || me.role !== 'admin') return null;
   const save = async () => {
     setBusy(true);
     const r = await db.from('organizations').update({ tbt_every: v } as never).eq('id', me.org_id as string).select('id');
@@ -47,15 +61,12 @@ export default function TbtRuleSettings() {
   const p = tbtPeriod(v);
   const fmt = (d: Date) => d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
   return (
-    <ScrollView contentContainerStyle={page(720)}>
-      <Stack.Screen options={{ title: 'Toolbox Talks Required' }} />
-      <Card>
-        <Text style={{ fontSize: 15, fontWeight: '600', color: base.ink, marginBottom: 4 }}>How Often Does Each Live Project Need A Toolbox Talk?</Text>
-        <Muted style={{ marginBottom: 12 }}>A talk issued on a project counts for the period it was issued in. Projects that are due or overdue show in the Hub and on the project&apos;s Toolbox Talks page.</Muted>
-        <SelectBox title="Toolbox Talks Required" value={v} options={TBT_EVERY.map((x) => [x.k, x.l])} onChange={(x) => { setV(x as TbtEvery); setSaved(false); }} />
-        <Muted>{WHEN[v]}{p ? ` The current one is due by ${fmt(p.due)}.` : ''}</Muted>
-        <View style={{ marginTop: 14 }}><Button busy={busy} disabled={saved} title={saved ? 'Saved' : 'Save'} onPress={() => void save()} /></View>
-      </Card>
-    </ScrollView>
+    <Card>
+      <Text style={{ fontSize: 15, fontWeight: '600', color: base.ink, marginBottom: 4 }}>How Often Does Each Live Project Need A Toolbox Talk?</Text>
+      <Muted style={{ marginBottom: 12 }}>A talk issued on a project counts for the period it was issued in. Projects that are due or overdue show in the Hub and on the project&apos;s Toolbox Talks page.</Muted>
+      <SelectBox title="Toolbox Talks Required" value={v} options={TBT_EVERY.map((x) => [x.k, x.l])} onChange={(x) => { setV(x as TbtEvery); setSaved(false); }} />
+      <Muted>{WHEN[v]}{p ? ` The current one is due by ${fmt(p.due)}.` : ''}</Muted>
+      <View style={{ marginTop: 14, alignItems: 'center' }}><Button busy={busy} disabled={saved} title={saved ? 'Saved' : 'Save'} onPress={() => void save()} /></View>
+    </Card>
   );
 }

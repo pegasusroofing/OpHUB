@@ -46,6 +46,7 @@ export const buildSignedTbtPdf = lazy('buildSignedTbtPdf');
 export const buildSnagPdf = lazy('buildSnagPdf');
 export const buildSowPdf = lazy('buildSowPdf');
 export const buildSubNoticePdf = lazy('buildSubNoticePdf');
+export const buildTbtPdf = lazy('buildTbtPdf');
 export const buildVariationsPdf = lazy('buildVariationsPdf');
 export const cisStatement = lazy('cisStatement');
 export const deliverDocx = lazy('deliverDocx');

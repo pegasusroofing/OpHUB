@@ -71,9 +71,9 @@ export const ADMIN_ITEMS: AdminItem[] = [
   { key: 'coshhbuilder', page: 'hs', group: 'Libraries', icon: '🧪', label: 'COSHH Library', sub: 'Data sheets → products → assessments in folders', kw: 'coshh substance product data sheet', route: '/pm/admin/coshh', show: isFullManager },
   // The Construction Phase Plan template (Andy, 19 Nov 2026), beta link only like the builder.
   { key: 'cpptemplate', page: 'hs', group: 'Libraries', icon: '📘', label: 'CPP Template', sub: 'Construction Phase Plan wording for new plans', kw: 'cpp construction phase plan template main contractor', route: '/pm/admin/cpptemplate', show: (me) => isFullManager(me) && isBetaSite() },
-  { key: 'tbt', page: 'hs', group: 'Toolbox Talks', icon: '🗣️', label: 'Toolbox Talk Templates', sub: 'All sites', kw: 'toolbox talk tbt', route: '/pm/admin/tbt', show: (me) => isFullManager(me) && admin(me) },
-  // How often each live project needs a talk (Andy, 14 Nov 2026).
-  { key: 'tbtrule', page: 'hs', group: 'Toolbox Talks', icon: '🗓️', label: 'Toolbox Talks Required', sub: 'How often on each live project', kw: 'toolbox talk tbt how often monthly frequency rule required', route: '/pm/admin/tbtrule', show: admin },
+  // One tab since 19 Nov 2026 (Andy: "move the toolbox talks required into the toolbox talks templates and have the tab
+  // header as toolbox talks"): how often each live project needs a talk (14 Nov), the templates, and Create A Toolbox Talk.
+  { key: 'tbt', page: 'hs', group: 'Toolbox Talks', icon: '🗣️', label: 'Toolbox Talks', sub: 'How often, templates and making talks', kw: 'toolbox talk tbt template create builder how often monthly frequency rule required', route: '/pm/admin/tbt', show: (me) => isFullManager(me) && admin(me) },
   // The office copy of H&S emails, each company its own (19 Nov 2026; one fixed address for everyone until 15 Nov). Admins only.
   { key: 'hsemails', page: 'hs', group: 'Emails', icon: '✉️', label: 'H&S Emails', sub: 'Office copy of reports, COSHH, HAVS, PUWER and incidents', kw: 'email emails copy cc office report reports coshh havs puwer incident accident health safety', route: '/pm/admin/hsemails', show: admin },
 

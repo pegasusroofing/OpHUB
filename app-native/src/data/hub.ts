@@ -144,7 +144,7 @@ export function useHub(me: Profile | null, allSites: Site[] | undefined, pmId: s
       const items: HubItem[] = [];
       for (const s of sites) {
         const t = talkList.filter((x) => x.site_id === s.id);
-        // As often as the company admin set (Admin › Toolbox Talks Required; every month if not set).
+        // As often as the company admin set (Admin › H&S › Toolbox Talks; every month if not set).
         const need = siteStatusKey(s) === 'live' ? tbtNeed(t, every, now) : null;
         if (need) items.push({ key: `tbt-${s.id}`, type: 'tbt', area: 'projects', typeLbl: 'Toolbox Talk', label: need.kind === 'never' ? 'Toolbox Talk — none ever completed at this site' : `Toolbox Talk due for ${need.word}`, siteId: s.id, siteName: s.name, due: need.due, at: null, route: `/sites/${s.id}/hs/tbt` });
         rows<{ id: string; site_id: string }>(snags).filter((x) => x.site_id === s.id).forEach((x) => items.push({ key: `snag-${x.id}`, type: 'snag', area: 'projects', typeLbl: 'Snag', label: 'Open snag', siteId: s.id, siteName: s.name, due: null, at: null, route: `/sites/${s.id}/snagging/list` }));

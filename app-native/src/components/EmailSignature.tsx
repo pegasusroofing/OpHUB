@@ -30,7 +30,7 @@ export function useMyEmailHere(): string {
   return String(here?.work_email || me?.email || '').trim();
 }
 
-function useCompanyContact(orgId: string | null | undefined) {
+export function useCompanyContact(orgId: string | null | undefined) {
   return useQuery({
     queryKey: ['orgContact', orgId], enabled: !!orgId,
     queryFn: async () => (((await db.from('organizations').select('rams_settings').eq('id', orgId as string).maybeSingle()).data as { rams_settings: Rams | null } | null)?.rams_settings) || {},
