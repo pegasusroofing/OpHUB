@@ -36,7 +36,31 @@ export function usePmLogins(siteId: string | undefined, pmId: string | null | un
 
 type Target = { table: 'sites' | 'site_sub_addresses'; id: string };
 export async function setFencePoint(t: Target, lat: number, lon: number): Promise<boolean> {
-  return !!(await db.from(t.table).update({ geofence_lat: lat, geofence_lon: lon } as never).eq('id', t.id).select('id')).data?.length;
+  // Setting it by hand settles a postcode guess too.
+  const extra = t.table === 'sites' ? { geofence_suggested_lat: null, geofence_suggested_lon: null } : {};
+  return !!(await db.from(t.table).update({ geofence_lat: lat, geofence_lon: lon, ...extra } as never).eq('id', t.id).select('id')).data?.length;
+}
+
+/* The job's check-in point found from its postcode (Andy, 20 Nov 2026: "can we also get the geolocation to auto find it from
+   the postcode. but have it as a notification number in the project to highlight it needs to be confirmed"). It's kept as a
+   suggestion until a manager confirms it, so check-ins are never measured against a rough postcode point. */
+type FenceSite = { id: string; postcode?: string | null; geofence_lat: number | null; geofence_suggested_lat?: number | null; geofence_suggested_lon?: number | null };
+export const needsFenceConfirm = (s: FenceSite | null | undefined) => !!s && s.geofence_lat == null && s.geofence_suggested_lat != null && s.geofence_suggested_lon != null;
+/** Looks the postcode up (postcodes.io) when the job has no check-in point and no suggestion yet. True when one was saved. */
+export async function suggestFence(s: FenceSite): Promise<boolean> {
+  const pc = String(s.postcode || '').trim();
+  if (s.geofence_lat != null || s.geofence_suggested_lat != null || !pc) return false;
+  try {
+    let at = (await (await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(pc)}`)).json())?.result;
+    if (!at) at = (await (await fetch(`https://api.postcodes.io/outcodes/${encodeURIComponent(pc.split(/\s+/)[0])}`)).json())?.result;
+    if (!at || typeof at.latitude !== 'number') return false;
+    return !!(await db.from('sites').update({ geofence_suggested_lat: at.latitude, geofence_suggested_lon: at.longitude } as never).eq('id', s.id).is('geofence_lat', null).select('id')).data?.length;
+  } catch { return false; }
+}
+/** Yes, that's the place: it becomes the check-in point. */
+export async function confirmSuggestedFence(s: FenceSite): Promise<boolean> {
+  if (s.geofence_suggested_lat == null || s.geofence_suggested_lon == null) return false;
+  return setFencePoint({ table: 'sites', id: s.id }, s.geofence_suggested_lat, s.geofence_suggested_lon);
 }
 /** Takes the geofence off (Andy, 3 Nov 2026): check-ins are no longer distance-checked. The distance is kept. */
 export async function clearFence(t: Target): Promise<boolean> {

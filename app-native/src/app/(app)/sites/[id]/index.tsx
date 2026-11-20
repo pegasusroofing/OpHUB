@@ -3,7 +3,7 @@
 // Finance money strip, then the job's areas as rows, one colour, with counts: two columns on a laptop, one on a phone.
 // Clients get a cut-down view (rows only).
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { AssignList } from '@/components/AssignList';
@@ -19,6 +19,7 @@ import { assignToSite, removeFromSite, useTeamData } from '@/data/siteAdmin';
 import { useSiteHome } from '@/data/siteHome';
 import { useSubOrders } from '@/data/siteOrders';
 import { useSite } from '@/data/sites';
+import { needsFenceConfirm, suggestFence } from '@/data/checkinManager';
 import { useAuth } from '@/lib/auth';
 import { heading } from '@/lib/fonts';
 import { siteStatusKey } from '@/lib/rules/checkin';
@@ -109,6 +110,10 @@ export default function SiteHome() {
   // Subcontract Orders shows when the job is on a price or already has orders (Andy, 13 Nov 2026).
   const { data: subOrders } = useSubOrders(me && isManager(me) ? id : undefined);
   useFocusEffect(useCallback(() => { void refetch(); void refetchJobs(); }, [refetch, refetchJobs]));
+  // No check-in point yet: find one from the postcode for a manager to confirm (20 Nov 2026).
+  const qc = useQueryClient();
+  const isMgr = !!me && isManager(me);
+  useEffect(() => { if (isMgr && site && !site.repair_contract) void suggestFence(site).then((ok) => { if (ok) void qc.invalidateQueries({ queryKey: ['sites'] }); }); }, [isMgr, site?.id, site?.postcode]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!site || !me) return <Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Project not found.'}</Muted>;
   const mgr = isManager(me);
   const client = me.role === 'client';
@@ -158,6 +163,8 @@ export default function SiteHome() {
     { key: 'snag', ic: 'wrench', title: 'Snagging', sub: h ? `${snags} open` : '…', onPress: go('snagging/list') },
   ] : [
     // A manager's rows follow what their role can do (Admin › Roles, 17 Nov 2026).
+    // The check-in point found from the postcode, waiting to be confirmed: first, with a 1 (Andy, 20 Nov 2026).
+    ...(mgr && !site.multi_site && needsFenceConfirm(site) ? [{ key: 'geo', ic: 'pin', title: 'Confirm The Check-In Location', sub: `Found from ${site.postcode || 'the postcode'} · tap to check it`, badge: 1, onPress: go('checkin') }] : []),
     ...(!mgr || can(me, 'sow') ? [{ key: 'sow', ic: 'clipboard', title: 'Schedule of Works', sub: sowSub, onPress: go('schedule') }] : []),
     ...(site.acting_as_main_contractor ? [{ key: 'mc', ic: 'building', title: 'Main Contractor', sub: `${mcAreas} area${mcAreas === 1 ? '' : 's'}`, onPress: go('mc') }] : []),
     { key: 'hs', ic: 'shield', title: 'Health & Safety', sub: h ? `${h.pendingRams} to sign` : '…', badge: mgr ? (h?.hsGap ? '!' : undefined) : h?.pendingRams || undefined, onPress: go('hs') },

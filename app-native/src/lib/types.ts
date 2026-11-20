@@ -83,6 +83,9 @@ export type Site = {
   geofence_lat: number | null;
   geofence_lon: number | null;
   geofence_radius_m: number;
+  /** Found from the postcode, waiting for a manager to confirm (20 Nov 2026); check-ins only use geofence_lat / lon. */
+  geofence_suggested_lat?: number | null;
+  geofence_suggested_lon?: number | null;
   multi_site: boolean;
   acting_as_main_contractor?: boolean;
   mc_hidden_tiles?: string[] | null;

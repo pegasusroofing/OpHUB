@@ -12,7 +12,7 @@ import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Popup } from '@/components/Popup';
 import { Button, Card, Empty, Muted, Pill, SectionTitle, Toggle } from '@/components/ui';
 import { getPosition } from '@/data/checkinAction';
-import { checkinsForExport, clearFence, setFencePoint, setFenceRadius, usePmLogins, useTeamCheckins } from '@/data/checkinManager';
+import { checkinsForExport, clearFence, setFencePoint, setFenceRadius, usePmLogins, useTeamCheckins, confirmSuggestedFence, needsFenceConfirm } from '@/data/checkinManager';
 import { nameOf, usePeople } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
@@ -75,6 +75,21 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
     <View>
       {/* One compact row (Andy, 3 Nov 2026): set location, distance, Save, bin to take it off. Clear of the button above. */}
       <View style={{ marginTop: 18 }}><SectionTitle>{sub ? 'Address Geofence' : 'Site Geofence'}</SectionTitle></View>
+      {/* Found from the postcode (Andy, 20 Nov 2026): a manager says Yes before check-ins are measured from it. */}
+      {!sub && needsFenceConfirm(site) && (
+        <Card style={{ paddingVertical: 12 }}>
+          <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 4 }}>📍 Found From The Postcode{site.postcode ? ` (${site.postcode})` : ''}</Text>
+          <Text style={{ fontSize: 13, color: base.slate, marginBottom: 8 }}>
+            <Text style={{ fontFamily: 'monospace', color: base.ink }}>{Number(site.geofence_suggested_lat).toFixed(5)}, {Number(site.geofence_suggested_lon).toFixed(5)}</Text>
+            {'  '}<Text style={{ color: base.blue }} onPress={() => Linking.openURL(`https://www.google.com/maps?q=${site.geofence_suggested_lat},${site.geofence_suggested_lon}`)}>View On Map ↗</Text>
+          </Text>
+          <Text style={{ fontWeight: '600', color: base.ink, textAlign: 'center', marginBottom: 6 }}>Is This The Right Place For Check-Ins?</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
+            <Button small title="Yes" onPress={async () => { if (await confirmSuggestedFence(site)) refresh(); else toast('Could not save — try again.'); }} />
+            <Button small kind="ghost" title="No, Set It Myself" onPress={() => setModal('choose')} />
+          </View>
+        </Card>
+      )}
       {fence.geofence_lat != null && fence.geofence_lon != null && !fenceOpen ? (
         // Once it's set it folds into one line (Andy, 11 Nov 2026); tap to see or change it.
         <Pressable accessibilityRole="button" accessibilityLabel="Geofence: set, tap to change" onPress={() => setFenceOpen(true)}>
