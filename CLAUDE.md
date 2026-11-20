@@ -12,7 +12,7 @@ Read this first, every session. More detail is in `docs/claude-code/`:
 - **Andy Cramp**, owner of **RTB Roofing Ltd**, a UK roofing contractor. He isn't a developer.
 - **Write to him in plain UK English.** Use short sentences and no jargon. Give results, not process. Show screenshots of anything visual.
 - **Don't ask questions you can answer yourself.** When he says "get on with it" or "don't ask", work unattended: make sensible choices and list them at the end.
-- **Commits go out with Push origin.** He pushes with **GitHub Desktop → Push origin**. You can commit for him; tell him when there's something to push.
+- **Commit and push for him.** Since 20 Nov 2026 Andy wants commits pushed automatically ("auto push"). Commit, then `git push origin main` (git on his laptop is signed in to GitHub), and tell him it's on GitHub. A push to main also updates operativehub.co.uk, so push only checked work. If the GitHub sign-in has lapsed, ask him to sign in again rather than leaving it.
 - **He watches cost.** Keep work lean. Don't spin up many helpers unless he asks for speed.
 
 ## Hard rules
