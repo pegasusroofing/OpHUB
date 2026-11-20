@@ -102,7 +102,7 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   await page.screenshot({path: 'shots/repairs-work-summary.png', fullPage: true});
   await page.getByRole('button', {name: 'Update Status'}).first().click(); await page.waitForTimeout(800);
   await page.getByRole('button', {name: 'Delete Visit'}).click(); await page.waitForTimeout(500);
-  await menu('Delete Visit').click(); await page.waitForTimeout(2000);
+  await menu('Yes').click(); await page.waitForTimeout(2000); // the Yes / No question (20 Nov)
   j2 = db.repair_jobs.find((j) => j.id === 'j2');
   const ph = db.repair_job_photos.find((p) => p.id === 'ph2');
   check(j2.survey_required === 'N' && !j2.survey_date && !j2.fault_description && j2.job_status === 'To Survey' && !!ph.deleted_at, 'Delete Visit: back to Scheduled, its photo to Deleted Photos');
