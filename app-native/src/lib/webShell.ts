@@ -59,10 +59,19 @@ if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof document !=
         el.scrollTo({ top: 0, behavior: 'smooth' });
       });
     };
+    // A finger on the screen (or just lifted, while it coasts) moving the page isn't the tap on the top: the iPhone's tap
+    // there sends no touches to the page. So a pull-down on the header doesn't throw a long list back to the top (bug
+    // review, 20 Nov 2026).
+    let touching = 0, touchUntil = 0;
+    document.addEventListener('touchstart', () => { touching++; }, { passive: true, capture: true });
+    const lift = () => { touching = Math.max(0, touching - 1); touchUntil = Date.now() + 700; };
+    document.addEventListener('touchend', lift, { passive: true, capture: true });
+    document.addEventListener('touchcancel', lift, { passive: true, capture: true });
+    const dragging = () => touching > 0 || Date.now() < touchUntil;
     let parked = false;
     window.addEventListener('scroll', () => {
       if (window.scrollY > 0) { parked = true; return; }
-      if (parked && !typing()) toTop();
+      if (parked && !typing() && !dragging()) toTop();
       parked = false;
       setTimeout(park, 350);
     }, { passive: true });

@@ -101,7 +101,10 @@ function CompanyContactPop({ orgId, onClose }: { orgId: string; onClose: () => v
     setBusy(true); setErr('');
     try {
       // The RAMS numbers live in the same settings and move on as RAMS are made: read them fresh and change only these two.
-      const live = (((await db.from('organizations').select('rams_settings').eq('id', orgId).maybeSingle()).data as { rams_settings: Rams | null } | null)?.rams_settings) || {};
+      // If they can't be read, stop: writing only these two would wipe the rest (bug review, 20 Nov 2026).
+      const got = await db.from('organizations').select('rams_settings').eq('id', orgId).maybeSingle();
+      if (got.error || !got.data) { setErr('Could not read the company’s settings — try again.'); return; }
+      const live = ((got.data as { rams_settings: Rams | null }).rams_settings) || {};
       const next = { ...live, address: (address ?? String(data?.address || '')).trim(), phone: (phone ?? String(data?.phone || '')).trim() };
       const r = await db.from('organizations').update({ rams_settings: next } as never).eq('id', orgId).select('id');
       if (r.error || !(r.data as unknown[] | null)?.length) { setErr('Could not save — only a company admin can change these.'); return; }

@@ -181,7 +181,10 @@ function Builder({ me, site, sheet, items, alloc, rateItems, options }: { me: Pr
   const saveEdits = async () => {
     if (!canIssue(w)) { toast('Enter a quantity for at least one ticked item (or add a custom row).'); return; }
     if (!(await confirmAsk('Save changes to this issued sheet? Anything already booked in against a line stays untouched.', 'Save changes'))) return;
-    setBusy('e'); toast(await saveIssuedEdits(me, site, sheet, w, rateItems, names())); setBusy(''); void fileSheetPdf(site, org, sheet.id); refresh(); router.setParams({ edit: '' });
+    // The PDF goes to OneDrive only if the changes saved (bug review, 20 Nov 2026).
+    setBusy('e'); const said = await saveIssuedEdits(me, site, sheet, w, rateItems, names()); toast(said); setBusy('');
+    if (!/NOT updated/.test(said)) void fileSheetPdf(site, org, sheet.id);
+    refresh(); router.setParams({ edit: '' });
   };
   const changeRate = async (key: string, v: string) => {
     const e = w.items[key], it = byId[e.rateItemId]; const val = parseFloat(v);

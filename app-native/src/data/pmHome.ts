@@ -83,3 +83,12 @@ export function useTodayEvents() {
     queryFn: async () => (orThrow(await db.from('site_calendar_events').select('id,site_id,title,event_date').eq('event_date', iso).order('created_at').limit(12)) as TodayEvent[]) ?? [],
   });
 }
+
+/** Which of today's calendar items are drivers' deliveries (delivery_tasks.calendar_event_id), so Home's Today tiles can
+ *  leave them out without hiding supplier PO delivery dates, which share the "Delivery:" title (20 Nov 2026). */
+export function useDriverEventIds(eventIds: string[]) {
+  return useQuery({
+    queryKey: ['driverEventIds', eventIds.join(',')], enabled: eventIds.length > 0, staleTime: 60000,
+    queryFn: async () => new Set(((((await db.from('delivery_tasks').select('calendar_event_id').in('calendar_event_id', eventIds)).data) as { calendar_event_id: string | null }[] | null) ?? []).map((r) => r.calendar_event_id).filter(Boolean) as string[]),
+  });
+}

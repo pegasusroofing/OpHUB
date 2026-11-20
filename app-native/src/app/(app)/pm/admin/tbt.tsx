@@ -31,7 +31,7 @@ export default function TbtTemplates() {
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [busy, setBusy] = useState(false);
-  const [building, setBuilding] = useState<{ id: string | null; start: TbtBuild } | null>(null);
+  const [building, setBuilding] = useState<{ id: string | null; start: TbtBuild; path?: string | null } | null>(null);
   const { data: list = [], isLoading } = useQuery({
     queryKey: ['tbtTemplates', me?.org_id], enabled: !!me,
     queryFn: async () => ((await db.from('tbt_templates').select('*').eq('org_id', me?.org_id as string).order('created_at', { ascending: false })).data as Tpl[] | null) ?? [],
@@ -44,7 +44,7 @@ export default function TbtTemplates() {
       <ScrollView contentContainerStyle={page(760)} keyboardShouldPersistTaps="handled">
         <Stack.Screen options={{ title: 'Toolbox Talks' }} />
         <SectionTitle>{building.id ? 'Edit Toolbox Talk' : 'Create A Toolbox Talk'}</SectionTitle>
-        <TbtBuilder start={building.start} id={building.id} onClose={() => setBuilding(null)} />
+        <TbtBuilder start={building.start} id={building.id} path={building.path} onClose={() => setBuilding(null)} />
       </ScrollView>
     );
   }
@@ -62,7 +62,7 @@ export default function TbtTemplates() {
             <Text style={{ fontWeight: '600', color: base.ink }}>{t.title}</Text>
             <Muted>{t.builder ? 'Made here' : 'Added'} {new Date(t.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted>
           </Pressable>
-          {!!t.builder && <Button small kind="ghost" title="✎ Edit" onPress={() => setBuilding({ id: t.id, start: readTbt(t.builder) })} />}
+          {!!t.builder && <Button small kind="ghost" title="✎ Edit" onPress={() => setBuilding({ id: t.id, start: readTbt(t.builder), path: t.storage_path })} />}
           <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={`Remove ${t.title}`} onPress={async () => {
             if (!(await confirmAsk('Remove this template? Sites already created keep their copy — this only affects sites created from now on.', 'Remove'))) return;
             if (!(await db.from('tbt_templates').delete().eq('id', t.id).select('id')).data?.length) toast('Could not remove — try again.');

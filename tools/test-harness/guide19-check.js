@@ -14,7 +14,7 @@ const STEPS = ['Set Up Report And Email Templates', 'Fill The H&S Libraries', 'S
   require('./seeds/world')(db);
   const me = db.profiles.find((p) => p.id === 'me'); me.role = 'admin'; me.howto_dismissed = [];
   const O = db.organizations[0].id; db.organizations[0].has_finance = true;
-  db.report_templates = []; db.fin_email_templates = []; db.rams_library_items = []; db.tbt_templates = []; db.fin_settings = []; db.suppliers = [];
+  db.report_templates = []; db.fin_email_templates = []; db.rams_library_items = []; db.tbt_templates = []; db.coshh_library_files = []; db.fin_settings = []; db.suppliers = [];
   const page = await ctx.newPage(); page.on('pageerror', (e) => errs.push(e.message));
   await page.goto(B + '/login'); await page.waitForTimeout(5000);
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');

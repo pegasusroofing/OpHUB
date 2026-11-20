@@ -34,7 +34,7 @@ const setUp = async (browser, role, opts) => {
   await page.goto(`${B}/pm/admin/hsemails`); await page.waitForTimeout(4500);
   let t = await body();
   const tabs = await subTabs(page);
-  check(tabs.includes('H&S') && tabs.includes('H&S Emails') && tabs.includes('Toolbox Talks Required'), `the admin has H&S Emails among the H&S sub tabs (${tabs.join(' · ')})`);
+  check(tabs.includes('H&S') && tabs.includes('H&S Emails') && tabs.includes('Toolbox Talks'), `the admin has H&S Emails among the H&S sub tabs (${tabs.join(' · ')})`);
   check(/Copy health & safety emails to/.test(t) && /No office copy at the moment/.test(t), 'the field shows, with no office copy yet');
   const box = page.getByLabel('Copy health and safety emails to', {exact: true});
   await box.fill('office@example'); await page.getByText('Save', {exact: true}).click(); await page.waitForTimeout(1200);

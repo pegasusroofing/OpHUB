@@ -33,3 +33,9 @@ begin
 end $$;
 revoke all on function public.site_sheet_subcontract(uuid) from public, anon;
 grant execute on function public.site_sheet_subcontract(uuid) to authenticated;
+
+-- Later the same night, after the security and bug reviews (migrations price_sheet_subcontract_same_job_20nov and
+-- price_sheet_subcontract_keep_finance_name_20nov): the function only ever touches an order on the sheet's own job in its
+-- own company, only for a company with Finance, looks again under the lock (the older trigger fin_sheet_to_order may have
+-- just made it), and leaves the name and description of an order Finance raised alone. The live definition is the
+-- source of truth: select pg_get_functiondef('public.site_sheet_subcontract'::regproc);

@@ -19,7 +19,7 @@ import { base } from '@/theme/theme';
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 const tall = { minHeight: 96, textAlignVertical: 'top' as const, paddingTop: 10 };
 
-export function TbtBuilder({ start, id, onClose }: { start: TbtBuild; id: string | null; onClose: () => void }) {
+export function TbtBuilder({ start, id, path, onClose }: { start: TbtBuild; id: string | null; path?: string | null; onClose: () => void }) {
   const { me, org } = useAuth();
   const qc = useQueryClient();
   const { data: contact } = useCompanyContact(org?.id);
@@ -40,8 +40,12 @@ export function TbtBuilder({ start, id, onClose }: { start: TbtBuild; id: string
     setBusy('save'); setErr('');
     try {
       const bytes = await make();
+      // Edited: the same file is replaced, so every project's TBT Library keeps one copy, now up to date (bug review, 20 Nov
+      // 2026: a new file each time made the library sync add a second). A new file only if that can't be done.
       const fid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
-      const up = await supabase.storage.from('rams-docs').upload(`${orgId}/tbt-templates/${fid}-${tbtFileName(b.title).replace(/[^a-z0-9.-]+/gi, '_')}`, bytes, { contentType: 'application/pdf' });
+      const fresh = `${orgId}/tbt-templates/${fid}-${tbtFileName(b.title).replace(/[^a-z0-9.-]+/gi, '_')}`;
+      let up = id && path ? await supabase.storage.from('rams-docs').upload(path, bytes, { contentType: 'application/pdf', upsert: true }) : null;
+      if (!up || up.error) up = await supabase.storage.from('rams-docs').upload(fresh, bytes, { contentType: 'application/pdf' });
       if (up.error) { setErr('Could not save the PDF — try again.'); return; }
       const row = { title: b.title.trim(), storage_path: up.data.path, builder: b };
       const r = id ? await db.from('tbt_templates').update(row as never).eq('id', id).select('id')

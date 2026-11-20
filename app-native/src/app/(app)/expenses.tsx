@@ -22,8 +22,14 @@ import { pickPhotos } from '@/lib/photos';
 import { canUseExpenses, isFullManager } from '@/lib/roles';
 import { base, page, space } from '@/theme/theme';
 
+// The page stays open behind the menu, so a job link (/sites/<id>/expenses) after it's been opened starts it afresh with
+// that job chosen (bug review, 20 Nov 2026).
 export default function Expenses() {
-  const { site: id } = useLocalSearchParams<{ site?: string }>();
+  const { site } = useLocalSearchParams<{ site?: string }>();
+  return <ExpensesPage key={site || '-'} id={site} />;
+}
+
+function ExpensesPage({ id }: { id?: string }) {
   const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -53,7 +59,9 @@ export default function Expenses() {
   const addFiles = async (g: ExpGroup) => {
     const r = await DocumentPicker.getDocumentAsync({ type: ['image/*', 'application/pdf'], multiple: true, copyToCacheDirectory: true });
     if (r.canceled) return;
-    const ok = r.assets.filter((a) => { if ((a.size || 0) > 15 * 1024 * 1024) { toast(`${a.name || 'That file'} is over 15MB — too big to send.`); return false; } return true; });
+    // Only PDFs are held to 15MB: photos are made smaller before they go, so a big phone photo is fine (bug review, 20 Nov 2026).
+    const isPdfAsset = (a: { mimeType?: string | null; name?: string | null }) => /pdf/i.test(a.mimeType || '') || /\.pdf$/i.test(a.name || '');
+    const ok = r.assets.filter((a) => { if (isPdfAsset(a) && (a.size || 0) > 15 * 1024 * 1024) { toast(`${a.name || 'That file'} is over 15MB — too big to send.`); return false; } return true; });
     const size = (uri: string) => new Promise<{ width: number; height: number } | null>((res) => Image.getSize(uri, (width, height) => res({ width, height }), () => res(null)));
     const files = await Promise.all(ok.map(async (a) => {
       const isPdf = /pdf/i.test(a.mimeType || '') || /\.pdf$/i.test(a.name || '');

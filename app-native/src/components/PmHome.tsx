@@ -19,7 +19,7 @@ import { useHubAll } from '@/data/hub';
 import { useDeliveryRequests } from '@/data/deliveries';
 import { useFinOverview, useFinSettings } from '@/data/finance';
 import { useQuotes } from '@/data/quotes';
-import { useOnSiteNow, usePmReports, usePmTodos, useTodayEvents } from '@/data/pmHome';
+import { useDriverEventIds, useOnSiteNow, usePmReports, usePmTodos, useTodayEvents } from '@/data/pmHome';
 import { useSites } from '@/data/sites';
 import { useToBook } from '@/data/toBook';
 import { useAuth } from '@/lib/auth';
@@ -66,7 +66,10 @@ export function PmHome() {
   const where = (r: (typeof reports)[number]) => (r.site_id ? (sites ?? []).find((s) => s.id === r.site_id)?.name || 'Project' : r.general_label || 'General survey');
   const go = (p: string) => () => router.push(p as never);
   const { data: today = [] } = useTodayEvents();
-  const keyDates = today.filter((e) => !/^s*deliverys*:/i.test(e.title || ''));
+  // The drivers' deliveries only (linked to a delivery), not supplier PO delivery dates, which also start "Delivery:"
+  // (bug review, 20 Nov 2026). Until that's known, anything titled "Delivery:" waits, so nothing flashes up and goes.
+  const { data: driverEv } = useDriverEventIds(today.map((e) => e.id));
+  const keyDates = today.filter((e) => (driverEv ? !driverEv.has(e.id) : !/^\s*delivery\s*:/i.test(e.title || '')));
   const siteName = (id: string) => (sites ?? []).find((x) => x.id === id)?.name || 'Project';
   const onSiteJobs = new Set(onSite.map((o) => o.site_id)).size;
   // Today (Andy, 6 Nov 2026: option 1): key dates and deliveries from the project calendars, who's on site, reports in progress.

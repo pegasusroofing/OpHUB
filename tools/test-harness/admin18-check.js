@@ -89,7 +89,8 @@ const setUp = async (browser, role, fin, viewport) => {
 
   await tab(page, 'H&S').click(); await page.waitForTimeout(3500);
   const hs = (await tabsOf(page)).slice(5).map((x) => x.t);
-  check(['H&S Policy', 'RAMS Library', 'COSHH Library', 'Toolbox Talks Required', 'PPE Log'].every((x) => hs.includes(x)), `H&S sub tabs (${hs.join(', ')})`);
+  // Toolbox Talks is one tab since 20 Nov 2026 (How Often and the templates together).
+  check(['H&S Policy', 'RAMS Library', 'COSHH Library', 'Toolbox Talks', 'PPE Log'].every((x) => hs.includes(x)) && !hs.includes('Toolbox Talks Required'), `H&S sub tabs (${hs.join(', ')})`);
   await tab(page, 'Company').click(); await page.waitForTimeout(3500);
   const co = (await tabsOf(page)).slice(5).map((x) => x.t);
   check(['Company Logo & Theme', 'Expenses', 'OneDrive', 'Set-Up Guide'].every((x) => co.includes(x)) && !co.includes('OpHUB Finance'), `Company sub tabs (${co.join(', ')})`);
