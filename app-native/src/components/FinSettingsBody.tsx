@@ -177,7 +177,16 @@ export function FinSettingsBody({ only: one }: { only?: string | string[] }) {
                     {xErr ? <Muted>{/not_configured|not connected/i.test(xErr) ? 'Xero isn’t connected.' : `Xero: ${xErr}`}</Muted> : xs ? <Text style={{ color: xs.connected ? '#1E7A3C' : base.slate }}>{xs.connected ? `Connected${xs.tenant_name ? ` to ${xs.tenant_name}` : ''}` : 'Not connected'}</Text> : <Muted>Checking…</Muted>}
                     {finTrialFor(me.org_id) && <Muted style={{ marginTop: 6 }}>While Finance is on trial nothing is posted to Xero. Reading and adding clients and suppliers still works.</Muted>}
                     {xs?.connected && me.role === 'admin' && <XeroSettings s={s} />}
-                    {xs && !xs.connected && canEdit && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Connect Xero" onPress={async () => { const r = await finInvoke<Row>(me, 'xero', { action: 'connect', origin: Platform.OS === 'web' ? window.location.origin : null }); if (r.error || !r.data?.url) { toast(r.error || 'Could not start the Xero connection.'); return; } if (Platform.OS === 'web') window.location.href = r.data.url; else void Linking.openURL(r.data.url); }} /></View>}
+                    {xs && !xs.connected && canEdit && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Connect Xero" onPress={async () => {
+                      // Xero opens in a new tab, opened inside the tap so pop-up blockers allow it, and OpHUB stays open: Xero's
+                      // last page says "Connected… go back to OpHUB" (20 Nov 2026, as the current app).
+                      const win = Platform.OS === 'web' ? window.open('', '_blank') : null;
+                      const r = await finInvoke<Row>(me, 'xero', { action: 'connect', origin: Platform.OS === 'web' ? window.location.origin : null });
+                      if (r.error || !r.data?.url) { win?.close(); toast(/not_configured/.test(r.error || '') ? 'Xero isn’t set up on the OpHUB server yet (its Xero app keys are missing), so it can’t connect.' : r.error || 'Could not start the Xero connection.'); return; }
+                      if (Platform.OS !== 'web') { void Linking.openURL(r.data.url); return; }
+                      if (win) win.location.href = r.data.url; else window.location.href = r.data.url;
+                      toast('Allow access in Xero, then come back to this tab.');
+                    }} /></View>}
                   </>
                 ) : k === 'vat' ? (
                   <>{edit === 'vat' ? editForm : <>{rows.map(([l, v]) => <FinRow compact key={l} title={l} right={v} />)}{editBtn('vat')}</>}<VatRates s={s} canEdit={me.role === 'admin' && isFinanceUser(me, org)} onSaved={() => void qc.invalidateQueries({ queryKey: ['finSettings'] })} /></>
