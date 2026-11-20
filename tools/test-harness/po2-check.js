@@ -4,6 +4,7 @@
 // checked to the penny. Fake database only; nothing is emailed.
 // node po2-check.js
 const {chromium, makeContext, S1} = require('./harness');
+const poTab = async (page, n) => { const t = page.getByRole('tab', {name: new RegExp('^(' + n + ')')}); if (await t.count()) { await t.first().click(); await page.waitForTimeout(500); } }; // the PO in tabs (20 Nov 2026)
 const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) process.exitCode = 1; };
 (async()=>{
   const BASE = 'http://localhost:8081';
@@ -25,6 +26,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByLabel('Tick K4E capsheet 7.5m').click(); await page.getByLabel('Tick DBR 06 underlay').click();
   await page.getByText('Add 2 Ticked To PO').click(); await page.waitForTimeout(500);
   check(await page.getByLabel('Reference').inputValue() === 'Quote Q-1182', 'the reference fills in from the quote: ' + await page.getByLabel('Reference').inputValue());
+  await poTab(page, "Lines");
   await page.getByPlaceholder('Qty').nth(0).fill('24'); await page.getByPlaceholder('Qty').nth(1).fill('12');
   await page.getByLabel('Discount %').nth(0).fill('10'); await page.getByLabel('Discount %').nth(1).fill('10');
   // line 2 at 5% VAT, typed and Tabbed like the Unit box
@@ -32,11 +34,13 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(await page.getByText('20% VAT on £1,867.32: £373.46').count() === 1 && await page.getByText('5% VAT on £586.17: £29.31').count() === 1, 'VAT shows for each rate');
   check(await page.getByText('Total £2,856.26').count() === 1, 'total £2,856.26 (1,867.32 + 586.17 + 373.46 + 29.31)');
   // Split Purchase: the whole order 60 / 40 across two projects
+  await poTab(page, "Details");
   await page.getByLabel('Split Purchase', {exact: true}).click(); await page.waitForTimeout(300);
   const row2 = page.getByLabel(/Split Purchase.*row 2 project/);
   await row2.click(); await row2.fill((db.sites.find((s) => s.id === S2).job_number || '').slice(0, 4)); await page.keyboard.press('Tab'); await page.waitForTimeout(200);
   await page.getByLabel(/Split Purchase.*row 1 percent/).fill('60'); await page.getByLabel(/Split Purchase.*row 2 percent/).fill('40'); await page.waitForTimeout(300);
   check(await page.getByText('Adds up to 100% ✓').count() >= 1, 'the split adds up to 100%');
+  await poTab(page, "Raise|Save & Send");
   await page.getByText('Save Draft', {exact:true}).click(); await page.waitForTimeout(3000);
   const po = db.purchase_orders[0];
   check(po && po.status === 'open' && po.is_draft === true, 'Save Draft leaves it as a draft (open + is_draft; the live database allows only open / invoiced / cancelled): ' + (po && [po.status, po.is_draft]));
@@ -48,14 +52,21 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.screenshot({path:'shots/job/po3-top-1400.png', clip: {x: 280, y: 100, width: 1120, height: 420}});
   await page.screenshot({path:'shots/job/po2-view-1400.png'});
   // a change after viewing: the button says Update & View; pressing it shows the new PO and goes back to View PO
+  await poTab(page, "Lines");
   await page.getByPlaceholder('Qty').nth(0).fill('25'); await page.waitForTimeout(300);
+  await poTab(page, "Raise|Save & Send");
   check(await page.getByText('↻ Update & View').count() === 1, 'after a change, View PO becomes Update & View');
   await page.getByText('↻ Update & View').click(); await page.waitForTimeout(2500);
+  await poTab(page, 'Raise|Save & Send');
   check(await page.getByText('👁 View PO').count() === 1, 'and back to View PO once updated');
+  await poTab(page, "Lines");
   await page.getByPlaceholder('Qty').nth(0).fill('24'); await page.waitForTimeout(300);
+  await poTab(page, 'Delivery|Collection');
   await page.getByText('No Artics', {exact:true}).scrollIntoViewIfNeeded(); await page.getByText('No Artics', {exact:true}).click(); await page.waitForTimeout(300);
+  await poTab(page, "Delivery|Collection");
   check(await page.getByText('Delivery Requirements', {exact:true}).count() === 1, 'Delivery Requirements with No Artics');
   await page.screenshot({path:'shots/job/po2-delivery-1400.png'});
+  await poTab(page, "Raise|Save & Send");
   await page.getByText('Raise PO', {exact:true}).click(); await page.waitForTimeout(2500);
   check(await page.getByText(/raised.*email it/).count() === 1, 'Raise PO opens the email pop-up');
   for (const b of ['Email Me Only', '⬇ Export PDF', 'Save Only (Don’t Send)', 'Add the delivery date to the project calendar', 'File the PO in the project’s PO folder']) check(await page.getByText(b, {exact: true}).count() >= 1, 'the pop-up has ' + b);

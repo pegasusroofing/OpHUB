@@ -2,6 +2,7 @@
 // + New PO sit at the end of the Purchases row; + New PO opens the form straight away (project chosen on it). Fake database.
 // node rowbtn-check.js
 const {chromium, makeContext} = require('./harness');
+const poTab = async (page, n) => { const t = page.getByRole('tab', {name: new RegExp('^(' + n + ')')}); if (await t.count()) { await t.first().click(); await page.waitForTimeout(500); } }; // the PO in tabs (20 Nov 2026)
 const seed = require('./fresh/seed');
 const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) process.exitCode = 1; };
 (async () => {

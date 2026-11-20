@@ -10,6 +10,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
+import { FinTabs } from '@/components/FinNav';
 import { DateBox } from '@/components/DateField';
 import { lastSubAnswers, loadSubDraft, saveSubDraft, sendSubform, uploadSubFile, useSubformNeeded, useSubformTemplate } from '@/data/subform';
 import { useAuth } from '@/lib/auth';
@@ -25,6 +26,8 @@ export default function SubForm() {
   const { data: need } = useSubformNeeded(me);
   const [d, setD] = useState<SubDraft | null>(null);
   const [miss, setMiss] = useState<Set<string> | null>(null);
+  // In tabs (Andy, 20 Nov 2026): one per section, then Declaration.
+  const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   // The company's own form, or the standard one (19 Nov 2026: the form can be edited).
   const { data: tpl } = useSubformTemplate(me?.org_id);
@@ -124,14 +127,16 @@ export default function SubForm() {
         <Muted>Please fill this in for {org?.name || 'us'} — your company details, insurance, cards and health &amp; safety. It saves as you go, so you can come back to it.</Muted>
         <Text style={{ color: base.red, marginTop: 4 }}>* Required</Text>
       </Card>
-      {sections.map((s, i) => (
+      <FinTabs value={String(step)} onChange={(k) => setStep(Number(k))} items={[...sections.map((s, i) => [String(i), s.t] as [string, string]), [String(sections.length), 'Declaration'] as [string, string]]} />
+      {sections.map((s, i) => step !== i ? null : (
         <Card key={s.t}>
           <Text style={{ fontWeight: '600', fontSize: 16, color: base.ink, marginBottom: 2 }}>{i + 1}. {s.t}</Text>
           {!!s.hint && <Muted style={{ marginBottom: 8 }}>{s.hint}</Muted>}
           <View style={{ marginTop: 6 }}>{s.q.map(question)}</View>
+          <View style={{ alignItems: 'center' }}><Button title={`Next: ${i + 1 < sections.length ? sections[i + 1].t : 'Declaration'} ›`} onPress={() => setStep(i + 1)} /></View>
         </Card>
       ))}
-      <Card>
+      {step === sections.length && <Card>
         <Text style={{ fontWeight: '600', fontSize: 16, color: base.ink, marginBottom: 8 }}>Declaration</Text>
         <Pressable onPress={() => update({ ...d, agree: !d.agree })} style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
           <Text style={{ fontSize: 17, color: miss?.has('__agree') ? base.red : base.ink }}>{d.agree ? '☑' : '☐'}</Text>
@@ -141,13 +146,18 @@ export default function SubForm() {
         <TextInput value={d.signed} onChangeText={(t) => update({ ...d, signed: t })} style={[box, miss?.has('__signed') ? { borderColor: base.red } : null]} />
         <View style={{ marginTop: 12 }}><Button busy={busy} title={busy ? 'Sending…' : 'Submit'} onPress={async () => {
           const m = subformMissing(d, sections);
-          if (m.size) { setMiss(m); toast('Please answer the questions marked in red.'); return; }
+          if (m.size) {
+            setMiss(m);
+            const at = sections.findIndex((x) => x.q.some((q) => m.has((q.k || q.f) as string)));
+            if (at >= 0) setStep(at);
+            toast('Please answer the questions marked in red.'); return;
+          }
           setMiss(null); setBusy(true);
           const ok = await sendSubform(me, d); setBusy(false);
           if (!ok) { toast('Could not send — check signal and try again.'); return; }
           toast('Thanks — your form has been sent'); void qc.invalidateQueries({ queryKey: ['subformNeeded'] }); router.replace('/home' as never);
         }} /></View>
-      </Card>
+      </Card>}
     </ScrollView>
   );
 }

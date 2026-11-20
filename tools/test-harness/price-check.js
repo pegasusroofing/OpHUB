@@ -2,6 +2,7 @@
 // Opens the new app's Finance pages against the fake Supabase and reports page errors and the first words on each page.
 // A route written as /path>>Button text also clicks that button and reports the file it downloads.
 const {chromium, makeContext, S1} = require('./harness');
+const poTab = async (page, n) => { const t = page.getByRole('tab', {name: new RegExp('^(' + n + ')')}); if (await t.count()) { await t.first().click(); await page.waitForTimeout(500); } }; // the PO in tabs (20 Nov 2026)
 const seed = require('./fresh/seed');
 (async()=>{
   const BASE = 'http://localhost:8081';

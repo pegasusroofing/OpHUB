@@ -3,6 +3,7 @@
 // (fin_new_po), books its cost to the works order (sub_job_id) and puts the PO on the trade, with a link to open it.
 // A PM without Finance gets no tick. Laptop, fake database. node repair-trade-po-check.js
 const {chromium, makeContext, S1} = require('./harness');
+const poTab = async (page, n) => { const t = page.getByRole('tab', {name: new RegExp('^(' + n + ')')}); if (await t.count()) { await t.first().click(); await page.waitForTimeout(500); } }; // the PO in tabs (20 Nov 2026)
 const seed = require('./fresh/seed');
 const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) process.exitCode = 1; };
 const BASE = 'http://localhost:8081';

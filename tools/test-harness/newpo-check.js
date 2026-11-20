@@ -1,5 +1,6 @@
 // Finance › New PO with typed lines: supplier (new one), two lines with cost code and VAT, Raise PO → numbered PO with value, VAT and total.
 const {chromium, makeContext, S1} = require('./harness');
+const poTab = async (page, n) => { const t = page.getByRole('tab', {name: new RegExp('^(' + n + ')')}); if (await t.count()) { await t.first().click(); await page.waitForTimeout(500); } }; // the PO in tabs (20 Nov 2026)
 (async()=>{
   const BASE = 'http://localhost:8081';
   const browser = await chromium.launch(); const errs = [];
@@ -15,10 +16,12 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.goto(BASE+'/fin/po/new?site='+S1); await page.waitForTimeout(5000);
   await page.getByPlaceholder('Type to find a supplier, or a new name').fill('Roofing Supplies Ltd');
   await page.getByPlaceholder("Supplier's orders email (optional)").fill('orders@rsl.test');
+  await poTab(page, "Lines");
   await page.getByPlaceholder('Description').fill('Slates 500x250'); await page.getByPlaceholder('Qty').fill('400'); await page.getByLabel('Rate', {exact:true}).fill('1.25'); // the laptop line table (Job, Description, Qty, Unit, Rate £ …)
   await page.getByText('+ Add line').click(); await page.waitForTimeout(300);
   await page.getByPlaceholder('Description').nth(1).fill('Lead code 4'); await page.getByLabel('Rate', {exact:true}).nth(1).fill('85');
   await page.screenshot({path:'shots/newpo.png', fullPage:true});
+  await poTab(page, "Raise|Save & Send");
   await page.getByText('Raise PO', {exact:true}).click(); await page.waitForTimeout(5000);
   console.log('url:', page.url().replace(BASE,''));
   console.log('po:', JSON.stringify(db.purchase_orders.map(p=>({n:p.number, sup:p.supplier_name, value:p.value, vat:p.vat, total:p.total, items:p.items.map(i=>[i.item,i.qty,i.amount,i.vat_rate,i.vat])}))));

@@ -11,6 +11,7 @@ import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-nativ
 import { DateBox } from '@/components/DateField';
 import { SelectBox } from '@/components/SelectBox';
 import { Button } from '@/components/ui';
+import { FinTabs } from '@/components/FinNav';
 import { loadSubformTemplate } from '@/data/subform';
 import { rememberAfterSignIn } from '@/lib/afterSignIn';
 import { useAuth } from '@/lib/auth';
@@ -87,6 +88,8 @@ function SubcontractorSignUp() {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState('');
   const [done, setDone] = useState(false);
+  // In tabs (Andy, 20 Nov 2026): one per section of the company's form, then Declaration.
+  const [step, setStep] = useState(0);
   useEffect(() => {
     if (org) api<Org>(org, { action: 'org' }).then(setInfo).catch((e: Error) => setFetchErr(e.message));
     if (org) void loadSubformTemplate(org).then((t) => setForm(t.sections));
@@ -208,7 +211,12 @@ function SubcontractorSignUp() {
     if (s('email') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s('email').trim())) missing.push('email');
     qs.filter((q) => q.type === 'file' && !files.some((x) => x.label === q.f)).forEach((q) => missing.push(`file:${q.f}`));
     setBad(missing);
-    if (missing.length) { setErr('Please fill in the questions marked in red.'); return; }
+    if (missing.length) {
+      // Go to the first section with a missing answer.
+      const at = (form || []).findIndex((x) => x.q.some((q) => missing.includes(q.k as string) || missing.includes(`file:${q.f}`)));
+      if (at >= 0) setStep(at);
+      setErr('Please fill in the questions marked in red.'); return;
+    }
     if (!agree || !signed.trim()) { setErr('Please tick the declaration and type your name to sign.'); return; }
     if (files.length > 20) { setErr('Please attach 20 files or fewer in total.'); return; }
     const big = files.find((f) => f.size > 25 * 1024 * 1024); if (big) { setErr(`"${big.name}" is bigger than 25MB — please attach a smaller copy.`); return; }
@@ -256,8 +264,10 @@ function SubcontractorSignUp() {
         </View>
       ) : !info || !form ? null : (
         <>
-          {(form || []).map((sc, i) => <View key={`sec${i}`}>{sec(`${i + 1}. ${sc.t}`, <>{rows(sc.q)}</>, sc.hint)}</View>)}
-          {sec('Declaration', <>
+          <FinTabs value={String(step)} onChange={(k) => setStep(Number(k))} items={[...(form || []).map((sc, i) => [String(i), sc.t] as [string, string]), [String((form || []).length), 'Declaration'] as [string, string]]} />
+          {!!err && step < (form || []).length && <Text style={{ color: base.warn, backgroundColor: '#FDECEA', borderRadius: 10, padding: 11, fontSize: 14.5, marginBottom: 8 }}>{err}</Text>}
+          {(form || []).map((sc, i) => (step === i ? <View key={`sec${i}`}>{sec(`${i + 1}. ${sc.t}`, <>{rows(sc.q)}</>, sc.hint)}<View style={{ alignItems: 'center', marginBottom: 12 }}><Button title={`Next: ${i + 1 < (form || []).length ? (form || [])[i + 1].t : 'Declaration'} ›`} onPress={() => setStep(i + 1)} /></View></View> : null))}
+          {step === (form || []).length && sec('Declaration', <>
             <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: agree }} accessibilityLabel="I confirm the declaration" onPress={() => setAgree(!agree)} style={{ flexDirection: 'row', gap: 9, alignItems: 'flex-start', marginTop: 10 }}>
               <Text style={{ fontSize: 18, color: agree ? brand : base.slate }}>{agree ? '☑' : '☐'}</Text>
               <Text style={{ flex: 1, fontSize: 14.5, color: base.ink }}>I confirm the information given is true and complete, the insurances above are in force, and I will tell you straight away if anything changes.</Text>

@@ -2,6 +2,7 @@
 // phone search on Sales (in the table since 14 Nov 2026), and the Purchases tab row keeping the open tab in view.
 // node nov4a-check.js   (fake database)
 const {chromium, makeContext} = require('./harness');
+const poTab = async (page, n) => { const t = page.getByRole('tab', {name: new RegExp('^(' + n + ')')}); if (await t.count()) { await t.first().click(); await page.waitForTimeout(500); } }; // the PO in tabs (20 Nov 2026)
 const B = 'http://localhost:8081', S = '/sites/11111111-1111-1111-1111-111111111111';
 const out = (n) => require('path').join(__dirname, 'shots', 'job', `nov4a-${n}.png`);
 
@@ -38,8 +39,10 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   {
     const {page, errs, ctx} = await open(browser, 'admin', 1300);
     await page.goto(B + '/fin/po/new?site=11111111-1111-1111-1111-111111111111'); await page.waitForTimeout(3500);
+    await poTab(page, 'Lines');
     check(await page.getByText('Disc %').count() > 0, 'PO builder: Disc % heading');
     check(await page.getByText('Job', {exact: true}).count() > 0, 'PO builder: Job heading');
+    await poTab(page, "Lines");
     await page.fill('input[placeholder="Description"]', 'Batten 25x50');
     await page.fill('input[aria-label="Qty"]', '100');
     await page.fill('input[aria-label="Rate"]', '2');

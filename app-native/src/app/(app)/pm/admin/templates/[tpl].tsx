@@ -4,6 +4,8 @@
 // with its answer type, answers to pick from, follow-up questions, and More
 // options (must be answered, traffic light, note, photo and when it's required,
 // scoring, auto-fill, only show if…); "show unanswered questions"; Save.
+// In tabs (Andy, 20 Nov 2026: "change the 7 items into tab style"): Details (name, description, where it's used) · Settings
+// (traffic lights, answer types, unanswered questions) · Questions (the sections), with Save Template and Next at the bottom.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -11,6 +13,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted, Toggle } from '@/components/ui';
+import { FinTabs } from '@/components/FinNav';
 import { useAuth } from '@/lib/auth';
 import { itemHasTraffic, pfLbl, templateShowsUnanswered, trafficHex, trafficLevels, type TrafficLevel } from '@/lib/rules/reports';
 import {
@@ -38,6 +41,7 @@ export default function TemplateEditor() {
   const [usedOpen, setUsedOpen] = useState(false), [trafficOpen, setTrafficOpen] = useState(false);
   const [setsDraft, setSetsDraft] = useState<AnswerSet[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<'details' | 'settings' | 'questions'>('details');
   useEffect(() => {
     if (loaded && !t) setT({ ...loaded, sections: loaded.sections?.length ? JSON.parse(JSON.stringify(loaded.sections)) : [{ id: uid(), title: 'Section 1', items: [] }] });
   }, [loaded, t]);
@@ -194,6 +198,8 @@ export default function TemplateEditor() {
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Edit Template' }} />
+      <FinTabs even value={tab} onChange={(k) => setTab(k as typeof tab)} items={[['details', 'Details'], ['settings', 'Settings'], ['questions', 'Questions', secs.reduce((n, x) => n + x.items.length, 0)]]} />
+      {tab === 'details' && (<>
       <Muted style={{ fontWeight: '600' }}>Template Name</Muted>
       <TextInput value={t.name} onChangeText={(v) => setT({ ...t, name: v })} style={[box, { marginBottom: 8 }]} />
       <Muted style={{ fontWeight: '600' }}>Description (optional)</Muted>
@@ -209,6 +215,8 @@ export default function TemplateEditor() {
         </Card>
       )}
 
+      </>)}
+      {tab === 'settings' && (<>
       <Toggle title={`Traffic light system · ${levels ? `On — ${levels.length} colours` : 'Off'}`} open={trafficOpen} onPress={() => setTrafficOpen(!trafficOpen)} />
       {trafficOpen && (
         <Card>
@@ -261,6 +269,11 @@ export default function TemplateEditor() {
         </Card>
       )}
 
+      <Card>
+        <Check label="Show unanswered questions on the finished report and PDF" value={templateShowsUnanswered(secs)} onChange={(v) => setSecs(secs.map((x, i) => (i === 0 ? { ...x, showUnanswered: v } : x)))} />
+      </Card>
+      </>)}
+      {tab === 'questions' && (<>
       {secs.map((s, si) => (
         <Card key={s.id}>
           <Muted style={{ fontWeight: '600' }}>Section Title</Muted>
@@ -274,11 +287,11 @@ export default function TemplateEditor() {
         </Card>
       ))}
       <Button kind="ghost" title="+ Add Section" onPress={() => setSecs([...secs, { id: uid(), title: `Section ${secs.length + 1}`, items: [] }])} />
-      <Card>
-        <Check label="Show unanswered questions on the finished report and PDF" value={templateShowsUnanswered(secs)} onChange={(v) => setSecs(secs.map((x, i) => (i === 0 ? { ...x, showUnanswered: v } : x)))} />
-      </Card>
-      <View style={{ height: 12 }} />
-      <Button busy={busy} title="Save Template" onPress={() => void save()} />
+      </>)}
+      <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 12 }}>
+        <Button busy={busy} title="Save Template" onPress={() => void save()} />
+        {tab !== 'questions' && <Button kind="ghost" title={tab === 'details' ? 'Next: Settings ›' : 'Next: Questions ›'} onPress={() => setTab(tab === 'details' ? 'settings' : 'questions')} />}
+      </View>
     </ScrollView>
   );
 }

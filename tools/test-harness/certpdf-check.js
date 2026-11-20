@@ -28,7 +28,7 @@ const {PDFDocument, StandardFonts} = require('pdf-lib'); const fs = require('fs'
   const vals = await page.locator('input >> visible=true').evaluateAll((els) => els.map((e) => e.value));
   console.log('35 filled in', vals.includes('35'));
   console.log('text', (await page.evaluate(() => document.body.innerText)).match(/Read \d+ line[^\n]*|Couldn.t read[^\n]*/)?.[0] || 'no message');
-  await page.locator('[role="button"]', {hasText: /^Overview$/}).last().click().catch(() => undefined); await page.waitForTimeout(1500);
+  await page.getByRole('tab', {name: 'Overview', exact: true}).last().click().catch(() => undefined); // the application's own tabs (the job's Finance tabs come first), since 20 Nov 2026 await page.waitForTimeout(1500);
   await page.screenshot({path: 'shots/certpdf-overview.png', fullPage: true});
   // Reading the client's PDF attaches it as the certificate copy too (📎 cert-client.pdf).
   console.log((/cert-client.pdf/.test(await page.locator('body').innerText()) ? 'PASS' : 'FAIL') + ' the client’s PDF is attached as the certificate copy');

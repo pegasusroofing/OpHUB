@@ -27,6 +27,7 @@ import { DEFAULT_UNITS, UnitField } from '@/components/UnitField';
 import { QUOTE_SKIP_MSG, uploadQuotes } from '@/data/finQuoteUpload';
 import { allocOf, evenSplit, lineNet, lineVat, mainSite, orderSplit, poTotals, splitProblem, type Alloc, type PoVat } from '@/lib/rules/poCalc';
 import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
+import { FinTabs } from '@/components/FinNav';
 import { fdb, finStatus, loadSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useSubJobs } from '@/data/finSubJobs';
@@ -144,6 +145,8 @@ export function FinNewPo({ site: site0, itemIds = [], toTop, po }: { site?: Site
   const [openSplit, setOpenSplit] = useState<number | null>(null); // the line whose own split is open
   const qc = useQueryClient();
   const [ticked, setTicked] = useState<Set<string>>(new Set());
+  // In tabs (Andy, 20 Nov 2026: "change the 7 items into tab style"): Details · Lines · Delivery · Raise.
+  const [tab, setTab] = useState<'details' | 'lines' | 'delivery' | 'raise'>('details');
   // Ticked on Purchase Quotes (9219z finPqRaisePo): those items become the lines, the supplier filled in.
   const [filled, setFilled] = useState(false);
   const { data: picked } = useQuery({ queryKey: ['finNewPoItems', itemIds.join(',')], enabled: itemIds.length > 0, queryFn: async () => ((await fdb.from('fin_quote_items').select('*').in('id', itemIds)).data as Record<string, any>[] | null) ?? [] });
@@ -217,7 +220,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop, po }: { site?: Site
   const draftRow = (): Record<string, any> => ({ number: saved?.number || 'DRAFT', created_at: new Date().toISOString(), site_id: site.id, supplier_id: supId, supplier_name: supText, required_by: req || null, fulfilment: delivery, note: note.trim() || null, value: net, vat, total: r2(net + vat), delivery_to: deliverTo, delivery_address: deliverTo === 'office' ? officeAddr : deliverTo === 'other' ? addrTyped.trim() : jobAddr, delivery_time: delTime || null, offload, site_contact: contact.trim() || null, site_contact_phone: contactPh.trim() || null, ordered_by_name: me.name, items: lines.filter((l) => l.description.trim()).map((l) => ({ item: l.description.trim(), qty: num(l.qty), unit: l.unit || null, rate: (() => { const r = num(l.rate); return r === null || isNaN(r) ? null : r4(r * (1 - dsc(l) / 100)); })(), amount: amt(l) })) });
   const nowKey = JSON.stringify({ ...draftRow(), created_at: '' });
   const viewPo = async () => {
-    try { setViewedKey(nowKey); const bytes = await pdfOf(draftRow()); if (pdfUrl) URL.revokeObjectURL(pdfUrl); setPdfUrl(URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }))); setShowShop(true); setPanel('pdf'); toTop?.(); }
+    try { setViewedKey(nowKey); const bytes = await pdfOf(draftRow()); if (pdfUrl) URL.revokeObjectURL(pdfUrl); setPdfUrl(URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }))); setShowShop(true); setPanel('pdf'); setTab('details'); toTop?.(); }
     catch { toast('Could not build the PO PDF.'); }
   };
   const exportPdf = async (row: Record<string, any>) => { try { const bytes = await pdfOf(row); if (canEdit) void filePoPdf(me, row, bytes); if (!(await deliverPdf(bytes, `PO ${String(row.number).replace(/[^a-z0-9-]+/gi, '_')}.pdf`))) toast('Could not make the PDF — try again.'); } catch { toast('Could not build the PO PDF.'); } };
@@ -448,12 +451,11 @@ export function FinNewPo({ site: site0, itemIds = [], toTop, po }: { site?: Site
       {fixed && <Text style={{ color: base.slate, marginBottom: 8, textAlign: 'center' }}>This PO is {po?.status === 'cancelled' ? 'deleted (cancelled)' : 'fully invoiced'}. Reopen it below to change it.</Text>}
       {/* Who and when on the left, the project quote on the right; then the lines full width; then how, below (Andy, 5 Nov 2026). */}
       {/* A cancelled / fully invoiced PO: shown, not changed (overnight review, 7 Nov 2026). */}
+      <SectionTitle>{saved ? `Purchase Order ${saved.number}${statusNow === 'draft' ? ' (Draft)' : ''}` : 'New Purchase Order'}</SectionTitle>
+      <FinTabs even value={tab} onChange={(k) => setTab(k as typeof tab)} items={[['details', 'Details'], ['lines', 'Lines', lines.filter((l) => String(l.description || '').trim()).length], ['delivery', delivery === 'collection' ? 'Collection' : 'Delivery'], ['raise', statusNow === 'open' ? 'Save & Send' : 'Raise']]} />
       <View pointerEvents={shut ? 'none' : 'auto'} style={shut ? { opacity: 0.8 } : undefined}>
-      <View style={desk ? { flexDirection: 'row', gap: 12, alignItems: 'stretch', marginBottom: 12 } : undefined}>
+      {tab === 'details' && (<View style={desk ? { flexDirection: 'row', gap: 12, alignItems: 'stretch', marginBottom: 12 } : undefined}>
         <Card style={desk ? { flex: 1, minWidth: 0, marginBottom: 0 } : undefined}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={{ flex: 1 }}><SectionTitle>{saved ? `Purchase Order ${saved.number}${statusNow === 'draft' ? ' (Draft)' : ''}` : 'New Purchase Order'}</SectionTitle></View>
-          </View>
           <SuggestField label="Supplier" value={supText} onChangeText={(t) => { setSupText(t); setSupId(null); }} placeholder="Type to find a supplier, or a new name" showAllOnFocus={desk} max={12}
             items={(setup?.sups || []).map((s) => ({ key: s.id, label: s.name, sub: s.email || '' }))} onPick={(s) => { setSupId(s.key); setSupText(s.label); applySupVat(s.key, s.label); }} />
           {isNew && <><Muted style={{ marginTop: -6, marginBottom: 6 }}>New supplier — added to your suppliers when the PO is raised.</Muted><TextInput value={newEmail} onChangeText={setNewEmail} placeholder="Supplier's orders email (optional)" autoCapitalize="none" keyboardType="email-address" style={[box, { marginBottom: 8 }]} /></>}
@@ -482,8 +484,8 @@ export function FinNewPo({ site: site0, itemIds = [], toTop, po }: { site?: Site
           {field('Reference', <TextInput accessibilityLabel="Reference" value={ref} onChangeText={setRef} placeholder="e.g. Quote Q-5521 (filled in from a project quote)" style={box} />, 'own')}
         </Card>
         {side}
-      </View>
-      <Card style={{ zIndex: 5 }}>
+      </View>)}
+      {tab === 'lines' && (<Card style={{ zIndex: 5 }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginBottom: 6, gap: 8 }}>
           <View style={{ flexGrow: 1, minWidth: 90 }}><SectionTitle>Lines</SectionTitle></View>
           {codes.length > 0 && <Pressable onPress={() => setFullCodes(!fullCodes)}><Text style={{ color: base.blue, fontSize: 12.5 }}>{fullCodes ? 'Codes Only' : 'Show Code Descriptions'}</Text></Pressable>}
@@ -504,8 +506,8 @@ export function FinNewPo({ site: site0, itemIds = [], toTop, po }: { site?: Site
             <Text style={{ fontWeight: '600', color: base.ink, fontSize: 16 }}>Total {money(r2(net + vat))}</Text>
           </View>
         </View>
-      </Card>
-      <Card>
+      </Card>)}
+      {tab === 'delivery' && (<Card>
         <SectionTitle>{delivery === 'collection' ? 'Collection' : 'Delivery'}</SectionTitle>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {field('Site Contact', <SuggestField label="" value={contact} onChangeText={setContact} placeholder="Start typing a name" showAllOnFocus={desk} max={12} items={(team || []).map((p) => ({ key: p.id, label: p.name, sub: p.phone || '' }))} onPick={(s) => { setContact(s.label); const ph = team?.find((p) => p.id === s.key)?.phone; if (ph) setContactPh(ph); }} />)}
@@ -529,8 +531,16 @@ export function FinNewPo({ site: site0, itemIds = [], toTop, po }: { site?: Site
           </>
         )}
         {field('Notes For The Supplier', <TextInput value={note} onChangeText={setNote} placeholder="e.g. narrow access, max 7.5t" multiline style={[box, { minHeight: 52 }]} />, 'own')}
-      </Card>
+      </Card>)}
       </View>
+      {tab !== 'raise' && (
+        <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 4 }}>
+          <Button small kind="ghost" title="‹ Back" onPress={() => router.back()} />
+          <Button small title={tab === 'details' ? 'Next: Lines ›' : tab === 'lines' ? `Next: ${delivery === 'collection' ? 'Collection' : 'Delivery'} ›` : `Next: ${statusNow === 'open' ? 'Save & Send' : 'Raise'} ›`} onPress={() => setTab(tab === 'details' ? 'lines' : tab === 'lines' ? 'delivery' : 'raise')} />
+        </View>
+      )}
+      {tab === 'raise' && (<>
+      <Muted style={{ textAlign: 'center', marginBottom: 8 }}>{supText ? `${supText} · ` : ''}{lines.filter((l) => String(l.description || '').trim()).length} line{lines.filter((l) => String(l.description || '').trim()).length === 1 ? '' : 's'} · Total {money(r2(net + vat))}</Muted>
       {!!saved && <Text style={{ color: statusNow === 'open' ? '#1E7A43' : base.slate, marginBottom: 8 }}>{statusNow === 'open' ? `✓ PO ${saved.number} raised.` : `Draft ${saved.number} saved — not raised yet.`} Changes here save to the same PO.</Text>}
       {/* What happens to the PO on the project (Andy, 5 / 7 Nov 2026): unticked to start; ticking asks, then it stays ticked. */}
       <View style={{ flexDirection: 'row', gap: 14, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 8 }}>
@@ -555,6 +565,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop, po }: { site?: Site
           </>
         )}
       </View>
+      </>)}
       {mailRow && (
         <FinEmailPopup kind="po" title={`PO ${mailRow.row.number} raised — email it?`} to={mailRow.to} note="The PO PDF goes with it."
           extra={<View style={{ marginTop: 8 }}><Check label={`Add the delivery date to the project calendar${toCal ? ' (Done)' : ''}`} value={toCal} onChange={() => void tick('cal')} /><Check label={`File the PO in the project’s PO folder${toFolder ? ' (Done)' : ''}`} value={toFolder} onChange={() => void tick('folder')} /></View>}

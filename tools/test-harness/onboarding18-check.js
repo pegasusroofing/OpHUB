@@ -76,7 +76,13 @@ const text = (page) => page.evaluate(() => document.body.innerText);
   await op.goto(B + '/subform'); await op.waitForTimeout(5000);
   t = await text(op);
   check(/Sent Back For More Information/.test(t) && /Please add your public liability certificate/.test(t), 'their form shows it was sent back, with what’s missing');
-  const vals = await op.evaluate(() => [...document.querySelectorAll('input, textarea')].map((i) => i.value).join(' | '));
+  // The form is in tabs since 20 Nov 2026: read the answers on every tab.
+  let vals = '';
+  const fTabs = op.getByRole('tab');
+  for (let i = 0; i < Math.max(1, await fTabs.count()); i++) {
+    if (await fTabs.count()) { await fTabs.nth(i).click(); await op.waitForTimeout(250); }
+    vals += ' | ' + await op.evaluate(() => [...document.querySelectorAll('input, textarea')].map((i) => i.value).filter(Boolean).join(' | '));
+  }
   check(/Starter Roofing/.test(vals) && /07700 900444/.test(vals), `and starts from their answers, with their mobile (${vals.slice(0, 120)})`);
   await op.screenshot({path: path.join(SHOTS, 'sent-back-phone.png'), fullPage: true});
 

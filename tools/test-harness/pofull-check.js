@@ -3,6 +3,7 @@
 // supplier's email and the PO template). Fake database only; nothing is emailed.
 // node pofull-check.js
 const {chromium, makeContext, S1} = require('./harness');
+const poTab = async (page, n) => { const t = page.getByRole('tab', {name: new RegExp('^(' + n + ')')}); if (await t.count()) { await t.first().click(); await page.waitForTimeout(500); } }; // the PO in tabs (20 Nov 2026)
 const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) process.exitCode = 1; };
 (async()=>{
   const BASE = 'http://localhost:8081';
@@ -23,9 +24,12 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByLabel('Tick K4E capsheet 7.5m').click(); await page.getByLabel('Tick DBR 06 underlay').click();
   await page.getByText('Add 2 Ticked To PO').click(); await page.waitForTimeout(500);
   check(await page.getByPlaceholder('Type to find a supplier, or a new name').inputValue() === 'Bauder', 'the supplier fills in from the quote');
+  await poTab(page, "Lines");
   await page.getByPlaceholder('Qty').nth(0).fill('24'); await page.getByPlaceholder('Qty').nth(1).fill('12');
+  await poTab(page, 'Delivery|Collection');
   await page.getByText('Hiab / Crane Offload').click(); await page.getByText('Call 30 Min Before').click();
   await page.screenshot({path:'shots/job/pofull-new-1400.png', fullPage:true});
+  await poTab(page, "Raise|Save & Send");
   await page.getByText('Raise PO', {exact:true}).click(); await page.waitForTimeout(5000);
   const po = db.purchase_orders[0];
   check(po && po.items.length === 2 && po.items[0].rate === 86.45, 'raised with the two quote lines: ' + JSON.stringify(po && po.items.map((i) => [i.item, i.qty, i.rate])));
@@ -39,7 +43,9 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.screenshot({path:'shots/job/pofull-send-1400.png'});
   // The PO's own page keeps View PO and Send PO.
   await page.goto('http://localhost:8081/fin/po/' + po.id); await page.waitForTimeout(4000);
-  check(await page.getByText('👁 View PO').count() === 1 && await page.getByText('✉ Email PO').count() === 1 && await page.getByLabel('Line 1 description').inputValue() === 'K4E capsheet 7.5m', 'the saved PO opens on the same PO screen (lines filled in, View PO, Email PO)');
+  await poTab(page, "Lines");
+  const line1 = await page.getByLabel('Line 1 description').inputValue(); await poTab(page, 'Raise|Save & Send');
+  check(await page.getByText('👁 View PO').count() === 1 && await page.getByText('✉ Email PO').count() === 1 && line1 === 'K4E capsheet 7.5m', 'the saved PO opens on the same PO screen (lines filled in, View PO, Email PO)');
   check(!errs.length, 'no errors ' + errs.slice(0, 2).join(' | '));
   await browser.close(); process.exit(0);
 })();

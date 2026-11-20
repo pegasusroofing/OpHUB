@@ -3,6 +3,8 @@
 // set a whole section, variations and day works, discount and retention.
 // Applied: locked. Then enter the client's certificate (or pay-less notice)
 // and raise the invoice from it. Emailing it is off during the Finance trial.
+// Overview / Line By Line are the standard tabs, with Next at the bottom of Overview (Andy, 20 Nov 2026: "change the 7 items
+// into tab style").
 import * as DocumentPicker from 'expo-document-picker';
 import { pdfLines } from '@/lib/pdfjs';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -16,6 +18,7 @@ import { SelectBox } from '@/components/SelectBox';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { FinEmailPopup } from '@/components/FinEmailPopup';
 import { FinForm } from '@/components/FinForm';
+import { FinTabs } from '@/components/FinNav';
 import { Button, Card, Check, Muted } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { askAppSow } from '@/components/FinRowMenu';
@@ -279,13 +282,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
         <Text style={{ fontSize: desk ? 20 : 17, fontWeight: '600', color: base.ink }}>Application No. {a0.number}</Text>
         <Pressable accessibilityRole="button" accessibilityLabel={`Status: ${STAGE[stage]}`} disabled={stage === 'void' || ro} onPress={() => void pickStage()} style={{ backgroundColor: stage === 'draft' ? '#EEF0F3' : stage === 'applied' ? '#FFF4DF' : '#E3F5E9', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, marginTop: desk ? 4 : 3 }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: stage === 'draft' ? base.slate : stage === 'applied' ? '#92580A' : '#1E7A3C' }}>{certing ? 'Entering The Certificate' : STAGE[stage]}{stage === 'void' || ro ? '' : ' ▾'}</Text></Pressable>
       </View>
-      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 14, borderBottomWidth: 1, borderColor: base.cardLine }}>
-        {([['overview', 'Overview'], ['lines', 'Line By Line']] as const).map(([k, l]) => (
-          <Pressable key={k} accessibilityRole="button" onPress={() => setView(k)} style={{ paddingHorizontal: 12, paddingVertical: 8, marginBottom: -1, borderBottomWidth: 2, borderBottomColor: view === k ? t.brand1 : 'transparent' }}>
-            <Text style={{ fontSize: 14, fontWeight: view === k ? '600' : '500', color: view === k ? base.ink : base.slate }}>{l}</Text>
-          </Pressable>
-        ))}
-      </View>
+      <FinTabs value={view} onChange={(k) => setView(k as 'overview' | 'lines')} items={[['overview', 'Overview'], ['lines', 'Line By Line']]} />
       {view === 'overview' && (
         <View style={{ flexDirection: desk ? 'row' : 'column', alignItems: desk ? 'flex-start' : 'stretch', gap: 14 }}>
           <View style={desk ? { width: 340 } : undefined}>
@@ -357,6 +354,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
           </View>
         </View>
       )}
+      {view === 'overview' && <View style={{ alignItems: 'center', marginTop: 10 }}><Button kind="ghost" title="Next: Line By Line ›" onPress={() => setView('lines')} /></View>}
       {view === 'lines' && <>
       {!desk ? (
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10, alignItems: 'center' }}>

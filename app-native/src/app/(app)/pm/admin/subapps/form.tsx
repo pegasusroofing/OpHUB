@@ -2,6 +2,7 @@
 // button added as i need to edit the template"). Sections and questions: rename, move, remove, add; each question's
 // type, required or not, options, hint and example. Company Name, Your Name, Email and Mobile always stay (the
 // application is filed by them). Save puts it on the sign-up link and the in-app form; Back To Standard Form undoes it.
+// In tabs (Andy, 20 Nov 2026: "change the 7 items into tab style"): one tab per section, Save and Next at the bottom.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
@@ -10,6 +11,7 @@ import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-nat
 import { YesNo } from '@/components/OneDriveSettings';
 import { chooseAction, confirmAsk, showAlert } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
+import { FinTabs } from '@/components/FinNav';
 import { subSignUpLink } from '@/data/admin';
 import { loadSubformTemplate, resetSubformTemplate, saveSubformTemplate } from '@/data/subform';
 import { useAuth } from '@/lib/auth';
@@ -34,6 +36,7 @@ function Editor({ initial, custom, orgId }: { initial: SubSection[]; custom: boo
   const [edit, setEdit] = useState<string | null>(null);
   const [state, setState] = useState(custom ? 'Your own form' : 'The standard form');
   const [busy, setBusy] = useState('');
+  const [tab, setTab] = useState(0);
   const change = (fn: (s: SubSection[]) => SubSection[]) => { setSecs((s) => fn(JSON.parse(JSON.stringify(s)) as SubSection[])); setState('Not saved yet - press Save'); };
   const setQ = (si: number, qi: number, patch: Partial<SubQ>) => change((s) => { s[si].q[qi] = { ...s[si].q[qi], ...patch }; return s; });
   const move = <T,>(arr: T[], i: number, d: -1 | 1) => { const j = i + d; if (j < 0 || j >= arr.length) return arr; [arr[i], arr[j]] = [arr[j], arr[i]]; return arr; };
@@ -104,13 +107,14 @@ function Editor({ initial, custom, orgId }: { initial: SubSection[]; custom: boo
       <Text style={{ fontSize: 19, fontWeight: '600', color: base.ink }}>Subcontractor Sign-Up Form</Text>
       <Muted style={{ marginBottom: 4 }}>{state}</Muted>
       <Muted style={{ marginBottom: 10 }}>Changes show on your sign-up link and on the form operatives fill in, once you press Save. Company Name, Your Name, Email and Mobile (🔒) always stay; the declaration and signature are always at the end.</Muted>
-      {secs.map((s, si) => (
+      <FinTabs value={String(Math.min(tab, secs.length - 1))} onChange={(k) => setTab(Number(k))} items={secs.map((x, i) => [String(i), `${i + 1}. ${x.t || 'Section'}`] as [string, string])} />
+      {secs.map((s, si) => si !== Math.min(tab, secs.length - 1) ? null : (
         <Card key={`sec-${si}`}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Text style={{ fontWeight: '700', color: base.slate }}>{si + 1}.</Text>
             <TextInput value={s.t} onChangeText={(t) => change((x) => { x[si].t = t; return x; })} accessibilityLabel={`Section ${si + 1} title`} style={[box, { flex: 1, marginBottom: 0, fontWeight: '600' }]} />
-            {icon('↑', () => change((x) => move(x, si, -1)), si === 0, 'Move section up')}
-            {icon('↓', () => change((x) => move(x, si, 1)), si === secs.length - 1, 'Move section down')}
+            {icon('↑', () => { change((x) => move(x, si, -1)); setTab(Math.max(0, si - 1)); }, si === 0, 'Move section up')}
+            {icon('↓', () => { change((x) => move(x, si, 1)); setTab(Math.min(secs.length - 1, si + 1)); }, si === secs.length - 1, 'Move section down')}
             {icon('🗑', async () => {
               if (s.q.some((q) => q.core)) { showAlert('This section has a 🔒 question in it. Move that question to another section first.'); return; }
               if (await confirmAsk(`Remove the section "${s.t}" and its ${s.q.length} question${s.q.length === 1 ? '' : 's'}?`, 'Yes', 'No')) change((x) => { x.splice(si, 1); return x; });
@@ -124,7 +128,7 @@ function Editor({ initial, custom, orgId }: { initial: SubSection[]; custom: boo
         </Card>
       ))}
       <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 10 }}>
-        <Button small kind="ghost" title="+ Add Section" onPress={() => change((x) => [...x, { t: 'New Section', q: [{ k: newSubKey(), l: 'New Question', type: 'text' }] }])} />
+        <Button small kind="ghost" title="+ Add Section" onPress={() => { change((x) => [...x, { t: 'New Section', q: [{ k: newSubKey(), l: 'New Question', type: 'text' }] }]); setTab(secs.length); }} />
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
         <Button busy={busy === 'save'} title="Save" onPress={async () => {
@@ -139,6 +143,7 @@ function Editor({ initial, custom, orgId }: { initial: SubSection[]; custom: boo
           void qc.invalidateQueries({ queryKey: ['subformTemplate'] });
         }} />
         <Button kind="ghost" title="👁 Preview The Form" onPress={() => void Linking.openURL(subSignUpLink(orgId))} />
+        {tab < secs.length - 1 && <Button kind="ghost" title={`Next: ${secs[tab + 1]?.t || 'Section'} ›`} onPress={() => setTab(tab + 1)} />}
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 24 }}>
         <Button small kind="ghost" busy={busy === 'reset'} title="Back To The Standard Form" onPress={async () => {

@@ -26,8 +26,15 @@ const B = 'http://localhost:8081';
   await page.getByText('✎ Edit The Form', {exact: true}).click(); await page.waitForTimeout(4000);
   let t = await text();
   check(/Subcontractor Sign-Up Form/.test(t) && /🔒 Company Name/.test(t) && /The standard form/.test(t), 'the editor opens on the standard form, core questions locked');
-  const coreBin = await page.getByLabel('Remove question').count();
-  const allQs = (await page.evaluate(() => [...document.querySelectorAll('[aria-label="Edit question"]')].length));
+  // One tab per section since 20 Nov 2026: count across the tabs, then back to the first.
+  let coreBin = 0, allQs = 0;
+  const secTabs = page.getByRole('tab');
+  for (let i = 0; i < await secTabs.count(); i++) {
+    await secTabs.nth(i).click(); await page.waitForTimeout(300);
+    coreBin += await page.getByLabel('Remove question').count();
+    allQs += await page.evaluate(() => [...document.querySelectorAll('[aria-label="Edit question"]')].length);
+  }
+  await secTabs.first().click(); await page.waitForTimeout(300);
   check(coreBin === allQs - 4, `the four 🔒 questions have no remove button (${allQs} questions, ${coreBin} removable)`);
   // Remove "Website" (section 1).
   await page.getByText('Website', {exact: true}).first().click(); await page.waitForTimeout(400);
@@ -43,7 +50,8 @@ const B = 'http://localhost:8081';
   await page.getByLabel('Required: Yes', {exact: true}).last().click();
   await page.waitForTimeout(300);
   await page.getByText('Done', {exact: true}).last().click(); await page.waitForTimeout(300);
-  // Rename section 3.
+  // Rename section 3 (on its own tab).
+  await page.getByRole('tab').nth(2).click(); await page.waitForTimeout(400);
   await page.getByLabel('Section 3 title').fill('Your Work And Trades');
   await page.screenshot({path: path.join(__dirname, 'shots', 'subformedit19-editor.png'), fullPage: true});
   await page.getByText('Save', {exact: true}).click(); await page.waitForTimeout(2500);
@@ -59,7 +67,7 @@ const B = 'http://localhost:8081';
   const pub = await ctx.newPage(); pub.on('pageerror', (e) => errs.push(e.message));
   await pub.goto(`${B}/subcontractor?org=${O}`); await pub.waitForTimeout(6000);
   t = await pub.evaluate(() => document.body.innerText);
-  check(/Do You Use Scaffold Towers\?/.test(t) && /3\. Your Work And Trades/.test(t) && !/\bWebsite\b/.test(t), 'the public sign-up page shows the company’s form');
+  check(/Do You Use Scaffold Towers\?/.test(t) && /Your Work And Trades/.test(t) && !/\bWebsite\b/.test(t), 'the public sign-up page shows the company’s form (its sections as tabs)');
   await pub.screenshot({path: path.join(__dirname, 'shots', 'subformedit19-public.png'), fullPage: true});
   // The in-app form for an operative.
   await page.goto(`${B}/subform`); await page.waitForTimeout(5000);

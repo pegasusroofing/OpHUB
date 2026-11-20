@@ -5,6 +5,7 @@
 // after Tab, its Save / Issue / Delete row inside the page's edges; the Export footer's words inside the page's edges.
 // node laptop14b-check.js
 const {chromium, makeContext} = require('./harness');
+const poTab = async (page, n) => { const t = page.getByRole('tab', {name: new RegExp('^(' + n + ')')}); if (await t.count()) { await t.first().click(); await page.waitForTimeout(500); } }; // the PO in tabs (20 Nov 2026)
 const path = require('path');
 // OneDrive can briefly lock a screenshot it is still syncing; a missed picture is not a failed check.
 let page; const snap = (o) => page.screenshot(o).catch((e) => console.log('screenshot skipped: ' + String(e.message).slice(0, 120)));
@@ -98,6 +99,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   const addr = await page.locator('textarea[aria-label="Billing address"] >> visible=true').first().inputValue().catch(() => '');
   check(/Bellway Homes/.test(t) && addr === '1 High Street', `invoice: Tab goes to the address and you can type (${addr})`);
   const bar = await page.getByText('Issue Invoice', {exact: true}).filter({visible: true}).first().boundingBox();
+  await poTab(page, "Raise|Save & Send");
   const save = await page.getByText('Save Draft', {exact: true}).filter({visible: true}).first().locator('..').boundingBox();
   check(!!save && save.x >= 248 + 40 - 2, `invoice: Save / Issue / Delete inside the page's edges (${save && Math.round(save.x)})`);
   await snap({path: path.join(SHOTS, 'laptop-invoice-draft.png')});

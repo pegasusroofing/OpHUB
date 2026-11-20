@@ -90,6 +90,39 @@
   - It uses the same `ANTHROPIC_API_KEY` secret as `finance-ai-read`.
   - 30 drafts a day per company. Each call is logged in the new table `ai_usage_log`, which only admins can read.
 
+## Main contractor walk-through answered; more screens in tabs (20 Nov 2026, late, app.operativehub)
+Andy's answers to `MAIN-CONTRACTOR-PROCESS-2026-11-20.md`, built:
+- **Their operatives:** Check In, Calendar and Messages now open (Check In used to bounce them to their company page). Their company page has Check In / Out, Site Induction, Site Rules & Layout and Calendar tiles. SOW opens their company's schedule.
+- **Handover tile for their admin:**
+  - Their O&M can be submitted only once every Schedule of Works task given to them is done (database rule `guard_sub_om_submit`).
+  - On submit, a managers message goes to the job's PM and admins (email, alert, HUB "Subcontractor O&M").
+  - Handover shows on a live main contractor job too.
+  - SQL file 8. Messages use kind 'message': adding new kinds would change `messages_kind_check`, which needs Andy's go-ahead.
+- **Approving a sign-up:**
+  - It makes the Company Library entry (`approved_at`, `contact_user_id`) and copies their documents across with insurance expiry dates (`rules/subLibrary.ts`).
+  - + Add Subcontractor picks from the library, approved sign-ups first, with insurance status. It warns before adding a company with expired or missing insurance, and offers the person who signed up as the company's admin.
+  - SQL file 9.
+- **Lighter login for their operatives:** no Subcontractor Form step and no My Employee Record (`useSubStaff`).
+- **Site induction:** includes the Site Rules & Layout. Signing the induction signs them too, and they're attached to the induction PDF.
+- **Subcontractors' daily briefings:**
+  - Who Must Sign is ticked when the briefing is logged; the chosen operatives sign, and it's on their To Do.
+  - Table `subcontractor_briefing_signatures`, SQL file 9.
+- **Subcontractors' RAMS approval:**
+  - A subcontractor's upload awaits approval. ✓ Approve, or ✕ Send Back with a comment and marked-up pages (laptop: `pdfPageImage` and the mark-up tools, sent as a PDF).
+  - Nobody signs it until it's approved. They upload a revised version, which supersedes the old one once approved.
+  - The HUB shows "RAMS To Approve". SQL file 10.
+- **Close-out:** a proposal only (`SUBCONTRACTOR-CLOSE-OUT-PROPOSAL.md`), with 4 decisions for Andy.
+- **Sample O&M** (Andy's handover plus a painter's): `tools/test-harness/om-sample.js`, output in `shots/om-sample/`.
+- **Screens now in tabs:**
+  - filling in reports, briefings and inspections (one tab per section, then Finish);
+  - the incident report;
+  - the Purchase Order (Details / Lines / Delivery / Raise);
+  - the subcontractor sign-up form, both the public link and in the app (one tab per section, then Declaration);
+  - the report template builder (Details / Settings / Questions);
+  - the subcontractor form builder (one tab per section);
+  - the Application for Payment (standard tabs for Overview / Line By Line, plus Next).
+- **Not yet:** the Application's certify step as its own tab needs a design chat. `price-check.js` (Price tile) fails on a step that doesn't involve today's work; to look at.
+
 ## O&M builder in tabs, with the CPP; subcontractors' O&Ms (20 Nov 2026, evening, app.operativehub)
 - **O&M builder:** `sites/[id]/om/[manual].tsx`.
   - Tabs: Details · People · Works · Appendix · Issue, with Next at the bottom of each tab. It saves as you type.
