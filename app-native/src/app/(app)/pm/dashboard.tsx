@@ -41,8 +41,8 @@ function useCompanyDashboard(sites: Site[] | undefined) {
       const none = Promise.resolve({ data: [] });
       const [snags, rams, coshh, assign, tasks, inc, tbts, ops] = await Promise.all([
         ids.length ? db.from('snags').select('id,site_id').eq('status', 'open').in('site_id', ids) : none,
-        ids.length ? db.from('rams_docs').select('id,site_id,uploaded_at,resign_cycle_start').eq('status', 'current').in('site_id', ids).is('subcontractor_company_id', null) : none,
-        ids.length ? db.from('coshh_docs').select('id,site_id,uploaded_at,resign_cycle_start').in('site_id', ids).is('subcontractor_company_id', null) : none,
+        ids.length ? db.from('rams_docs').select('id,site_id,uploaded_at,resign_cycle_start').eq('status', 'current').in('site_id', ids).is('subcontractor_company_id', null).is('signing_closed_at', null) : none,
+        ids.length ? db.from('coshh_docs').select('id,site_id,uploaded_at,resign_cycle_start').in('site_id', ids).is('subcontractor_company_id', null).is('signing_closed_at', null) : none,
         ids.length ? db.from('site_assignments').select('site_id,user_id').in('site_id', ids) : none,
         ids.length ? db.from('schedule_tasks').select('site_id,status,percent_complete').in('site_id', ids) : none,
         db.from('incident_reports').select('id,site_id,created_at,riddor_reportable,location').order('created_at', { ascending: false }).limit(500),

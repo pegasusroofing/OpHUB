@@ -6,6 +6,8 @@
 // read the document before signing — the current operative row has none.
 // Managers can tick several RAMS / COSHH and export or email them as one signed PDF (580 exportSelectedRams,
 // 620 COSHH), with CC me / CC the client.
+// Managers can close a RAMS / COSHH for signing (⋮ › Close For Signing; Andy, 20 Nov 2026): it stays on file, but nobody is
+// asked to sign it, so it comes off the HUB, the tile counts, the operatives' to-sign list and the reminders. Reopen undoes it.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useFocusEffect } from 'expo-router';
 import { testFill } from '@/data/signTemplates';
@@ -137,7 +139,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
   const sigsFor = (id: string) => data.sigs.filter((s) => sigDocId(kind, s) === id);
   const mineFor = (id: string) => sigsFor(id).find((s) => s.user_id === me.id);
   const label = DOC_LABEL[kind];
-  const toSign = data.docs.filter((r) => manager && kind === 'rams'
+  const toSign = data.docs.filter((r) => !r.signing_closed_at).filter((r) => manager && kind === 'rams'
     ? !sigsFor(r.id).some((s) => s.issued || s.user_id === me.id)
     : !mineFor(r.id));
   const nameById = Object.fromEntries([...data.docs, ...data.superseded].map((x) => [x.id, x.name]));
@@ -204,6 +206,20 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
     if (u) viewDoc(u); else toast('Could not open the document.');
   };
 
+  // Close a document for signing, or reopen it (the database lets only managers change it, and ignores anyone else).
+  const setClosed = async (r: HsDoc, close: boolean) => {
+    if (close && !(await confirmAsk(`Close "${docTitle(r.name, site.name)}" for signing?
+
+It stays on file, but nobody will be asked to sign it and it comes off the HUB. You can reopen it later.`, 'Yes', 'No'))) return;
+    const at = close ? new Date().toISOString() : null;
+    const res = await supabase.from(kind === 'rams' ? 'rams_docs' : 'coshh_docs').update({ signing_closed_at: at } as never).eq('id', r.id).select('id,signing_closed_at');
+    const row = (res.data as { signing_closed_at: string | null }[] | null)?.[0];
+    if (res.error || !row || !!row.signing_closed_at !== close) { toast('Could not change that — try again.'); return; }
+    await qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] });
+    refreshToSign(qc);
+    ['siteHome', 'companyDashboard'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
+  };
+
   const ordered = (ids: Set<string>) => data.docs.filter((x) => ids.has(x.id)).map((x) => x.id);
   // Ticked documents: a bar pinned to the bottom of the screen (Andy, 4 Nov 2026), above the phone's menu. Untick them all and it goes.
   const delSelected = async () => {
@@ -249,9 +265,10 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
         const mine = mineFor(r.id);
         const { signed, waiting } = signers(data.roster, sigs);
         const issued = sigs.filter((s) => s.issued);
-        const due = resignDue(r, site);
+        const closedAt = kind !== 'layout' ? r.signing_closed_at || null : null;
+        const due = closedAt ? null : resignDue(r, site);
         // A manager's tap marks a RAMS as issued, so it needs Sign Off H&S.
-        const canTap = !client && !(manager && (issued.length || mine)) && !(kind !== 'rams' && manager) && (!manager || signOff);
+        const canTap = !client && !closedAt && !(manager && (issued.length || mine)) && !(kind !== 'rams' && manager) && (!manager || signOff);
         return (
           <Card key={r.id} style={{ paddingVertical: 12, paddingHorizontal: 14 }}>
             {/* View and the menu sit to the right, centred on the title and the line under it (Andy, 3 Nov 2026). */}
@@ -267,19 +284,19 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
               <Text numberOfLines={2} style={{ flex: 1, fontSize: 12.5, color: '#6b7280' }}>
                 {issued.length ? `Issued by ${issued.map((x) => nameOf(people, x.user_id)).join(', ')}` : `Uploaded by ${nameOf(people, r.uploaded_by)} · ${d(r.uploaded_at)}`}
                 {r.supersedes ? ` · Replaces "${nameById[r.supersedes] || 'an earlier version'}"` : ''}
-                {due ? ` · Re-sign ${due.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
-              </Text>
+                {due ? ` · Re-sign ${due.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}              </Text>
             </View>
             </View>
               <View style={narrow ? { alignItems: 'flex-end', gap: 6 } : { flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <StatusPill text={issued.length ? `Issued ${d(issued[0].signed_at)}` : kind === 'coshh' && r.uploaded_at && !data.roster.length ? `Issued ${d(r.uploaded_at)}` : data.roster.length ? `${signed.length} of ${data.roster.length} Signed` : 'Not Issued'} tone={issued.length || (kind === 'coshh' && !data.roster.length) || (data.roster.length && !waiting.length) ? 'ok' : waiting.length ? 'warn' : 'grey'} />
+              <StatusPill text={closedAt ? `🔒 Closed ${d(closedAt)}` : issued.length ? `Issued ${d(issued[0].signed_at)}` : kind === 'coshh' && r.uploaded_at && !data.roster.length ? `Issued ${d(r.uploaded_at)}` : data.roster.length ? `${signed.length} of ${data.roster.length} Signed` : 'Not Issued'} tone={closedAt ? 'grey' : issued.length || (kind === 'coshh' && !data.roster.length) || (data.roster.length && !waiting.length) ? 'ok' : waiting.length ? 'warn' : 'grey'} />
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               {signOff && (
                 <Pressable hitSlop={8} onPress={async () => {
-                  const k = await chooseAction(r.name, [...(kind === 'rams' && !companyId && isFullManager(me) ? [{ key: 'revise', label: '✏️ Revise RAMS' }] : []), // Export and Email live in the row under the list (Andy, 3 Nov 2026).
+                  const k = await chooseAction(r.name, [...(kind !== 'layout' ? [{ key: 'close', label: closedAt ? '↺ Reopen For Signing' : '🔒 Close For Signing' }] : []), ...(kind === 'rams' && !companyId && isFullManager(me) ? [{ key: 'revise', label: '✏️ Revise RAMS' }] : []), // Export and Email live in the row under the list (Andy, 3 Nov 2026).
                     ...(kind === 'layout' && sigsFor(r.id).length ? [{ key: 'pdf', label: '📄 Export signed PDF' }] : []), ...(kind === 'rams' ? [{ key: 'multi', label: `${multiOn(r) ? '☑' : '☐'} Multi-page sign required` }, ...(multiOn(r) ? [{ key: 'boxes', label: '✍ Signature boxes' }, { key: 'testfill', label: '🧪 Test fill the boxes' }] : [])] : []), ...(kind === 'coshh' ? [{ key: 'replace', label: '🔁 Replace file (resets signatures)' }, { key: 'tolib', label: '📚 Save to COSHH Library' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
                   const refresh = () => { void qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); void qc.invalidateQueries({ queryKey: ['hsSummary', site.id] }); };
-                  if (k === 'view') void view(r);
+                  if (k === 'close') void setClosed(r, !closedAt);
+                  else if (k === 'view') void view(r);
                   else if (k === 'revise') {
                     // Built in the app: back into its builder, where Issue re-issues it as the next revision and everyone signs again.
                     // The build that issued it first (a newer draft replacing it holds the same link): issued, oldest first.
@@ -345,6 +362,11 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
                 ) : <Text style={{ color: base.ink, fontWeight: '600' }}>✍ Tap To {kind === 'rams' && manager ? 'Mark As Issued' : 'Sign'}</Text>}
               </Pressable>
             )}
+            {closedAt && !manager && !client && !mine && (
+              <View style={{ marginTop: 8, borderWidth: 1.5, borderColor: base.line, backgroundColor: '#f9fafb', borderRadius: radius.input, padding: 12, alignItems: 'center' }}>
+                <Text style={{ color: base.slate, fontWeight: '600' }}>🔒 Closed — No Signature Needed</Text>
+              </View>
+            )}
             {client && sigsFor(r.id).length > 0 && (
               <View style={{ marginTop: 8 }}><Button small kind="ghost" title="📄 Export Signed PDF" onPress={async () => {
                 toast('Building signed PDF…');
@@ -353,7 +375,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
                 if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.');
               }} /></View>
             )}
-            <RowSigners total={data.roster.length} signed={signed} waiting={waiting} people={people} indent={manager && kind !== 'layout'} />
+            <RowSigners total={data.roster.length} signed={signed} waiting={waiting} people={people} closed={!!closedAt} />
             {kind === 'rams' && manager && !companyId && multiOn(r) && <ClientSignLines ramsId={r.id} site={site} />}
           </Card>
         );
@@ -406,7 +428,7 @@ const docTitle = (name: string, siteName: string | null | undefined) => {
 };
 
 /** Who has signed and who is still to sign, side by side in the row (Andy, 3 Nov 2026). */
-export function RowSigners({ total, signed, waiting, people, indent }: { total: number; signed: { id: string; user_id: string | null; signed_at: string | null }[]; waiting: string[]; people: { id: string; name: string; role: string }[] | undefined; indent?: boolean }) {
+export function RowSigners({ total, signed, waiting, people, closed }: { total: number; signed: { id: string; user_id: string | null; signed_at: string | null }[]; waiting: string[]; people: { id: string; name: string; role: string }[] | undefined; closed?: boolean }) {
   const chip = (key: string, text: string, ok: boolean, when?: string | null) => (
     <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: ok ? '#f1fbf5' : '#fffaf0', borderWidth: 1, borderColor: ok ? '#d3f0de' : '#f8e7c2', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2 }}>
       <Text style={{ fontSize: 12, color: ok ? '#15803d' : '#b45309', fontWeight: '600' }}>{ok ? '✓' : '○'} {text}</Text>
@@ -420,11 +442,13 @@ export function RowSigners({ total, signed, waiting, people, indent }: { total: 
     </View>
   );
   return (
-    <View style={{ marginTop: 10, marginLeft: indent ? 28 : 0, paddingVertical: 9, paddingHorizontal: 10, backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#f0f1f3', borderRadius: 8 }}>
+    <View style={{ marginTop: 10, paddingVertical: 9, paddingHorizontal: 10, backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#f0f1f3', borderRadius: 8 }}>
       {!total ? <Text style={{ fontSize: 12.5, color: '#6b7280' }}>No operatives on this job yet — assign them and they sign here.</Text> : (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
           {col('Signed', signed.length, signed.map((x, i) => chip(x.id || `${x.user_id}-${i}`, nameOf(people, x.user_id), true, d(x.signed_at))), 'Nobody yet')}
-          {col('Outstanding', waiting.length, waiting.map((id) => chip(id, nameOf(people, id), false)), 'Everyone has signed')}
+          {closed
+            ? col('Outstanding', 0, [], '🔒 None — closed for signing')
+            : col('Outstanding', waiting.length, waiting.map((id) => chip(id, nameOf(people, id), false)), 'Everyone has signed')}
         </View>
       )}
     </View>

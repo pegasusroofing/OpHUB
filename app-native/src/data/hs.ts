@@ -15,6 +15,8 @@ const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supab
 export type HsDoc = {
   id: string; site_id: string; name: string; storage_path: string; uploaded_by: string | null; uploaded_at: string | null;
   resign_cycle_start: string | null; status?: string; supersedes?: string | null; superseded_by?: string | null; doc_type?: string;
+  /** Closed for signing by a manager (20 Nov 2026): stays on file, nobody is asked to sign it. */
+  signing_closed_at?: string | null;
 };
 export type HsSig = { id: string; user_id: string | null; signed_at: string | null; signature_image_path: string | null; issued?: boolean | null; rams_id?: string; coshh_id?: string; layout_id?: string; tbt_id?: string };
 export type Tbt = { id: string; site_id: string; title: string; storage_path: string; created_by: string | null; created_at: string; status: string };
@@ -181,12 +183,14 @@ export function useHsSummary(site: Site | undefined) {
     queryFn: () => cachedQuery(`hsSummary:${site?.id}:${me?.id}`, async () => {
       const s = site as Site, uid = (me as Profile).id;
       const [rams, coshh, tbts, ppe] = await Promise.all([
-        db.from('rams_docs').select('id,resign_cycle_start,uploaded_at').eq('site_id', s.id).eq('status', 'current').is('subcontractor_company_id', null),
-        db.from('coshh_docs').select('id,resign_cycle_start,uploaded_at').eq('site_id', s.id).is('subcontractor_company_id', null),
+        db.from('rams_docs').select('id,resign_cycle_start,uploaded_at,signing_closed_at').eq('site_id', s.id).eq('status', 'current').is('subcontractor_company_id', null),
+        db.from('coshh_docs').select('id,resign_cycle_start,uploaded_at,signing_closed_at').eq('site_id', s.id).is('subcontractor_company_id', null),
         db.from('toolbox_talks').select('id').eq('site_id', s.id).eq('status', 'live').is('subcontractor_company_id', null),
         db.from('ppe_issuances').select('id').eq('user_id', uid).eq('status', 'pending_signature'),
       ]);
-      const ramsDocs = orThrow(rams) as HsDoc[], coshhDocs = orThrow(coshh) as HsDoc[];
+      const ramsAll = orThrow(rams) as HsDoc[], coshhAll = orThrow(coshh) as HsDoc[];
+      // A document closed for signing still counts as a document, but nobody is waiting on it.
+      const ramsDocs = ramsAll.filter((x) => !x.signing_closed_at), coshhDocs = coshhAll.filter((x) => !x.signing_closed_at);
       const pending = async (table: string, key: 'rams_id' | 'coshh_id', docs: HsDoc[]) => {
         if (!docs.length) return 0;
         const r = await db.from(table).select(`${key},signed_at,user_id`).eq('user_id', uid).in(key, docs.map((d) => d.id));
@@ -217,7 +221,7 @@ export function useHsSummary(site: Site | undefined) {
           tIds.length ? db.from('report_submissions').select('id').eq('site_id', s.id).in('template_id', tIds) : Promise.resolve({ data: [] })]);
         mgr = { ramsGap, coshhGap, ppeRequests: ((reqs.data as unknown[] | null) ?? []).length, briefings: ((br.data as unknown[] | null) ?? []).length, incidents: ((inc.data as unknown[] | null) ?? []).length };
       }
-      return { rams: ramsDocs.length, coshh: coshhDocs.length, liveTbts: (orThrow(tbts) as unknown[]).length, ramsTodo, coshhTodo, ppeToSign: ((ppe.data as unknown[] | null) ?? []).length, mgr };
+      return { rams: ramsAll.length, coshh: coshhAll.length, liveTbts: (orThrow(tbts) as unknown[]).length, ramsTodo, coshhTodo, ppeToSign: ((ppe.data as unknown[] | null) ?? []).length, mgr };
     }),
   });
 }

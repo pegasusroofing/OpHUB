@@ -49,7 +49,7 @@ export function HsDocUpload({ kind, site, companyId = null, create, createLabel,
   const signOff = kind === 'layout' || !isManager(me) || canSignOffHs(me);
   // Who is still to sign, as a table (document, person, role) for the export and the email.
   const table = (ids?: string[]) => {
-    const rows = data ? outstandingByDoc(kind, data.roster, data.docs.filter((x) => !ids || ids.includes(x.id)), data.sigs) : [];
+    const rows = data ? outstandingByDoc(kind, data.roster, data.docs.filter((x) => !x.signing_closed_at && (!ids || ids.includes(x.id))), data.sigs) : [];
     return { title: `Outstanding ${label} Signatures`, site: site.name, cols: [{ l: 'Document', w: 34 }, { l: 'Still To Sign', w: 22 }, { l: 'Role', w: 14 }],
       rows: rows.flatMap((r) => r.users.map((u) => [r.doc.name, nameOf(people, u), (people?.find((p) => p.id === u)?.role || '').replace(/_/g, ' ')])) };
   };
@@ -64,8 +64,8 @@ export function HsDocUpload({ kind, site, companyId = null, create, createLabel,
       {!!data?.docs.length && kind !== 'layout' && !companyId && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 6 }}>
           <Button small grow oneLine kind="ghost" title="🔔 Ask Outstanding To Sign" onPress={async () => {
-            const out = outstanding(kind, data.roster, data.docs, data.sigs);
-            if (!out.length) { toast(`Everyone on this site has signed all ${label} documents.`); return; }
+            const out = outstanding(kind, data.roster, data.docs.filter((x) => !x.signing_closed_at), data.sigs); // closed for signing: nobody is chased
+            if (!out.length) { toast(`No one on this job is still to sign ${label}, so there's no one to ask.`); return; }
             if (!(await confirmAsk(`Send a sign-reminder notification to ${out.length} operative${out.length === 1 ? '' : 's'} who still have ${label} to sign?`, 'Send'))) return;
             toast(await sendSignReminder(kind, site.id, out));
           }} />
@@ -78,7 +78,7 @@ export function HsDocUpload({ kind, site, companyId = null, create, createLabel,
           onGo={async (ids, what, fmt) => {
             if (picking === 'email') { setPicking(null); setMailing({ ids, what }); return; }
             if (what === 'outstanding') {
-              const t = table(ids); if (!t.rows.length) { toast(`Everyone has signed the ticked ${label} documents.`); return; }
+              const t = table(ids); if (!t.rows.length) { toast(`No one is still to sign the ticked ${label}.`); return; }
               const ok = fmt === 'xl' ? await exportTableExcel(t, org) : await exportTablePdf(t, org, (b) => deliverPdf(b, pdfFile()));
               if (!ok) toast('Could not make the file — try again.'); else setPicking(null);
               return;
@@ -96,7 +96,7 @@ export function HsDocUpload({ kind, site, companyId = null, create, createLabel,
           vars={{ client: site.client_name || '', project: site.name || '', job_no: site.job_number || '', document: label, number: label, amount: '', due: '', client_po: '', company: org?.name || '', my_name: me.name || '' }}
           onSend={async (o) => {
             if (mailing.what === 'outstanding') {
-              const t = table(mailing.ids); if (!t.rows.length) return `Everyone has signed the ticked ${label} documents.`;
+              const t = table(mailing.ids); if (!t.rows.length) return `No one is still to sign the ticked ${label}.`;
               let bytes: Uint8Array | null = null;
               await exportTablePdf(t, org, async (b) => { bytes = b; return true; });
               if (!bytes) return 'Could not make the PDF — try again.';

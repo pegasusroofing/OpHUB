@@ -32,8 +32,8 @@ export function useOutstanding(sites: Site[] | undefined) {
       if (!live.length) return [];
       const ids = live.map((s) => s.id);
       const [rams, coshh, tbts] = await Promise.all([
-        db.from('rams_docs').select('id,site_id,uploaded_at,resign_cycle_start,name,supersedes').eq('status', 'current').in('site_id', ids).is('subcontractor_company_id', null),
-        db.from('coshh_docs').select('id,site_id,uploaded_at,resign_cycle_start,name').in('site_id', ids).is('subcontractor_company_id', null),
+        db.from('rams_docs').select('id,site_id,uploaded_at,resign_cycle_start,name,supersedes').eq('status', 'current').in('site_id', ids).is('subcontractor_company_id', null).is('signing_closed_at', null),
+        db.from('coshh_docs').select('id,site_id,uploaded_at,resign_cycle_start,name').in('site_id', ids).is('subcontractor_company_id', null).is('signing_closed_at', null),
         db.from('toolbox_talks').select('id,site_id,title').eq('status', 'live').in('site_id', ids).is('subcontractor_company_id', null),
       ]);
       const ramsDocs = orThrow(rams) as Doc[], coshhDocs = orThrow(coshh) as Doc[], liveTbts = orThrow(tbts) as { id: string; site_id: string; title?: string | null }[];

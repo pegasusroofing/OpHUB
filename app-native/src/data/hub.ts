@@ -64,8 +64,8 @@ export function useHub(me: Profile | null, allSites: Site[] | undefined, pmId: s
       const [dmReadR, jobs] = await Promise.all([
         dm.length ? db.from('message_reads').select('message_id').eq('user_id', p.id).in('message_id', dm.map((m) => m.id)) : none,
         ids.length ? Promise.all([
-          db.from('rams_docs').select('id,site_id,uploaded_at,resign_cycle_start').eq('status', 'current').in('site_id', ids).is('subcontractor_company_id', null),
-          db.from('coshh_docs').select('id,site_id,uploaded_at,resign_cycle_start').in('site_id', ids).is('subcontractor_company_id', null),
+          db.from('rams_docs').select('id,site_id,uploaded_at,resign_cycle_start').eq('status', 'current').in('site_id', ids).is('subcontractor_company_id', null).is('signing_closed_at', null),
+          db.from('coshh_docs').select('id,site_id,uploaded_at,resign_cycle_start').in('site_id', ids).is('subcontractor_company_id', null).is('signing_closed_at', null),
           db.from('toolbox_talks').select('id,site_id,status,created_at').in('site_id', ids).is('subcontractor_company_id', null).neq('status', 'bank'),
           db.from('snags').select('id,site_id,created_at').in('site_id', ids).eq('status', 'open'),
           db.from('schedule_tasks').select('site_id,status').in('site_id', ids),

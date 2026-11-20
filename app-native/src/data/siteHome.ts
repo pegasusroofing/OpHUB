@@ -30,7 +30,7 @@ export function useSiteHome(site: Site | undefined) {
       const [tasks, snags, rams, myRams, mats, todos, team, cal, price] = await Promise.all([
         db.from('schedule_tasks').select('status,percent_complete').eq('site_id', s.id),
         db.from('snags').select('id').eq('site_id', s.id).eq('status', 'open'),
-        db.from('rams_docs').select('id,resign_cycle_start,uploaded_at').eq('site_id', s.id).eq('status', 'current').is('subcontractor_company_id', null),
+        db.from('rams_docs').select('id,resign_cycle_start,uploaded_at').eq('site_id', s.id).eq('status', 'current').is('subcontractor_company_id', null).is('signing_closed_at', null),
         db.from('rams_signatures').select('rams_id,signed_at,user_id').eq('user_id', p.id).order('signed_at', { ascending: false }).limit(500),
         db.from('materials').select('id').eq('site_id', s.id).in('status', ['pending', 'sent']),
         mgr ? db.from('todos').select('id').eq('site_id', s.id).eq('done', false) : Promise.resolve({ data: [], error: null }),
@@ -50,7 +50,7 @@ export function useSiteHome(site: Site | undefined) {
         const [a, ops, coshh] = await Promise.all([
           db.from('site_assignments').select('user_id').eq('site_id', s.id),
           db.from('profiles').select('id').eq('role', 'operative'),
-          db.from('coshh_docs').select('id,resign_cycle_start,uploaded_at').eq('site_id', s.id).is('subcontractor_company_id', null),
+          db.from('coshh_docs').select('id,resign_cycle_start,uploaded_at').eq('site_id', s.id).is('subcontractor_company_id', null).is('signing_closed_at', null),
         ]);
         assignedCount = ((a.data as unknown[] | null) ?? []).length;
         const opSet = new Set(((ops.data as { id: string }[] | null) ?? []).map((x) => x.id));

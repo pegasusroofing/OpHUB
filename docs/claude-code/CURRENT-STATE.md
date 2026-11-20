@@ -90,6 +90,12 @@
   - It uses the same `ANTHROPIC_API_KEY` secret as `finance-ai-read`.
   - 30 drafts a day per company. Each call is logged in the new table `ai_usage_log`, which only admins can read.
 
+## Close a RAMS / COSHH for signing (20 Nov 2026, both apps)
+- **Old web app:** ⋯ menu › Close for signing (`src/js/9219zzh-hs-close-signing.js`).
+- **New app (afternoon):** ⋮ menu › 🔒 Close For Signing / ↺ Reopen For Signing, for managers with Sign Off H&S (`components/HsDocList.tsx`). A closed document shows "🔒 Closed" and stays on file. It drops out of the HUB, the job tiles, the PM dashboard, operatives' To Do, Sign All, and Ask Outstanding To Sign. Operatives see "Closed — No Signature Needed".
+- **Database:** `rams_docs` / `coshh_docs.signing_closed_at`; only managers can set it (guard trigger, SQL file 6). The reminder emails (`rams-coshh-nudge` v10, `resign-check-daily` v7) skip closed documents.
+- **Test:** `tools/test-harness/closesign20n-check.js`.
+
 ## Also on 19 Nov 2026 (evening)
 - **Satellite map snapshots (CPP):** Esri World Imagery through MapLibre (`components/MapSnapshot.tsx`), key in the `app_settings` row 'esri_basemap_key' (`sql/app-settings-19nov.sql` shows how to set it). Key in since 19 Nov 2026: ArcGIS Location Platform item "OpHUB Satellite Map Snapshots" (ophub.maps.arcgis.com, pay-as-you-go off), Basemaps only, limited to app.operativehub.co.uk and ophub-beta.vercel.app. **It expires 18 Nov 2027**: before then, make a new key on the same item and update the app_settings row. Esri's agreement clause 6B allows output in PDF/JPEG "in an unalterable final form"; clause 4 needs Esri credited - drawn on every snapshot. Without a key the snapshot shows the street map with a note.
 - **Company sign-up email:** a platform-owner invite for a company's first admin is now the OpHUB welcome (`supabase/functions/send-invite-email/welcome.ts`, v17): OpHUB logo and blue, from "OpHUB", replies to sales@operativehub.co.uk. `assets/ophub-mark.png` (every email's fallback logo) was missing - added (live on push).
