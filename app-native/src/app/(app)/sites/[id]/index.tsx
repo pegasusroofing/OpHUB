@@ -179,10 +179,11 @@ export default function SiteHome() {
     ...(h?.canSeePrice && can(me, 'prices') ? [{ key: 'price', ic: 'pound', title: 'Price', sub: h.priceWages ? `${h.priceWages} wage${h.priceWages > 1 ? 's' : ''} to book` : h.priceVars ? `${h.priceVars} variation${h.priceVars > 1 ? 's' : ''} pending` : 'Restricted access', badge: h.priceVars + h.priceWages || undefined, onPress: go('price') }] : []),
     // Handover on a closed job, and on a live main contractor job too (Andy, 20 Nov 2026: subcontractors submit their O&Ms
     // before the job closes).
-    ...(mgr && (siteStatusKey(site) === 'closed' || site.acting_as_main_contractor) ? [{ key: 'ho', ic: 'book', title: 'Handover', sub: 'O&M manual · data sheets · guarantees', onPress: go('handover') }]
+    ...(mgr && (siteStatusKey(site) === 'closed' || site.acting_as_main_contractor) ? [{ key: 'ho', ic: 'book', title: 'Handover', sub: 'O&M manual · data sheets · guarantees', onPress: go('handover') }] : []),
+    // (Both, 21 Nov 2026: on a main contractor job the Handover row had taken the HUB's place.)
       // On a laptop the project's HUB (its messages and to-dos), not a To Do List and an Inbox (Andy, 18 Nov 2026: "we need to
       // rethink the hub ... there is an inbox and to do list in the laptop view. maybe make the hub a row in the project?").
-      : mgr && desk ? [{ key: 'hub', ic: 'bell', title: 'HUB', sub: h ? (h.openTodos ? `Messages & to-dos · ${h.openTodos} to do` : 'Messages & to-dos') : '…', onPress: () => router.push(`/pm/hub?site=${site.id}` as never) }] : []),
+    ...(mgr && desk ? [{ key: 'hub', ic: 'bell', title: 'HUB', sub: h ? (h.openTodos ? `Messages & to-dos · ${h.openTodos} to do` : 'Messages & to-dos') : '…', onPress: () => router.push(`/pm/hub?site=${site.id}` as never) }] : []),
   ];
   // Calendar sits second to last, whatever comes before it.
   if (!client && (!mgr || can(me, 'team'))) rows.splice(Math.max(0, rows.length - 1), 0, { key: 'cal', ic: 'calendar', title: 'Calendar', sub: 'Key dates', onPress: go('calendar') });

@@ -50,6 +50,9 @@ if (fs.existsSync(nmDir)) {
 }
 
 fs.writeFileSync(path.join(dir, 'vercel.json'), JSON.stringify({
+  // The beta is offline (Andy, 21 Nov 2026: "Can you take the beta offline and leave new app up?"): any address other than
+  // app.operativehub.co.uk (ophub-beta.vercel.app and the per-deploy vercel.app ones) sends people to the new app's address.
+  redirects: [{source: '/:path*', missing: [{type: 'host', value: 'app.operativehub.co.uk'}], destination: 'https://app.operativehub.co.uk/:path*', permanent: false}],
   // Server functions through this site (19 Nov 2026): most only answer browsers on the current app's addresses, so the
   // beta's calls are passed on from here (lib/supabase.ts sends them to /functions/v1/…).
   rewrites: [{source: '/functions/v1/:path*', destination: 'https://dtrfupmcazoioubhwdml.supabase.co/functions/v1/:path*'}, {source: '/(.*)', destination: '/index.html'}],

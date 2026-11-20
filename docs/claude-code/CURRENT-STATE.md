@@ -90,6 +90,13 @@
   - It uses the same `ANTHROPIC_API_KEY` secret as `finance-ai-read`.
   - 30 drafts a day per company. Each call is logged in the new table `ai_usage_log`, which only admins can read.
 
+## Overnight 20–21 Nov 2026 (app.operativehub, plus one old-app fix)
+- **Built:** subcontractors' Project Manager (join links, their people, upload only); snags given to a subcontractor company; subcontractor close-out (Invoice Only or Applications with retention halves; our PM / site manager signs; certificate to OneDrive 8. Handover); project settings Site Type row and OneDrive drop-down with Documents; CPP pull-through and lock-after-issue with Edit; Site Rules & Layout builder; customisable induction form; check-in location from the postcode (suggested until a manager confirms); underlined tabs replacing pills on many screens.
+- **SQL files 11–15** applied and proved (additive, or only tonight's own functions). **security-fixes-21nov-FOR-ANDY.sql** waits for Andy (older rules: subcontractor rows tied to their own job and company, toolbox talk inserts, Company Chat, storage general/exports/report-pdfs).
+- **Old app:** a subcontractor's toolbox talk now sends org_id (it never saved before). Rebuilt with a Node copy of build.py (no Python here) and copied to the 5 places.
+- **Store apps:** a new Capacitor project with the new app's web build is in Operative Hub AppApp Builder - New App (Nov 2026) (Android .aab built unsigned; iOS needs a Mac). README-NEW-APP.md and PHONE-TEST-CHECKLIST.md there.
+- **Reviews:** OpHUB Progress ReportsOvernight Review 21 Nov 2026 (security, request check, app review). Open items: OneDrive per-company separation (one Microsoft account for three companies), OneDrive server fixes, remaining review quick fixes, Main Contractor simplification (needs Andy).
+
 ## Main contractor walk-through answered; more screens in tabs (20 Nov 2026, late, app.operativehub)
 Andy's answers to `MAIN-CONTRACTOR-PROCESS-2026-11-20.md`, built:
 - **Their operatives:** Check In, Calendar and Messages now open (Check In used to bounce them to their company page). Their company page has Check In / Out, Site Induction, Site Rules & Layout and Calendar tiles. SOW opens their company's schedule.

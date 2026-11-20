@@ -23,6 +23,7 @@ import { supabase } from '@/lib/supabase';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { isManager } from '@/lib/roles';
 import { base, page, radius, space, useTheme } from '@/theme/theme';
+import { TabItem } from '@/components/FinNav';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -78,11 +79,8 @@ export default function AllReports() {
     toast('Inspection started'); void refetch();
     router.push((where2 === 'general' ? `/pm/survey/${sid}?mode=fill` : `/sites/${where2}/snagging/reports/fill/${sid}`) as never);
   };
-  const chip = (k: 'open' | 'done' | 'all', l: string) => (
-    <Pressable key={k} onPress={() => setTab(k)} style={{ height: 30, paddingHorizontal: 10, justifyContent: 'center', borderRadius: 999, borderWidth: 1, borderColor: tab === k ? base.ink : base.line, backgroundColor: tab === k ? base.ink : '#fff' }}>
-      <Text style={{ fontSize: 11.5, fontWeight: '600', color: tab === k ? '#fff' : base.ink }}>{l} ({count[k]})</Text>
-    </Pressable>
-  );
+  // The Finance-style underlined tabs, not black pills (overnight review, 21 Nov 2026).
+  const chip = (k: 'open' | 'done' | 'all', l: string) => <TabItem key={k} on={tab === k} label={`${l} (${count[k]})`} onPress={() => setTab(k)} />;
   const merged = async () => {
     const ids = rows.filter((r) => sel.has(r.id)).map((r) => r.id);
     if (!ids.length) { toast('Tick at least one report.'); return null; }

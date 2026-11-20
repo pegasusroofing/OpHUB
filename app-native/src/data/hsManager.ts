@@ -41,7 +41,15 @@ export async function uploadHsDoc(me: Profile & { signature_path?: string | null
   const r = await db.from(T[kind].docs).insert(row as never).select('id').single();
   const id = (r.data as { id: string } | null)?.id;
   if (r.error || !id) return 'Could not save — try again.';
-  if (f.companyId) return null; // a subcontractor's own folder: no issued record or job-wide notice
+  // A subcontractor's own folder: no issued record or job-wide notice. Their COSHH tells the PM and admins (email, push and a
+  // HUB note; the messages trigger sends them) when it's one of their people who uploaded it (21 Nov 2026).
+  if (f.companyId) {
+    if (kind === 'coshh' && me.org_id && !['admin', 'pm', 'site_manager'].includes(String(me.role))) {
+      const co = ((await db.from('subcontractor_companies').select('name').eq('id', f.companyId).limit(1)).data as { name: string }[] | null)?.[0]?.name || 'A subcontractor';
+      void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'managers', kind: 'message', body: `${co} uploaded a COSHH assessment: "${f.name}"`, related_id: id } as never).then(undefined, () => undefined);
+    }
+    return null;
+  }
   packDoc(siteId, kind === 'coshh' || f.docType === 'COSHH' ? 'coshh_added' : f.supersedesId ? 'rams_superseded' : 'rams_issued', f.name, T[kind].bucket, path);
   if (kind === 'rams') {
     if (f.supersedesId) await db.from('rams_docs').update({ status: 'superseded', superseded_by: id } as never).eq('id', f.supersedesId);

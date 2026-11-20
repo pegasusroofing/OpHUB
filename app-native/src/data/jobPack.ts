@@ -71,12 +71,14 @@ export async function packPut(siteId: string, rule: string, filename: string, sr
   else if ('file' in src && !src.file.path.startsWith(`${siteId}/`)) {
     // A company library copy (a Bank toolbox talk, say) isn't under the job, so it's sent from here.
     const d = await supabase.storage.from(src.file.bucket).download(src.file.path);
-    if (d.error || !d.data) return true;
+    if (d.error || !d.data) return false;
     source = { content_base64: b64(new Uint8Array(await d.data.arrayBuffer())) };
   } else source = src;
   // extra: task_id lets a driver file the photos of a delivery they completed (19 Nov 2026; the server checks it).
-  await invokeAsUser('onedrive-job-pack', { action: 'put', site_id: siteId, rule, filename, ...source, ...extra });
-  return true;
+  // A failed pack upload says so, so the caller can fall back to the ordinary upload (overnight review, 21 Nov 2026: it
+  // used to be lost without anyone knowing). A rule the company has switched off still counts as done.
+  const r = await invokeAsUser<{ ok?: boolean }>('onedrive-job-pack', { action: 'put', site_id: siteId, rule, filename, ...source, ...extra });
+  return !r.error && !!r.data?.ok;
 }
 const pdfName = (name: string) => (/\.pdf$/i.test(name) ? name : `${name}.pdf`);
 /** A Finance PDF (application, invoice) into the job's folder when the company has added that item (8 Nov 2026).

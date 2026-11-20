@@ -23,8 +23,9 @@ import { useAuth } from '@/lib/auth';
 import { deliverPdf, emailPdf, exportFilename, emailPdfsSeparately } from '@/lib/fileOut';
 import { canSignOffHs, isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, space, live } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 import { tbtEvery, tbtEveryLabel } from '@/lib/rules/tbt';
+import { TabItem } from '@/components/FinNav';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -94,11 +95,9 @@ export default function Tbts() {
         </Card>
       )}
       {mgr && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', marginBottom: 12 }}>
           {(['bank', 'live', 'completed'] as const).map((k) => (
-            <Pressable key={k} onPress={() => setTab(k)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: cur === k ? live.brand1 : base.line, backgroundColor: cur === k ? live.brand1 : base.card }}>
-              <Text style={{ fontWeight: '500', color: cur === k ? live.brand1Text : base.ink }}>{k === 'bank' ? 'TBT Library' : k === 'live' ? 'Live TBT' : 'Completed TBT'}</Text>
-            </Pressable>
+            <TabItem key={k} on={cur === k} label={k === 'bank' ? 'TBT Library' : k === 'live' ? 'Live TBT' : 'Completed TBT'} onPress={() => setTab(k)} />
           ))}
           <View style={{ flex: 1 }} />
           {cur === 'bank' && signOff && <Pressable accessibilityRole="button" accessibilityLabel="More" hitSlop={8} disabled={busy} onPress={async () => {

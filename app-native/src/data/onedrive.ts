@@ -106,9 +106,17 @@ export async function linkFolder(target: OdTarget, id: string, f: { id: string; 
   if (target === 'repairjob') return !!(await db.from('repair_jobs').update({ onedrive_folder_id: f.id, onedrive_folder_name: f.name, onedrive_drive_id: d } as never).eq('id', id).select('id')).data?.length;
   // 'm-<uuid>' = an operative added by hand (manual_operatives, 4 Nov 2026).
   if (target === 'operative') return !!(await db.from(id.indexOf('m-') === 0 ? 'manual_operatives' : 'profiles').update({ onedrive_folder_id: f.id, onedrive_folder_name: f.name, onedrive_drive_id: d, onedrive_last_synced_at: null } as never).eq('id', id.indexOf('m-') === 0 ? id.slice(2) : id).select('id')).data?.length;
+  // A job linked to a different folder: its job pack pointed into the old one, so it's let go (set it up again on the new
+  // folder from Settings). Otherwise RAMS, talks, photos and finance PDFs kept going to the old folder (overnight review,
+  // 21 Nov 2026).
+  let stale = false;
+  if (target !== 'materials' && target !== 'siteinductions') {
+    const cur = (await db.from('sites').select('job_pack').eq('id', id).maybeSingle()).data as { job_pack: { root_id?: string | null } | null } | null;
+    stale = !!cur?.job_pack?.root_id && cur.job_pack.root_id !== f.id;
+  }
   const patch = target === 'materials' ? { material_orders_folder_id: f.id, material_orders_folder_name: f.name, material_orders_drive_id: d }
     : target === 'siteinductions' ? { site_inductions_folder_id: f.id, site_inductions_folder_name: f.name, site_inductions_drive_id: d }
-    : { onedrive_folder_id: f.id, onedrive_folder_name: f.name, onedrive_drive_id: d };
+    : { onedrive_folder_id: f.id, onedrive_folder_name: f.name, onedrive_drive_id: d, ...(stale ? { job_pack: null } : {}) };
   return !!(await db.from('sites').update(patch as never).eq('id', id).select('id')).data?.length;
 }
 export async function unlinkFolder(target: OdTarget, id: string): Promise<boolean> {
@@ -116,7 +124,7 @@ export async function unlinkFolder(target: OdTarget, id: string): Promise<boolea
   if (target === 'repairjob') return !!(await db.from('repair_jobs').update({ onedrive_folder_id: null, onedrive_folder_name: null, onedrive_drive_id: null } as never).eq('id', id).select('id')).data?.length;
   const patch = target === 'materials' ? { material_orders_folder_id: null, material_orders_folder_name: null, material_orders_drive_id: null }
     : target === 'siteinductions' ? { site_inductions_folder_id: null, site_inductions_folder_name: null, site_inductions_drive_id: null }
-    : { onedrive_folder_id: null, onedrive_folder_name: null, onedrive_drive_id: null };
+    : { onedrive_folder_id: null, onedrive_folder_name: null, onedrive_drive_id: null, job_pack: null }; // unlinked: nothing saves there, the pack too
   return !!(await db.from('sites').update(patch as never).eq('id', id).select('id')).data?.length;
 }
 export type QuickLink = { id: string; name: string; driveId: string | null };
@@ -127,5 +135,5 @@ export const useQuickLinks = (orgId: string | null | undefined) => useQuery({ qu
 export async function setQuickLinks(orgId: string, next: QuickLink[]): Promise<boolean> {
   return !!(await db.from('organizations').update({ onedrive_pinned_folders: next } as never).eq('id', orgId).select('id')).data?.length;
 }
-export type OdSite = { id: string; name: string; onedrive_folder_id: string | null; onedrive_folder_name: string | null; material_orders_folder_id: string | null; material_orders_folder_name: string | null; site_inductions_folder_id: string | null; site_inductions_folder_name: string | null; onedrive_last_synced_at: string | null };
-export const useOdSites = (orgId: string | null | undefined) => useQuery({ queryKey: ['odSites', orgId], enabled: !!orgId, queryFn: async () => ((await db.from('sites').select('id,name,onedrive_folder_id,onedrive_folder_name,material_orders_folder_id,material_orders_folder_name,site_inductions_folder_id,site_inductions_folder_name,onedrive_last_synced_at,onedrive_drive_id,acting_as_main_contractor').eq('org_id', orgId as string).order('name')).data as OdSite[] | null) ?? [] });
+export type OdSite = { id: string; name: string; onedrive_folder_id: string | null; onedrive_folder_name: string | null; material_orders_folder_id: string | null; material_orders_folder_name: string | null; site_inductions_folder_id: string | null; site_inductions_folder_name: string | null; onedrive_last_synced_at: string | null; job_pack?: unknown };
+export const useOdSites = (orgId: string | null | undefined) => useQuery({ queryKey: ['odSites', orgId], enabled: !!orgId, queryFn: async () => ((await db.from('sites').select('id,name,onedrive_folder_id,onedrive_folder_name,material_orders_folder_id,material_orders_folder_name,site_inductions_folder_id,site_inductions_folder_name,onedrive_last_synced_at,onedrive_drive_id,acting_as_main_contractor,job_pack').eq('org_id', orgId as string).order('name')).data as OdSite[] | null) ?? [] });

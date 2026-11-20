@@ -69,7 +69,7 @@ export function useSubco(companyId: string | undefined, me: Profile | null) {
     queryFn: async () => {
       const c = ((orThrow(await db.from('subcontractor_companies').select('*').eq('id', companyId as string).limit(1)) as Subco[]) ?? [])[0] ?? null;
       if (!c) return null;
-      const [rams, coshh, tbt, brief, ops, sched, permits, insp, admin, om, snags] = await Promise.all([
+      const [rams, coshh, tbt, brief, ops, sched, permits, insp, admin, om, snags, closeout] = await Promise.all([
         db.from('rams_docs').select('id').eq('subcontractor_company_id', c.id).eq('status', 'current'),
         db.from('coshh_docs').select('id').eq('subcontractor_company_id', c.id),
         db.from('toolbox_talks').select('id').eq('subcontractor_company_id', c.id).eq('status', 'live'),
@@ -83,12 +83,14 @@ export function useSubco(companyId: string | undefined, me: Profile | null) {
         db.from('handover_om_manuals').select('submitted_at').eq('subcontractor_company_id', c.id),
         // Snags given to them (20 Nov 2026).
         db.from('snags').select('id').eq('subcontractor_company_id', c.id).eq('status', 'open'),
+        // Their close-out (21 Nov 2026): signed off or not.
+        db.from('subcontractor_closeouts').select('signed_at').eq('subcontractor_company_id', c.id).limit(1),
       ]);
       const n = (r: { data: unknown }) => ((r.data as unknown[] | null) ?? []).length;
       const tasks = (sched.data as { status: string }[] | null) ?? [];
       return {
         company: c, isAdmin: n(admin) > 0, hasPm: ((ops.data as { is_admin: boolean | null }[] | null) ?? []).some((x) => x.is_admin),
-        counts: { rams: n(rams), coshh: n(coshh), tbt: n(tbt), briefings: n(brief), operatives: n(ops), tasks: tasks.length, done: tasks.filter((t) => t.status === 'done').length, permits: n(permits), inspections: n(insp), snags: n(snags), om: n(om), omSubmitted: ((om.data as { submitted_at: string | null }[] | null) ?? []).filter((x) => x.submitted_at).length },
+        counts: { rams: n(rams), coshh: n(coshh), tbt: n(tbt), briefings: n(brief), operatives: n(ops), tasks: tasks.length, done: tasks.filter((t) => t.status === 'done').length, permits: n(permits), inspections: n(insp), snags: n(snags), closedOut: !!((closeout.data as { signed_at: string | null }[] | null) ?? [])[0]?.signed_at, om: n(om), omSubmitted: ((om.data as { submitted_at: string | null }[] | null) ?? []).filter((x) => x.submitted_at).length },
       };
     },
   });
@@ -109,7 +111,8 @@ export function useSubTbts(companyId: string | undefined) {
 }
 export async function addSubTbt(me: Profile, siteId: string, companyId: string, title: string, f: Asset) {
   const path = await put('rams-docs', `${siteId}/subcontractor-tbt/${companyId}/${rid()}-${clean(f.name)}`, f);
-  return !!path && !(await db.from('toolbox_talks').insert({ site_id: siteId, subcontractor_company_id: companyId, title, storage_path: path, status: 'live', created_by: me.id } as never)).error;
+  // org_id is required (found 21 Nov 2026: without it a subcontractor's talk never saved, in either app).
+  return !!path && !(await db.from('toolbox_talks').insert({ site_id: siteId, org_id: me.org_id, subcontractor_company_id: companyId, title, storage_path: path, status: 'live', created_by: me.id } as never)).error;
 }
 
 /* Daily briefings: a title and optional PDF. */

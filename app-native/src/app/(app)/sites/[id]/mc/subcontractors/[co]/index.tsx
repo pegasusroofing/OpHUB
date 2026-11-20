@@ -17,7 +17,7 @@ export default function SubcoHub() {
   const { data: site } = useSite(id);
   const { data: list } = useSubcos(site, me);
   const allowed = !!me && (isManager(me) || me.role === 'client' || list?.myCompany === co);
-  if (me && !allowed) return <Muted style={{ padding: space.l }}>{list ? "You don't have access to this subcontractor." : 'Loading…'}</Muted>;
+  if (me && !allowed) return <><Stack.Screen options={{ title: 'Subcontractor' }} /><Muted style={{ padding: space.l }}>{list ? "You don't have access to this subcontractor." : 'Loading…'}</Muted></>;
   if (isLoading || !data) return <Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Subcontractor not found.'}</Muted>;
   const n = data.counts;
   const mine = !!me && !isManager(me) && list?.myCompany === co;
@@ -47,6 +47,8 @@ export default function SubcoHub() {
       <Tile icon="🔧" tint="#E7E9EE" title="Snags" sub={n.snags ? `${n.snags} open` : 'None open'} onPress={go('snags')} />
       <Tile icon="👷" tint="#E7E9EE" title="Operatives" sub={data.isAdmin && mine ? 'Add your operatives' : `${n.operatives} on this job`} onPress={go('operatives')} />
       {/* Their Handover: their O&M manual for the main contractor's (Andy, 20 Nov 2026): managers and the company's admin. */}
+      {/* Their close-out (21 Nov 2026): our managers sign it off; their Project Manager sees it. */}
+      {(isManager(me) || data.isAdmin) && <Tile icon="🏁" tint="#E7E9EE" title="Close-Out" sub={n.closedOut ? 'Signed off' : 'Checks and sign-off'} onPress={go('closeout')} />}
       {(isManager(me) || data.isAdmin) && <Tile icon="📘" tint="#E7E9EE" title="Handover" sub={n.om ? `O&M · ${n.omSubmitted} of ${n.om} submitted` : 'O&M manual'} onPress={go('om')} />}
       </JobGrid>
     </ScrollView>

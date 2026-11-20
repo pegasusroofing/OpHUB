@@ -27,8 +27,13 @@ export async function getPosition(): Promise<Pos | { error: string }> {
     let perm = await Location.getForegroundPermissionsAsync();
     if (perm.status !== 'granted') perm = await Location.requestForegroundPermissionsAsync();
     if (perm.status !== 'granted') return { error: "Location permission denied. Enable it for this app in your phone's Settings." };
+    // On the web, ask for a fresh position: the library otherwise accepts one the browser cached earlier, so a check-in could
+    // use where the phone was a while ago (store app review, 21 Nov 2026).
+    const web = typeof navigator !== 'undefined' && !!navigator.geolocation && typeof window !== 'undefined' && typeof document !== 'undefined';
     const pos = await Promise.race([
-      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
+      web
+        ? new Promise<{ coords: { latitude: number; longitude: number; accuracy: number | null } } | null>((res) => navigator.geolocation.getCurrentPosition((p) => res(p), () => res(null), { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 }))
+        : Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
       new Promise<null>((r) => setTimeout(() => r(null), 12000)),
     ]);
     if (!pos) return { error: 'Could not get a GPS lock — move into the open and try again.' };

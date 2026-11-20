@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { chooseAction } from '@/components/toast';
@@ -69,7 +69,11 @@ export function TabItem({ on, label, n, amber, onPress, fill, pad }: { on: boole
 /** A row of underlined tabs for Finance (Andy, 5 Nov 2026: "change all the tabs through finance to that").
  *  items: [key, label, count?]. right: a button that sits at the end of the row. even: spread across the page (Andy, 7 Nov 2026). */
 export function FinTabs({ items, value, onChange, right, amber, style, even }: { items: [string, string, number?][]; value: string; onChange: (k: string) => void; right?: ReactNode; amber?: boolean; style?: object; even?: boolean }) {
-  if (even && !right) return (
+  // Spread across only when they fit; otherwise the row scrolls sideways, so long tabs on a phone never overlap (overnight
+  // review, 21 Nov 2026: the induction's five tabs ran into each other and two couldn't be tapped).
+  const { width } = useWindowDimensions();
+  const need = items.reduce((t, [, l, n]) => t + String(l).length * 7.4 + (n ? 26 : 0) + 18, 0);
+  if (even && !right && need <= Math.min(width, 1200) - 40) return (
     <View style={[{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', marginBottom: 10 }, style]}>
       {items.map(([k, l, n]) => <TabItem key={k} fill on={value === k} label={l} n={n} amber={amber} onPress={() => onChange(k)} />)}
     </View>

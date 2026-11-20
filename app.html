@@ -29323,7 +29323,7 @@ window.addSubToolboxTalk = async function(siteId, companyId){
   const path = siteId+'/subcontractor-tbt/'+companyId+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
   const stored = await uploadToStorage('rams-docs', path, file, 'application/pdf');
   if(!stored) return;
-  const rows = await dbInsert('toolbox_talks', {site_id:siteId, subcontractor_company_id:companyId, title, storage_path:stored, status:'live', created_by:ME.id});
+  const rows = await dbInsert('toolbox_talks', {site_id:siteId, org_id:ME.org_id, subcontractor_company_id:companyId, title, storage_path:stored, status:'live', created_by:ME.id});
   if(rows){ toast('Toolbox Talk issued'); render(); }
 };
 /* ---- Subcontractor's own filtered Schedule of Works — same schedule_tasks

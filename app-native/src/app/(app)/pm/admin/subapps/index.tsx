@@ -8,11 +8,12 @@ import { Linking, Platform, Pressable, ScrollView, Share, Text, View } from 'rea
 import { SelectBox } from '@/components/SelectBox';
 import { useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
-import { createPermanentInvite, subSignUpLink, useInvites, useTeam } from '@/data/admin';
+import { createPermanentInvite, subSignUpLink, useInvites, useTeam, webOrigin } from '@/data/admin';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, space, live } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
+import { FinTabs } from '@/components/FinNav';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 export type SubApp = { id: string; company_name: string; contact_name: string; email: string; phone: string | null; status: string; created_at: string; data: Record<string, unknown> | null };
@@ -58,7 +59,7 @@ export default function SubApps() {
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const web = Platform.OS === 'web' && typeof window !== 'undefined';
   const joinId = inv?.permanent?.id || null;
-  const link = joinId && web ? `${window.location.origin}/subcontractor?invite=${joinId}` : subSignUpLink(me.org_id as string);
+  const link = joinId && web ? `${webOrigin() || window.location.origin}/subcontractor?invite=${joinId}` : subSignUpLink(me.org_id as string);
   const counts = { new: 0, approved: 0, rejected: 0 } as Record<string, number>;
   rows.forEach((r) => { counts[r.status] = (counts[r.status] || 0) + 1; });
   return (
@@ -88,13 +89,7 @@ export default function SubApps() {
         {(me.role === 'admin' || me.role === 'superadmin') && <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8 }}><Button kind="ghost" title="✎ Edit The Form" onPress={() => router.push('/pm/admin/subapps/form' as never)} /></View>}
       </Card>
       <SignupChecker />
-      <View style={{ flexDirection: 'row', gap: 6, marginVertical: 10 }}>
-        {(['new', 'approved', 'rejected'] as const).map((k) => (
-          <Pressable key={k} onPress={() => setTab(k)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: tab === k ? live.brand1 : base.line, backgroundColor: tab === k ? live.brand1 : base.card }}>
-            <Text style={{ fontWeight: '500', color: tab === k ? live.brand1Text : base.ink }}>{({ new: 'New', approved: 'Approved', rejected: 'Sent Back' } as Record<string, string>)[k]} ({counts[k] || 0})</Text>
-          </Pressable>
-        ))}
-      </View>
+      <FinTabs even value={tab} onChange={(k) => setTab(k as typeof tab)} items={[['new', `New (${counts.new || 0})`], ['approved', `Approved (${counts.approved || 0})`], ['rejected', `Sent Back (${counts.rejected || 0})`]]} />
       {isLoading ? <Muted>Loading…</Muted> : rows.filter((r) => r.status === tab).length ? rows.filter((r) => r.status === tab).map((r) => (
         <Pressable key={r.id} onPress={() => router.push(`/pm/admin/subapps/${r.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
           <View style={{ flex: 1 }}>

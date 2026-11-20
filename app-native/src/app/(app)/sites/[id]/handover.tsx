@@ -21,7 +21,8 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { readIsoDate } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
-import { base, page, radius, space, live } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
+import { TabItem } from '@/components/FinNav';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 6 };
 const pick = async (multiple: boolean) => {
@@ -73,11 +74,7 @@ export default function Handover() {
     refresh(); router.push(`/sites/${site.id}/om/${mid}` as never);
   };
   const findBtn = siteHasOneDrive(site) && <View style={{ flex: 1 }}><Button kind="ghost" title="🔍 Find In OneDrive" onPress={() => setFinding('find')} /></View>;
-  const chip = (k: typeof tab, l: string, n?: number) => (
-    <Pressable onPress={() => setTab(k)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: tab === k ? live.brand1 : base.line, backgroundColor: tab === k ? live.brand1 : base.card }}>
-      <Text style={{ fontWeight: '500', color: tab === k ? live.brand1Text : base.ink }}>{l}{n != null ? ` (${n})` : ''}</Text>
-    </Pressable>
-  );
+  const chip = (k: typeof tab, l: string, n?: number) => <TabItem key={k} on={tab === k} label={`${l}${n != null ? ` (${n})` : ''}`} onPress={() => setTab(k)} />;
   const when = (t: string | null) => (t ? new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
 
   return (

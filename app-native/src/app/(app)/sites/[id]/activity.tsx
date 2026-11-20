@@ -10,7 +10,8 @@ import { nameOf, usePeople } from '@/data/hs';
 import { useActivity } from '@/data/siteAdmin';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, page, space, live } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
+import { TabItem } from '@/components/FinNav';
 
 export default function Activity() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -30,11 +31,9 @@ export default function Activity() {
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Activity History' }} />
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', marginBottom: 12 }}>
         {(['all', 'changes', 'notices'] as const).map((k) => (
-          <Pressable key={k} onPress={() => setFilter(k)} style={{ flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: filter === k ? live.brand1 : base.line, backgroundColor: filter === k ? live.brand1 : base.card }}>
-            <Text style={{ fontWeight: '500', color: filter === k ? live.brand1Text : base.ink }}>{k === 'all' ? 'All' : k === 'changes' ? 'Changes' : 'Notices'}</Text>
-          </Pressable>
+          <TabItem key={k} on={filter === k} label={k === 'all' ? 'All' : k === 'changes' ? 'Changes' : 'Notices'} onPress={() => setFilter(k)} />
         ))}
       </View>
       {(ids.length > 1 || !!person) && (

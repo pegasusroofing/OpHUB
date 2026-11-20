@@ -4,6 +4,7 @@
 // builders must not be imported directly by any screen, component or data file: only by each other and here.
 export * from '@/data/hsPdf';
 export * from '@/lib/certBundlePdf';
+export * from '@/lib/closeoutPdf';
 export * from '@/lib/coshhPdf';
 export * from '@/lib/cppPdf';
 export * from '@/lib/deliveryExport';

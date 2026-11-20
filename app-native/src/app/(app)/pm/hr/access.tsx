@@ -214,7 +214,7 @@ export default function HrAccess() {
   // Back from choosing the OneDrive folder: look again.
   useFocusEffect(useCallback(() => { ['hrAccess', 'hrWho', 'hrFolderAccess'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); }, [qc]));
   if (!me) return null;
-  if (!acc || !who || !roles) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
+  if (!acc || !who || !roles) return <><Stack.Screen options={{ title: 'HR Access' }} /><Muted style={{ padding: space.l }}>Loading…</Muted></>;
   if (!acc.team) {
     return (
       <ScrollView contentContainerStyle={page(720)}>

@@ -244,7 +244,7 @@ export default function RamsLibrary() {
                 <Pressable hitSlop={8} onPress={() => void menu(it)}><Text style={{ fontSize: 18, color: base.slate }}>⋯</Text></Pressable>
               </Card>
             );
-          }) : <Empty>{ofTab.length ? 'Nothing matches.' : lib.length ? 'Nothing here yet.' : 'Your library is empty. The starter library adds RTB’s hazards, safe systems of work, method statements and a pitched-roof template, ready to edit.'}</Empty>}
+          }) : <Empty>{ofTab.length ? 'Nothing matches.' : lib.length ? 'Nothing here yet.' : 'Your library is empty. The starter library adds a ready-made set of hazards, safe systems of work, method statements and a pitched-roof template, ready to edit.'}</Empty>}
           {!lib.length && <Button kind="ghost" title="📚 Load the starter library" onPress={async () => {
             const r = await supabase.from('rams_library_items').insert(starterRows().map((x) => ({ ...x, org_id: me.org_id, created_by: me.id })) as never);
             toast(r.error ? 'Could not load it — try again.' : 'Starter library loaded'); refresh();

@@ -103,6 +103,19 @@ export function Button({ title, onPress, busy, kind = 'primary', disabled, small
  *  seg = the grey sliding bar used on Schedule of Works (.sowpage .filterrow). */
 export function FilterRow<K extends string>({ options, value, onChange, seg, cols }: { options: [K, string][]; value: K; onChange: (k: K) => void; seg?: boolean; cols?: number }) {
   const t = useTheme();
+  // Not seg or cols: the Finance-style underlined tabs (overnight review, 21 Nov 2026: no more pill tabs).
+  if (!seg && !cols) return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginBottom: space.m }} contentContainerStyle={{ flexGrow: 1, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' }}>
+      {options.map(([k, l]) => {
+        const on = k === value;
+        return (
+          <Pressable key={k} onPress={() => onChange(k)} accessibilityRole="tab" accessibilityState={{ selected: on }} style={{ paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: on ? t.brand1 : 'transparent' }}>
+            <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: on ? '700' : '600', color: on ? '#111827' : '#6b7280' }}>{l}</Text>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
   return (
     <View style={[{ flexDirection: 'row', gap: seg ? 4 : space.s, marginBottom: space.m }, !seg && !cols && { flexWrap: 'wrap' }, seg && { backgroundColor: '#ECEDF0', borderRadius: 14, padding: 4 }, !!cols && { flexWrap: 'wrap', gap: 0, marginHorizontal: -4 }]}>
       {options.map(([k, l]) => {

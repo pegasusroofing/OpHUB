@@ -25,7 +25,7 @@ export function useMcTiles(site: Site | undefined, orgId: string | null | undefi
     enabled: !!site && !!orgId,
     queryFn: async () => {
       const s = site as Site;
-      const [docs, prog, cos, assigned, done, permits, tpls, layout, people] = await Promise.all([
+      const [docs, prog, cos, assigned, done, permits, tpls, layout, people, plan] = await Promise.all([
         db.from('mc_documents').select('category').eq('site_id', s.id).neq('category', 'site_inductions'),
         db.from('drawing_folders').select('id').eq('site_id', s.id).is('parent_id', null).eq('name', 'Main Contractor Programme'),
         db.from('subcontractor_companies').select('id').eq('site_id', s.id),
@@ -35,7 +35,10 @@ export function useMcTiles(site: Site | undefined, orgId: string | null | undefi
         db.from('report_templates').select('id').eq('org_id', orgId as string).eq('is_mc_inspection', true).eq('archived', false),
         db.from('site_layout_docs').select('id').eq('site_id', s.id),
         db.from('profiles').select('id,role'),
+        // The job's Construction Phase Plan as it's being written (overnight review, 21 Nov 2026).
+        db.from('cpp_plans').select('status,version').eq('site_id', s.id).order('updated_at', { ascending: false }).limit(1),
       ]);
+      const cppRow = ((plan.data as { status: string; version: number }[] | null) ?? [])[0];
       const count: Record<string, number> = {};
       ((docs.data as { category: string }[] | null) ?? []).forEach((d) => { count[d.category] = (count[d.category] || 0) + 1; });
       const roles = Object.fromEntries(((people.data as { id: string; role: string }[] | null) ?? []).map((p) => [p.id, p.role]));
@@ -56,7 +59,7 @@ export function useMcTiles(site: Site | undefined, orgId: string | null | undefi
       return {
         progFolderId: progId,
         tiles: [
-          { key: 'cpp', icon: '📘', title: MC_DOC_LABEL.cpp, sub: n('cpp') },
+          { key: 'cpp', icon: '📘', title: MC_DOC_LABEL.cpp, sub: cppRow ? (cppRow.status === 'issued' ? `Issued · version ${cppRow.version}` : 'Draft · being written') : n('cpp') },
           { key: 'site_layout', icon: '🗺', title: 'Site Rules & Layout', sub: `${nLayout} document${nLayout === 1 ? '' : 's'}` },
           { key: 'site_inductions', icon: '🪪', title: 'Site Inductions', sub: roster.size ? `${[...doneIds].filter((x) => roster.has(x)).length} of ${roster.size} inducted` : `${doneIds.size} completed` },
           { key: 'subcontractors', icon: '👷', title: 'Subcontractors', sub: `${nCos} compan${nCos === 1 ? 'y' : 'ies'}` },

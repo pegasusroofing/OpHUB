@@ -14,9 +14,11 @@ export default function Documents() {
   const { me } = useAuth();
   const { data: site } = useSite(id);
   const s = site as (typeof site & { onedrive_folder_id?: string | null; onedrive_drive_id?: string | null; onedrive_folder_name?: string | null }) | undefined;
-  if (!me || !s) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
-  if (me.role !== 'pm' && me.role !== 'admin') return <Muted style={{ padding: space.l }}>Project managers and admins only.</Muted>;
-  if (!s.onedrive_folder_id) return <Muted style={{ padding: space.l }}>This job has no OneDrive folder yet. Set one up or link one in Project Admin.</Muted>;
+  // The title shows whatever the page says (overnight review, 21 Nov 2026: it showed the raw address).
+  const title = <Stack.Screen options={{ title: 'Documents' }} />;
+  if (!me || !s) return <>{title}<Muted style={{ padding: space.l }}>Loading…</Muted></>;
+  if (me.role !== 'pm' && me.role !== 'admin') return <>{title}<Muted style={{ padding: space.l }}>Project managers and admins only.</Muted></>;
+  if (!s.onedrive_folder_id) return <>{title}<Muted style={{ padding: space.l }}>This job has no OneDrive folder yet. Set one up or link one in Project Admin.</Muted></>;
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Documents' }} />

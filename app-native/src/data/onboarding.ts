@@ -37,7 +37,9 @@ export function useOnboarding(sites: Site[] | undefined) {
       // A subcontractor's operatives join as normal, without the Subcontractor Form: their company signs up, not them
       // (Andy, 20 Nov 2026). Their company's admin still fills it in.
       const subRows = (subStaff?.data as { is_admin: boolean | null }[] | null) ?? [];
-      const formOff = (prof?.data as { subform_required?: boolean | null } | null)?.subform_required === false || (subRows.length > 0 && !subRows.some((x) => x.is_admin));
+      // Anyone working for a subcontractor company on our jobs, their Project Manager included, has no Subcontractor Form: the
+      // company was set up through the sign-up approval or the Company Library (overnight review, 21 Nov 2026).
+      const formOff = (prof?.data as { subform_required?: boolean | null } | null)?.subform_required === false || subRows.length > 0;
       const lastForm = ((sent?.data as { status?: string }[] | null) ?? [])[0];
       const first0: OnboardItem[] = [
         { key: 'phone', label: 'Add your phone number', desc: 'So the office, your PM and delivery drivers can reach you on site.', done: !!(p.phone && String(p.phone).trim()), href: '' },

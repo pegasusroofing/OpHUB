@@ -27,7 +27,8 @@ import {
 } from '@/lib/rules/driver';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, space, useTheme, live } from '@/theme/theme';
+import { base, page, radius, useTheme, live } from '@/theme/theme';
+import { FinTabs } from '@/components/FinNav';
 
 type P = { id: string; name: string; phone: string | null };
 function usePhones() {
@@ -126,13 +127,7 @@ export default function DriverSchedule() {
         </Text>
         <Pressable onPress={() => setOffset(offset + 1)} style={navBtn}><Text style={{ fontSize: 20 }}>›</Text></Pressable>
       </View>
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-        {([['todo', `To Do (${todo.length})`], ['done', `✓ Completed (${done.length})`]] as const).map(([k, l]) => (
-          <Pressable key={k} onPress={() => setTab(k)} style={{ flex: 1, paddingVertical: 8, borderRadius: 16, borderWidth: 1, alignItems: 'center', borderColor: tab === k ? live.brand1 : base.line, backgroundColor: tab === k ? live.brand1 : base.card }}>
-            <Text style={{ fontWeight: '500', color: tab === k ? live.brand1Text : base.ink }}>{l}</Text>
-          </Pressable>
-        ))}
-      </View>
+      <FinTabs even value={tab} onChange={(k) => setTab(k as typeof tab)} items={[['todo', `To Do (${todo.length})`], ['done', `✓ Completed (${done.length})`]]} />
 
       {isLoading && <Muted>Loading…</Muted>}
       {collections.length > 0 && <SectionTitle>Collections — what to pick up where</SectionTitle>}

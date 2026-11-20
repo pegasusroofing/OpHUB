@@ -3,7 +3,7 @@
 // Works (they're the same tasks, so progress shows on both). Subcontractor operatives work from here.
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { SowTaskRow } from '@/components/SowTaskRow';
 import { useToast } from '@/components/toast';
@@ -13,7 +13,8 @@ import { useSchedule } from '@/data/sow';
 import { useSubco } from '@/data/subcontractors';
 import { useAuth } from '@/lib/auth';
 import { onQueueChange, onUploadsSent, pendingJobs, type UploadJob } from '@/lib/uploadQueue';
-import { base, page, space, live } from '@/theme/theme';
+import { page, space } from '@/theme/theme';
+import { TabItem } from '@/components/FinNav';
 
 export default function SubSchedule() {
   const { id, co } = useLocalSearchParams<{ id: string; co: string }>();
@@ -43,11 +44,9 @@ export default function SubSchedule() {
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: `${sub.company.name} — Schedule of Works` }} />
       <Muted style={{ marginBottom: 10 }}>Only the work items assigned to {sub.company.name} — updates show straight away on the main Schedule of Works.</Muted>
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', marginBottom: 12 }}>
         {([['all', 'All'], ['todo', 'To Do'], ['progress', 'In Progress / Complete']] as const).map(([k, l]) => (
-          <Pressable key={k} onPress={() => setF(k)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: f === k ? live.brand1 : base.line, backgroundColor: f === k ? live.brand1 : base.card }}>
-            <Text style={{ fontWeight: '500', color: f === k ? live.brand1Text : base.ink }}>{l}</Text>
-          </Pressable>
+          <TabItem key={k} on={f === k} label={l} onPress={() => setF(k)} />
         ))}
       </View>
       {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((t) => (

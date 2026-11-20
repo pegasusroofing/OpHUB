@@ -41,6 +41,7 @@ export const PACK_RULES: { key: string; area: string; when: string; folder: stri
   { key: 'tbt_issued', area: 'Toolbox talks', when: 'Talk issued on this job', folder: `${HS}/3. Toolbox Talks`, on: true },
   { key: 'coshh_added', area: 'COSHH', when: 'COSHH sheet added to this job', folder: `${HS}/2. COSHH`, on: true },
   { key: 'om_manual', area: 'O&M', when: 'O&M manual exported to OneDrive', folder: '8. Handover/2. Warranties & Inspections', on: true },
+  { key: 'closeout_certificate', area: 'Subcontractor close-out', when: 'Close-out certificate signed', folder: '8. Handover/4. Practical Completion Certificate', on: true },
   { key: 'induction', area: 'Inductions', when: 'Induction completed', folder: `${IND}/1. Completed Inductions`, on: true },
   { key: 'permit_closed', area: 'Permits', when: 'Permit closed', folder: `${MC}/3. Permits to Work`, on: true },
   { key: 'incident', area: 'Incidents', when: 'Incident submitted', folder: `${MC}/4. Accident  Near Miss Reports`, on: false },

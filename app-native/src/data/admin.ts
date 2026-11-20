@@ -15,7 +15,10 @@ export const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
 /** The new app's own address when it's open in a browser (the beta), so its links open its own pages (Andy, 18 Nov 2026:
  *  "The sign up link in the beta is still a html, can we change that for beta but keep the html link live for old
  *  original app?"). On a phone app there's no address, so the current app's links are used; they keep working. */
-const webOrigin = () => (Platform.OS === 'web' && typeof window !== 'undefined' && /^https?:/.test(window.location.origin) ? window.location.origin : null);
+// Inside the store app (this web build in a phone app) the page's own address is https://localhost or capacitor://localhost,
+// so links people are sent use the real address (store app rebuild, 21 Nov 2026).
+const inStoreApp = () => !!(globalThis as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
+export const webOrigin = () => (inStoreApp() ? 'https://app.operativehub.co.uk' : Platform.OS === 'web' && typeof window !== 'undefined' && /^https?:/.test(window.location.origin) ? window.location.origin : null);
 export const joinLink = (inviteId: string) => { const o = webOrigin(); return o ? `${o}/join/${inviteId}` : `${OPHUB_WEB_URL}#/join/${inviteId}`; };
 /** The subcontractor sign-up form: the new app's page on the beta, subcontractor.html otherwise. */
 export const subSignUpLink = (orgId: string) => { const o = webOrigin(); return o ? `${o}/subcontractor?org=${orgId}` : `https://www.operativehub.co.uk/subcontractor.html?org=${orgId}`; };

@@ -57,7 +57,7 @@ export function TbtBuilder({ start, id, path, onClose }: { start: TbtBuild; id: 
   };
   return (
     <View>
-      <Muted style={{ marginBottom: 10 }}>Laid out like RTB Roofing&apos;s toolbox talks, with {org.name}&apos;s name, address and logo at the top and a sign-off sheet at the end. Saved talks go into every project&apos;s TBT Library.</Muted>
+      <Muted style={{ marginBottom: 10 }}>Laid out as a standard toolbox talk, with {org.name}&apos;s name, address and logo at the top and a sign-off sheet at the end. Saved talks go into every project&apos;s TBT Library.</Muted>
       <Card>
         <Field label="Title" value={b.title} onChangeText={set('title')} placeholder="e.g. Safe Working At Height" />
         <Field label="Prepare" value={b.prepare} onChangeText={set('prepare')} placeholder="e.g. Has the company had any incidents in the last 12 months?" />

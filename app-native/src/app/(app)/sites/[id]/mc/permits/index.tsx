@@ -28,7 +28,7 @@ function Chip({ on, label, onPress }: { on: boolean; label: string; onPress: () 
 export default function Permits() {
   // ?co=<company>: one subcontractor's own permits (from their hub).
   const { id, co: fixedCo } = useLocalSearchParams<{ id: string; co?: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: site } = useSite(id);
@@ -79,7 +79,7 @@ export default function Permits() {
             <>
               <Muted style={{ fontWeight: '600' }}>Contractor</Muted>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 8 }}>
-                <Chip on={!co} label="RTB (no subcontractor)" onPress={() => { setCo(null); setWho(new Set()); }} />
+                <Chip on={!co} label={`${org?.name || 'Our Company'} (No Subcontractor)`} onPress={() => { setCo(null); setWho(new Set()); }} />
                 {data.companies.map((c) => <Chip key={c.id} on={co === c.id} label={c.name} onPress={() => { setCo(c.id); setWho(new Set()); }} />)}
               </View>
             </>

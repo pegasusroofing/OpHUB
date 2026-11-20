@@ -24,7 +24,9 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
   const tickFolder = async () => {
-    await page.getByText('File In Project PO Folder', {exact: true}).click(); await page.waitForTimeout(800);
+    // The PO is in tabs since 20 Nov 2026: the filing tick is on the last tab.
+    const t = page.getByRole('tab', {name: /^(Raise|Save & Send)/}); if (await t.count()) { await t.first().click(); await page.waitForTimeout(500); }
+    await page.getByText(/^File In Project PO Folder/).first().click(); await page.waitForTimeout(800);
     const yes = page.locator('text="Yes, Tick It" >> visible=true'); if (await yes.count()) await yes.last().click();
     let seen = '';
     for (let i = 0; i < 24; i++) { await page.waitForTimeout(250); const t = await page.locator('body').innerText(); if (/Filed in the project/.test(t)) { seen = t; break; } }
