@@ -73,7 +73,7 @@
 - 30 send and notify functions hardened. Repo copies are in `supabase/functions/`.
 - The `xero` and `finance-inbox` repo copies match live.
 - When redeploying, keep each function's `verify_jwt` setting as it is live.
-- `finance-report-run` (verify_jwt off): the repo copy of `book.ts` is one line ahead of live (6 Nov 2026: draft POs, `purchase_orders.is_draft`, are not counted as ordered). Redeploy it with the next server deploy; until then the scheduled reports count a draft PO as ordered.
+- `finance-report-run` (verify_jwt off): v3 deployed 20 Nov 2026, matching the repo byte for byte. It brought live the 6 Nov rule (draft POs aren't counted as ordered) and the 20 Nov one (a labour price sheet's order is a guide, not committed cost: only operatives' invoices count as labour).
 - **Recommended at the next server deploy (overnight review, 7 Nov):** server-side Finance trial guards.
   - `xero` and `send-finance-email` don't check the trial themselves. Only the apps do.
   - Copy finance-inbox's `FIN_TRIAL` / `FIN_SANDBOX_ORGS` check into both:

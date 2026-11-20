@@ -1,6 +1,7 @@
 // O&M: a data sheet added to the job after the manual started comes in; pick from the COSHH Library; attach a file to a row.
 const fs = require('fs'), os = require('os'), path = require('path');
 const {chromium, makeContext, S1} = require('./harness');
+const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) process.exitCode = 1; };
 (async()=>{
   const BASE = 'http://localhost:8081';
   const browser = await chromium.launch(); const errs = [];
@@ -22,8 +23,11 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/sites/'+S1+'/om/om1'); await page.waitForTimeout(6000);
-  console.log('guarantee row after open:', JSON.stringify(db.handover_om_manuals[0].data.sections[2].rows[0]));
-  await page.getByText('📚 Choose data sheets from the COSHH Library').click(); await page.waitForTimeout(2000);
+  const g = db.handover_om_manuals[0].data.sections[2].rows[0] || [];
+  check(g.includes('G1'), `a guarantee added after the manual started comes into its table (${JSON.stringify(g)})`);
+  // The rest of the manual is folded: tap a section to open it.
+  await page.getByText('3. Materials Log', {exact:true}).first().click(); await page.waitForTimeout(800);
+  await page.getByText('📚 Choose Data Sheets From The COSHH Library').click(); await page.waitForTimeout(2000);
   await page.getByText('Gripfill Adhesive').click(); await page.waitForTimeout(300);
   await page.screenshot({path:'shots/om-lib.png'});
   await page.getByText(/^Add 1 ticked$/).click(); await page.waitForTimeout(500);
@@ -31,7 +35,9 @@ const {chromium, makeContext, S1} = require('./harness');
   await fc.setFiles(f); await page.waitForTimeout(4000);
   await page.screenshot({path:'shots/om-rows.png', fullPage:true});
   const m = db.handover_om_manuals[0].data.sections[1];
-  console.log('materials rows:', JSON.stringify(m.rows), 'links:', JSON.stringify(m.links.map(l=>(l||[]).map(x=>x.name))));
-  console.log('errors', errs.join(' / ').slice(0,400) || 'none');
-  await browser.close(); process.exit(0);
+  const rowsTxt = JSON.stringify(m.rows), linksTxt = JSON.stringify(m.links.map(l=>(l||[]).map(x=>x.name)));
+  check(/Gripfill Adhesive/.test(rowsTxt) && /Everbuild/.test(rowsTxt), `the library's data sheet adds a Materials Log row (${rowsTxt})`);
+  check(/Ridge_vent_spec\.pdf/.test(linksTxt), `📎 Attach links the file to the row (${linksTxt})`);
+  check(!errs.length, `no page errors ${errs.join(' / ').slice(0,400)}`);
+  await browser.close();
 })();

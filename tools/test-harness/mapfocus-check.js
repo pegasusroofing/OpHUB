@@ -1,5 +1,5 @@
 // PM home (Andy, 5 Nov 2026): the sites map opens on where most jobs are (a London group, not the whole
-// country), and the "Pick up where you left off" card lines up with the tiles. Fake database, real map tiles and postcodes.
+// country). (Its "Pick up where you left off" card went in the Home redesign.) Fake database, real map tiles and postcodes.
 // node mapfocus-check.js
 const {chromium, makeContext} = require('./harness');
 const path = require('path');
@@ -19,12 +19,19 @@ const PCS = ['EC1A 1BB', 'SW1A 1AA', 'E14 5AB', 'N1 9GU', 'CM1 1HT', 'M1 1AE', '
     await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
     await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
     await page.goto(B + '/home'); await page.waitForTimeout(10000);
-    const boxes = []; for (const b of await page.getByRole('button', {name: /^(Calendar|Deliveries|HR|Admin)$/}).all()) { const bb = await b.boundingBox(); if (bb && bb.width) boxes.push(bb); }
-    const card = await page.getByText('Daily report', {exact: true}).first().locator('xpath=ancestor::*[@tabindex][1]').boundingBox();
-    const L = Math.min(...boxes.map((b) => b.x)), R = Math.max(...boxes.map((b) => b.x + b.width));
-    check(card && Math.abs(card.x - L) < 1.5 && Math.abs(card.x + card.width - R) < 1.5, `${W}: card edges ${card && Math.round(card.x)}–${card && Math.round(card.x + card.width)} match the tiles ${Math.round(L)}–${Math.round(R)}`);
-    const canvas = page.locator('canvas').first(); if (await canvas.count()) { await canvas.scrollIntoViewIfNeeded(); await page.waitForTimeout(5000); }
-    console.log(W, 'pins', await page.locator('.smpin').evaluateAll((els) => els.map((e) => e.title + ' ' + Math.round(e.getBoundingClientRect().x) + ',' + Math.round(e.getBoundingClientRect().y)).join(' | ')));
+    // The "Pick up where you left off" card went in the Home redesign; the map is on a computer only.
+    const canvas = page.locator('canvas').first();
+    if (W >= 1000) {
+      check(await canvas.count() > 0, `${W}: the sites map is on Home`);
+      if (await canvas.count()) { await canvas.scrollIntoViewIfNeeded(); await page.waitForTimeout(5000); }
+      const m = await canvas.boundingBox();
+      const pins = await page.locator('.smpin').evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return {t: e.title || '', x: r.x + r.width / 2, y: r.y + r.height / 2}; }));
+      const inView = (pc) => pins.some((p) => p.t.includes(pc) && m && p.x >= m.x && p.x <= m.x + m.width && p.y >= m.y && p.y <= m.y + m.height);
+      const london = ['EC1A 1BB', 'SW1A 1AA', 'E14 5AB', 'N1 9GU'].filter(inView);
+      check(london.length === 4 && !inView('G1 1XQ') && !inView('M1 1AE'), `${W}: the map opens on the London group, not the whole country (London pins in view ${london.length}/4, Glasgow ${inView('G1 1XQ')}, Manchester ${inView('M1 1AE')})`);
+    } else {
+      check(await canvas.count() === 0, `${W}: no map on a phone (computer only)`);
+    }
     await page.screenshot({path: path.join(__dirname, 'shots', 'job', `mapfocus-${W}.png`)});
     await ctx.close();
   }

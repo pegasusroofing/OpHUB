@@ -1,6 +1,8 @@
--- SECURITY FIXES FOUND BY THE 20 NOV 2026 REVIEW — NOT APPLIED. They change things the current app relies on, so they
--- need Andy's go-ahead (CLAUDE.md). To apply: Supabase › SQL Editor › paste this whole file › Run. Each part is safe to
--- run again. Nothing is deleted; no data changes except refusing bad links going forward.
+-- SECURITY FIXES FOUND BY THE 20 NOV 2026 REVIEW — APPLIED 20 Nov 2026 with Andy's go-ahead ("Can you do the sql
+-- please"), as migration security_fixes_20nov_sheet_order_same_job_expenses_insert (the policy kept "to authenticated",
+-- as it was live). Proven after with a self-undoing test: another job's order left alone and the sheet's own job given
+-- its order; an operative's expense on their own job or no job allowed, on another company's job refused; a client's
+-- refused. Each part is safe to run again. Nothing is deleted; no data changes except refusing bad links going forward.
 --
 -- 1. (Medium) The older trigger that turns an issued labour price sheet into a Finance subcontract order
 --    (fin_sheet_to_order) trusts price_builder_sheets.fin_subcontract_id, which any PM or site manager can set. Pointed at
@@ -41,6 +43,6 @@ end $function$;
 --    hides Expenses from clients and needs a job in the company; this makes the database match. Operatives can still
 --    send them (the current app's operatives use it).
 drop policy if exists "member insert own expenses" on public.expenses;
-create policy "member insert own expenses" on public.expenses for insert
+create policy "member insert own expenses" on public.expenses for insert to authenticated
   with check ((org_id = (select my_org_id())) and (created_by = (select auth.uid())) and not (select is_client())
               and (site_id is null or site_in_my_org(site_id)));

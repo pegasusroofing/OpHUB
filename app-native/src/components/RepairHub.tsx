@@ -169,8 +169,8 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
       toast(!r.linked ? 'Link a OneDrive folder first.' : r.failed ? `${r.done} sent to OneDrive, ${r.failed} didn’t go — they’ll retry` : `Sent to OneDrive (${r.done} photo${r.done === 1 ? '' : 's'})`); return;
     }
     if (k === 'delete') {
-      if (!(await confirmAsk('Permanently delete this job and all its photos? This can’t be undone.', 'Delete'))) return;
-      if (await deleteRepairJob(job)) { toast('Job deleted'); void qc.invalidateQueries({ queryKey: ['repairJobs'] }); router.back(); } else toast('Could not delete — try again.');
+      if (!(await confirmAsk('Permanently delete this job and all its photos? This can’t be undone.', 'Yes', 'No'))) return;
+      if (await deleteRepairJob(job)) { void qc.invalidateQueries({ queryKey: ['repairJobs'] }); router.back(); } else toast('Could not delete — try again.');
       return;
     }
     // Quote Update ▾ (Andy, 8 Nov 2026): the client's answer. Rejected puts it back to Quotation Required for a new price;

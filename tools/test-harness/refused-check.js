@@ -1,6 +1,7 @@
 // The database's rules refuse a delete without an error (0 rows back): the app must say it couldn't
 // delete, and must NOT remove the job's files from storage. Then allowed: deleted and files removed.
 const {chromium, makeContext, S1} = require('./harness');
+const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) process.exitCode = 1; };
 (async()=>{
   const BASE = 'http://localhost:8081';
   const browser = await chromium.launch(); const errs = [];
@@ -18,13 +19,15 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   const del = async () => {
     await page.goto(BASE+'/sites/'+S1+'/repairs/job/rj1'); await page.waitForTimeout(6000);
-    await page.locator('text="Delete Job" >> visible=true').click(); await page.waitForTimeout(500);
-    await page.locator('text="Delete" >> visible=true').last().click(); await page.waitForTimeout(2500);
+    // Update ▾ › Delete The Job, then the Yes / No question (20 Nov).
+    await page.locator('text="Update ▾" >> visible=true').last().click(); await page.waitForTimeout(500);
+    await page.locator('text="Delete The Job" >> visible=true').last().click(); await page.waitForTimeout(500);
+    await page.locator('text="Yes" >> visible=true').last().click(); await page.waitForTimeout(2500);
   };
   await del();
-  console.log('refused: toast', await page.getByText('Could not delete — try again.').count(), '| job kept', db.repair_jobs.length, '| files removed', removed.length);
+  check(await page.getByText('Could not delete — try again.').count() > 0 && db.repair_jobs.length === 1 && removed.length === 0, `refused: it says it couldn't delete, keeps the job, removes no files (jobs ${db.repair_jobs.length}, files removed ${removed.length})`);
   refuse = false; await del();
-  console.log('allowed: job left', db.repair_jobs.length, '| files removed', removed.length);
-  console.log('errors', errs.join(' / ').slice(0,400) || 'none');
-  await browser.close(); process.exit(0);
+  check(db.repair_jobs.length === 0 && removed.length > 0, `allowed: the job and its files are removed (jobs ${db.repair_jobs.length}, files removed ${removed.length})`);
+  check(!errs.length, `no page errors ${errs.join(' / ').slice(0,400)}`);
+  await browser.close();
 })();

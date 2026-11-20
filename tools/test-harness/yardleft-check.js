@@ -31,8 +31,11 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
 
   await page.goto(B + '/fin/yard'); await page.waitForTimeout(4000);
   check(await page.getByText('Stock Take', {exact: true}).count() > 0, 'finance yard: Stock Take button');
-  await page.getByText('⬇ Book stock in', {exact: true}).first().click(); await page.waitForTimeout(4000);
-  await page.locator('text=/^Slates/ >> visible=true').first().click(); await page.waitForTimeout(300);
+  // A row's ⬇ Book In › New Delivery opens the full form with that item chosen (14 Nov).
+  const slatesRow = page.locator('text=/^Slates/ >> visible=true').first().locator('xpath=ancestor::*[.//*[text()="⬇ Book In"]][1]');
+  await slatesRow.getByText('⬇ Book In', {exact: true}).first().click(); await page.waitForTimeout(800);
+  await page.locator('text="New Delivery" >> visible=true').last().click(); await page.waitForTimeout(4000);
+  check(await page.locator('text=/^▼ Slates/ >> visible=true').count() > 0, 'book in: the row\'s item is already chosen');
   await page.getByText('Leftovers back from a job').click(); await page.waitForTimeout(300);
   check(await page.locator('input[placeholder="From (supplier)"] >> visible=true').count() === 0, 'book in: leftovers hide the supplier box');
   await page.locator('input[placeholder="Qty, e.g. 40"] >> visible=true').fill('8');

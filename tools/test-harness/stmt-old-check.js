@@ -3,6 +3,7 @@
 // A route written as /path>>Button text also clicks that button and reports the file it downloads.
 const {chromium, makeContext, S1} = require('./harness');
 const seed = require('./fresh/seed');
+const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) process.exitCode = 1; };
 (async()=>{
   const BASE = 'http://localhost:8081';
   const browser = await chromium.launch(); const errs = [];
@@ -31,13 +32,18 @@ const seed = require('./fresh/seed');
   // Upload a supplier statement (STMT env = path) and match it
   await page.goto(BASE+'/fin/statements'); await page.waitForTimeout(6000);
   const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout:15000}), page.getByText('⬆ Upload Statement', {exact:true}).click()]);
-  await fc.setFiles(process.env.STMT); await page.waitForTimeout(6000);
+  await fc.setFiles(process.env.STMT || require('path').join(__dirname, 'shots', 'samples', 'stmt.csv')); await page.waitForTimeout(6000);
+  check(await page.getByText(/2 lines read/).count() > 0, 'the statement\'s 2 lines are read');
   await page.getByPlaceholder('Start typing…').fill('SIG Roofing');
-  await page.getByText('Match the invoices', {exact:true}).click(); await page.waitForTimeout(5000);
+  // The pop-up's button is Upload Statement now (it saves and matches).
+  await page.locator('text="Upload Statement" >> visible=true').last().click(); await page.waitForTimeout(5000);
   const st = (db.fin_statements||[]).slice(-1)[0];
-  console.log('statement:', st && JSON.stringify({supplier: st.supplier_name, date: st.statement_date, file: !!st.file_path, lines: st.lines.map(l=>[l.date, l.ref, l.type, l.amount, l.match||null])}));
+  const summary = st && JSON.stringify({supplier: st.supplier_name, date: st.statement_date, file: !!st.file_path, lines: (st.lines || []).map(l=>[l.date, l.ref, l.type, l.amount, l.match||null])});
+  check(!!st && st.supplier_name === 'SIG Roofing' && !!st.file_path && (st.lines || []).length === 2, `the statement saves with its supplier, file and lines (${summary})`);
+  await page.screenshot({path:'shots/stmt-old.png'});
   const t = (await page.evaluate(()=>document.body.innerText)).replace(/\s+/g,' ');
-  console.log('page:', (t.match(/SIG Roofing.{0,200}/)||[''])[0]);
-  console.log('errors:', errs.join(' / ').slice(0,400) || 'none');
-  await browser.close(); process.exit(0);
+  // Uploading opens the statement: its lines, the balance and what's matched.
+  check(/INV-100/.test(t) && /INV-101/.test(t) && /2 lines/.test(t) && /£180\.00/.test(t), 'the statement opens with its lines and balance, ready to match');
+  check(!errs.length, `no page errors ${errs.join(' / ').slice(0,400)}`);
+  await browser.close();
 })();

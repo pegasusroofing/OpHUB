@@ -87,7 +87,8 @@ async function as(browser, role, perms, extra) {
   // 5. The board says what Site Managers can't do.
   u = await as(browser, 'admin', null);
   await u.page.goto(B + '/pm/admin/roles'); await u.page.waitForTimeout(4000);
-  await u.page.getByLabel('Role', {exact: true}).click(); await u.page.waitForTimeout(600);
+  // The board shares the Your Roles card and its ▾ (Andy, 18 Nov 2026).
+  await u.page.getByLabel('Your Roles', {exact: true}).first().click(); await u.page.waitForTimeout(600);
   await u.page.getByText('Site Manager', {exact: true}).last().click(); await u.page.waitForTimeout(800);
   check(/Site Managers only see the jobs they.re put on and can.t make projects/.test(await u.text()), 'the board explains Site Managers’ limits');
   errs.push(...u.errs); await u.page.context().close();

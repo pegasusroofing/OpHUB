@@ -6,6 +6,8 @@
 // node laptop14b-check.js
 const {chromium, makeContext} = require('./harness');
 const path = require('path');
+// OneDrive can briefly lock a screenshot it is still syncing; a missed picture is not a failed check.
+let page; const snap = (o) => page.screenshot(o).catch((e) => console.log('screenshot skipped: ' + String(e.message).slice(0, 120)));
 const seed = require('./fresh/seed');
 const B = 'http://localhost:8081';
 const SHOTS = path.join(__dirname, 'shots', 'rams14');
@@ -33,7 +35,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   ]);
   db.job_finance = (db.job_finance || []).filter((j) => j.site_id !== S1).concat([{id: 'jf1', org_id: O, site_id: S1, billing_type: 'application', ret1_invoice_id: 'rinv1'}]);
   db.sites.find((s) => s.id === S1).status = 'closed';
-  const page = await ctx.newPage(); page.on('pageerror', (e) => errs.push(e.message));
+  page = await ctx.newPage(); page.on('pageerror', (e) => errs.push(e.message));
   page.on('dialog', (d) => d.accept());
   await page.goto(B + '/login'); await page.waitForTimeout(5000);
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
@@ -51,12 +53,12 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   const st = await page.getByText('Stock Take', {exact: true}).filter({visible: true}).first().boundingBox();
   const tab = await page.getByText('Stock', {exact: true}).filter({visible: true}).first().boundingBox();
   check(!!st && !!tab && Math.abs((st.y + st.height / 2) - (tab.y + tab.height / 2)) < 8 && st.x > 1000, 'yard: Stock Take on the right of the Stock / Plant row');
-  await page.screenshot({path: path.join(SHOTS, 'laptop-yard2.png')});
+  await snap({path: path.join(SHOTS, 'laptop-yard2.png')});
   await page.getByText('⬆ Book Out', {exact: true}).filter({visible: true}).nth(1).click(); await page.waitForTimeout(800);
   await page.getByText('To A Job', {exact: true}).filter({visible: true}).first().click(); await page.waitForTimeout(1200);
   t = await body();
   check(/Book Out To A Job/.test(t) && /Ridge Tiles: 75/.test(t), 'yard: a row\'s Book Out opens the form for that item');
-  await page.screenshot({path: path.join(SHOTS, 'laptop-yard-bookout.png')});
+  await snap({path: path.join(SHOTS, 'laptop-yard-bookout.png')});
   await page.keyboard.press('Escape'); await page.waitForTimeout(500);
 
   // ---- Yard › Plant ----
@@ -65,28 +67,26 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   t = await body();
   const ap = await page.getByText('+ Add Plant', {exact: true}).filter({visible: true}).first().locator('..').boundingBox().catch(() => null);
   check(!!ap && ap.width > 800 && !/Search item, number, person or job/.test(t), `plant: + Add Plant across the page, no search bar (${ap && Math.round(ap.width)})`);
-  await page.screenshot({path: path.join(SHOTS, 'laptop-plant.png')});
+  await snap({path: path.join(SHOTS, 'laptop-plant.png')});
 
   // ---- Price Lists ----
   await page.goto(B + '/fin/purchases?tab=prices'); await page.waitForTimeout(4500);
   check(await page.locator('[aria-label="Price lists"] >> visible=true').count() === 0 && /Bauder/.test(await body()) && /PRICE LISTS|Price Lists/.test(await body()), 'price lists: the laptop table (not the phone one)');
-  await page.screenshot({path: path.join(SHOTS, 'laptop-pricelists2.png')});
+  await snap({path: path.join(SHOTS, 'laptop-pricelists2.png')});
 
-  // ---- Back goes to the tab you were on ----
+  // ---- Back goes up a level; a tab isn't a level (Andy, 18 Nov, replacing 14 Nov's "back to the tab you were on") ----
   await page.goto(B + '/fin/purchases?tab=invoices'); await page.waitForTimeout(4000);
   await page.getByText('Purchase Orders', {exact: true}).filter({visible: true}).first().click(); await page.waitForTimeout(2500);
   await page.getByText('Plant Hire', {exact: true}).filter({visible: true}).first().click(); await page.waitForTimeout(2500);
   await page.locator('[aria-label="Back"] >> visible=true').first().click(); await page.waitForTimeout(2500);
-  check(/tab=orders/.test(page.url()), `back: to Purchase Orders, the tab before (${page.url().split('8081')[1]})`);
-  await page.locator('[aria-label="Back"] >> visible=true').first().click(); await page.waitForTimeout(2500);
-  check(/tab=invoices/.test(page.url()), `back again: to Purchase Invoices (${page.url().split('8081')[1]})`);
+  check(/\/fin(\?|$)/.test(page.url()), `back: from a Purchases tab up to Finance, not the tab before (${page.url().split('8081')[1]})`);
 
   // ---- Retention ----
   await page.goto(B + '/fin/sales?tab=retention'); await page.waitForTimeout(5000);
   t = await body();
   check(/Date Of PC/i.test(t) && /Retention/i.test(t) && /Released/i.test(t), 'retention: Date Of PC, Retention and Released columns');
   check(/£2,000\.00/.test(t) && /£1,000\.00/.test(t) && /20 Oct 2026 \(Final Invoice\)/.test(t), 'retention: total £2,000, released £1,000, PC date from the final invoice on a closed job');
-  await page.screenshot({path: path.join(SHOTS, 'laptop-retention.png')});
+  await snap({path: path.join(SHOTS, 'laptop-retention.png')});
 
   // ---- Draft invoice: Tab into an empty box and type ----
   await page.goto(B + `/fin/job/${S1}/invoice/dinv1`); await page.waitForTimeout(5000);
@@ -100,7 +100,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   const bar = await page.getByText('Issue Invoice', {exact: true}).filter({visible: true}).first().boundingBox();
   const save = await page.getByText('Save Draft', {exact: true}).filter({visible: true}).first().locator('..').boundingBox();
   check(!!save && save.x >= 248 + 40 - 2, `invoice: Save / Issue / Delete inside the page's edges (${save && Math.round(save.x)})`);
-  await page.screenshot({path: path.join(SHOTS, 'laptop-invoice-draft.png')});
+  await snap({path: path.join(SHOTS, 'laptop-invoice-draft.png')});
 
   // ---- Export footer words inside the page's edges (Reports: full width under the page) ----
   await page.goto(B + `/fin/job/${S1}/costs`); await page.waitForTimeout(4500);

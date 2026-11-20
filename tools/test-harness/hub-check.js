@@ -39,12 +39,17 @@ const ago = (mins) => new Date(Date.now() - mins * 60000).toISOString();
   const tabLabel = async (name) => (await page.getByRole('tab', {name: new RegExp('^' + name)}).first().getAttribute('aria-label')) || '';
   const body = async () => page.locator('body').innerText();
 
+  // Finance's own to-dos depend on today's date as well as the seed (an application falls due as the weeks pass), so
+  // count the ones showing: at least the 3 undated ones (overdue invoices, invoices to approve, no client PO). 20 Nov.
+  const FIN_TODOS = ['Applications Not Raised By Their Date', 'Overdue Invoices', 'Purchase Invoices To Approve', 'Unallocated Purchase Invoices', 'Subcontractor Applications To Certify', 'Retention To Claim Back', 'Plant On Hire Over 4 Weeks', 'Live Projects With No Client PO', 'Live Projects With No Contract Value'];
+  await hub('finance');
+  const finBody = await body(), own = FIN_TODOS.filter((x) => finBody.includes(x)).length;
   await hub();
   const fin = await tabLabel('Finance'), chat = await tabLabel('Company Chat'), all = await tabLabel('All');
-  check(/Finance, 6$/.test(fin), 'Finance tab counts 6: 3 sent to me, and Finance’s 3 to-dos as I’m a Finance user (' + fin + ')');
+  check(own >= 3 && new RegExp('Finance, ' + (3 + own) + '$').test(fin), 'Finance tab counts the 3 sent to me plus Finance’s ' + own + ' to-dos as I’m a Finance user (' + fin + ')');
   check(/Company Chat, 2$/.test(chat), 'Company Chat counts the 2 messages from other people (' + chat + ')');
   check(/All, \d+$/.test(all), 'All (was Everything, now the last tab) has a count (' + all + ')');
-  const red = await page.evaluate(() => { const t = [...document.querySelectorAll('[role="tab"]')].find((x) => /^Finance/.test(x.getAttribute('aria-label') || '')); const n = t && [...t.querySelectorAll('div')].find((d) => d.textContent === '6'); return n ? getComputedStyle(n).backgroundColor : ''; });
+  const red = await page.evaluate((n0) => { const t = [...document.querySelectorAll('[role="tab"]')].find((x) => /^Finance/.test(x.getAttribute('aria-label') || '')); const n = t && [...t.querySelectorAll('div')].find((d) => d.textContent === n0); return n ? getComputedStyle(n).backgroundColor : ''; }, String(3 + own));
   check(red === 'rgb(227, 38, 43)', 'the counts are red (' + red + ')');
   let t = await body();
   check(/Finance · Purchase Invoice To Book/.test(t) && /Company Chat · Tagged You/.test(t) && /Projects · /.test(t), 'Everything says which area each item is from');
@@ -84,7 +89,7 @@ const ago = (mins) => new Date(Date.now() - mins * 60000).toISOString();
   check(!/Jewson/.test(t), 'the booked invoice has dropped off');
   check(!/Wages To Book/.test(t), 'the booked wages have dropped off');
   check(!/Is this delivery yours/.test(t), 'the answered query has dropped off');
-  check(/Finance, 3$/.test(await tabLabel('Finance')), 'Finance counts only its own 3 to-dos now, still to do (' + await tabLabel('Finance') + ')');
+  check(new RegExp('Finance, ' + own + '$').test(await tabLabel('Finance')), 'Finance counts only its own ' + own + ' to-dos now, still to do (' + await tabLabel('Finance') + ')');
 
   // The Company Chat.
   await page.getByRole('tab', {name: /^Company Chat/}).click(); await page.waitForTimeout(2500);

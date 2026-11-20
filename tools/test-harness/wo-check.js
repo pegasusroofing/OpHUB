@@ -3,6 +3,7 @@
 // A route written as /path>>Button text also clicks that button and reports the file it downloads.
 const {chromium, makeContext, S1} = require('./harness');
 const seed = require('./fresh/seed');
+const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) process.exitCode = 1; };
 (async()=>{
   const BASE = 'http://localhost:8081';
   const browser = await chromium.launch(); const errs = [];
@@ -30,9 +31,18 @@ const seed = require('./fresh/seed');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   // Bulk add a repair job from a work order PDF (WO env = path to the PDF)
   await page.goto(BASE+'/sites/'+S1+'/repairs'); await page.waitForTimeout(6000);
-  const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout:15000}), page.getByText('📥 Bulk add from work orders', {exact:true}).click()]);
-  await fc.setFiles(process.env.WO); await page.waitForTimeout(12000);
-  console.log('jobs:', JSON.stringify((db.repair_jobs||[]).map(j=>[j.job_number, j.address, j.description, !!j.work_order_path])));
-  console.log('errors:', errs.join(' / ').slice(0,400) || 'none');
-  await browser.close(); process.exit(0);
+  // + New Job (Read Works Order) › 📎 Upload Works Order/Orders: one fills in the form, several make a job each (9 Nov).
+  await page.getByText('+ New Job (Read Works Order)', {exact:true}).click(); await page.waitForTimeout(800);
+  const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout:15000}), page.getByText('📎 Upload Works Order/Orders', {exact:true}).click()]);
+  // A works order laid out like the real ones (the lines in workOrder.test.ts; made by pdf-lib, 20 Nov).
+  await fc.setFiles(require('path').join(__dirname, 'shots', 'samples', 'wo-read.pdf')); await page.waitForTimeout(12000);
+  await page.screenshot({path:'shots/wo-read.png'});
+  const val = (ph) => page.locator(`input[placeholder="${ph}"] >> visible=true`).first().inputValue().catch(() => '');
+  const num = await val('Works Order Number'), addr = await val('Address (With The Postcode, For The Check-In)');
+  check(num === 'WO-12345' && /14 High Street/i.test(addr), `reading the works order fills in the form (${num} / ${addr})`);
+  await page.locator('text="Add Job" >> visible=true').last().click(); await page.waitForTimeout(4000);
+  const made = (db.repair_jobs||[]).filter(j=>j.id!=='rj1');
+  check(made.length === 1 && made[0].job_number === 'WO-12345' && /Leak above bedroom window/.test(made[0].description || '') && !!made[0].work_order_path, `Add Job saves it with the works order PDF (${JSON.stringify(made.map(j=>[j.job_number, j.address, j.description, !!j.work_order_path]))})`);
+  check(!errs.length, `no page errors ${errs.join(' / ').slice(0,400)}`);
+  await browser.close();
 })();

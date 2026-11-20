@@ -1,4 +1,5 @@
-// The sites map on the PM home page is in colour (Andy, 5 Nov 2026), fake database, real map tiles and postcodes.
+// The sites map on the PM home page: in colour from 5 Nov 2026, back to light grey Positron with darker roads on 14 Nov.
+// Fake database, real map tiles and postcodes.
 // node mapcolour-check.js
 const {chromium, makeContext} = require('./harness');
 const path = require('path');
@@ -20,7 +21,8 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
     await page.screenshot({path: path.join(__dirname, 'shots', 'job', `mapcolour-${W}.png`)});
     await ctx.close();
   }
-  check(styles.some((u) => /liberty/.test(u)) && !styles.some((u) => /positron/.test(u)), `map uses the colour style (${[...new Set(styles)].join(', ') || 'no map loaded'})`);
+  // Back to light grey Positron (Andy, 14 Nov 2026), with the roads a shade darker and London's boroughs named.
+  check(styles.some((u) => /positron/.test(u)) && !styles.some((u) => /liberty/.test(u)), `map uses the light grey Positron style (${[...new Set(styles)].join(', ') || 'no map loaded'})`);
   check(!errs.length, `no errors ${errs.slice(0, 2).join(' | ')}`);
   await browser.close();
 })();

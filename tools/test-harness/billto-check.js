@@ -1,5 +1,6 @@
 // Bill to: picked from the Directory on Project details (address / email follow), and a Directory change carries to the project.
 const {chromium, makeContext, S1} = require('./harness');
+const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) process.exitCode = 1; };
 (async()=>{
   const BASE = 'http://localhost:8081';
   const browser = await chromium.launch(); const errs = [];
@@ -14,12 +15,15 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/fin/job/'+S1); await page.waitForTimeout(5000);
   await page.getByText('Project Admin', {exact:true}).first().click(); await page.waitForTimeout(1500);
-  await page.getByText(/^Edit/).first().click().catch(()=>{}); await page.waitForTimeout(1000);
-  const sel = page.getByText('Not set ▾'); if (await sel.count()) { await sel.first().click(); } await page.waitForTimeout(400);
-  await page.getByText('Bellway Homes', {exact:true}).last().click(); await page.waitForTimeout(300);
+  // Edit ▾ › Edit Project Financials; the Client box picks from the Directory.
+  await page.getByText('Edit ▾', {exact:true}).first().click(); await page.waitForTimeout(600);
+  await page.locator('text="Edit Project Financials" >> visible=true').last().click(); await page.waitForTimeout(1200);
+  await page.locator('text=/^Not set/ >> visible=true').first().click(); await page.waitForTimeout(500);
+  await page.locator('text="Bellway Homes" >> visible=true').last().click(); await page.waitForTimeout(300);
   await page.screenshot({path:'shots/billto.png'});
-  await page.getByText('Save', {exact:true}).last().click(); await page.waitForTimeout(2500);
-  console.log('after project save:', JSON.stringify(db.job_finance[0].billing_name), JSON.stringify(db.job_finance[0].billing_email), JSON.stringify(db.job_finance[0].billing_address));
-  console.log('errors', errs.join(' / ').slice(0,400) || 'none');
-  await browser.close(); process.exit(0);
+  await page.locator('text="Save" >> visible=true').last().click(); await page.waitForTimeout(2500);
+  const jf = db.job_finance[0];
+  check(jf.billing_name === 'Bellway Homes' && jf.billing_email === 'accounts@bellway.test' && /1 Bellway Rd/.test(jf.billing_address || '') && /NE1 1AA/.test(jf.billing_address || ''), `picking the Directory client fills the bill-to name, email and address (${JSON.stringify([jf.billing_name, jf.billing_email, jf.billing_address])})`);
+  check(!errs.length, `no page errors ${errs.join(' / ').slice(0,400)}`);
+  await browser.close();
 })();

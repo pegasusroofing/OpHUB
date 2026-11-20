@@ -11,6 +11,17 @@ test('split rows share their cost', () => {
   assert.deepEqual(allocs({ site_id: 'S', items: [{ sub_job_id: 'a', amount: 30 }, { sub_job_id: 'b', amount: 10 }] }, { poBy: {} }).map((a) => [a.sub, a.share]), [['a', 0.75], ['b', 0.25]]);
 });
 
+test('a labour price sheet’s order is a guide, not committed cost (Andy, 20 Nov 2026)', () => {
+  const b = empty();
+  b.scs = [
+    { id: 'sc1', site_id: 'S', number: 'SC-001', name: 'Sheet gang', order_value: 5000, status: 'open', price_sheet_id: 'ps1', source: 'price_sheet', created_at: '2026-11-20' },
+    { id: 'sc2', site_id: 'S', number: 'SC-002', name: 'Scaffolders', order_value: 3000, status: 'open', price_sheet_id: null, source: null, created_at: '2026-11-20' },
+  ];
+  const fc = forecast(b, 'S', null);
+  assert.deepEqual(costLines(b, 'S').filter((l) => l.cat === 'committed').map((l) => [l.ref, l.net]), [['SC-002', 3000]]);
+  assert.equal(fc.committedTotal, 3000);
+});
+
 test('cost lines and forecast for a job', () => {
   const b = empty();
   b.jf = [{ site_id: 'S', contract_value: 10000, ohp_pct: 10 }];

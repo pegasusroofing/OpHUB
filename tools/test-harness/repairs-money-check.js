@@ -42,7 +42,9 @@ const setup = (db) => {
   let t = await text();
   check(/Live Jobs/.test(t) && /Costs By Job/.test(t) && /Schedule Of Rates/.test(t), 'phone: tabs Live Jobs, Costs By Job, Schedule Of Rates');
   // Tabs in place of the boxes (Andy, 9 Nov 2026): All first, the jobs listed under it straight away.
-  check(/^All/.test((await page.getByRole('tab').nth(3).innerText()).trim()) && /WO-1003/.test(await page.getByLabel('Jobs table').innerText()), 'phone: the stage tabs, All first, its jobs listed');
+  // The stage tabs come straight after the Live Jobs / Costs By Job / Schedule Of Rates tabs (the project's own tab row above can grow).
+  const tabTexts = (await page.getByRole('tab').allInnerTexts()).map((x) => x.trim());
+  check(/^All/.test(tabTexts[tabTexts.indexOf('Schedule Of Rates') + 1] || '') && /WO-1003/.test(await page.getByLabel('Jobs table').innerText()), `phone: the stage tabs, All first, its jobs listed (${tabTexts[tabTexts.indexOf('Schedule Of Rates') + 1]})`);
   check(await page.getByRole('button', {name: 'Export Excel'}).count() === 1 && /3 Jobs/.test(t), 'phone: footer is the jobs and Export Excel');
   const fb = await page.getByRole('button', {name: 'Export Excel'}).boundingBox();
   check(!!fb && fb.x + fb.width <= 375, 'phone: Export Excel fits on the screen');

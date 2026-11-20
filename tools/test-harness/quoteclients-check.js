@@ -47,7 +47,8 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.locator('input >> visible=true').nth(3).fill('J778');
   check(await page.locator('input >> visible=true').nth(4).inputValue() === 'Persimmon', 'Create Project is filled in for the client it was won from');
   await page.locator('text="Upcoming" >> visible=true').last().click();
-  await page.locator('text="Choose a date" >> visible=true').last().click({force: true}); await page.waitForTimeout(600); await page.getByText('Today', {exact: true}).last().click(); await page.waitForTimeout(400);
+  // The form's Start Date (the quote behind also has a Next Chase "Choose a date").
+  await page.locator('text="Choose a date" >> visible=true').first().click({force: true}); await page.waitForTimeout(600); await page.getByText('Today', {exact: true}).last().click(); await page.waitForTimeout(400);
   await page.locator('text="Create Project" >> visible=true').last().click(); await page.waitForTimeout(5000);
   const q = db.quotes.find((x) => x.id === 'q1');
   const site = (db.sites || []).find((s) => s.id === q.site_id);
@@ -57,11 +58,12 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
 
   await page.goto(B + '/pm/quotes'); await page.waitForTimeout(4000);
   await page.getByRole('tab', {name: /^All/}).first().click(); await page.waitForTimeout(800);
-  // The View drop-down went (11 Nov 2026): the Filter's Customer list has every client on a quote.
-  await page.getByLabel('Filter', {exact: true}).first().click(); await page.waitForTimeout(600);
-  await page.getByLabel('Customer', {exact: true}).first().click(); await page.waitForTimeout(800);
-  const t = await page.evaluate(() => document.body.innerText);
-  check(/Persimmon/.test(t) && /Bellway Homes/.test(t) && /Barratt/.test(t), 'the Customer filter lists every client on the quote');
+  // The Filter drop-down went (14 Nov 2026): on a laptop the box under Customer looks through every client on a quote.
+  const search = page.getByLabel('Filter Customer', {exact: true}).first();
+  const listed = async (who) => { await search.fill(who); await page.waitForTimeout(800); return /Hove Flats re-roof/.test(await page.locator('body').innerText()); };
+  const byP = await listed('Persimmon'), byB = await listed('Bellway'), byBa = await listed('Barratt'), byNone = await listed('Taylor Wimpey');
+  check(byP && byB && byBa && !byNone, `searching any client on the quote finds it (Persimmon ${byP}, Bellway ${byB}, Barratt ${byBa}; another client ${byNone})`);
+  await search.fill('Barratt'); await page.waitForTimeout(500);
   await page.screenshot({path: shot('bycustomer')});
   check(!errs.length, `no errors ${errs.join(' | ')}`);
   await browser.close();

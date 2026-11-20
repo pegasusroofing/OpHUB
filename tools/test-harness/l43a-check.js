@@ -1,5 +1,6 @@
 // Library template preview before copying; close / reopen a multi-site address from the list.
 const {chromium, makeContext, S1} = require('./harness');
+const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) process.exitCode = 1; };
 (async()=>{
   const BASE = 'http://localhost:8081';
   const browser = await chromium.launch(); const errs = [];
@@ -15,21 +16,21 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/sites/'+S1+'/schedule'); await page.waitForTimeout(5000);
-  await page.getByLabel('More').first().click(); await page.waitForTimeout(400);
-  // The More menu: Add Section › From the library.
+  await page.getByRole('button', {name: 'Section', exact: true}).first().click(); await page.waitForTimeout(400);
+  // + Section ▾: Add Section › From the library (11 Nov).
   await page.getByText('📁 Add Section', {exact:true}).click(); await page.waitForTimeout(400);
   await page.getByText('📚 From the library', {exact:true}).click(); await page.waitForTimeout(600);
   await page.getByText('Flat roof strip').last().click(); await page.waitForTimeout(1200);
   await page.screenshot({path:'shots/lib-preview.png'});
-  console.log('preview shows tasks:', await page.getByText(/Strip old felt/).count() > 0);
+  check(await page.getByText(/Strip old felt/).count() > 0, 'the library template shows its tasks before copying');
   await page.getByText('No', {exact:true}).last().click(); await page.waitForTimeout(400);
   await page.goto(BASE+'/sites/'+S1+'/admin'); await page.waitForTimeout(5000);
   await page.getByText(/Site set up/).click(); await page.waitForTimeout(600); await page.getByText(/^Multi-Site$/i).first().click(); await page.waitForTimeout(600);
   const dots = page.getByText('⋮');
   await dots.last().click(); await page.waitForTimeout(500);
   await page.getByText(/Close this address/).click(); await page.waitForTimeout(1500);
-  console.log('closed:', db.site_sub_addresses[0].closed, '| list shows:', await page.getByText('12 High Street (closed)').count());
+  check(db.site_sub_addresses[0].closed === true && await page.getByText('12 High Street (closed)').count() > 0, 'closing an address saves it and the list shows it closed');
   await page.screenshot({path:'shots/addr-closed.png'});
-  console.log('errors', errs.join(' / ').slice(0,400) || 'none');
-  await browser.close(); process.exit(0);
+  check(!errs.length, 'no page errors ' + errs.join(' / ').slice(0,400));
+  await browser.close();
 })();

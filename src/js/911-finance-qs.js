@@ -112,7 +112,8 @@ function finCostLinesFromBook(b, siteId){
       lines.push({key:'sa:'+a.id, date:a.app_date, cat:'subcontract', desc:sc.number+' application '+a.number, who:sc.name, ref:sc.description||'', status:a.status==='paid' ? 'Paid' : 'Certified', net:finRound((g-prevG)-(c-prevC)), sub:sc.sub_job_id||null, share:1, open:`go('#/site/${siteId}/finance/sub/${sc.id}')`});
       prevG = g; prevC = c; certG = g;
     });
-    if(sc.order_value!=null && sc.status!=='complete'){
+    // A labour price sheet's order is a guide, not a commitment: only operatives' invoices count as labour (Andy, 20 Nov 2026).
+    if(sc.order_value!=null && sc.status!=='complete' && !sc.price_sheet_id && sc.source!=='price_sheet'){
       const left = finRound(Number(sc.order_value) - certG);
       if(left > 0) lines.push({key:'sc:'+sc.id, date:String(sc.created_at||'').slice(0,10), cat:'committed', ccat:'subcontract', desc:'Subcontractor PO not yet certified', who:sc.name, ref:sc.number, status:'Committed', net:left, sub:sc.sub_job_id||null, share:1, open:`go('#/site/${siteId}/finance/sub/${sc.id}')`});
     }

@@ -1,5 +1,6 @@
 // Schedule of Works Email Report: tick PMs / admins (you ticked first), add another address.
 const {chromium, makeContext, S1} = require('./harness');
+const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) process.exitCode = 1; };
 (async()=>{
   const BASE = 'http://localhost:8081';
   const browser = await chromium.launch(); const errs = []; let sent = null;
@@ -14,13 +15,17 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/sites/'+S1+'/schedule'); await page.waitForTimeout(5000);
-  await page.getByText('✉ Email Report').click(); await page.waitForTimeout(800);
+  // The footer's ⬇ Export ▾ › ✉ Email Report (11 Nov).
+  await page.getByText('⬇ Export ▾', {exact:true}).last().click(); await page.waitForTimeout(500);
+  await page.getByText('✉ Email Report', {exact:true}).last().click(); await page.waitForTimeout(800);
   await page.getByText(/Pete Manager/).click(); await page.waitForTimeout(300);
   await page.screenshot({path:'shots/sowemail.png'});
   await page.getByText('Send', {exact:true}).last().click(); await page.waitForTimeout(600);
-  console.log('period ask:', await page.getByText(/^Full project/).count()); await page.getByText(/^Full project/).click(); await page.waitForTimeout(8000);
+  check(await page.getByText(/^Full project/).count() > 0, 'Send asks what to include (full project or a period)');
+  await page.getByText(/^Full project/).click(); await page.waitForTimeout(8000);
   await page.screenshot({path:'shots/sowemail2.png'});
-  console.log('recipients:', sent && JSON.stringify(sent.recipients));
-  console.log('errors', errs.join(' / ').slice(0,400) || 'none');
-  await browser.close(); process.exit(0);
+  const to = JSON.stringify(sent && sent.recipients || []);
+  check(/pete@rtb\.co/.test(to), `the report goes to the ticked PM (${to})`);
+  check(!errs.length, `no page errors ${errs.join(' / ').slice(0,400)}`);
+  await browser.close();
 })();

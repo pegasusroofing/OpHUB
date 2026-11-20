@@ -1,6 +1,7 @@
 // H&S › Tools, HAVS & PUWER: HAVS tile ⋮ › Show to Operatives saves sites.tile_visibility; Materials › Plant ⋮ the same for materials_visibility.
 const {chromium, makeContext, S1} = require('./harness');
 const seed = require('./fresh/seed');
+const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) process.exitCode = 1; };
 (async()=>{
   const BASE = 'http://localhost:8081';
   const browser = await chromium.launch(); const errs = [];
@@ -13,10 +14,13 @@ const seed = require('./fresh/seed');
   await page.goto(BASE+'/sites/'+S1+'/hs/havspuwer'); await page.waitForTimeout(5000);
   await page.getByLabel('Who sees HAVS').click(); await page.waitForTimeout(600);
   await page.getByText('👁 Show to Operatives', {exact:true}).click(); await page.waitForTimeout(2000);
-  console.log('url', page.url().replace(BASE,''), '| tile_visibility', JSON.stringify(db.sites.find(s=>s.id===S1).tile_visibility));
+  const tv = db.sites.find(s=>s.id===S1).tile_visibility || {};
+  check(page.url().includes('/hs/havspuwer') && JSON.stringify(tv).includes('operative'), 'HAVS ⋮ › Show to Operatives saves the tile visibility and stays on the page (' + JSON.stringify(tv) + ')');
   await page.goto(BASE+'/sites/'+S1+'/materials'); await page.waitForTimeout(5000);
-  await page.getByLabel('Who sees Plant').click(); await page.waitForTimeout(600);
+  await page.getByLabel('Who can see Plant', {exact: true}).click(); // the row's ⋯ (11 Nov) await page.waitForTimeout(600);
   await page.getByText('👁 Show to Operatives', {exact:true}).click(); await page.waitForTimeout(2000);
-  console.log('materials_visibility', JSON.stringify(db.sites.find(s=>s.id===S1).materials_visibility), '|', errs.join(' / ') || 'no errors');
-  await browser.close(); process.exit(0);
+  const mv = db.sites.find(s=>s.id===S1).materials_visibility || {};
+  check(JSON.stringify(mv).includes('operative'), 'Materials › Plant ⋯ › Show to Operatives saves the Materials visibility (' + JSON.stringify(mv) + ')');
+  check(!errs.length, 'no page errors ' + errs.join(' / ').slice(0,400));
+  await browser.close();
 })();
