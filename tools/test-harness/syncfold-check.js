@@ -17,7 +17,8 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto('http://localhost:8081/sites/'+S1+'/admin'); await page.waitForTimeout(6000);
-  const t = page.getByText(/Site set up/).first(); if (await t.count()) { await t.click(); await page.waitForTimeout(500); }
+  const t = page.getByText(/Site set up/i).first(); if (await t.count()) { await t.click(); await page.waitForTimeout(500); }
+  await page.getByText(/OneDrive Sync Folder/).first().click(); await page.waitForTimeout(500);
   await page.getByText(/Manual Sync/).first().click(); await page.waitForTimeout(5000);
   console.log('drawings', db.drawing_files.map(f=>f.name).join(', '), '| last synced set', !!st.onedrive_last_synced_at);
   await page.getByText('Unlink folder', {exact:true}).click(); await page.waitForTimeout(600);

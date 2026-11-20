@@ -125,7 +125,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
 
   // ---- A job's settings: amending to another job's number ----
   await page.goto(B + '/sites/' + S1 + '/admin'); await page.waitForTimeout(4500);
-  const setup = page.getByText(/^⚙ Site set up/).first(); if (await setup.count()) { await setup.click(); await page.waitForTimeout(600); }
+  const setup = page.getByText(/^⚙ Site set up/i).first(); if (await setup.count()) { await setup.click(); await page.waitForTimeout(600); }
   const amend = page.getByText('Amend Site Name, Address & Job Number', {exact: true}).first();
   if (await amend.count()) {
     await amend.click(); await page.waitForTimeout(600);

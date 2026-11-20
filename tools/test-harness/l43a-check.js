@@ -25,7 +25,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(await page.getByText(/Strip old felt/).count() > 0, 'the library template shows its tasks before copying');
   await page.getByText('No', {exact:true}).last().click(); await page.waitForTimeout(400);
   await page.goto(BASE+'/sites/'+S1+'/admin'); await page.waitForTimeout(5000);
-  await page.getByText(/Site set up/).click(); await page.waitForTimeout(600); await page.getByText(/^Multi-Site$/i).first().click(); await page.waitForTimeout(600);
+  await page.getByText(/Site set up/i).click(); await page.waitForTimeout(600); await page.getByText(/^Site Type/).first().click(); await page.waitForTimeout(600);
   const dots = page.getByText('⋮');
   await dots.last().click(); await page.waitForTimeout(500);
   await page.getByText(/Close this address/).click(); await page.waitForTimeout(1500);

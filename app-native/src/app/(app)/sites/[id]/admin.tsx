@@ -1,6 +1,6 @@
 // A job's Settings & Admin (380 renderAssignTeam + 370). Site set up: name/address/
-// job number/start date, Main Contractor, Multi-Site and its addresses, Repair
-// Contract. Team: operatives, site managers, subcontractor crews, clients. Job
+// job number/start date, Site Type (Main Contractor, Multi-Site and its addresses, Repair
+// Contract, Subcontractor On A Price), the OneDrive folder. Team: operatives, site managers, subcontractor crews, clients. Job
 // status, Price switch, Activity History and Site Info. Managers only.
 import { setupJobPack, useJobPackSettings } from '@/data/jobPack';
 import { useQueryClient } from '@tanstack/react-query';
@@ -12,7 +12,7 @@ import { DateBox } from '@/components/DateField';
 import { SelectBox } from '@/components/SelectBox';
 import { AssignList } from '@/components/AssignList';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
-import { Button, Card, Check, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
+import { Button, Card, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import {
   assignToSite, deleteSubAddress, removeFromSite, setSubAddressClosed, saveSubAddress, setSiteStatus, toggleSubOperative, updateSite,
@@ -25,7 +25,7 @@ import { useAuth } from '@/lib/auth';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { jobNumberClash } from '@/lib/rules/jobNumbers';
 import { isFullManager, isManager } from '@/lib/roles';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, useTheme } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 const long = (d: string | null | undefined) => (d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
@@ -61,12 +61,21 @@ export default function SiteAdmin() {
     void refetch();
   };
   const flag = async (patch: Record<string, unknown>, msg: string) => { if (await updateSite(qc, id, patch)) toast(msg); else toast('Could not save — try again.'); };
+  const types = [mc && 'Main Contractor', site.multi_site && 'Multi-Site', site.repair_contract && 'Repair Contract', site.price_enabled && 'On A Price'].filter(Boolean) as string[];
+  // Multi-site or repair contract: turning one on when the other is on asks, then swaps.
+  const setType = async (k: 'multi' | 'repair') => {
+    const on = k === 'multi' ? !!site.multi_site : !!site.repair_contract;
+    const other = k === 'multi' ? !!site.repair_contract : !!site.multi_site;
+    if (!on && other && !(await confirmAsk(`A job is multi-site or a repair contract, not both. Turn off ${k === 'multi' ? 'Maintenance / Repair Contract and make it Multi-Site' : 'Multi-Site and make it a Maintenance / Repair Contract'}?`, 'Yes', 'No'))) return;
+    const swap = !on && other ? (k === 'multi' ? { repair_contract: false } : { multi_site: false }) : {};
+    await flag({ [k === 'multi' ? 'multi_site' : 'repair_contract']: !on, ...swap }, '');
+  };
 
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Settings & Admin' }} />
 
-      <Toggle title="⚙ Site set up — name & address, main contractor, multi-site" open={!!open.setup} onPress={() => flip('setup')} />
+      <Toggle title="⚙ Site Set Up — Name & Address, Site Type, OneDrive" open={!!open.setup} onPress={() => flip('setup')} />
       {open.setup && (
         <View style={{ marginLeft: 6 }}>
           {full && (
@@ -98,74 +107,65 @@ export default function SiteAdmin() {
             </>
           )}
 
-          <Toggle title="Main Contractor" open={!!open.mc} onPress={() => flip('mc')} />
-          {open.mc && (
-            <Card>
-              {full ? <Check label="Acting as a Main Contractor?" value={mc} onChange={(v) => void flag({ acting_as_main_contractor: v }, v ? 'Main Contractor tiles enabled' : 'Main Contractor tiles disabled')} />
-                : <Muted>{mc ? '✓ Acting as a Main Contractor' : 'Not acting as a Main Contractor'}</Muted>}
-              <Muted style={{ marginTop: 8 }}>When on, a single "Main Contractor" tile appears on this site's home page, leading to the Construction Phase Plan, Site Rules & Layout, Inductions, Subcontractors, Permits, Inspections, Asbestos Register and F10.</Muted>
-              {/* 380: every subcontractor company's own library (insurance, accreditations, RAMS templates), shared across jobs. */}
-              <View style={{ marginTop: 10 }}><Button kind="ghost" title="📚 Company Library" onPress={() => router.push('/pm/admin/companylibrary' as never)} /></View>
-            </Card>
-          )}
-
-          <Toggle title="Multi-Site" open={!!open.multi} onPress={() => flip('multi')} />
-          {open.multi && (
+          {/* Site Type (Andy, 20 Nov 2026: "move the main contractor and multi site maintenance repair under one row for site type
+              please? then the options are selectable and the price in here too (change to subcontractor on a price?)"): one row,
+              each type ticked on or off. A project is multi-site or a repair contract, not both. */}
+          <Toggle title={`Site Type${types.length ? ` — ${types.join(' · ')}` : ''}`} open={!!open.type} onPress={() => flip('type')} />
+          {open.type && (
             <View>
               <Card>
-                {full && !site.repair_contract ? <Check label="This is a multi-site project (several separate addresses under one job)" value={site.multi_site} onChange={(v) => void flag({ multi_site: v }, v ? 'Multi-site enabled — add its addresses below' : 'Multi-site disabled')} />
-                  : <Muted>{site.multi_site ? '✓ Multi-site project' : 'Not a multi-site project'}</Muted>}
-                <Muted style={{ marginTop: 8 }}>{site.repair_contract ? 'Turn off Maintenance / Repair Contract first — a project is one or the other, not both.' : 'When on, Check In becomes per-address with its own GPS geofence, and Schedule of Works tasks can be linked to an address.'}</Muted>
+                <TypeRow first label="Main Contractor" on={mc} edit={full} onPress={() => void flag({ acting_as_main_contractor: !mc }, '')}
+                  desc='A "Main Contractor" tile on the job: Construction Phase Plan, Site Rules & Layout, Inductions, Subcontractors, Permits, Inspections, Asbestos Register and F10.' />
+                {/* 380: every subcontractor company's own library (insurance, accreditations, RAMS templates), shared across jobs. */}
+                <View style={{ alignItems: 'center', marginBottom: 6 }}><Button small kind="ghost" title="📚 Company Library" onPress={() => router.push('/pm/admin/companylibrary' as never)} /></View>
+                <TypeRow label="Multi-Site" on={!!site.multi_site} edit={full} onPress={() => void setType('multi')}
+                  desc="Several separate addresses under one job: Check In is per address with its own GPS geofence, and Schedule of Works tasks can be linked to an address." />
+                <TypeRow label="Maintenance / Repair Contract" on={!!site.repair_contract} edit={full} onPress={() => void setType('repair')}
+                  desc="A running list of individual repair jobs: the job's Home page becomes its repair jobs list." />
+                {full && <TypeRow label="Subcontractor On A Price" on={!!site.price_enabled} edit onPress={() => void flag({ price_enabled: !site.price_enabled }, '')}
+                  desc="We're working on a price: a Price tile on the job, seen by the admin and this job's responsible PM, and by any operative given a Pricing Element in it." />}
+                {!full && <Muted style={{ marginTop: 6, textAlign: 'center' }}>Only an admin or project manager can change the site type.</Muted>}
               </Card>
-              {site.multi_site && (
-                <>
-                  <SectionTitle>Addresses</SectionTitle>
-                  {(addrs ?? []).map((a: FullSubAddr) => (
-                    <Card key={a.id} style={{ flexDirection: 'row', gap: 8 }}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontWeight: '600', color: base.ink }}>{a.name}{a.closed ? ' (closed)' : ''}</Text>
-                        {!!(a.address || a.postcode) && <Muted>{[a.address, a.postcode].filter(Boolean).join(', ')}</Muted>}
-                        <Muted>{a.geofence_lat != null ? `📍 Geofence set — ${a.geofence_radius_m || 100}m radius` : 'No geofence set yet — set it from the address on Check In'}</Muted>
-                      </View>
-                      <Pressable hitSlop={8} onPress={async () => {
-                        const k = await chooseAction(a.name, [{ key: 'edit', label: '✎ Edit' }, { key: 'geo', label: '📍 Geofence (on Check In)' }, { key: 'close', label: a.closed ? '🔓 Reopen this address' : '🔒 Close this address (finished)' }, { key: 'del', label: '🗑 Delete', danger: true }]);
-                        if (k === 'edit') setAddrForm({ id: a.id, name: a.name, address: a.address || '', postcode: a.postcode || '' });
-                        else if (k === 'geo') router.push(`/sites/${id}/checkin/${a.id}` as never);
-                        else if (k === 'close') { if (await setSubAddressClosed(me, id, a, !a.closed)) void refetchAddrs(); else toast('Could not save — try again.'); }
-                        else if (k === 'del' && await confirmAsk("Delete this address? Any tasks or check-ins already linked to it keep their history but will show as unlinked. This can't be undone.", 'Delete')) {
-                          if (await deleteSubAddress(me, id, a)) { toast('Address deleted'); void refetchAddrs(); } else toast('Could not delete — try again.');
-                        }
-                      }}><Text style={{ fontSize: 18, color: base.slate }}>⋮</Text></Pressable>
-                    </Card>
-                  ))}
-                  {!addrs?.length && <Empty>No addresses added yet.</Empty>}
-                  {addrForm ? (
-                    <Card style={{ backgroundColor: base.paper }}>
-                      <SectionTitle>{addrForm.id ? 'Edit Address' : 'Add Address'}</SectionTitle>
-                      <TextInput value={addrForm.name} onChangeText={(t) => setAddrForm({ ...addrForm, name: t })} placeholder="e.g. 12 High Street" style={box} />
-                      <TextInput value={addrForm.address} onChangeText={(t) => setAddrForm({ ...addrForm, address: titleCase(t) })} placeholder="Address (optional)" style={box} />
-                      <TextInput value={addrForm.postcode} onChangeText={(t) => setAddrForm({ ...addrForm, postcode: t.toUpperCase() })} placeholder="Postcode (optional)" autoCapitalize="characters" style={box} />
-                      <Button title={addrForm.id ? 'Save' : 'Add Address'} onPress={async () => {
-                        if (!addrForm.name.trim()) { toast('Enter a name for this address.'); return; }
-                        if (await saveSubAddress(me, id, addrForm.id, { name: addrForm.name.trim(), address: addrForm.address.trim(), postcode: addrForm.postcode.trim() })) {
-                          toast(addrForm.id ? 'Address updated' : 'Address added'); setAddrForm(null); void refetchAddrs(); void qc.invalidateQueries({ queryKey: ['subAddresses', id] });
-                        } else toast('Could not save — try again.');
-                      }} />
-                      <Button kind="ghost" title="Cancel" onPress={() => setAddrForm(null)} />
-                    </Card>
-                  ) : <Button kind="ghost" title="+ Add Address" onPress={() => setAddrForm({ id: null, name: '', address: '', postcode: '' })} />}
-                </>
-              )}
+            {site.multi_site && (
+              <>
+                <SectionTitle>Addresses</SectionTitle>
+                {(addrs ?? []).map((a: FullSubAddr) => (
+                  <Card key={a.id} style={{ flexDirection: 'row', gap: 8 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontWeight: '600', color: base.ink }}>{a.name}{a.closed ? ' (closed)' : ''}</Text>
+                      {!!(a.address || a.postcode) && <Muted>{[a.address, a.postcode].filter(Boolean).join(', ')}</Muted>}
+                      <Muted>{a.geofence_lat != null ? `📍 Geofence set — ${a.geofence_radius_m || 100}m radius` : 'No geofence set yet — set it from the address on Check In'}</Muted>
+                    </View>
+                    <Pressable hitSlop={8} onPress={async () => {
+                      const k = await chooseAction(a.name, [{ key: 'edit', label: '✎ Edit' }, { key: 'geo', label: '📍 Geofence (on Check In)' }, { key: 'close', label: a.closed ? '🔓 Reopen this address' : '🔒 Close this address (finished)' }, { key: 'del', label: '🗑 Delete', danger: true }]);
+                      if (k === 'edit') setAddrForm({ id: a.id, name: a.name, address: a.address || '', postcode: a.postcode || '' });
+                      else if (k === 'geo') router.push(`/sites/${id}/checkin/${a.id}` as never);
+                      else if (k === 'close') { if (await setSubAddressClosed(me, id, a, !a.closed)) void refetchAddrs(); else toast('Could not save — try again.'); }
+                      else if (k === 'del' && await confirmAsk("Delete this address? Any tasks or check-ins already linked to it keep their history but will show as unlinked. This can't be undone.", 'Delete')) {
+                        if (await deleteSubAddress(me, id, a)) { toast('Address deleted'); void refetchAddrs(); } else toast('Could not delete — try again.');
+                      }
+                    }}><Text style={{ fontSize: 18, color: base.slate }}>⋮</Text></Pressable>
+                  </Card>
+                ))}
+                {!addrs?.length && <Empty>No addresses added yet.</Empty>}
+                {addrForm ? (
+                  <Card style={{ backgroundColor: base.paper }}>
+                    <SectionTitle>{addrForm.id ? 'Edit Address' : 'Add Address'}</SectionTitle>
+                    <TextInput value={addrForm.name} onChangeText={(t) => setAddrForm({ ...addrForm, name: t })} placeholder="e.g. 12 High Street" style={box} />
+                    <TextInput value={addrForm.address} onChangeText={(t) => setAddrForm({ ...addrForm, address: titleCase(t) })} placeholder="Address (optional)" style={box} />
+                    <TextInput value={addrForm.postcode} onChangeText={(t) => setAddrForm({ ...addrForm, postcode: t.toUpperCase() })} placeholder="Postcode (optional)" autoCapitalize="characters" style={box} />
+                    <Button title={addrForm.id ? 'Save' : 'Add Address'} onPress={async () => {
+                      if (!addrForm.name.trim()) { toast('Enter a name for this address.'); return; }
+                      if (await saveSubAddress(me, id, addrForm.id, { name: addrForm.name.trim(), address: addrForm.address.trim(), postcode: addrForm.postcode.trim() })) {
+                        toast(addrForm.id ? 'Address updated' : 'Address added'); setAddrForm(null); void refetchAddrs(); void qc.invalidateQueries({ queryKey: ['subAddresses', id] });
+                      } else toast('Could not save — try again.');
+                    }} />
+                    <Button kind="ghost" title="Cancel" onPress={() => setAddrForm(null)} />
+                  </Card>
+                ) : <Button kind="ghost" title="+ Add Address" onPress={() => setAddrForm({ id: null, name: '', address: '', postcode: '' })} />}
+              </>
+            )}
             </View>
-          )}
-
-          <Toggle title="Maintenance / Repair Contract" open={!!open.repair} onPress={() => flip('repair')} />
-          {open.repair && (
-            <Card>
-              {full && !site.multi_site ? <Check label="This is a Maintenance / Repair Contract (a running list of individual repair jobs)" value={site.repair_contract} onChange={(v) => void flag({ repair_contract: v }, v ? 'Repair Contract enabled — this project now opens straight into its repair jobs list' : 'Repair Contract disabled')} />
-                : <Muted>{site.repair_contract ? '✓ Maintenance / Repair Contract' : 'Not a repair contract'}</Muted>}
-              <Muted style={{ marginTop: 8 }}>{site.multi_site ? 'Turn off Multi-site first — a project is one or the other, not both.' : "When on, this project's Home page becomes its repair jobs list."}</Muted>
-            </Card>
           )}
           <SyncFolderCard site={site as never} full={!!me && isFullManager(me)} />
         </View>
@@ -224,13 +224,6 @@ export default function SiteAdmin() {
             if (!(await setSiteStatus(qc, me, id, k))) toast('Could not save — try again.');
           }} />
 
-          <Toggle title="Price" open={!!open.price} onPress={() => flip('price')} />
-          {open.price && (
-            <Card>
-              <Check label="This project is on a price" value={site.price_enabled} onChange={(v) => void flag({ price_enabled: v }, v ? 'Price tile enabled' : 'Price tile disabled')} />
-              <Muted style={{ marginTop: 8 }}>When on, a "Price" tile appears on the site home screen — visible to the admin and this site's responsible PM always, and to any operative granted access to a Pricing Element inside the Price tile.</Muted>
-            </Card>
-          )}
         </>
       )}
 
@@ -248,6 +241,23 @@ export default function SiteAdmin() {
   );
 }
 
+/** One site type: tick on or off, with what it does under it. */
+function TypeRow({ label, desc, on, edit, first, onPress }: { label: string; desc: string; on: boolean; edit: boolean; first?: boolean; onPress: () => void }) {
+  const t = useTheme();
+  return (
+    <Pressable disabled={!edit} onPress={onPress} accessibilityRole="checkbox" accessibilityLabel={label} accessibilityState={{ checked: on, disabled: !edit }}
+      style={{ flexDirection: 'row', gap: 10, paddingVertical: 9, borderTopWidth: first ? 0 : 1, borderTopColor: '#EEF0F2' }}>
+      <View style={{ width: 20, height: 20, marginTop: 1, borderRadius: 5, borderWidth: 1.5, borderColor: on ? t.brand1 : base.line, backgroundColor: on ? t.brand1 : undefined, alignItems: 'center', justifyContent: 'center' }}>
+        {on && <Text style={{ color: t.brand1Text, fontSize: 12, fontWeight: '700' }}>✓</Text>}
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontWeight: '600', fontSize: 14, color: base.ink }}>{label}</Text>
+        <Muted>{desc}</Muted>
+      </View>
+    </Pressable>
+  );
+}
+
 // 380 / 310 "Sync Folder": the job's linked OneDrive folder — Change / Unlink, 🔄 Manual Sync (new top-level files
 // pulled into Drawings; uploads here already push out), when it last synced, and a warning when the company's
 // connection needs reconnecting.
@@ -259,6 +269,8 @@ function SyncFolderCard({ site, full }: { site: SyncSite; full: boolean }) {
   const { data: od } = useOneDriveStatus(me?.org_id);
   const { data: packSettings } = useJobPackSettings(me?.org_id);
   const [busy, setBusy] = useState('');
+  // A drop-down, closed to start (Andy, 20 Nov 2026: "make the one drive sync folder a drop down folder closed by default").
+  const [open, setOpen] = useState(false);
   const refresh = () => void qc.invalidateQueries({ queryKey: ['sites'] });
   const sync = async () => {
     if (!me || !site.onedrive_folder_id) return;
@@ -269,8 +281,10 @@ function SyncFolderCard({ site, full }: { site: SyncSite; full: boolean }) {
     } finally { setBusy(''); }
   };
   return (
-    <Card style={{ marginTop: 10 }}>
-      <Text style={{ fontWeight: '600', color: base.ink }}>☁️ OneDrive sync folder</Text>
+    <>
+    <Toggle title={`☁️ OneDrive Sync Folder — ${site.onedrive_folder_name ? `📁 ${site.onedrive_folder_name}` : 'Not Linked'}${od?.needs_reconnect ? ' ⚠' : ''}`} open={open} onPress={() => setOpen(!open)} />
+    {open && (
+    <Card>
       {od?.needs_reconnect && <Muted style={{ color: base.warn, marginTop: 6 }}>OneDrive isn&apos;t syncing at the moment — the company connection needs reconnecting by an admin (Admin Centre › Integrations).</Muted>}
       <Muted style={{ marginVertical: 6 }}>{site.onedrive_folder_name ? `📁 ${site.onedrive_folder_name} — photos, drawings and exports sync there` : "Not linked — link the job's real OneDrive folder so photos and exports sync there."}</Muted>
       {full && !!packSettings?.enabled && (!site.onedrive_folder_id || !!(site as { job_pack?: unknown }).job_pack) && <Button kind={site.onedrive_folder_id ? 'ghost' : undefined} title={site.onedrive_folder_id ? '📦 Fill in anything missing from the job pack' : '📦 Set up job pack folder'} onPress={async () => {
@@ -290,5 +304,7 @@ function SyncFolderCard({ site, full }: { site: SyncSite; full: boolean }) {
       )}
       {!!site.onedrive_last_synced_at && <Muted style={{ marginTop: 4 }}>Last synced {new Date(site.onedrive_last_synced_at).toLocaleString('en-GB')}</Muted>}
     </Card>
+    )}
+    </>
   );
 }
