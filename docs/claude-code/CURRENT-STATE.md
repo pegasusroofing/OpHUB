@@ -72,6 +72,7 @@
 - `send-finance-email` v5 (subject, text, extra attachments, signature with company number, VAT, email and logo).
 - 30 send and notify functions hardened. Repo copies are in `supabase/functions/`.
 - The `xero` and `finance-inbox` repo copies match live.
+- **Xero set up 20 Nov 2026.** The Xero developer app "OpHUB" (Web app, standard auth code) is under Robert Beeson's Xero login at developer.xero.com, on Xero's free Starter plan (up to 5 connected Xero companies, 1,000 calls a day each; 50 companies needs the Core plan). Redirect URI `https://dtrfupmcazoioubhwdml.supabase.co/functions/v1/xero`. Its keys are the Supabase secrets `XERO_CLIENT_ID` and `XERO_CLIENT_SECRET` (Andy added them). Connected: RTB Construction Group → Xero "RTB Construction & Maintenance Limited". The callback now uses only the Xero company ticked on that visit, and refuses one already linked to another OpHUB company (two companies sit under one Xero login).
 - When redeploying, keep each function's `verify_jwt` setting as it is live.
 - `finance-report-run` (verify_jwt off): v3 deployed 20 Nov 2026, matching the repo byte for byte. It brought live the 6 Nov rule (draft POs aren't counted as ordered) and the 20 Nov one (a labour price sheet's order is a guide, not committed cost: only operatives' invoices count as labour).
 - **Recommended at the next server deploy (overnight review, 7 Nov):** server-side Finance trial guards.

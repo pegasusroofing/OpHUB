@@ -110,11 +110,26 @@ async function callback(url: URL) {
   await admin.from('xero_oauth_states').delete().eq('state', state);
   if (Date.now() - new Date(st.created_at).getTime() > 15 * 60 * 1000) return text('This link has expired. Start again from OpHUB › Finance › Settings.', 400);
   const tok = await tokenCall({ grant_type: 'authorization_code', code, redirect_uri: REDIRECT });
-  const cRes = await fetch('https://api.xero.com/connections', { headers: { Authorization: 'Bearer ' + tok.access_token } });
+  // Only the Xero company ticked on THIS visit (Xero's authentication_event_id), not every company this Xero login has
+  // connected before: with two companies under one Xero login, "the last one in the list" could link the wrong books
+  // (Andy, 20 Nov 2026).
+  let authEvent = '';
+  try {
+    const p = String(tok.access_token).split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    authEvent = JSON.parse(atob(p + '==='.slice((p.length + 3) % 4)))?.authentication_event_id || '';
+  } catch { /* fall back to the whole list below */ }
+  const cRes = await fetch('https://api.xero.com/connections' + (authEvent ? '?authEventId=' + encodeURIComponent(authEvent) : ''), { headers: { Authorization: 'Bearer ' + tok.access_token } });
   const conns = await cRes.json().catch(() => []);
   const org = (Array.isArray(conns) ? conns : []).filter((c: any) => c.tenantType === 'ORGANISATION');
   if (!org.length) return text('No Xero organisation was chosen. Start again and pick your company.', 400);
-  const t = org[org.length - 1]; // most recently authorised
+  if (org.length > 1) return text('More than one Xero company was ticked. Start again from OpHUB › Finance › Settings and tick just the one for this OpHUB company.', 400);
+  const t = org[0];
+  // One Xero company belongs to one OpHUB company: never link the same books to two.
+  const { data: other } = await admin.from('xero_connections').select('org_id').eq('tenant_id', t.tenantId).neq('org_id', st.org_id).limit(1).maybeSingle();
+  if (other) {
+    const { data: oo } = await admin.from('organizations').select('name').eq('id', other.org_id).maybeSingle();
+    return text(`${t.tenantName} is already linked to ${oo?.name || 'another OpHUB company'} in OpHUB. Start again from OpHUB › Finance › Settings and tick this company's own Xero.`, 400);
+  }
   await admin.from('xero_connections').upsert({
     org_id: st.org_id, tenant_id: t.tenantId, tenant_name: t.tenantName,
     access_token: tok.access_token, refresh_token: tok.refresh_token,
