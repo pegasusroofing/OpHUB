@@ -7,8 +7,8 @@ async function renderHealthSafety(siteId){
       // subcontractor_company_id=is.null on all three — same fix as
       // fetchRamsData/fetchCoshhData: subcontractor-specific docs are scoped
       // to their own tile, not RTB's main Health & Safety counts.
-      dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id'),
-      dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id'),
+      dbSelect('rams_docs', 'signing_closed_at=is.null&site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id'),
+      dbSelect('coshh_docs', 'signing_closed_at=is.null&site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id'),
       dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&subcontractor_company_id=is.null&select=id'),
     ]);
     if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
@@ -32,8 +32,8 @@ async function renderHealthSafety(siteId){
   // can't be signed from the main RAMS page.)
   const mgr = isManager(ME);
   const [ramsCurrentRows, coshhCurrentRows, liveTbt, briefingTemplates, incidentCount, ppeRows, assignedRows] = await Promise.all([
-    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
-    dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
+    dbSelect('rams_docs', 'signing_closed_at=is.null&site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
+    dbSelect('coshh_docs', 'signing_closed_at=is.null&site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
     dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&subcontractor_company_id=is.null&select=id,title'),
     dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_daily_briefing=eq.true&archived=eq.false&select=id'),
     dbSelect('incident_reports', 'site_id=eq.'+siteId+'&select=id'),

@@ -50,8 +50,8 @@ async function computeHubItems(forcedPmId){
   const [ramsDocs, coshhDocs, allTalks, openSnags, scheduleTasks, assignments, allTodos, mgrMsgs] = await Promise.all([
     // subcontractor_company_id=is.null — same fix as computeOutstandingRows/
     // computeNotificationRows: keep subcontractor RAMS/COSHH/TBT out of HUB.
-    idsCsv ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
-    idsCsv ? dbSelect('coshh_docs', 'site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
+    idsCsv ? dbSelect('rams_docs', 'signing_closed_at=is.null&status=eq.current&site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
+    idsCsv ? dbSelect('coshh_docs', 'signing_closed_at=is.null&site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
     idsCsv ? dbSelect('toolbox_talks', 'site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,status,created_at') : Promise.resolve([]),
     idsCsv ? dbSelect('snags', 'site_id=in.('+idsCsv+')&status=eq.open&select=id,site_id,created_at') : Promise.resolve([]),
     idsCsv ? dbSelect('schedule_tasks', 'site_id=in.('+idsCsv+')&select=site_id,status') : Promise.resolve([]),

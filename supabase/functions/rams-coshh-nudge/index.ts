@@ -132,8 +132,8 @@ Deno.serve(async (req) => {
       // Operatives only, for RAMS as for COSHH: the apps count no one else (review, 15 Nov 2026).
       const operativeRoster = (rosterProfiles || []).filter((p: any) => p.role === 'operative').map((p: any) => p.id);
 
-      const { data: ramsDocs } = await admin.from('rams_docs').select('id, uploaded_at, resign_cycle_start').eq('site_id', site.id).eq('status', 'current').is('subcontractor_company_id', null);
-      const { data: coshhDocs } = await admin.from('coshh_docs').select('id, uploaded_at, resign_cycle_start').eq('site_id', site.id).is('subcontractor_company_id', null);
+      const { data: ramsDocs } = await admin.from('rams_docs').select('id, uploaded_at, resign_cycle_start').eq('site_id', site.id).eq('status', 'current').is('subcontractor_company_id', null).is('signing_closed_at', null); // closed for signing = not chased (20 Nov 2026)
+      const { data: coshhDocs } = await admin.from('coshh_docs').select('id, uploaded_at, resign_cycle_start').eq('site_id', site.id).is('subcontractor_company_id', null).is('signing_closed_at', null);
 
       let ramsMissing = 0;
       if (ramsDocs && ramsDocs.length && operativeRoster.length) {

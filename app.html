@@ -9267,8 +9267,8 @@ async function computeOutstandingRows(forId){
     // TBT (uploaded via renderSubRams/renderSubCoshh/renderSubTbt, same
     // tables) must never count towards RTB's own outstanding-signature
     // totals here; they're scoped to that subcontractor's own operatives.
-    idsCsv ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
-    idsCsv ? dbSelect('coshh_docs', 'site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
+    idsCsv ? dbSelect('rams_docs', 'signing_closed_at=is.null&status=eq.current&site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
+    idsCsv ? dbSelect('coshh_docs', 'signing_closed_at=is.null&site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
     // Live TBTs count as outstanding for OPERATIVES personally (they need to
     // sign) — this used to only live in the old computeMyOutstandingCount
     // and never showed on the Outstanding page itself, so an operative's
@@ -9372,8 +9372,8 @@ async function computeNotificationRows(forId){
     // subcontractor_company_id=is.null — same fix as computeOutstandingRows:
     // subcontractor RAMS/COSHH/TBT must never surface in a PM's own
     // notification feed, only RTB's own.
-    idsCsv ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
-    idsCsv ? dbSelect('coshh_docs', 'site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
+    idsCsv ? dbSelect('rams_docs', 'signing_closed_at=is.null&status=eq.current&site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
+    idsCsv ? dbSelect('coshh_docs', 'signing_closed_at=is.null&site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
     idsCsv ? dbSelect('toolbox_talks', 'site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,status,created_at') : Promise.resolve([]),
     idsCsv ? dbSelect('snags', 'site_id=in.('+idsCsv+')&status=eq.open&select=site_id') : Promise.resolve([]),
     idsCsv ? dbSelect('schedule_tasks', 'site_id=in.('+idsCsv+')&select=site_id,status') : Promise.resolve([]),
@@ -9589,8 +9589,8 @@ async function computeHubItems(forcedPmId){
   const [ramsDocs, coshhDocs, allTalks, openSnags, scheduleTasks, assignments, allTodos, mgrMsgs] = await Promise.all([
     // subcontractor_company_id=is.null — same fix as computeOutstandingRows/
     // computeNotificationRows: keep subcontractor RAMS/COSHH/TBT out of HUB.
-    idsCsv ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
-    idsCsv ? dbSelect('coshh_docs', 'site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
+    idsCsv ? dbSelect('rams_docs', 'signing_closed_at=is.null&status=eq.current&site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
+    idsCsv ? dbSelect('coshh_docs', 'signing_closed_at=is.null&site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
     idsCsv ? dbSelect('toolbox_talks', 'site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,status,created_at') : Promise.resolve([]),
     idsCsv ? dbSelect('snags', 'site_id=in.('+idsCsv+')&status=eq.open&select=id,site_id,created_at') : Promise.resolve([]),
     idsCsv ? dbSelect('schedule_tasks', 'site_id=in.('+idsCsv+')&select=site_id,status') : Promise.resolve([]),
@@ -9958,8 +9958,8 @@ async function renderDashboard(){
     // subcontractor_company_id=is.null — same fix as computeOutstandingRows/
     // computeNotificationRows/computeHubItems: keep subcontractor RAMS/
     // COSHH/TBT out of the company-wide admin dashboard totals.
-    liveIds.length ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+liveIdsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : [],
-    liveIds.length ? dbSelect('coshh_docs', 'site_id=in.('+liveIdsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : [],
+    liveIds.length ? dbSelect('rams_docs', 'signing_closed_at=is.null&status=eq.current&site_id=in.('+liveIdsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : [],
+    liveIds.length ? dbSelect('coshh_docs', 'signing_closed_at=is.null&site_id=in.('+liveIdsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : [],
     liveIds.length ? dbSelect('site_assignments', 'site_id=in.('+liveIdsCsv+')&select=site_id,user_id') : [],
     liveIds.length ? dbSelect('schedule_tasks', 'site_id=in.('+liveIdsCsv+')&select=site_id,status,percent_complete') : [],
     // Only this company's projects (CORE-L2 — the table has no org_id to filter on).
@@ -13209,8 +13209,8 @@ async function renderSiteHome(siteId){
     if(!isManager(ME)) return false;
     const [assignedRowsHere, ramsCurrentHere, coshhDocsHere] = await Promise.all([
       dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
-      dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
-      dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
+      dbSelect('rams_docs', 'signing_closed_at=is.null&site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
+      dbSelect('coshh_docs', 'signing_closed_at=is.null&site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
       loadAllProfiles(),
     ]);
     const operativeIdsHere = assignedRowsHere.map(r=>r.user_id).filter(uid=>PROFILES[uid] && PROFILES[uid].role==='operative');
@@ -13226,7 +13226,7 @@ async function renderSiteHome(siteId){
   const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, openTodos, teamCheckinsForCount, todayCalEvents] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status,percent_complete'),
     dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
-    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'), // current versions only — a superseded RAMS can't be signed, so it used to count as "to sign" for ever
+    dbSelect('rams_docs', 'signing_closed_at=is.null&site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'), // current versions only — a superseded RAMS can't be signed, so it used to count as "to sign" for ever
     dbSelect('rams_signatures', 'user_id=eq.'+ME.id+'&select=rams_id,signed_at&order=signed_at.desc&limit=500'),
     // Stays counted through "sent" too, not just "pending" — see the
     // matching comment on the Dashboard's materials query above.
@@ -29138,8 +29138,8 @@ async function renderSubcontractorHub(siteId, companyId){
   const company = rows[0];
   if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
   const [ramsRows, coshhRows, tbtRows, briefingRows, opRows, scheduleRows, openPermitRows, inspectionRows] = await Promise.all([
-    dbSelect('rams_docs', 'subcontractor_company_id=eq.'+companyId+'&status=eq.current&select=id'),
-    dbSelect('coshh_docs', 'subcontractor_company_id=eq.'+companyId+'&select=id'),
+    dbSelect('rams_docs', 'signing_closed_at=is.null&subcontractor_company_id=eq.'+companyId+'&status=eq.current&select=id'),
+    dbSelect('coshh_docs', 'signing_closed_at=is.null&subcontractor_company_id=eq.'+companyId+'&select=id'),
     dbSelect('toolbox_talks', 'subcontractor_company_id=eq.'+companyId+'&status=eq.live&select=id'),
     dbSelect('subcontractor_briefings', 'subcontractor_company_id=eq.'+companyId+'&select=id'),
     dbSelect('subcontractor_operatives', 'subcontractor_company_id=eq.'+companyId+'&select=user_id'),
@@ -33892,8 +33892,8 @@ async function renderHealthSafety(siteId){
       // subcontractor_company_id=is.null on all three — same fix as
       // fetchRamsData/fetchCoshhData: subcontractor-specific docs are scoped
       // to their own tile, not RTB's main Health & Safety counts.
-      dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id'),
-      dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id'),
+      dbSelect('rams_docs', 'signing_closed_at=is.null&site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id'),
+      dbSelect('coshh_docs', 'signing_closed_at=is.null&site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id'),
       dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&subcontractor_company_id=is.null&select=id'),
     ]);
     if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
@@ -33917,8 +33917,8 @@ async function renderHealthSafety(siteId){
   // can't be signed from the main RAMS page.)
   const mgr = isManager(ME);
   const [ramsCurrentRows, coshhCurrentRows, liveTbt, briefingTemplates, incidentCount, ppeRows, assignedRows] = await Promise.all([
-    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
-    dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
+    dbSelect('rams_docs', 'signing_closed_at=is.null&site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
+    dbSelect('coshh_docs', 'signing_closed_at=is.null&site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
     dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&subcontractor_company_id=is.null&select=id,title'),
     dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_daily_briefing=eq.true&archived=eq.false&select=id'),
     dbSelect('incident_reports', 'site_id=eq.'+siteId+'&select=id'),
@@ -52177,7 +52177,8 @@ function finCostLinesFromBook(b, siteId){
       lines.push({key:'sa:'+a.id, date:a.app_date, cat:'subcontract', desc:sc.number+' application '+a.number, who:sc.name, ref:sc.description||'', status:a.status==='paid' ? 'Paid' : 'Certified', net:finRound((g-prevG)-(c-prevC)), sub:sc.sub_job_id||null, share:1, open:`go('#/site/${siteId}/finance/sub/${sc.id}')`});
       prevG = g; prevC = c; certG = g;
     });
-    if(sc.order_value!=null && sc.status!=='complete'){
+    // A labour price sheet's order is a guide, not a commitment: only operatives' invoices count as labour (Andy, 20 Nov 2026).
+    if(sc.order_value!=null && sc.status!=='complete' && !sc.price_sheet_id && sc.source!=='price_sheet'){
       const left = finRound(Number(sc.order_value) - certG);
       if(left > 0) lines.push({key:'sc:'+sc.id, date:String(sc.created_at||'').slice(0,10), cat:'committed', ccat:'subcontract', desc:'Subcontractor PO not yet certified', who:sc.name, ref:sc.number, status:'Committed', net:left, sub:sc.sub_job_id||null, share:1, open:`go('#/site/${siteId}/finance/sub/${sc.id}')`});
     }
@@ -67837,6 +67838,110 @@ if(typeof trainingMatrixData==='function'){
     return out;
   };
 }
+
+/* ============================================================
+   Close a RAMS / COSHH for signing (20 Nov 2026, Andy: "allow rams, coshh and tbt to be closed by pms,
+   so signatures are no longer required (therefore removing notification from the hub)").
+   - PMs/admins get "🔒 Close for signing" (and "↺ Reopen for signing") in each RAMS / COSHH ⋯ menu.
+   - A closed document stays on file and can still be viewed and exported, but nobody is asked to sign
+     it: it drops out of the HUB, the job's tile counts, the operative "to sign" pop-up and the daily
+     reminders (rams_docs / coshh_docs.signing_closed_at; the database only lets managers set it).
+   - Toolbox Talks already have "Close TBT" on each talk, which does the same.
+   ============================================================ */
+(function(){
+  const HS_CLOSED = {}; // doc id -> signing_closed_at (or null)
+  window.HS_CLOSED = HS_CLOSED;
+  const tableOf = {ramsdoc:'rams_docs', coshhdoc:'coshh_docs'};
+
+  // Remember each RAMS / COSHH row's closed state whenever it is loaded.
+  if(typeof dbSelect==='function'){
+    const baseSelect = dbSelect;
+    dbSelect = async function(table, q){
+      const rows = await baseSelect.apply(this, arguments);
+      try{
+        if((table==='rams_docs' || table==='coshh_docs') && Array.isArray(rows))
+          rows.forEach(r=>{ if(r && r.id && Object.prototype.hasOwnProperty.call(r, 'signing_closed_at')) HS_CLOSED[r.id] = r.signing_closed_at || null; });
+      }catch(e){}
+      return rows;
+    };
+  }
+
+  function keyInfo(key){
+    const m = /^(ramsdoc|coshhdoc)-(.+)$/.exec(String(key||''));
+    return m ? {kind:m[1], id:m[2], table:tableOf[m[1]]} : null;
+  }
+
+  // ⋯ menu: Close / Reopen for signing (managers only).
+  if(typeof rowActionsMenuHtml==='function'){
+    const baseMenu = rowActionsMenuHtml;
+    rowActionsMenuHtml = function(key, itemsHtml){
+      try{
+        const k = keyInfo(key);
+        if(k && isManager(ME)){
+          const closed = !!HS_CLOSED[k.id];
+          itemsHtml = `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;hsSetSigningClosed('${k.table}','${k.id}',${closed?'false':'true'})">${closed ? '↺ Reopen for signing' : '🔒 Close for signing'}</div>` + itemsHtml;
+        }
+      }catch(e){}
+      return baseMenu.call(this, key, itemsHtml);
+    };
+  }
+
+  // Manager list row: a closed document shows "Closed" instead of the signed count.
+  if(typeof hsDocRowHtml==='function'){
+    const baseRow = hsDocRowHtml;
+    hsDocRowHtml = function(o){
+      try{
+        const m = /(?:ramsdoc|coshhdoc)-([0-9a-f-]{36})/.exec((o && o.menu) || '');
+        if(m && HS_CLOSED[m[1]]){
+          o = Object.assign({}, o, {pill:`<span class="hspill" title="Closed for signing — nobody is asked to sign">🔒 Closed</span>`,
+            body:`<div class="stub" style="margin:6px 0 0;">Closed for signing${hsClosedWhen(m[1])}. Nobody is asked to sign it; it stays on file.</div>` + (o.body||'')});
+        }
+      }catch(e){}
+      return baseRow.call(this, o);
+    };
+  }
+  function hsClosedWhen(id){
+    const t = HS_CLOSED[id]; if(!t) return '';
+    try{ return ' on '+new Date(t).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }catch(e){ return ''; }
+  }
+
+  window.hsSetSigningClosed = async function(table, id, close){
+    if(!isManager(ME)) return;
+    if(close && !await customConfirm('Close this document for signing? It stays on file, but nobody will be asked to sign it and it comes off the HUB. You can reopen it later.')) return;
+    const row = await dbUpdate(table, id, {signing_closed_at: close ? new Date().toISOString() : null});
+    if(!row){ toast('Could not change that — please try again.'); return; }
+    HS_CLOSED[id] = close ? (row.signing_closed_at || new Date().toISOString()) : null;
+    toast(close ? 'Closed for signing' : 'Reopened for signing');
+    try{ if(typeof refreshHubCount==='function') refreshHubCount(); }catch(e){}
+    render();
+  };
+
+  // Operatives: a closed document can't be signed.
+  ['signRams','signCoshh'].forEach(fn=>{
+    const base = window[fn];
+    if(typeof base!=='function') return;
+    window[fn] = function(siteId, docId){
+      if(HS_CLOSED[docId] && !isManager(ME)){ toast('This document is closed — no signature needed.'); return; }
+      return base.apply(this, arguments);
+    };
+  });
+
+  // Operative list: swap the sign box of a closed document for a plain note.
+  function markClosedSignBoxes(){
+    try{
+      document.querySelectorAll('.ramssigbox:not(.signed), .coshhsigbox:not(.signed)').forEach(el=>{
+        const m = /sign(?:Rams|Coshh)\('[^']*','([^']+)'\)/.exec(el.getAttribute('onclick')||'');
+        if(m && HS_CLOSED[m[1]]){ el.removeAttribute('onclick'); el.style.cursor = 'default'; el.innerHTML = '<span class="name">🔒 Closed</span><span>No signature needed</span>'; }
+      });
+    }catch(e){}
+  }
+  ['renderRams','renderCoshh'].forEach(fn=>{
+    const base = (typeof window[fn]==='function') ? window[fn] : null;
+    if(!base) return;
+    const wrapped = async function(){ const r = await base.apply(this, arguments); markClosedSignBoxes(); return r; };
+    try{ if(fn==='renderRams') renderRams = wrapped; else renderCoshh = wrapped; }catch(e){ window[fn] = wrapped; }
+  });
+})();
 
 /* ============================================================
    OpHUB Finance — no double taps (deep dive, 20 Oct).

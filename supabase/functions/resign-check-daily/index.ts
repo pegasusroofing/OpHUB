@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
 
     async function processDocs(table: 'rams_docs' | 'coshh_docs', label: 'rams' | 'coshh') {
       if (!siteIds.length) return;
-      let q = admin.from(table).select('id, site_id, name, uploaded_at, resign_cycle_start').in('site_id', siteIds);
+      let q = admin.from(table).select('id, site_id, name, uploaded_at, resign_cycle_start').in('site_id', siteIds).is('signing_closed_at', null); // closed for signing = never re-signed (20 Nov 2026)
       if (table === 'rams_docs') q = q.eq('status', 'current');
       const { data: docs } = await q;
       for (const d of (docs || [])) {

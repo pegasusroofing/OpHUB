@@ -13,8 +13,8 @@ async function renderDashboard(){
     // subcontractor_company_id=is.null — same fix as computeOutstandingRows/
     // computeNotificationRows/computeHubItems: keep subcontractor RAMS/
     // COSHH/TBT out of the company-wide admin dashboard totals.
-    liveIds.length ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+liveIdsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : [],
-    liveIds.length ? dbSelect('coshh_docs', 'site_id=in.('+liveIdsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : [],
+    liveIds.length ? dbSelect('rams_docs', 'signing_closed_at=is.null&status=eq.current&site_id=in.('+liveIdsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : [],
+    liveIds.length ? dbSelect('coshh_docs', 'signing_closed_at=is.null&site_id=in.('+liveIdsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : [],
     liveIds.length ? dbSelect('site_assignments', 'site_id=in.('+liveIdsCsv+')&select=site_id,user_id') : [],
     liveIds.length ? dbSelect('schedule_tasks', 'site_id=in.('+liveIdsCsv+')&select=site_id,status,percent_complete') : [],
     // Only this company's projects (CORE-L2 — the table has no org_id to filter on).

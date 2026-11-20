@@ -642,8 +642,8 @@ async function renderSubcontractorHub(siteId, companyId){
   const company = rows[0];
   if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
   const [ramsRows, coshhRows, tbtRows, briefingRows, opRows, scheduleRows, openPermitRows, inspectionRows] = await Promise.all([
-    dbSelect('rams_docs', 'subcontractor_company_id=eq.'+companyId+'&status=eq.current&select=id'),
-    dbSelect('coshh_docs', 'subcontractor_company_id=eq.'+companyId+'&select=id'),
+    dbSelect('rams_docs', 'signing_closed_at=is.null&subcontractor_company_id=eq.'+companyId+'&status=eq.current&select=id'),
+    dbSelect('coshh_docs', 'signing_closed_at=is.null&subcontractor_company_id=eq.'+companyId+'&select=id'),
     dbSelect('toolbox_talks', 'subcontractor_company_id=eq.'+companyId+'&status=eq.live&select=id'),
     dbSelect('subcontractor_briefings', 'subcontractor_company_id=eq.'+companyId+'&select=id'),
     dbSelect('subcontractor_operatives', 'subcontractor_company_id=eq.'+companyId+'&select=user_id'),

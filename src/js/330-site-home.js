@@ -79,8 +79,8 @@ async function renderSiteHome(siteId){
     if(!isManager(ME)) return false;
     const [assignedRowsHere, ramsCurrentHere, coshhDocsHere] = await Promise.all([
       dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
-      dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
-      dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
+      dbSelect('rams_docs', 'signing_closed_at=is.null&site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
+      dbSelect('coshh_docs', 'signing_closed_at=is.null&site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
       loadAllProfiles(),
     ]);
     const operativeIdsHere = assignedRowsHere.map(r=>r.user_id).filter(uid=>PROFILES[uid] && PROFILES[uid].role==='operative');
@@ -96,7 +96,7 @@ async function renderSiteHome(siteId){
   const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, openTodos, teamCheckinsForCount, todayCalEvents] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status,percent_complete'),
     dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
-    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'), // current versions only — a superseded RAMS can't be signed, so it used to count as "to sign" for ever
+    dbSelect('rams_docs', 'signing_closed_at=is.null&site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'), // current versions only — a superseded RAMS can't be signed, so it used to count as "to sign" for ever
     dbSelect('rams_signatures', 'user_id=eq.'+ME.id+'&select=rams_id,signed_at&order=signed_at.desc&limit=500'),
     // Stays counted through "sent" too, not just "pending" — see the
     // matching comment on the Dashboard's materials query above.
