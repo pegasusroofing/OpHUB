@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { orThrow } from '@/lib/offlineCache';
 import { supabase } from '@/lib/supabase';
+import { insuranceStatus, libCategory, parseExpiry } from '@/lib/rules/subLibrary';
 import type { Profile, Site } from '@/lib/types';
 import { mustHit } from '@/lib/mustHit';
 
@@ -34,10 +35,11 @@ export function useSubcos(site: Site | undefined, me: Profile | null) {
 }
 
 /** Finds or creates the org's library profile by name, so the company's library documents follow it to every job. */
-export async function addSubco(me: Profile, site: Site, name: string): Promise<boolean> {
-  let masterId: string | null = null; let rowName = name;
-  const ex = ((await db.from('subcontractor_company_profiles').select('id').eq('org_id', site.org_id as string).eq('name', name)).data as { id: string }[] | null) ?? [];
+export async function addSubco(me: Profile, site: Site, name: string, libraryId: string | null = null): Promise<string | null> {
+  let masterId: string | null = libraryId; let rowName = name;
+  const ex = masterId ? [] : ((await db.from('subcontractor_company_profiles').select('id').eq('org_id', site.org_id as string).eq('name', name)).data as { id: string }[] | null) ?? [];
   if (ex.length) masterId = ex[0].id;
+  else if (masterId) { /* picked from the Company Library */ }
   else {
     const via = ((await db.from('subcontractor_companies').select('master_company_id').eq('org_id', site.org_id as string).eq('name', name).not('master_company_id', 'is', null).limit(1)).data as { master_company_id: string }[] | null) ?? [];
     if (via.length) {
@@ -48,7 +50,8 @@ export async function addSubco(me: Profile, site: Site, name: string): Promise<b
   }
   // The id is made here: asking for the new row back is refused, as nobody can read a profile until a job links to it.
   if (!masterId) { const id = globalThis.crypto.randomUUID(); if (!(await db.from('subcontractor_company_profiles').insert({ id, org_id: site.org_id, name, created_by: me.id } as never)).error) masterId = id; }
-  return !(await db.from('subcontractor_companies').insert({ org_id: site.org_id, site_id: site.id, name: rowName, created_by: me.id, master_company_id: masterId } as never)).error;
+  const cid = globalThis.crypto.randomUUID();
+  return (await db.from('subcontractor_companies').insert({ id: cid, org_id: site.org_id, site_id: site.id, name: rowName, created_by: me.id, master_company_id: masterId } as never)).error ? null : cid;
 }
 /** Only when its library profile isn't shared with another job (renaming would rename it everywhere). */
 export async function renameSubco(c: Subco, name: string) {
@@ -108,12 +111,21 @@ export async function addSubTbt(me: Profile, siteId: string, companyId: string, 
 
 /* Daily briefings: a title and optional PDF. */
 export function useSubBriefings(companyId: string | undefined) {
-  return useQuery({ queryKey: ['subBriefings', companyId], enabled: !!companyId, queryFn: async () => orThrow(await db.from('subcontractor_briefings').select('*').eq('subcontractor_company_id', companyId as string).order('submitted_at', { ascending: false })) as { id: string; title: string; storage_path: string | null; submitted_by: string | null; submitted_at: string }[] });
+  return useQuery({ queryKey: ['subBriefings', companyId], enabled: !!companyId, queryFn: async () => {
+    const list = orThrow(await db.from('subcontractor_briefings').select('*').eq('subcontractor_company_id', companyId as string).order('submitted_at', { ascending: false })) as { id: string; title: string; storage_path: string | null; submitted_by: string | null; submitted_at: string; signers?: string[] | null }[];
+    // Who has signed each (20 Nov 2026).
+    const sigs = list.length ? (((await db.from('subcontractor_briefing_signatures').select('briefing_id,user_id,signed_at').in('briefing_id', list.map((b) => b.id))).data as { briefing_id: string; user_id: string; signed_at: string }[] | null) ?? []) : [];
+    return list.map((b) => ({ ...b, sigs: sigs.filter((x) => x.briefing_id === b.id) }));
+  } });
 }
-export async function addSubBriefing(me: Profile, siteId: string, companyId: string, title: string, f: Asset | null) {
+/** Sign a briefing you were chosen to sign (Andy, 20 Nov 2026). */
+export async function signSubBriefing(me: Profile & { signature_path?: string | null }, briefingId: string): Promise<boolean> {
+  return !(await db.from('subcontractor_briefing_signatures').insert({ briefing_id: briefingId, user_id: me.id, signature_image_path: me.signature_path || null } as never)).error;
+}
+export async function addSubBriefing(me: Profile, siteId: string, companyId: string, title: string, f: Asset | null, signers: string[] = []) {
   let path: string | null = null;
   if (f) { path = await put('rams-docs', `${siteId}/subcontractor-briefings/${companyId}/${rid()}-${clean(f.name)}`, f); if (!path) return false; }
-  return !(await db.from('subcontractor_briefings').insert({ subcontractor_company_id: companyId, site_id: siteId, title, storage_path: path, submitted_by: me.id } as never)).error;
+  return !(await db.from('subcontractor_briefings').insert({ subcontractor_company_id: companyId, site_id: siteId, title, storage_path: path, submitted_by: me.id, signers: signers.length ? signers : null } as never)).error;
 }
 export const deleteSubBriefing = async (id: string) => !!(await db.from('subcontractor_briefings').delete().eq('id', id).select('id')).data?.length;
 
@@ -189,5 +201,76 @@ export function useIsSubAdmin(companyId: string | null | undefined, me: Profile 
   return useQuery({
     queryKey: ['subAdmin', companyId, me?.id], enabled: !!companyId && !!me && me.role !== 'client',
     queryFn: async () => (((await db.from('subcontractor_operatives').select('id').eq('subcontractor_company_id', companyId as string).eq('user_id', (me as Profile).id).eq('is_admin', true).limit(1)).data as unknown[] | null) ?? []).length > 0,
+  });
+}
+
+/* ---------- Company Library from sign-ups; insurance; subcontractor staff (Andy, 20 Nov 2026) ---------- */
+export type LibCompany = { id: string; name: string; approvedAt: string | null; contactUserId: string | null; insurance: ReturnType<typeof insuranceStatus> };
+/** The company's library: each subcontractor company, approved sign-ups first, with its insurance. Managers only. */
+export function useLibrary(orgId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['subLibrary', orgId], enabled: !!orgId,
+    queryFn: async (): Promise<LibCompany[]> => {
+      const [p, dd] = await Promise.all([
+        db.from('subcontractor_company_profiles').select('id,name,approved_at,contact_user_id').eq('org_id', orgId as string).order('name'),
+        db.from('subcontractor_company_documents').select('master_company_id,category,expiry_date').eq('org_id', orgId as string),
+      ]);
+      const docs = (dd.data as { master_company_id: string; category: string; expiry_date: string | null }[] | null) ?? [];
+      const today = new Date().toISOString().slice(0, 10);
+      return (((p.data as { id: string; name: string; approved_at: string | null; contact_user_id: string | null }[] | null) ?? []).map((x) => ({
+        id: x.id, name: x.name, approvedAt: x.approved_at, contactUserId: x.contact_user_id, insurance: insuranceStatus(docs.filter((d) => d.master_company_id === x.id), today),
+      }))).sort((a, b) => Number(!!b.approvedAt) - Number(!!a.approvedAt) || a.name.localeCompare(b.name));
+    },
+  });
+}
+type SignUp = { id: string; company_name: string; user_id?: string | null; data: Record<string, unknown> | null; files: { label?: string; name?: string; path: string; bucket?: string }[] | null };
+/**
+ * Approving a sign-up sets the company up (Andy, 20 Nov 2026): its Company Library entry (found by name, or new), marked
+ * approved with the person who signed it up, and their documents copied in under the right heading, with the insurance
+ * expiry dates from the form. Gives how many documents went in, and any that couldn't be copied.
+ */
+export async function approveIntoLibrary(me: Profile, r: SignUp): Promise<{ id: string | null; added: number; failed: string[] }> {
+  const org = me.org_id as string, now = new Date().toISOString();
+  const ex = ((await db.from('subcontractor_company_profiles').select('id,contact_user_id').eq('org_id', org).ilike('name', r.company_name.trim())).data as { id: string; contact_user_id: string | null }[] | null) ?? [];
+  let id = ex[0]?.id ?? null;
+  if (id) await db.from('subcontractor_company_profiles').update({ application_id: r.id, approved_at: now, contact_user_id: ex[0].contact_user_id || r.user_id || null } as never).eq('id', id);
+  else {
+    id = globalThis.crypto.randomUUID();
+    if ((await db.from('subcontractor_company_profiles').insert({ id, org_id: org, name: r.company_name.trim(), created_by: me.id, application_id: r.id, approved_at: now, contact_user_id: r.user_id || null } as never)).error) return { id: null, added: 0, failed: [] };
+  }
+  const have = new Set((((await db.from('subcontractor_company_documents').select('name').eq('master_company_id', id)).data as { name: string }[] | null) ?? []).map((x) => x.name));
+  const d = r.data || {};
+  let added = 0; const failed: string[] = [];
+  for (const f of r.files || []) {
+    const name = f.name || f.label || 'Document';
+    if (have.has(name)) continue;
+    const cat = libCategory(`${f.label || ''} ${f.name || ''}`);
+    const expiry = cat === 'public_liability_insurance' ? parseExpiry(d.pl_expiry) : cat === 'employers_liability_insurance' ? parseExpiry(d.el_expiry) : null;
+    try {
+      const dl = await supabase.storage.from(f.bucket === 'subcontractor-apps' ? 'subcontractor-apps' : 'mc-documents').download(f.path);
+      if (dl.error || !dl.data) throw new Error('download');
+      const up = await supabase.storage.from('mc-documents').upload(`company-library/${id}/${globalThis.crypto.randomUUID()}-${name.replace(/[^a-z0-9.-]+/gi, '_')}`, await dl.data.arrayBuffer(), { contentType: dl.data.type || 'application/pdf' });
+      if (up.error) throw new Error('upload');
+      if ((await db.from('subcontractor_company_documents').insert({ org_id: org, master_company_id: id, category: cat, uploaded_by: me.id, name, storage_path: up.data.path, content_type: dl.data.type || null, size: dl.data.size || null, expiry_date: expiry } as never)).error) throw new Error('insert');
+      added++;
+    } catch { failed.push(name); }
+  }
+  return { id, added, failed };
+}
+/** Their person (who signed the company up) as the company's admin on this job: on the job, and allocated as admin. */
+export async function makeSubAdmin(me: Profile, siteId: string, companyId: string, userId: string): Promise<boolean> {
+  const on = ((await db.from('site_assignments').select('id').eq('site_id', siteId).eq('user_id', userId).limit(1)).data as unknown[] | null) ?? [];
+  if (!on.length && (await db.from('site_assignments').insert({ site_id: siteId, user_id: userId } as never)).error) return false;
+  return !(await db.from('subcontractor_operatives').insert({ site_id: siteId, subcontractor_company_id: companyId, user_id: userId, assigned_by: me.id, is_admin: true } as never)).error;
+}
+/** A subcontractor's person (allocated to a subcontractor company on any job): a lighter login, without our employee
+ *  items (Andy, 20 Nov 2026). admin: they run their company (they fill in the company's sign-up form). */
+export function useSubStaff(me: Profile | null) {
+  return useQuery({
+    queryKey: ['subStaff', me?.id], enabled: !!me && me.role === 'operative', staleTime: 300000,
+    queryFn: async () => {
+      const r = ((await db.from('subcontractor_operatives').select('is_admin').eq('user_id', (me as Profile).id)).data as { is_admin: boolean | null }[] | null) ?? [];
+      return { staff: r.length > 0, admin: r.some((x) => !!x.is_admin) };
+    },
   });
 }

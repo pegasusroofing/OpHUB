@@ -12,7 +12,7 @@ import { viewDoc } from '@/components/DocViewer';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
 import { openDocLink } from '@/data/hs';
-import { deleteManual, loadSubOms, newManual, uploadSubOm } from '@/data/omManual';
+import { deleteManual, loadSubOms, newManual, submitSubOm, subSowDone, uploadSubOm } from '@/data/omManual';
 import { useSite } from '@/data/sites';
 import { useSubco } from '@/data/subcontractors';
 import { useAuth } from '@/lib/auth';
@@ -31,20 +31,24 @@ export default function SubcoOm() {
   const { data: subco, isLoading } = useSubco(co, me);
   const { data: list } = useQuery({ queryKey: ['subOms', id, co], enabled: !!id && !!co, queryFn: () => loadSubOms(id, co) });
   const [busy, setBusy] = useState('');
+  // Their O&M can be submitted once every Schedule of Works task given to them is complete (Andy, 20 Nov 2026).
+  const { data: sow } = useQuery({ queryKey: ['subSow', id, co], enabled: !!id && !!co, queryFn: () => subSowDone(id, co) });
   if (!me || !site || isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!subco) return <Muted style={{ padding: space.l }}>Subcontractor not found.</Muted>;
   const canEdit = isManager(me) || subco.isAdmin;
   if (!canEdit) return <Muted style={{ padding: space.l }}>Only your company’s admin and the main contractor’s managers can see the O&amp;M manuals.</Muted>;
-  const refresh = () => { void qc.invalidateQueries({ queryKey: ['subOms', id] }); void qc.invalidateQueries({ queryKey: ['subco', co] }); void qc.invalidateQueries({ queryKey: ['handover', id] }); };
+  const refresh = () => { void qc.invalidateQueries({ queryKey: ['subSow', id] }); void qc.invalidateQueries({ queryKey: ['subOms', id] }); void qc.invalidateQueries({ queryKey: ['subco', co] }); void qc.invalidateQueries({ queryKey: ['handover', id] }); };
   const mc = org?.name || 'the main contractor';
 
   const upload = async () => {
     const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
     if (r.canceled || !r.assets[0]) return;
     setBusy('up');
-    const ok = await uploadSubOm(me, site, co, { uri: r.assets[0].uri, name: r.assets[0].name || 'O&M Manual.pdf', mimeType: r.assets[0].mimeType });
+    const ready = isManager(me) || !!sow?.complete;
+    const ok = await uploadSubOm(me, site, co, { uri: r.assets[0].uri, name: r.assets[0].name || 'O&M Manual.pdf', mimeType: r.assets[0].mimeType }, ready);
     setBusy('');
     if (!ok) { toast('Could not upload — check your signal and try again.'); return; }
+    if (!ready) toast('Your Schedule of Works isn’t complete yet, so it’s kept as a draft. Submit it once every task is done.');
     refresh();
   };
   const build = async () => {
@@ -61,7 +65,13 @@ export default function SubcoOm() {
 
   return (
     <ScrollView contentContainerStyle={page(720)}>
-      <Stack.Screen options={{ title: `${subco.company.name} — O&M` }} />
+      <Stack.Screen options={{ title: `${subco.company.name} — Handover` }} />
+      {!!sow && sow.total > 0 && (
+        <Card style={{ borderColor: sow.complete ? base.line : '#f8e7c2' }}>
+          <Text style={{ fontWeight: '600', color: sow.complete ? base.ok : '#b45309' }}>{sow.complete ? `✓ Schedule Of Works Complete (${sow.total} of ${sow.total})` : `Schedule Of Works: ${sow.done} of ${sow.total} Tasks Complete`}</Text>
+          <Muted>{sow.complete ? 'Your O&M manual can be submitted.' : 'You can build or upload your O&M manual now. It can be submitted once every task given to you is complete.'}</Muted>
+        </Card>
+      )}
       <Card>
         <Muted>Your O&amp;M manual for the works you carried out on this job. Upload your own, or build one here (it starts with the Schedule of Works tasks given to you and your COSHH). Once it’s submitted it goes in the back of {mc}’s O&amp;M manual.</Muted>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 10 }}>
@@ -79,6 +89,10 @@ export default function SubcoOm() {
               <Muted>{m.submittedAt ? `Submitted ${when(m.submittedAt)}${m.rev ? ` · Revision ${m.rev}` : ''}` : 'Not Submitted Yet'}{m.built ? ' · Built Here' : ' · Uploaded PDF'}</Muted>
             </View>
           </Pressable>
+          {!m.submittedAt && !m.built && <Button small title="Submit" disabled={!isManager(me) && !sow?.complete} onPress={async () => {
+            if (!(await confirmAsk(`Submit "${m.name}" to ${mc}? It goes in the back of their O&M manual.`, 'Yes', 'No'))) return;
+            const e = await submitSubOm(m.id); if (e) toast(e); refresh();
+          }} />}
           <Pressable hitSlop={8} accessibilityLabel={`${m.name} options`} onPress={async () => {
             const k = await chooseAction(m.name, [
               ...(m.path ? [{ key: 'view', label: '📄 View The PDF' }] : []),

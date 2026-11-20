@@ -57,7 +57,7 @@ export async function buildOmPdf(d: OmData, site: Site, org: Organization | null
   // page 2 — logo, CDM wording, contractor + revision details
   newPage();
   y = H - M - 60;
-  const logo = org?.logo_path ? await embedImage(pdf, await fetchBytes(publicUrl('org-logos', org.logo_path))) : null;
+  const logo = org?.logo_path && !d.forCompany ? await embedImage(pdf, await fetchBytes(publicUrl('org-logos', org.logo_path))) : null;
   if (logo) { const s = logo.scale(1); let w = 210, h = (w * s.height) / s.width; if (h > 170) { h = 170; w = (h * s.width) / s.height; } page.drawImage(logo, { x: M + (CW - w) / 2, y: y - h, width: w, height: h }); y -= h; }
   y -= 70;
   String(c.subtitle || '').split('\n').forEach((par) => { if (!par.trim()) { y -= 14; return; } wrap(par, reg, 15, CW).forEach((l) => { ctr(l, y, 15, reg, NAVY); y -= 20; }); });
@@ -93,6 +93,8 @@ export async function buildOmPdf(d: OmData, site: Site, org: Organization | null
     } else if (s.type === 'table' || s.type === 'materials') {
       const cols = (s.columns || []).length || 1, colW = CW / cols, hasHead = (s.columns || []).some((h) => String(h || '').trim());
       const all = (hasHead ? [s.columns || []] : []).concat(s.rows || []);
+      // A short table (the sign-off, contacts) stays on one page rather than splitting.
+      if (all.length <= 10) ensure(all.reduce((h, r) => h + Math.max(16, Math.max(1, ...r.map((v, ci) => wrap(v || '', reg, 9, colW - 8).length + (ci < 0 ? 1 : 0))) * 11 + 6), 0));
       all.forEach((r, ri) => {
         const head = hasHead && ri === 0;
         const cells = r.map((v, ci) => wrap(v || '', head || (ci === 0 && !hasHead) ? bold : reg, 9, colW - 8));

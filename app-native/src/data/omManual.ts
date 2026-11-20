@@ -7,7 +7,7 @@ import { buildOmPdf } from '@/lib/pdfLazy';
 import { normaliseCpp, type CppPlan } from '@/lib/rules/cpp';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import { localISODate } from '@/lib/rules/driver';
-import { boqScope, buildDefaultOm, ensureTeam, nextRevision, normalizeOm, sowScope, syncOmCoshh, syncOmDocs, type BoqWork, type OmData, type OmPhoto } from '@/lib/rules/omManual';
+import { boqScope, buildDefaultOm, ensureTeam, tradeNeutral, nextRevision, normalizeOm, sowScope, syncOmCoshh, syncOmDocs, type BoqWork, type OmData, type OmPhoto } from '@/lib/rules/omManual';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile, Site } from '@/lib/types';
 
@@ -94,6 +94,9 @@ async function buildFromCompany(me: Profile, org: Organization | null, site: Sit
     schedSections: rows(secs) as never, tasks: rows(tasks) as never, docs: [], coshh: rows(coshh) as never, drawings: [], photos, cpp: null,
   });
   d.forCompany = companyId;
+  // Their cover says whose manual it is.
+  d.cover = { ...d.cover, header: 'SUBCONTRACTOR INFORMATION FOR HEALTH AND SAFETY FILE', volume: `${name} — Operation and Maintenance Manual` };
+  tradeNeutral(d);
   d.attach = { datasheets: false, guarantees: false, coshh: true, drawings: false };
   return d;
 }
@@ -216,7 +219,10 @@ export async function issueManual(me: Profile, org: Organization | null, site: S
   d.revisions = [...(d.revisions || []), { rev, date: today, by: me.name || '', note: note.trim() || (rev === '1' ? 'First issue' : ''), path: up.data.path }];
   if (!(await saveManual(me, manualId, name, d))) return 'The PDF is made, but the manual could not be saved — try again.';
   // A subcontractor's manual is submitted to the main contractor when it's issued.
-  if (sub) await db.from('handover_om_manuals').update({ submitted_at: new Date().toISOString() } as never).eq('id', manualId);
+  if (sub) {
+    const u = await db.from('handover_om_manuals').update({ submitted_at: new Date().toISOString() } as never).eq('id', manualId);
+    if (u.error) return 'Your Schedule of Works isn’t complete yet, so it can’t be submitted. The PDF is kept as a draft revision.';
+  }
   return { d, notAttached: out.notAttached, bytes: out.bytes, filename };
 }
 
@@ -236,15 +242,28 @@ export async function loadSubOms(siteId: string, companyId?: string | null): Pro
 }
 /** Their submitted manuals, as files for the back of the main contractor's manual. */
 export async function subOmFiles(siteId: string): Promise<OmAttach[]> {
-  return (await loadSubOms(siteId)).filter((x) => x.submittedAt && x.path).map((x) => ({ bucket: 'mc-documents', path: x.path as string, name: `${x.company} — ${x.name}` }));
+  return (await loadSubOms(siteId)).filter((x) => x.submittedAt && x.path).map((x) => ({ bucket: 'mc-documents', path: x.path as string, name: x.name.toLowerCase().includes(x.company.toLowerCase()) ? x.name : `${x.company} — ${x.name}` }));
 }
 /** A subcontractor's own O&M manual uploaded as a PDF: submitted to the main contractor straight away. */
-export async function uploadSubOm(me: Profile, site: Site, companyId: string, f: { uri: string; name: string; mimeType?: string | null }): Promise<boolean> {
+export async function uploadSubOm(me: Profile, site: Site, companyId: string, f: { uri: string; name: string; mimeType?: string | null }, submit = true): Promise<boolean> {
   try {
     const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
     const up = await supabase.storage.from('mc-documents').upload(`${site.org_id || me.org_id}/handover/${site.id}/subs/${companyId}/${rid}-${(f.name || 'om.pdf').replace(/[^a-z0-9.-]+/gi, '_')}`, await (await fetch(f.uri)).arrayBuffer(), { contentType: f.mimeType || 'application/pdf' });
     if (up.error) return false;
     const now = new Date().toISOString();
-    return !(await db.from('handover_om_manuals').insert({ site_id: site.id, org_id: site.org_id || me.org_id, subcontractor_company_id: companyId, name: (f.name || 'O&M Manual').replace(/\.pdf$/i, ''), data: {}, file_path: up.data.path, submitted_at: now, created_by: me.id, updated_by: me.id } as never)).error;
+    return !(await db.from('handover_om_manuals').insert({ site_id: site.id, org_id: site.org_id || me.org_id, subcontractor_company_id: companyId, name: (f.name || 'O&M Manual').replace(/\.pdf$/i, ''), data: {}, file_path: up.data.path, submitted_at: submit ? now : null, created_by: me.id, updated_by: me.id } as never)).error;
   } catch { return false; }
+}
+
+/** How far a subcontractor's Schedule of Works is: their O&M can be submitted once every task given to them is complete
+ *  (Andy, 20 Nov 2026). No tasks given to them counts as complete. */
+export async function subSowDone(siteId: string, companyId: string): Promise<{ total: number; done: number; complete: boolean }> {
+  const t = rows<{ status: string | null }>(await db.from('schedule_tasks').select('status').eq('site_id', siteId).eq('subcontractor_company_id', companyId));
+  const done = t.filter((x) => ['done', 'completed', 'complete'].includes(String(x.status || ''))).length;
+  return { total: t.length, done, complete: done === t.length };
+}
+/** Submit an uploaded O&M that was kept as a draft. Gives the problem, or null. */
+export async function submitSubOm(id: string): Promise<string | null> {
+  const u = await db.from('handover_om_manuals').update({ submitted_at: new Date().toISOString() } as never).eq('id', id).select('id');
+  return u.error ? 'Your Schedule of Works isn’t complete yet, so it can’t be submitted.' : u.data?.length ? null : 'Could not submit — try again.';
 }

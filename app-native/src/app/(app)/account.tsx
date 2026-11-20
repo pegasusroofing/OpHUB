@@ -14,6 +14,7 @@ import { chooseAction, promptText, showAlert, useToast } from '@/components/toas
 import { CODE_WRONG, confirmCompanyEmail, sendCompanyEmailCode, setCompanyEmail } from '@/data/companies';
 import { Button, Field, Muted, Screen } from '@/components/ui';
 import { saveMyPhone } from '@/data/onboarding';
+import { useSubStaff } from '@/data/subcontractors';
 import { resetHowTo } from '@/lib/howto';
 import { useAuth } from '@/lib/auth';
 import { finHasAccess, isManager } from '@/lib/roles';
@@ -23,6 +24,8 @@ import { base } from '@/theme/theme';
 
 export default function Account() {
   const { me, org, signOut, refresh, session } = useAuth();
+  // A subcontractor's staff have a lighter login: no employee record (Andy, 20 Nov 2026).
+  const { data: subStaff } = useSubStaff(me);
   const toast = useToast();
   const [queued, setQueued] = useState(0);
   const [busy, setBusy] = useState<'' | 'out' | 'phone'>('');
@@ -67,7 +70,7 @@ export default function Account() {
         )}
         <PlainRow label="My Signature" value={me.signature_path ? 'Adopted' : 'Not Yet'} onPress={() => router.push('/signature')} />
         {/* Managers have their own folder in HR › Employee Records; everyone else (no HR page) keeps it here. */}
-        {!isManager(me) && me.role !== 'client' && !me.role.startsWith('subcontractor') && <PlainRow label="My Employee Record" onPress={() => router.push('/myrecord' as never)} />}
+        {!isManager(me) && me.role !== 'client' && !me.role.startsWith('subcontractor') && !subStaff?.staff && <PlainRow label="My Employee Record" onPress={() => router.push('/myrecord' as never)} />}
         {finHasAccess(me, org) && (
           <PlainRow label="Show Finance" sub="No hides Finance and money figures" value={finShown ? 'Yes' : 'No'} a11y={`Show Finance: ${finShown ? 'Yes' : 'No'}`} onPress={async () => {
             const r = await supabase.from('profiles').update({ finance_hidden: finShown } as never).eq('id', me.id);

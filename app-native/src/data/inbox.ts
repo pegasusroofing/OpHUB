@@ -31,11 +31,15 @@ export function useOutstanding(sites: Site[] | undefined) {
       const live = (sites ?? []).filter((s) => mine.has(s.id) && siteStatusKey(s) === 'live');
       if (!live.length) return [];
       const ids = live.map((s) => s.id);
-      const [rams, coshh, tbts] = await Promise.all([
+      const [rams, coshh, tbts, briefs] = await Promise.all([
         db.from('rams_docs').select('id,site_id,uploaded_at,resign_cycle_start,name,supersedes').eq('status', 'current').in('site_id', ids).is('subcontractor_company_id', null).is('signing_closed_at', null),
         db.from('coshh_docs').select('id,site_id,uploaded_at,resign_cycle_start,name').in('site_id', ids).is('subcontractor_company_id', null).is('signing_closed_at', null),
         db.from('toolbox_talks').select('id,site_id,title').eq('status', 'live').in('site_id', ids).is('subcontractor_company_id', null),
+        // A subcontractor's daily briefing I was chosen to sign (20 Nov 2026).
+        db.from('subcontractor_briefings').select('id,site_id,title,subcontractor_company_id').in('site_id', ids).contains('signers', [uid]),
       ]);
+      const briefList = ((briefs.data as { id: string; site_id: string; title: string; subcontractor_company_id: string }[] | null) ?? []);
+      const briefSigned = new Set(briefList.length ? (((await db.from('subcontractor_briefing_signatures').select('briefing_id').eq('user_id', uid).in('briefing_id', briefList.map((b) => b.id))).data as { briefing_id: string }[] | null) ?? []).map((x) => x.briefing_id) : []);
       const ramsDocs = orThrow(rams) as Doc[], coshhDocs = orThrow(coshh) as Doc[], liveTbts = orThrow(tbts) as { id: string; site_id: string; title?: string | null }[];
       const sigs = async (table: string, key: string, docIds: string[]) => docIds.length
         ? orThrow(await db.from(table).select(`${key},user_id,signed_at`).in(key, docIds).eq('user_id', uid)) as Record<string, string>[]
@@ -62,6 +66,7 @@ export function useOutstanding(sites: Site[] | undefined) {
         ramsDocs.filter((d) => d.site_id === s.id && !ramsSigned.has(d.id)).forEach((d) => items.push({ label: `Sign RAMS: ${d.name || 'RAMS document'}`, sub: why(d, everR), href: `/sites/${s.id}/hs/rams`, type: 'rams' }));
         coshhDocs.filter((d) => d.site_id === s.id && !coshhSigned.has(d.id)).forEach((d) => items.push({ label: `Sign COSHH: ${d.name || 'COSHH document'}`, sub: why(d, everC), href: `/sites/${s.id}/hs/coshh`, type: 'coshh' }));
         liveTbts.filter((d) => d.site_id === s.id && !tbtSigned.has(d.id)).forEach((d) => items.push({ label: `Sign Toolbox Talk: ${d.title || 'Toolbox Talk'}`, sub: 'New — not signed yet', href: `/sites/${s.id}/hs/tbt/${d.id}`, type: 'tbt' }));
+        briefList.filter((b) => b.site_id === s.id && !briefSigned.has(b.id)).forEach((b) => items.push({ label: `Sign Daily Briefing: ${b.title || 'Daily Briefing'}`, sub: 'You were chosen to sign it', href: `/sites/${s.id}/mc/subcontractors/${b.subcontractor_company_id}/briefings`, type: 'tbt' }));
         return { site: s, items };
       }).filter((r) => r.items.length);
     }),

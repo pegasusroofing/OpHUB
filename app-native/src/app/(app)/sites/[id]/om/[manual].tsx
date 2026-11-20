@@ -31,7 +31,7 @@ import { assessMap, loadProducts } from '@/data/coshhLib';
 import { FinTabs } from '@/components/FinNav';
 import { FinForm } from '@/components/FinForm';
 import { setCompletion, useCompletion, useHandover } from '@/data/handover';
-import { appendixFile, issueManual, jobCpp, jobPhotos, loadManual, loadSubOms, saveManual, scopeFrom, uploadRowFile } from '@/data/omManual';
+import { appendixFile, issueManual, jobCpp, jobPhotos, loadManual, loadSubOms, saveManual, scopeFrom, subSowDone, uploadRowFile } from '@/data/omManual';
 import { viewDoc } from '@/components/DocViewer';
 import { Popup, PopupButtons } from '@/components/Popup';
 import { useSite } from '@/data/sites';
@@ -76,6 +76,9 @@ function Editor({ me, org, site, manualId, name0, data0 }: { me: Profile; org: O
   const hasFin = !sub && !!(org as (Organization & { has_finance?: boolean }) | null)?.has_finance;
   const { data: subOms } = useQuery({ queryKey: ['subOms', site.id], enabled: !sub, queryFn: () => loadSubOms(site.id) });
   const nSubs = (subOms || []).filter((x) => x.submittedAt && x.path).length;
+  // A subcontractor submits once every Schedule of Works task given to them is complete (Andy, 20 Nov 2026).
+  const { data: sow } = useQuery({ queryKey: ['subSow', site.id, data0.forCompany], enabled: sub, queryFn: () => subSowDone(site.id, data0.forCompany as string) });
+  const sowBlocked = sub && !isManager(me) && !!sow && !sow.complete;
   const [d, setD] = useState<OmData>(data0);
   const [name, setName] = useState(name0);
   const [status, setStatus] = useState('');
@@ -215,7 +218,8 @@ function Editor({ me, org, site, manualId, name0, data0 }: { me: Profile; org: O
   const c = d.cover || {};
   const cover = (k: keyof typeof c, v: string) => up((x) => { (x.cover as Record<string, unknown>)[k] = v; });
   const nGuar = (ho?.docs || []).filter((x) => x.kind === 'guarantee').length, nSheet = (ho?.docs || []).filter((x) => x.kind === 'datasheet').length;
-  const checks = omChecklist(d, { pcDate: pc?.pc_date }).filter((k) => !sub || (k.key !== 'pc' && k.key !== 'pd'));
+  const checks = [...(sub && sow && sow.total ? [{ key: 'sow', label: `Your Schedule Of Works Complete (${sow.done} of ${sow.total})`, ok: sow.complete, tab: 'works' as OmTab, must: true }] : []),
+    ...omChecklist(d, { pcDate: pc?.pc_date }).filter((k) => !sub || (k.key !== 'pc' && k.key !== 'pd'))];
   const revs = d.revisions || [];
   const lastRev = revs[revs.length - 1];
   const when = (iso: string | null | undefined) => (iso ? new Date(iso.length === 10 ? `${iso}T12:00:00` : iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
@@ -396,6 +400,7 @@ function Editor({ me, org, site, manualId, name0, data0 }: { me: Profile; org: O
 
   // ----- Issue: what's left, the sign-off, issuing a revision, and the revisions so far -----
   const doIssue = async () => {
+    if (sowBlocked) { toast('Your Schedule of Works isn’t complete yet, so your O&M can’t be submitted.'); return; }
     if (scopeEmpty(d)) { toast('Fill in the Scope of Works first — it has to be in the manual.'); setTab('works'); return; }
     const rev = nextRevision(d);
     const note = revs.length ? await promptText(`What Has Changed In Revision ${rev}?`, '') : '';
@@ -436,7 +441,7 @@ function Editor({ me, org, site, manualId, name0, data0 }: { me: Profile; org: O
         <Muted>{sub ? `Submitting puts ${revs.length ? 'the next revision number' : 'Revision 1'} and today’s date on the cover, makes the PDF and sends it to ${org?.name || 'the main contractor'}. It goes in the back of their O&M manual.${revs.length ? ' Earlier revisions are kept below.' : ''}`
           : <>{revs.length ? 'Issuing again puts the next revision number and today’s date on the cover, and keeps the earlier revisions below.' : 'Issuing puts Revision 1 and today’s date on the cover, makes the PDF and keeps it with the manual.'}{siteHasOneDrive(site) ? ' A copy goes in the job’s OneDrive folder.' : ''}</>}</Muted>
         {centre(
-          <Button key="issue" title={status || (sub ? `Submit Revision ${nextRevision(d)}` : `Issue Revision ${nextRevision(d)}`)} disabled={!!status} onPress={() => void doIssue()} />,
+          <Button key="issue" title={status || (sub ? `Submit Revision ${nextRevision(d)}` : `Issue Revision ${nextRevision(d)}`)} disabled={!!status || sowBlocked} onPress={() => void doIssue()} />,
           <Button key="exp" kind="ghost" title="Export ▾" disabled={!!status} onPress={() => void exportMenu()} />,
         )}
       </Card>

@@ -20,6 +20,7 @@ export default function SubcoHub() {
   if (me && !allowed) return <Muted style={{ padding: space.l }}>{list ? "You don't have access to this subcontractor." : 'Loading…'}</Muted>;
   if (isLoading || !data) return <Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Subcontractor not found.'}</Muted>;
   const n = data.counts;
+  const mine = !!me && !isManager(me) && list?.myCompany === co;
   const go = (p: string) => () => router.push(`/sites/${id}/mc/subcontractors/${co}/${p}` as never);
   const docs = (k: number) => `${k} document${k === 1 ? '' : 's'}`;
   return (
@@ -27,6 +28,12 @@ export default function SubcoHub() {
       <Stack.Screen options={{ title: data.company.name }} />
       {/* 550: a tile grid like the Main Contractor page, not a list. */}
       <JobGrid>
+      {/* Their own people (20 Nov 2026): this page is their home on the job, so Check In, the induction, the site rules
+          and the calendar are here too. */}
+      {mine && <Tile icon="📍" tint="#E7E9EE" title="Check In / Out" sub="On site today" onPress={() => router.push(`/sites/${id}/checkin` as never)} />}
+      {mine && <Tile icon="🦺" tint="#E7E9EE" title="Site Induction" sub="Before you start" onPress={() => router.push(`/sites/${id}/mc/inductions` as never)} />}
+      {mine && <Tile icon="📏" tint="#E7E9EE" title="Site Rules & Layout" sub="Read and sign" onPress={() => router.push(`/sites/${id}/mc/layout` as never)} />}
+      {mine && <Tile icon="📅" tint="#E7E9EE" title="Calendar" sub="What's on" onPress={() => router.push(`/sites/${id}/calendar` as never)} />}
       <Tile icon="📄" tint="#E7E9EE" title="RAMS" sub={docs(n.rams)} onPress={go('docs?kind=rams')} />
       <Tile icon="🧪" tint="#E7E9EE" title="COSHH" sub={docs(n.coshh)} onPress={go('docs?kind=coshh')} />
       <Tile icon="📢" tint="#E7E9EE" title="TBT" sub={`${n.tbt} live`} onPress={go('tbt')} />
@@ -35,8 +42,8 @@ export default function SubcoHub() {
       <Tile icon="🔍" tint="#E7E9EE" title="Inspections" sub={`${n.inspections} file${n.inspections === 1 ? '' : 's'}`} onPress={go('inspections')} />
       <Tile icon="📝" tint="#E7E9EE" title="Daily Briefings" sub={`${n.briefings} logged`} onPress={go('briefings')} />
       <Tile icon="👷" tint="#E7E9EE" title="Operatives" sub={`${n.operatives} allocated`} onPress={go('operatives')} />
-      {/* Their O&M manual for the main contractor's handover (Andy, 20 Nov 2026): managers and the company's admin. */}
-      {(isManager(me) || data.isAdmin) && <Tile icon="📘" tint="#E7E9EE" title="O&M Manual" sub={n.om ? `${n.omSubmitted} of ${n.om} submitted` : 'None yet'} onPress={go('om')} />}
+      {/* Their Handover: their O&M manual for the main contractor's (Andy, 20 Nov 2026): managers and the company's admin. */}
+      {(isManager(me) || data.isAdmin) && <Tile icon="📘" tint="#E7E9EE" title="Handover" sub={n.om ? `O&M · ${n.omSubmitted} of ${n.om} submitted` : 'O&M manual'} onPress={go('om')} />}
       </JobGrid>
     </ScrollView>
   );

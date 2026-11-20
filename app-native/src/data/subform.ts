@@ -34,10 +34,14 @@ export function useSubformNeeded(me: Profile | null) {
     queryKey: ['subformNeeded', me?.id], enabled: !!me && me.role === 'operative',
     queryFn: async () => {
       const p = me as Profile;
-      const [prof, sent] = await Promise.all([
+      const [prof, sent, subStaff] = await Promise.all([
         db.from('profiles').select('subform_required').eq('id', p.id).maybeSingle(),
         db.from('subcontractor_applications').select('id,status,review_note').eq('user_id', p.id).order('created_at', { ascending: false }).limit(1),
+        db.from('subcontractor_operatives').select('is_admin').eq('user_id', p.id),
       ]);
+      // A subcontractor's operatives don't fill in the Subcontractor Form; their company's admin does (Andy, 20 Nov 2026).
+      const subRows = (subStaff.data as { is_admin: boolean | null }[] | null) ?? [];
+      if (subRows.length && !subRows.some((x) => x.is_admin)) return { needed: false, off: true, returned: null as string | null };
       if (sent.error) return { needed: false, off: false, returned: null as string | null };
       const off = (prof.data as { subform_required?: boolean | null } | null)?.subform_required === false;
       const last = ((sent.data as { id: string; status: string; review_note: string | null }[] | null) ?? [])[0];

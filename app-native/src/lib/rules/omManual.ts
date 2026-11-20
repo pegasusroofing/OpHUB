@@ -450,3 +450,13 @@ export function nextRevision(d: OmData): string {
   const n = Number(last.rev);
   return Number.isFinite(n) ? String(n + 1) : String((d.revisions || []).length + 1);
 }
+
+/** A subcontractor's manual starts trade-neutral (Andy, 20 Nov 2026: a painter's O&M isn't a roofer's): the introduction
+ *  says "works", maintenance is one blank procedure for them to write, and the H&S wording asks for their residual risks. */
+export function tradeNeutral(d: OmData): void {
+  d.sections.forEach((s) => {
+    if (s.type === 'text' && /introduction/i.test(s.title || '')) s.body = String(s.body || '').replace(/completed roofing works/g, 'completed works');
+    if (s.type === 'maint') s.items = [{ id: omUid(), key: null, title: 'Maintenance', text: '' }];
+    if (s.type === 'text' && /health & safety information/i.test(s.title || '')) s.body = 'Residual risks for anyone maintaining these works, and how to control them (for example working at height, isolating services, hazardous substances):\n• \n\nProducts used must be handled in line with their COSHH assessments (see the Materials Log and the attached COSHH).';
+  });
+}

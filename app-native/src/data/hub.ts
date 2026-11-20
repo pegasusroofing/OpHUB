@@ -71,7 +71,7 @@ export function useHub(me: Profile | null, allSites: Site[] | undefined, pmId: s
           db.from('schedule_tasks').select('site_id,status').in('site_id', ids),
           db.from('site_assignments').select('site_id,user_id').in('site_id', ids),
           db.from('todos').select('id,site_id,text,date_required_by').in('site_id', ids).eq('done', false).order('created_at'),
-          db.from('messages').select('id,site_id,created_at').eq('audience', 'managers').or(`site_id.in.(${ids.join(',')}),site_id.is.null`).neq('sender_id', p.id).gte('created_at', since),
+          db.from('messages').select('id,site_id,created_at,body,related_id').eq('audience', 'managers').or(`site_id.in.(${ids.join(',')}),site_id.is.null`).neq('sender_id', p.id).gte('created_at', since),
           // A database request has then() but no catch(): wrapped so a failure here can't empty the whole HUB.
           Promise.resolve(rpc('sow_photo_alerts', {})).catch(() => ({ data: [], error: null })),
         ]) : null,
@@ -114,7 +114,7 @@ export function useHub(me: Profile | null, allSites: Site[] | undefined, pmId: s
       const [rams, coshh, talks, snags, tasks, assigned, todos, msgs, alerts] = jobs;
       type Doc = { id: string; site_id: string; uploaded_at: string; resign_cycle_start: string | null };
       const ramsD = rows<Doc>(rams), coshhD = rows<Doc>(coshh);
-      const msgList = rows<{ id: string; site_id: string | null; created_at: string }>(msgs);
+      const msgList = rows<{ id: string; site_id: string | null; created_at: string; body?: string | null; related_id?: string | null }>(msgs);
       const chunks = <T,>(list: T[], n: number) => { const out: T[][] = []; for (let i = 0; i < list.length; i += n) out.push(list.slice(i, i + n)); return out; };
       // Only the people on these jobs are looked up to see who's an operative (it read every operative in the company).
       const people = [...new Set(rows<{ user_id: string }>(assigned).map((a) => a.user_id))];
@@ -165,6 +165,8 @@ export function useHub(me: Profile | null, allSites: Site[] | undefined, pmId: s
       });
       msgList.filter((m) => !readIds.has(m.id)).forEach((m) => {
         const s = m.site_id ? sites.find((x) => x.id === m.site_id) : null;
+        // A subcontractor's O&M submitted (20 Nov 2026): said as it is, and it opens Handover.
+        if (s && m.related_id && / submitted their O&M manual /.test(String(m.body || ''))) { items.push({ key: `msg-${m.id}`, type: 'message', area: 'projects', typeLbl: 'Subcontractor O&M', label: String(m.body).replace(/\. It goes in the back.*$/, ''), siteId: s.id, siteName: s.name, due: null, at: new Date(m.created_at), route: `/sites/${s.id}/handover`, markRead: m.id }); return; }
         items.push({ key: `msg-${m.id}`, type: 'message', area: 'projects', typeLbl: 'Message', label: s ? 'New message' : 'New message (all sites)', siteId: m.site_id, siteName: s ? s.name : 'All sites', due: null, at: new Date(m.created_at), route: s ? `/sites/${s.id}/messages` : '/inbox', markRead: m.id });
       });
       items.push(...direct);

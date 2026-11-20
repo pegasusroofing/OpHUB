@@ -51,7 +51,7 @@ export async function buildOmWord(d: OmData, site: Site, org: Organization | nul
   body += brk;
   // page 2
   body += para('') + para('');
-  const logo = org?.logo_path ? await picture(await fetchBytes(publicUrl('org-logos', org.logo_path))) : null;
+  const logo = org?.logo_path && !d.forCompany ? await picture(await fetchBytes(publicUrl('org-logos', org.logo_path))) : null;
   if (logo) body += `<w:p><w:pPr><w:jc w:val="center"/></w:pPr>${img(logo, 7.5)}</w:p>`;
   body += para('') + para('');
   String(c.subtitle || '').split('\n').forEach((l) => { body += para(l, { jc: 'center', sz: 30, color: '1F3A5A' }); });

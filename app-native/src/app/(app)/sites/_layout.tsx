@@ -74,7 +74,11 @@ function useJobGuard(): { to: string; why?: string } | null {
   const hsKey = page === 'ppe' ? 'hs_ppe' : page === 'hs' ? HS_KEY[seg[at + 2] || ''] : undefined;
   // 629 TILE_VIS_DEFAULTS: HAVS and LOLER start as site managers only.
   if (hsKey && site && !canSeeTile(site, hsKey, me.role, hsKey === 'hs_havs' || hsKey === 'hs_loler' ? ['site_manager'] : undefined)) return { to: `/sites/${id}/hs`, why: 'That isn’t available to you on this job.' };
-  if (op && subCo && page !== 'mc') return { to: `/sites/${id}/mc/subcontractors/${subCo}` };
+  // A subcontractor's operative: their company's page is their home on the job, but they still check in and out, see the
+  // calendar and messages (Andy, 20 Nov 2026: Check In used to send them back to their company page). The bottom bar's
+  // SOW opens their company's Schedule of Works.
+  if (op && subCo && page === 'schedule') return { to: `/sites/${id}/mc/subcontractors/${subCo}/schedule` };
+  if (op && subCo && page !== 'mc' && !['checkin', 'calendar', 'messages'].includes(page)) return { to: `/sites/${id}/mc/subcontractors/${subCo}` };
   return null;
 }
 

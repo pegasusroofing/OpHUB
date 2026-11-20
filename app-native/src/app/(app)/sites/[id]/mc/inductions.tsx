@@ -13,7 +13,7 @@ import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
-import { deleteCompletion, HEALTH_ITEMS, inductionItems, setInductionQuestions, submitInduction, useInductions } from '@/data/inductions';
+import { deleteCompletion, HEALTH_ITEMS, inductionItems, setInductionQuestions, submitInduction, useInductions, useSiteRules } from '@/data/inductions';
 import { unlinkFolder } from '@/data/onedrive';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -50,6 +50,9 @@ export default function Inductions() {
   const [qOpen, setQOpen] = useState(false);
   const [newQ, setNewQ] = useState('');
   const [ticks, setTicks] = useState<Record<number, boolean>>({});
+  // The site rules and layout, read and signed with the induction (Andy, 20 Nov 2026).
+  const { data: rules = [] } = useSiteRules(id);
+  const [rulesRead, setRulesRead] = useState(false);
   const [ename, setEname] = useState('');
   const [enum_, setEnum] = useState('');
   const [page, setPage] = useState(1);
@@ -194,6 +197,22 @@ export default function Inductions() {
               <Text style={{ flex: 1, color: base.ink }}>{t}</Text>
             </Pressable>
           ))}
+          {rules.length > 0 && (
+            <Card>
+              <SectionTitle>Site Rules & Layout *</SectionTitle>
+              <Muted style={{ marginBottom: 6 }}>Read each one. Signing this induction signs these too.</Muted>
+              {rules.map((r) => (
+                <Pressable key={r.id} accessibilityRole="button" onPress={() => void view(r.storage_path)} style={{ paddingVertical: 7, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ flex: 1, color: base.ink }}>📄 {r.name}</Text>
+                  <Text style={{ color: base.blue, fontWeight: '600' }}>View</Text>
+                </Pressable>
+              ))}
+              <Pressable onPress={() => setRulesRead(!rulesRead)} style={{ flexDirection: 'row', gap: 8, padding: 12, marginTop: 6, borderWidth: 1, borderColor: rulesRead ? base.ok : base.line, backgroundColor: rulesRead ? base.okBg : base.card, borderRadius: radius.row }}>
+                <Text style={{ fontSize: 18 }}>{rulesRead ? '☑' : '☐'}</Text>
+                <Text style={{ flex: 1, color: base.ink }}>I have read and understood the site rules and layout</Text>
+              </Pressable>
+            </Card>
+          )}
           <Card>
             <SectionTitle>Emergency Contact Details *</SectionTitle>
             <Muted style={{ marginBottom: 8 }}>Required before you can sign and complete this induction.</Muted>
@@ -202,6 +221,7 @@ export default function Inductions() {
           </Card>
           <Button title="Next: Health Questionnaire ›" onPress={() => {
             if (!allTicked) { toast('Tick every item first.'); return; }
+            if (rules.length && !rulesRead) { toast('Read the site rules and layout, then tick to say you have.'); return; }
             if (!ename.trim() || !enum_.trim()) { toast('Please enter an emergency contact name and number.'); return; }
             setPage(2);
           }} />
@@ -229,7 +249,7 @@ export default function Inductions() {
               <Pressable disabled={!!busy} onPress={async () => {
                 if (!healthDone) { toast(HEALTH_ITEMS.every((_, i) => health[i]) ? 'Please give details for every "Yes" answer on the health questionnaire.' : 'Please answer every health questionnaire question.'); return; }
                 setBusy('Saving…');
-                const err = await submitInduction(me, org, site, { emergencyName: ename.trim(), emergencyNumber: enum_.trim(), health, details }, setBusy);
+                const err = await submitInduction(me, org, site, { emergencyName: ename.trim(), emergencyNumber: enum_.trim(), health, details }, setBusy, rules);
                 setBusy(null);
                 if (err) { toast(err); return; }
                 toast('Induction completed'); refresh();

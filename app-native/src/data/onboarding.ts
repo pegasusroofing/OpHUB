@@ -28,12 +28,16 @@ export function useOnboarding(sites: Site[] | undefined) {
       const live = (sites ?? []).filter((s) => mine.has(s.id) && siteStatusKey(s) === 'live');
       const op = p.role === 'operative';
       // Their Subcontractor Form (unless switched off for them) and certificates: operatives, from day one.
-      const [prof, sent, certs] = op ? await Promise.all([
+      const [prof, sent, certs, subStaff] = op ? await Promise.all([
         db.from('profiles').select('subform_required').eq('id', p.id).maybeSingle(),
         db.from('subcontractor_applications').select('id,status').eq('user_id', p.id).order('created_at', { ascending: false }).limit(1),
         db.from('operative_certifications').select('id').eq('operative_id', p.id).limit(1),
-      ]) : [null, null, null];
-      const formOff = (prof?.data as { subform_required?: boolean | null } | null)?.subform_required === false;
+        db.from('subcontractor_operatives').select('is_admin').eq('user_id', p.id),
+      ]) : [null, null, null, null];
+      // A subcontractor's operatives join as normal, without the Subcontractor Form: their company signs up, not them
+      // (Andy, 20 Nov 2026). Their company's admin still fills it in.
+      const subRows = (subStaff?.data as { is_admin: boolean | null }[] | null) ?? [];
+      const formOff = (prof?.data as { subform_required?: boolean | null } | null)?.subform_required === false || (subRows.length > 0 && !subRows.some((x) => x.is_admin));
       const lastForm = ((sent?.data as { status?: string }[] | null) ?? [])[0];
       const first0: OnboardItem[] = [
         { key: 'phone', label: 'Add your phone number', desc: 'So the office, your PM and delivery drivers can reach you on site.', done: !!(p.phone && String(p.phone).trim()), href: '' },

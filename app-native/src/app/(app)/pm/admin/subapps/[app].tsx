@@ -10,6 +10,7 @@ import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { useTeam } from '@/data/admin';
 import { subSignUpLink } from '@/data/admin';
+import { approveIntoLibrary } from '@/data/subcontractors';
 import { openDocLink } from '@/data/hs';
 import { useSubformTemplate } from '@/data/subform';
 import { useAuth } from '@/lib/auth';
@@ -62,7 +63,15 @@ export default function SubApp() {
       // A message to them (operatives can't see the office's to-dos); their form and Getting Started show it too.
       await db.from('messages').insert({ org_id: me.org_id, site_id: null, sender_id: me.id, audience: 'single', recipient_id: r.user_id, kind: 'message', body: `Your Subcontractor Form was sent back: ${note.trim()} — open it (Settings › Getting Started, or Subcontractor Form), update it and send it again.` } as never);
     }
-    toast(!(await db.from('subcontractor_applications').update({ status, reviewed_by: me.id, reviewed_at: new Date().toISOString(), review_note: note.trim() || null } as never).eq('id', r.id).select('id')).data?.length ? 'Could not save — try again.' : status === 'approved' ? 'Approved' : 'Rejected');
+    if (!(await db.from('subcontractor_applications').update({ status, reviewed_by: me.id, reviewed_at: new Date().toISOString(), review_note: note.trim() || null } as never).eq('id', r.id).select('id')).data?.length) { toast('Could not save — try again.'); return; }
+    // Approving sets the company up (Andy, 20 Nov 2026): its Company Library entry, with their documents and insurance dates,
+    // ready to add to a job (Main Contractor › Subcontractors › + Add Subcontractor).
+    if (status === 'approved') {
+      const lib = await approveIntoLibrary(me, r);
+      if (!lib.id) toast('Approved, but the Company Library entry couldn’t be made — try Approve again.');
+      else toast(`${r.company_name} is in the Company Library${lib.added ? ` with ${lib.added} document${lib.added === 1 ? '' : 's'}` : ''}.${lib.failed.length ? ` These couldn’t be copied: ${lib.failed.join(', ')}.` : ''}`, { confirm: true });
+      void qc.invalidateQueries({ queryKey: ['subLibrary'] });
+    }
     refresh();
   };
   return (

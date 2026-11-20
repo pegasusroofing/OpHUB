@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { addOmProducts, addrLines, buildDefaultOm, contractorRows, detectSystems, ensureTeam, nextRevision, normalizeOm, omChecklist, omFromCpp, omTab, printSections, scopeEmpty, syncOmCoshh, syncOmDocs, teamSec, type OmCpp, type OmData } from './omManual.ts';
+import { addOmProducts, addrLines, buildDefaultOm, contractorRows, detectSystems, ensureTeam, nextRevision, normalizeOm, omChecklist, omFromCpp, omTab, printSections, scopeEmpty, syncOmCoshh, syncOmDocs, teamSec, tradeNeutral, type OmCpp, type OmData } from './omManual.ts';
 
 test('O&M: systems, address lines, default manual, tidy old manuals', () => {
   assert.deepEqual(detectSystems('Torch-on cap sheet, lead flashings, new cast gutter'), ['general', 'felt', 'lead', 'rainwater']);
@@ -106,4 +106,12 @@ test('O&M: checklist, printed sections and revision numbers', () => {
   assert.equal(nextRevision(d), '1');
   d.revisions = [{ rev: '1', date: '2026-11-20', by: 'Pat', note: 'First issue' }];
   assert.equal(nextRevision(d), '2');
+});
+
+test('O&M: a subcontractor’s manual starts trade-neutral', () => {
+  const d = job(null);
+  tradeNeutral(d);
+  assert.match(d.sections.find((s) => /introduction/i.test(s.title))?.body || '', /handover of the completed works at/);
+  assert.deepEqual(d.sections.find((s) => s.type === 'maint')?.items?.map((i) => [i.title, i.text]), [['Maintenance', '']]);
+  assert.doesNotMatch(d.sections.find((s) => /health & safety/i.test(s.title))?.body || '', /roof|torch-on|rooflight/i);
 });

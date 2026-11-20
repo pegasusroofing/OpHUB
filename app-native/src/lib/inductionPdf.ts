@@ -4,7 +4,7 @@ import { HEALTH_ITEMS, inductionItems } from '@/data/inductions';
 import { DEFAULT_BRAND1, drawFit, exportFilename, hexToRgb, INK, OK, PDFDocument, rgb, safe, siteLabel, SLATE, StandardFonts, storageImage, WHITE, wrap } from '@/lib/pdf';
 import type { Organization, Profile, Site } from '@/lib/types';
 
-export async function buildInductionPdf(site: Site, org: Organization | null, op: Profile & { signature_path?: string | null }, f: { emergencyName: string; emergencyNumber: string; health: Record<number, string>; details: Record<number, string> }) {
+export async function buildInductionPdf(site: Site, org: Organization | null, op: Profile & { signature_path?: string | null }, f: { emergencyName: string; emergencyNumber: string; health: Record<number, string>; details: Record<number, string>; rules?: { name: string; bytes: Uint8Array | null }[] }) {
   const doc = await PDFDocument.create();
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const reg = await doc.embedFont(StandardFonts.Helvetica);
@@ -66,6 +66,29 @@ export async function buildInductionPdf(site: Site, org: Organization | null, op
     if (dl.length) { dl.forEach((l, li) => p2.drawText(l, { x: M, y: y2 - li * 12, size: 9.5, font: reg, color: SLATE })); y2 -= dl.length * 12 + 6; }
     y2 -= 12;
   });
+  // The site rules and layout, read and signed with the induction (Andy, 20 Nov 2026): a page saying so, then each document.
+  if (f.rules?.length) {
+    const p3 = doc.addPage([W, H]);
+    p3.drawRectangle({ x: 0, y: H - 70, width: W, height: 70, color: BRAND });
+    p3.drawText('SITE RULES & LAYOUT', { x: M, y: H - 32, size: 9, font: bold, color: WHITE, opacity: 0.85 });
+    drawFit(p3, siteLabel(site), { x: M, y: H - 52, size: 14, font: bold, color: WHITE });
+    let y3 = H - 100;
+    wrap(`${op.name} has read the site rules and layout below and signed them with this induction on ${new Date().toLocaleDateString('en-GB')}.`, reg, 10.5, W - 2 * M).forEach((l) => { p3.drawText(safe(l), { x: M, y: y3, size: 10.5, font: reg, color: INK }); y3 -= 15; });
+    y3 -= 8;
+    f.rules.forEach((r, i) => { p3.drawText(safe(`${i + 1}. ${r.name}${r.bytes ? '' : ' (could not be attached)'}`), { x: M, y: y3, size: 10.5, font: bold, color: INK }); y3 -= 16; });
+    for (const r of f.rules) {
+      if (!r.bytes) continue;
+      try { const src = await PDFDocument.load(r.bytes, { ignoreEncryption: true }); (await doc.copyPages(src, src.getPageIndices())).forEach((pg) => doc.addPage(pg)); }
+      catch {
+        try {
+          const isPng = r.bytes[0] === 0x89 && r.bytes[1] === 0x50;
+          const im = isPng ? await doc.embedPng(r.bytes) : await doc.embedJpg(r.bytes);
+          const pg = doc.addPage([W, H]); const s = Math.min((W - 2 * M) / im.width, (H - 2 * M) / im.height);
+          pg.drawImage(im, { x: (W - im.width * s) / 2, y: (H - im.height * s) / 2, width: im.width * s, height: im.height * s });
+        } catch { /* not a PDF or picture: listed above */ }
+      }
+    }
+  }
   const filename = exportFilename(site.name, `Site Induction - ${op.name}`);
   doc.setTitle(filename.replace(/\.pdf$/i, ''));
   return { bytes: await doc.save(), filename };
