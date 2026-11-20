@@ -66,9 +66,9 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
     check(plan.pc.name === db.organizations[0].name && /Hyde Group/.test(plan.client.name) && /Roof Strip/.test(plan.outline) && plan.startDate === '2026-12-01', `${dev}: filled from the job (company, client, SOW outline, start date)`);
     check(plan.hospital.name === "King's College Hospital" && plan.hospitalFrom.postcode === 'SW4 6RZ' && /Studley/.test(plan.hospitalFrom.address), `${dev}: the nearest A&E is found from the job's address (${plan.hospitalFrom.address} / ${plan.hospitalFrom.postcode})`);
     check(new RegExp(o1 ? o1.name.split(' ')[0] : 'x').test(plan.firstAiders) && plan.pm.name === me.name, `${dev}: first aider and PM (${plan.firstAiders} / ${plan.pm.name})`);
-    // Save and Next at the bottom.
+    // Next at the bottom; it saves by itself, so no Save button (Andy, 20 Nov 2026).
     t = await text();
-    check(/Save/.test(t) && /Next: People ›/.test(t), `${dev}: Save and Next at the bottom of Details`);
+    check(/Next: People ›/.test(t) && /saves by itself/i.test(t) && !/\bSave\b/.test(t.replace(/saves by itself/gi, '')), `${dev}: Next at the bottom of Details; saves by itself, no Save button`);
     await page.getByText('Next: People ›', {exact: true}).click(); await page.waitForTimeout(1200);
     t = await text();
     check(/Contact Details Sheet/i.test(t) && /Next: Plan ›/.test(t), `${dev}: Next goes to People`);
@@ -166,9 +166,11 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
       t = await text();
       check(/Construction Phase Plan Template/.test(t) && /CPP Template/.test(t) && /Company/.test(t) && /Contacts/.test(t), 'laptop: the CPP Template under Admin > H&S');
       await page.getByPlaceholder('e.g. HS Direct Ltd', {exact: true}).fill('HS Direct Ltd'); await page.waitForTimeout(300);
-      await page.getByText('Save', {exact: true}).last().click(); await page.waitForTimeout(2500);
+      await page.waitForTimeout(2500); // the template saves by itself (Andy, 20 Nov 2026); there's no Save button
       const def = (db.cpp_defaults || [])[0];
-      check(!!def && def.data.advisor === 'HS Direct Ltd' && (def.data.sections || []).length === 17, `laptop: Save keeps the template (${def ? def.data.advisor : 'nothing saved'})`);
+      check(!!def && def.data.advisor === 'HS Direct Ltd' && (def.data.sections || []).length === 17, `laptop: the template saves by itself (${def ? def.data.advisor : 'nothing saved'})`);
+      t = await text();
+      check(/Next: Plan ›/.test(t) && !/\bSave\b/.test(t.replace(/saves by itself/gi, '')), 'laptop: Next: Plan › at the bottom, and no Save button');
       await page.getByRole('tab').filter({hasText: /^Plan/}).first().click(); await page.waitForTimeout(1000);
       check(/\{company\}/.test(await text()), 'laptop: the template shows the fill-in words, like {company}');
       await page.screenshot({path: path.join(SHOTS, 'laptop-template.png')});

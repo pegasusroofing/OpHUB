@@ -138,7 +138,8 @@ const S2 = seed.S2;
 
   // ---- O&M: + Schedule of Works ----
   await page.goto(`${BASE}/sites/${S1}/om/om1`); await page.waitForTimeout(7000);
-  // + Add To The Back ▾ (one menu for the back of the manual).
+  // + Add To The Back ▾ (one menu for the back of the manual), on the Appendix tab since 20 Nov 2026.
+  await page.getByRole('tab', {name: /^Appendix/}).first().click(); await page.waitForTimeout(900);
   await page.getByText('+ Add To The Back ▾', {exact: true}).click(); await page.waitForTimeout(1200);
   t = await text();
   check(/Schedule Of Works Report \(Choose The Sections\)/.test(t) && /Client SoW Rev B \(Schedule Of Works Document\)/.test(t) && /Upload A File \(PDF Or Photo\)/.test(t), 'O&M › + Add To The Back: the app’s Schedule of Works, the uploaded one, or upload a file');

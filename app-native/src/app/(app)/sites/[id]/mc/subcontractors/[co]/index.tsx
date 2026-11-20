@@ -35,6 +35,8 @@ export default function SubcoHub() {
       <Tile icon="🔍" tint="#E7E9EE" title="Inspections" sub={`${n.inspections} file${n.inspections === 1 ? '' : 's'}`} onPress={go('inspections')} />
       <Tile icon="📝" tint="#E7E9EE" title="Daily Briefings" sub={`${n.briefings} logged`} onPress={go('briefings')} />
       <Tile icon="👷" tint="#E7E9EE" title="Operatives" sub={`${n.operatives} allocated`} onPress={go('operatives')} />
+      {/* Their O&M manual for the main contractor's handover (Andy, 20 Nov 2026): managers and the company's admin. */}
+      {(isManager(me) || data.isAdmin) && <Tile icon="📘" tint="#E7E9EE" title="O&M Manual" sub={n.om ? `${n.omSubmitted} of ${n.om} submitted` : 'None yet'} onPress={go('om')} />}
       </JobGrid>
     </ScrollView>
   );

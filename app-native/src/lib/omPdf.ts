@@ -9,7 +9,7 @@ import { exportTablePdf } from '@/lib/tableExport';
 import { buildReportPdf, type PdfSub } from '@/lib/reportPdf';
 import { embedImage, fetchBytes, fetchScaled, hexToRgb, PDFDocument, rgb, safe, StandardFonts, type PDFImage, type PDFPage } from '@/lib/pdf';
 import { publicUrl } from '@/lib/privateFiles';
-import { addrLines, contractorRows, contractorSec, omFmtDate, type OmData } from '@/lib/rules/omManual';
+import { addrLines, contractorRows, contractorSec, omFmtDate, printSections, projectDates, type OmData } from '@/lib/rules/omManual';
 import { buildSowPdf } from '@/lib/sowPdf';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Site } from '@/lib/types';
@@ -62,13 +62,14 @@ export async function buildOmPdf(d: OmData, site: Site, org: Organization | null
   y -= 70;
   String(c.subtitle || '').split('\n').forEach((par) => { if (!par.trim()) { y -= 14; return; } wrap(par, reg, 15, CW).forEach((l) => { ctr(l, y, 15, reg, NAVY); y -= 20; }); });
   {
-    const rowsC = contractorRows(d);
+    const rowsC = contractorRows(d), dates = projectDates(d);
     const L = CW * 0.38, rh = 23, hb = 15;
-    let ty = Math.min(y - 60, M + 60 + hb * 2 + rh * (rowsC.length + 1));
+    let ty = Math.min(y - 60, M + 60 + hb * (dates.length ? 3 : 2) + rh * (rowsC.length + dates.length + 1));
     const bar = (label: string) => { page.drawRectangle({ x: M, y: ty - hb, width: CW, height: hb, color: DARK, borderColor: INK, borderWidth: 0.6 }); txt(label, M + 5, ty - 11, 8.5, reg, WHITE); ty -= hb; };
     const cell = (x: number, w: number, t: string) => { page.drawRectangle({ x, y: ty - rh, width: w, height: rh, borderColor: INK, borderWidth: 0.6 }); const ls = wrap(t, reg, 9, w - 10).slice(0, 2); ls.forEach((l, li) => txt(l, x + 5, ty - rh / 2 - 3 - li * 10 + (ls.length - 1) * 5, 9)); };
     bar('Contractor Details');
     rowsC.forEach((r) => { cell(M, L, `${String(r[0] || '').trim().replace(/:?$/, ':')}`); cell(M + L, CW - L, r.slice(1).filter(Boolean).join('  ')); ty -= rh; });
+    if (dates.length) { bar('Project Dates'); dates.forEach((r) => { cell(M, L, `${r[0]}:`); cell(M + L, CW - L, r[1]); ty -= rh; }); }
     bar('Revision Details');
     const w2 = CW * 0.29, w3 = CW * 0.16, w4 = CW - L - w2 - w3;
     cell(M, L, 'Revision Number:'); cell(M + L, w2, c.revision || ''); cell(M + L + w2, w3, 'Date:'); cell(M + L + w2 + w3, w4, omFmtDate(c.date)); ty -= rh;
@@ -77,7 +78,7 @@ export async function buildOmPdf(d: OmData, site: Site, org: Organization | null
   // sections
   newPage();
   const skip = contractorSec(d);
-  for (const s of d.sections) {
+  for (const s of printSections(d)) {
     if (s === skip) continue;
     ensure(40);
     const tl = wrap(s.title || '', bold, 13, CW - 12);

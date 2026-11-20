@@ -5,7 +5,7 @@
 import { collectAttachments } from '@/data/omManual';
 import { deliverFile, fetchBytes, fetchScaled, PDFDocument } from '@/lib/pdf';
 import { publicUrl } from '@/lib/privateFiles';
-import { addrLines, contractorRows, contractorSec, omFmtDate, type OmData } from '@/lib/rules/omManual';
+import { addrLines, contractorRows, contractorSec, omFmtDate, printSections, projectDates, type OmData } from '@/lib/rules/omManual';
 import { zipStore } from '@/lib/rules/xlsx';
 import type { Organization, Site } from '@/lib/types';
 
@@ -65,13 +65,14 @@ export async function buildOmWord(d: OmData, site: Site, org: Organization | nul
     body += `<w:tbl><w:tblPr><w:tblW w:w="9638" w:type="dxa"/>${bdr}</w:tblPr><w:tblGrid>${G.map((g) => `<w:gridCol w:w="${g}"/>`).join('')}</w:tblGrid>`
       + bar('Contractor Details')
       + contractorRows(d).map((r) => row(tc(String(r[0] || '').trim().replace(/:?$/, ':'), G[0], 1) + tc(r.slice(1).filter(Boolean).join('  '), G[1] + G[2] + G[3], 3))).join('')
+      + (projectDates(d).length ? bar('Project Dates') + projectDates(d).map((r) => row(tc(`${r[0]}:`, G[0], 1) + tc(r[1], G[1] + G[2] + G[3], 3))).join('') : '')
       + bar('Revision Details')
       + row(tc('Revision Number:', G[0], 1) + tc(c.revision || '', G[1], 1) + tc('Date:', G[2], 1) + tc(omFmtDate(c.date), G[3], 1))
       + '</w:tbl>';
   }
   body += brk;
   const skip = contractorSec(d);
-  for (const s of d.sections) {
+  for (const s of printSections(d)) {
     if (s === skip) continue;
     body += para(s.title || '', { style: 'Heading1' });
     if (s.type === 'text') String(s.body || '').split('\n').forEach((l) => { body += para(l); });

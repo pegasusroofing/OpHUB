@@ -3,7 +3,7 @@
 // Tap a manual to edit and export it; start a new one built from the job. With a OneDrive folder on the job, its guarantees
 // and data sheets are found there (Andy, 8 Nov 2026) — before a new manual is built, and with Find In OneDrive.
 import * as DocumentPicker from 'expo-document-picker';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -16,7 +16,7 @@ import { DateBox } from '@/components/DateField';
 import { FinForm } from '@/components/FinForm';
 import { addBlankGuarantee, attachToDoc, deleteHoDoc, renameManual, setCompletion, setHoField, uploadHoDocs, useCompletion, useHandover, type HoDoc } from '@/data/handover';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
-import { deleteManual, duplicateManual, newManual } from '@/data/omManual';
+import { deleteManual, duplicateManual, loadSubOms, newManual } from '@/data/omManual';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { readIsoDate } from '@/lib/rules/materials';
@@ -48,6 +48,8 @@ export default function Handover() {
   const [finding, setFinding] = useState<'' | 'find' | 'new'>('');
   const [pcEdit, setPcEdit] = useState(false);
   const { data: pc } = useCompletion(id);
+  // The subcontractors' O&M manuals (Andy, 20 Nov 2026): submitted ones go in the back of ours.
+  const { data: subOms } = useQuery({ queryKey: ['subOms', id], enabled: !!id, queryFn: () => loadSubOms(id) });
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['handover', id] }); };
@@ -110,7 +112,7 @@ export default function Handover() {
               <Text style={{ fontSize: 24 }}>📘</Text>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: '600', color: base.ink }}>{m.name || 'O&M Manual'}</Text>
-                <Muted>Updated {when(m.updated_at || m.created_at)}{m.updated_by ? ` by ${nameOf(people, m.updated_by)}` : ''}</Muted>
+                <Muted>{m.lastRev ? `Revision ${m.lastRev.rev} Issued ${when(m.lastRev.date)}` : 'Not Issued Yet'} · Updated {when(m.updated_at || m.created_at)}{m.updated_by ? ` by ${nameOf(people, m.updated_by)}` : ''}</Muted>
               </View>
               <Pressable hitSlop={8} accessibilityLabel={`${m.name || 'O&M Manual'} options`} onPress={async () => {
                 const k = await chooseAction(m.name || 'O&M Manual', [{ key: 'ren', label: '✎ Rename' }, { key: 'dup', label: '⧉ Duplicate' }, { key: 'del', label: '🗑 Delete', danger: true }]);
@@ -121,7 +123,22 @@ export default function Handover() {
             </Card></Pressable>
           )) : <Empty>No O&amp;M manuals yet.</Empty>}
           <View style={{ alignItems: 'center' }}><Button busy={!!busy} title="+ New O&M Manual" onPress={() => { if (siteHasOneDrive(site)) setFinding('new'); else void makeManual(); }} /></View>
-          <Muted style={{ marginTop: 8, textAlign: 'center' }}>Built from the job: {org && (org as { has_finance?: boolean }).has_finance ? 'the Bill of Quantities (or the Schedule of Works), ' : 'the Schedule of Works, '}data sheets, guarantees, COSHH, drawings and photos.{siteHasOneDrive(site) ? ' The job’s OneDrive folder is searched for guarantees and data sheets first.' : ''}</Muted>
+          {!!subOms?.length && (
+            <Card style={{ marginTop: 12 }}>
+              <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 2 }}>Subcontractors’ O&amp;M Manuals</Text>
+              <Muted style={{ marginBottom: 6 }}>Submitted ones go in the back of your O&amp;M manual (its Appendix tab).</Muted>
+              {subOms.map((s) => (
+                <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: base.ink, fontWeight: '600' }}>{s.company} — {s.name}</Text>
+                    <Muted>{s.submittedAt ? `Submitted ${when(s.submittedAt)}${s.rev ? ` · Revision ${s.rev}` : ''}` : 'Not Submitted Yet'}</Muted>
+                  </View>
+                  {!!s.path && <Pressable onPress={async () => { const u = await openDocLink('mc-documents', s.path as string); if (u) viewDoc(u); else toast('Could not open the PDF.'); }}><Text style={{ color: base.blue, fontWeight: '600' }}>View</Text></Pressable>}
+                </View>
+              ))}
+            </Card>
+          )}
+          <Muted style={{ marginTop: 8, textAlign: 'center' }}>Built from the job: {org && (org as { has_finance?: boolean }).has_finance ? 'the Bill of Quantities (or the Schedule of Works), ' : 'the Schedule of Works, '}the Construction Phase Plan’s people and dates, data sheets, guarantees, COSHH, drawings and photos.{siteHasOneDrive(site) ? ' The job’s OneDrive folder is searched for guarantees and data sheets first.' : ''}</Muted>
         </>
       ) : tab === 'sheets' ? (
         <>

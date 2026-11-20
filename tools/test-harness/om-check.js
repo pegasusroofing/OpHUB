@@ -53,14 +53,18 @@ const BASE = 'http://localhost:8081';
   check(kinds === 'datasheet:Sika DoP.pdf | guarantee:Bauder 20yr Guarantee.pdf | guarantee:Cert 0091.pdf' && db.handover_docs.every((x) => x.storage_path), `copied into the handover as guarantees / data sheets (${kinds})`);
   check(/\/om\//.test(page.url()) && db.handover_om_manuals.length === 1, 'then the manual is built and opened (no name to type)');
 
-  // ---- The manual: four steps ----
+  // ---- The manual: in tabs since 20 Nov 2026 (Details / People / Works / Appendix / Issue) ----
   await page.waitForTimeout(3000);
   t = await text();
-  check(/1\. Cover/.test(t) && /2\. Scope Of Works Completed/.test(t) && /3\. What Goes In The Back/.test(t) && /4\. The Rest Of The Manual/.test(t) && /Export ▾/.test(t), 'four steps and one Export ▾');
+  check(['Details', 'People', 'Works', 'Appendix', 'Issue'].every((x) => t.includes(x)) && /Cover/i.test(t), 'five tabs, opening on Details with the cover');
+  await page.getByRole('tab', {name: /^Works/}).first().click(); await page.waitForTimeout(900);
+  t = await text();
   const scope = await page.getByLabel('Scope of works').inputValue();
   check(/The following works were carried out to Main Roof:/.test(scope) && /Bauder 2-layer system \(120 m²\)/.test(scope) && !/£/.test(scope), 'Scope of Works from the Bill of Quantities, quantities but no prices');
+  check(await page.getByLabel('Section heading').count() === 0, 'the other sections are folded until opened');
+  await page.getByRole('tab', {name: /^Appendix/}).first().click(); await page.waitForTimeout(900);
+  t = await text();
   check(/Guarantees \(2\)/.test(t) && /Data Sheets \(1\)/.test(t), 'what goes in the back counts the guarantees and data sheets found');
-  check(await page.getByLabel('Cover title').count() === 0 && await page.getByLabel('Section heading').count() === 0, 'the cover and the other sections are folded until opened');
   await page.screenshot({path: 'shots/om-manual.png', fullPage: true});
 
   // + Add To The Back: the Bill of Quantities, then a Schedule of Works report for one section, completed works only.
@@ -75,9 +79,11 @@ const BASE = 'http://localhost:8081';
   const ap = db.handover_om_manuals[0].data?.appendix || [];
   check(ap[0]?.kind === 'boq' && ap.some((e) => e.kind === 'sow-app' && JSON.stringify(e.sections) === '["ss1"]' && e.doneOnly === true && /Main Roof/.test(e.label)), `saved: the BoQ first, the Schedule of Works for Main Roof only (${ap.map((e) => e.label).join(' | ')})`);
 
-  // A folded section opens with a tap; Export ▾ offers PDF, Word and email.
+  // A folded section opens with a tap (the introduction is on Details); Export ▾ (Issue tab) offers PDF, Word and email.
+  await page.getByRole('tab', {name: /^Details/}).first().click(); await page.waitForTimeout(900);
   await page.getByRole('button', {name: /Introduction/}).first().click(); await page.waitForTimeout(500);
   check(await page.getByLabel('Section heading').count() === 1, 'tap a section: it opens to edit');
+  await page.getByRole('tab', {name: /^Issue/}).first().click(); await page.waitForTimeout(900);
   await page.getByText('Export ▾', {exact: true}).click(); await page.waitForTimeout(500);
   t = await text();
   check(/Download PDF/.test(t) && /Download Word/.test(t) && /Email PDF/.test(t) && /Email Word/.test(t), 'Export ▾: Download PDF / Word, Email PDF / Word');

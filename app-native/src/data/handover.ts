@@ -10,7 +10,8 @@ import { invokeAsUser } from '@/lib/userFunctions';
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
 export type HoDoc = { id: string; kind: 'datasheet' | 'guarantee'; name: string; storage_path: string | null; provider: string | null; ref: string | null; expiry_date: string | null; maintenance: string | null };
-export type HoManual = { id: string; name: string | null; created_at: string; updated_at: string | null; updated_by: string | null };
+/** lastRev: the latest issued revision (Andy, 20 Nov 2026), read from the manual's own record. */
+export type HoManual = { id: string; name: string | null; created_at: string; updated_at: string | null; updated_by: string | null; lastRev?: { rev: string; date: string } | null };
 
 export function useHandover(siteId: string | undefined) {
   return useQuery({
@@ -19,9 +20,10 @@ export function useHandover(siteId: string | undefined) {
     queryFn: async () => {
       const [d, m] = await Promise.all([
         db.from('handover_docs').select('*').eq('site_id', siteId as string).order('position').order('created_at'),
-        db.from('handover_om_manuals').select('id,name,created_at,updated_at,updated_by').eq('site_id', siteId as string).order('created_at'),
+        db.from('handover_om_manuals').select('id,name,created_at,updated_at,updated_by,data').eq('site_id', siteId as string).is('subcontractor_company_id', null).order('created_at'),
       ]);
-      return { docs: (d.data as HoDoc[] | null) ?? [], manuals: (m.data as HoManual[] | null) ?? [] };
+      const manuals = ((m.data as (HoManual & { data?: { revisions?: { rev: string; date: string }[] } | null })[] | null) ?? []).map(({ data, ...x }) => ({ ...x, lastRev: data?.revisions?.length ? data.revisions[data.revisions.length - 1] : null }));
+      return { docs: (d.data as HoDoc[] | null) ?? [], manuals };
     },
   });
 }

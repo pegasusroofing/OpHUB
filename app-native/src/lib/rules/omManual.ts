@@ -1,6 +1,10 @@
 // O&M manual rules (857): the maintenance texts per roof system, working out which
 // systems a job has from its scope / data sheets / COSHH, the cover wording, the
 // manual built from the job, and tidying older saved manuals. Pure.
+// The builder in tabs (Andy, 20 Nov 2026: "refresh the o&m completion process ... take into account the construction phase
+// plan etc and what it can pull through from there"): which tab each section sits on, what comes over from the job's
+// Construction Phase Plan, the checklist before issuing, and the revision numbers.
+import type { CppPlan } from './cpp';
 export const HO_MAINT: Record<string, { label: string; text: string }> = {
   general: {label:'General', text:
 `• Roof access is for competent persons only, using safe access (fixed ladders, edge protection or a harness system) — never stand on rooflights or other fragile surfaces.
@@ -126,7 +130,14 @@ export function boqScope(items: BoqWork[]): string {
   return out.trim();
 }
 export type OmCover = { title?: string; project?: string; address?: string; header?: string; volume?: string; subtitle?: string; revision?: string; date?: string; coverPhoto?: { bucket: string; path: string } | null };
-export type OmData = { cover: OmCover; attach: Record<string, boolean>; appendix: OmAppendix[]; sections: OmSection[]; synced?: Record<string, 1>; syncInit?: 1; syncedCoshh?: Record<string, 1> };
+/** One issued revision: its number, date, who issued it, what changed, and the PDF filed then. */
+export type OmRevision = { rev: string; date: string; by: string; note: string; path?: string | null };
+export type OmData = { cover: OmCover; attach: Record<string, boolean>; appendix: OmAppendix[]; sections: OmSection[]; synced?: Record<string, 1>; syncInit?: 1; syncedCoshh?: Record<string, 1>;
+  /** Start on site (from the Construction Phase Plan, or typed in). Practical completion is the job's own (Handover). */
+  dates?: { start?: string | null; pc?: string | null };
+  revisions?: OmRevision[];
+  /** A subcontractor company's own manual (Andy, 20 Nov 2026): submitted to the main contractor, it goes in the back of theirs. */
+  forCompany?: string | null };
 
 export const omUid = () => `s${Math.random().toString(36).slice(2, 9)}`;
 export const omFmtDate = (d: string | null | undefined) => (d ? new Date(d.length === 10 ? `${d}T00:00:00` : d).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '');
@@ -148,6 +159,8 @@ export function normalizeOm(d: OmData): boolean {
   if (!Array.isArray(d.appendix)) { d.appendix = []; ch = true; }
   if (!d.attach) { d.attach = {}; ch = true; }
   ['datasheets', 'guarantees', 'coshh'].forEach((k) => { if (d.attach[k] == null) { d.attach[k] = true; ch = true; } });
+  // The main contractor's manual takes the subcontractors' submitted O&M manuals in the back (20 Nov 2026).
+  if (!d.forCompany && d.attach.subs == null) { d.attach.subs = true; ch = true; }
   d.cover = d.cover || {};
   if (d.cover.header == null) { d.cover.header = HO_COVER_HEADER; ch = true; }
   if (d.cover.volume == null) { d.cover.volume = HO_COVER_VOLUME; ch = true; }
@@ -184,6 +197,8 @@ export type OmJob = {
   boq?: BoqWork[];
   docs: { id: string; kind: string; name: string; provider: string | null; ref: string | null; expiry_date: string | null; maintenance: string | null }[];
   coshh: { name: string; storage_path: string | null }[]; drawings: { name: string; uploaded_at: string | null; status: string | null }[]; photos: OmPhoto[];
+  /** The job's Construction Phase Plan (issued one first), if it has one. */
+  cpp?: OmCpp | null;
 };
 /** The Scope of Works from the Schedule of Works: completed tasks (else all), under their sections. */
 export function sowScope(j: Pick<OmJob, 'schedSections' | 'tasks'>): string {
@@ -199,6 +214,16 @@ export function sowScope(j: Pick<OmJob, 'schedSections' | 'tasks'>): string {
 }
 /** A new manual built from what's on the job (857 hoBuildDefault). */
 export function buildDefaultOm(j: OmJob): OmData {
+  const d = buildDefaultOm0(j);
+  ensureTeam(d);
+  if (j.cpp) {
+    omFromCpp(d, j.cpp);
+    const sc = d.sections.find((s) => s.key === 'scope');
+    if (sc && !String(sc.body || '').trim() && j.cpp.outline.trim()) sc.body = j.cpp.outline.trim();
+  }
+  return d;
+}
+function buildDefaultOm0(j: OmJob): OmData {
   const { site, company } = j;
   let scope = sowScope(j);
   // A company with Finance and a Bill of Quantities on the job: the scope comes from the BoQ instead (Andy, 8 Nov 2026).
@@ -311,4 +336,117 @@ export function addOmProducts(d: OmData, secId: string, picked: { title: string;
     have.add(it.title.trim().toLowerCase()); n++;
   });
   return n;
+}
+
+/* ---------- The builder in tabs, and the Construction Phase Plan (Andy, 20 Nov 2026) ---------- */
+export type OmTab = 'details' | 'people' | 'works' | 'back' | 'issue';
+export const OM_TABS: OmTab[] = ['details', 'people', 'works', 'back', 'issue'];
+export const OM_TAB_LABEL: Record<OmTab, string> = { details: 'Details', people: 'People', works: 'Works', back: 'Appendix', issue: 'Issue' };
+const isContacts = (s: OmSection) => s.type === 'table' && /^\s*contacts?\s*$/i.test(s.title || '');
+const isSignOff = (s: OmSection) => s.type === 'table' && /sign-?\s?off/i.test(s.title || '');
+/** Which tab a section is edited on: who's who on People, the introduction on Details, the sign-off on Issue, the rest on Works. */
+export function omTab(s: OmSection): OmTab {
+  if (s.key === 'team' || isContacts(s) || (s.type === 'table' && /contractor details/i.test(s.title || ''))) return 'people';
+  if (s.type === 'text' && /introduction/i.test(s.title || '')) return 'details';
+  if (isSignOff(s)) return 'issue';
+  return 'works';
+}
+
+/** The project team for the Health and Safety File: who the client, designers and contractor were. Rows without a name are
+ *  left out of the PDF. */
+export const OM_TEAM_ROLES = ['Client', 'Client’s Agent', 'Principal Designer', 'Architect', 'Principal Contractor', 'Project Manager'];
+export const teamSec = (d: OmData) => d.sections.find((s) => s.key === 'team');
+export const blankTeam = (): OmSection => ({ id: omUid(), key: 'team', type: 'table', title: 'Project Team', columns: ['Role', 'Name', 'Telephone', 'Email'], rows: OM_TEAM_ROLES.map((r) => [r, '', '', '']), links: OM_TEAM_ROLES.map(() => []) });
+/** Adds the Project Team to a manual that hasn't one (older manuals), before Contacts or at the end. */
+export function ensureTeam(d: OmData): OmSection {
+  const have = teamSec(d); if (have) return have;
+  const t = blankTeam(), at = d.sections.findIndex(isContacts);
+  if (at >= 0) d.sections.splice(at, 0, t); else d.sections.push(t);
+  return t;
+}
+
+/** What the O&M uses from a Construction Phase Plan. */
+export type OmCpp = Pick<CppPlan, 'pc' | 'client' | 'clientAgent' | 'principalDesigner' | 'architect' | 'pm' | 'startDate' | 'outline' | 'siteAddress' | 'contacts'>;
+const oneLine = (a: unknown) => String(a || '').split('\n').map((x) => x.trim()).filter(Boolean).join(', ');
+/**
+ * Fills the manual's empty boxes from the job's Construction Phase Plan: Contractor Details, the Project Team (client,
+ * client's agent, principal designer, architect, principal contractor, project manager), Contacts, the sign-off names,
+ * the start date and the cover address. Never overwrites what's typed. Returns how many boxes it filled.
+ */
+export function omFromCpp(d: OmData, p: OmCpp): number {
+  let n = 0;
+  const put = (row: string[] | undefined, i: number, v: unknown) => { const x = String(v ?? '').trim(); if (row && x && !String(row[i] ?? '').trim()) { row[i] = x; n++; } };
+  const find = (sec: OmSection | undefined, re: RegExp) => (sec?.rows || []).find((r) => re.test(String(r[0] || '').trim()));
+  const phoneOf = (re: RegExp) => { const c = (p.contacts || []).find((x) => re.test(x.role || '')); return c ? c.day || c.ooh || '' : ''; };
+  const cs = contractorSec(d);
+  put(find(cs, /^name/i), 1, p.pc.name); put(find(cs, /^address/i), 1, oneLine(p.pc.address)); put(find(cs, /^(tele|phone)/i), 1, p.pc.phone);
+  put(find(cs, /^email/i), 1, p.pm.email || p.pc.email); put(find(cs, /^client/i), 1, p.client.name);
+  const team = ensureTeam(d);
+  const clientName = p.client.contact.trim() && p.client.name.trim() ? `${p.client.name.trim()} (${p.client.contact.trim()})` : p.client.name || p.client.contact;
+  const who: [RegExp, string, string, string, string][] = [
+    [/^client$/i, 'Client', clientName, p.client.phone, p.client.email],
+    [/agent/i, 'Client’s Agent', p.clientAgent, '', ''],
+    [/principal designer/i, 'Principal Designer', p.principalDesigner, phoneOf(/principal designer/i), ''],
+    [/architect/i, 'Architect', p.architect, phoneOf(/architect/i), ''],
+    [/principal contractor/i, 'Principal Contractor', p.pc.name, p.pc.phone, p.pc.email],
+    [/project manager/i, 'Project Manager', p.pm.name, p.pm.phone, p.pm.email],
+  ];
+  const rows = (team.rows = team.rows || []), links = (team.links = team.links || []);
+  who.forEach(([re, role, name, phone, email]) => {
+    if (!String(name || '').trim()) return;
+    let r = find(team, re);
+    if (!r) { r = [role, '', '', '']; rows.push(r); links.push([]); }
+    put(r, 1, name); put(r, 2, phone); put(r, 3, email);
+  });
+  const ct = d.sections.find(isContacts);
+  if (p.pm.name.trim()) { const nm = find(ct, /contact name/i); const had = !!String(nm?.[1] || '').trim(); put(nm, 1, p.pm.name); if (!had && nm) put(find(ct, /^position/i), 1, 'Project Manager'); }
+  put(find(ct, /^(tele|phone)/i), 1, p.pm.phone); put(find(ct, /^email/i), 1, p.pm.email);
+  const so = d.sections.find(isSignOff);
+  put(find(so, /^name/i), 1, p.pm.name); put(find(so, /^name/i), 2, p.client.contact);
+  if (p.pm.name.trim()) put(find(so, /^position/i), 1, 'Project Manager');
+  d.dates = d.dates || {};
+  if (!d.dates.start && p.startDate) { d.dates.start = p.startDate; n++; }
+  d.cover = d.cover || {};
+  if (!String(d.cover.address || '').trim() && oneLine(p.siteAddress)) { d.cover.address = oneLine(p.siteAddress); n++; }
+  return n;
+}
+
+/** What's left before issuing. Only the Scope of Works is a must; the rest are reminders. */
+export type OmCheck = { key: string; label: string; ok: boolean; tab: OmTab; must?: boolean };
+export function omChecklist(d: OmData, o: { pcDate: string | null | undefined }): OmCheck[] {
+  const team = teamSec(d);
+  const named = (re: RegExp) => !!team?.rows?.some((r) => re.test(String(r[0] || '')) && String(r[1] || '').trim());
+  const clientRow = (contractorSec(d)?.rows || []).find((r) => /^client/i.test(String(r[0] || '')));
+  const mat = d.sections.find((s) => s.type === 'materials');
+  const guar = d.sections.find((s) => s.type === 'table' && /guarantee|warrant/i.test(s.title || ''));
+  const soName = (d.sections.find(isSignOff)?.rows || []).find((r) => /^name/i.test(String(r[0] || '')));
+  return [
+    { key: 'scope', label: 'Scope Of Works Filled In', ok: !scopeEmpty(d), tab: 'works', must: true },
+    { key: 'pc', label: 'Practical Completion Date Set', ok: !!o.pcDate, tab: 'details' },
+    { key: 'client', label: 'Client Named', ok: named(/^client$/i) || !!String(clientRow?.[1] || '').trim(), tab: 'people' },
+    { key: 'pd', label: 'Principal Designer Named (If There Is One)', ok: named(/principal designer/i), tab: 'people' },
+    { key: 'mat', label: 'Products In The Materials Log', ok: (mat?.rows || []).some((r) => String(r[2] || '').trim()), tab: 'works' },
+    { key: 'guar', label: 'Guarantees Listed', ok: (guar?.rows || []).some((r) => String(r[0] || '').trim()), tab: 'works' },
+    { key: 'sign', label: 'Sign-Off Names Filled In', ok: !!String(soName?.[1] || '').trim(), tab: 'issue' },
+  ];
+}
+
+/** The sections as printed: the Project Team without its unnamed roles (and left out if nobody's named). */
+export function printSections(d: OmData): OmSection[] {
+  return d.sections.flatMap((s) => {
+    if (s.key !== 'team') return [s];
+    const keep = (s.rows || []).map((r, i) => ({ r, l: (s.links || [])[i] || [] })).filter((x) => String(x.r[1] || '').trim());
+    return keep.length ? [{ ...s, rows: keep.map((x) => x.r), links: keep.map((x) => x.l) }] : [];
+  });
+}
+
+/** Page 2's Project Dates: start on site and practical completion, whichever are known. */
+export const projectDates = (d: OmData): string[][] => [['Start On Site', d.dates?.start], ['Practical Completion', d.dates?.pc]].filter((r) => r[1]).map((r) => [r[0] as string, omFmtDate(r[1])]);
+
+/** The next revision number: 1 for the first issue, then one up from the last issued. */
+export function nextRevision(d: OmData): string {
+  const last = (d.revisions || []).slice(-1)[0];
+  if (!last) return '1';
+  const n = Number(last.rev);
+  return Number.isFinite(n) ? String(n + 1) : String((d.revisions || []).length + 1);
 }

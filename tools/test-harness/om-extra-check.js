@@ -25,7 +25,8 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.goto(BASE+'/sites/'+S1+'/om/om1'); await page.waitForTimeout(6000);
   const g = db.handover_om_manuals[0].data.sections[2].rows[0] || [];
   check(g.includes('G1'), `a guarantee added after the manual started comes into its table (${JSON.stringify(g)})`);
-  // The rest of the manual is folded: tap a section to open it.
+  // The rest of the manual is on the Works tab, folded: tap a section to open it (tabbed builder, 20 Nov 2026).
+  await page.getByRole('tab', {name: /^Works/}).first().click(); await page.waitForTimeout(900);
   await page.getByText('3. Materials Log', {exact:true}).first().click(); await page.waitForTimeout(800);
   await page.getByText('📚 Choose Data Sheets From The COSHH Library').click(); await page.waitForTimeout(2000);
   await page.getByText('Gripfill Adhesive').click(); await page.waitForTimeout(300);

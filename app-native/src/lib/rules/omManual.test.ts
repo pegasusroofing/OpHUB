@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { addOmProducts, addrLines, buildDefaultOm, contractorRows, detectSystems, normalizeOm, scopeEmpty, syncOmCoshh, syncOmDocs, type OmData } from './omManual.ts';
+import { addOmProducts, addrLines, buildDefaultOm, contractorRows, detectSystems, ensureTeam, nextRevision, normalizeOm, omChecklist, omFromCpp, omTab, printSections, scopeEmpty, syncOmCoshh, syncOmDocs, teamSec, type OmCpp, type OmData } from './omManual.ts';
 
 test('O&M: systems, address lines, default manual, tidy old manuals', () => {
   assert.deepEqual(detectSystems('Torch-on cap sheet, lead flashings, new cast gutter'), ['general', 'felt', 'lead', 'rainwater']);
@@ -41,4 +41,69 @@ test('O&M: documents and COSHH added after the manual started are brought in onc
   assert.equal(d.sections[0].rows?.[2][2], 'Lead sealant');
   assert.equal(addOmProducts(d, 'm', [{ title: 'Primer', manufacturer: '', sdsPath: 'x', assessPath: null }, { title: 'Gripfill', manufacturer: 'Everbuild', sdsPath: 'g.pdf', assessPath: 'ga.pdf' }]), 1);
   assert.equal(d.sections[0].links?.[3].length, 2);
+});
+
+// The builder in tabs, with the Construction Phase Plan (Andy, 20 Nov 2026).
+const job = (cpp: OmCpp | null) => buildDefaultOm({
+  site: { name: 'Studley Rd', client_name: '', job_number: 'J101' }, address: '', company: 'RTB', today: '2026-11-20',
+  settings: { address: 'Unit 1', phone: '01234' }, pm: { name: '', email: '', phone: null }, myEmail: '',
+  schedSections: [], tasks: [], docs: [], coshh: [], drawings: [], photos: [], cpp,
+});
+const plan: OmCpp = {
+  pc: { name: 'RTB Roofing Ltd', address: 'Unit 1\nYard Lane', phone: '01234 567890', email: 'office@rtb.co' },
+  client: { name: 'Bellway Homes', address: '', phone: '0207 000', email: 'site@bellway.co', contact: 'Sam Jones' },
+  clientAgent: 'Pellings LLP', principalDesigner: 'Stace LLP', architect: 'N/A',
+  pm: { name: 'Pat PM', phone: '07700 900000', email: 'pat@rtb.co' }, startDate: '2026-09-01', outline: 'Main roof\n- Strip and re-felt',
+  siteAddress: '1 High St\nCM3 8DQ', contacts: [{ role: 'Principal Designer', name: 'Stace', day: '0203 111', ooh: '' }],
+};
+
+test('O&M: a new manual takes the people, dates and outline from the Construction Phase Plan', () => {
+  const d = job(plan);
+  const team = teamSec(d);
+  const row = (re: RegExp) => team?.rows?.find((r) => re.test(r[0]));
+  assert.deepEqual(row(/^Client$/), ['Client', 'Bellway Homes (Sam Jones)', '0207 000', 'site@bellway.co']);
+  assert.deepEqual(row(/Principal Designer/), ['Principal Designer', 'Stace LLP', '0203 111', '']);
+  assert.equal(row(/Agent/)?.[1], 'Pellings LLP'); assert.equal(row(/Architect/)?.[1], 'N/A');
+  assert.deepEqual(row(/Project Manager/), ['Project Manager', 'Pat PM', '07700 900000', 'pat@rtb.co']);
+  assert.equal(d.dates?.start, '2026-09-01');
+  assert.equal(d.cover.address, '1 High St, CM3 8DQ');
+  assert.equal(d.sections.find((s) => s.key === 'scope')?.body, 'Main roof\n- Strip and re-felt', 'no Schedule of Works: the outline is the scope');
+  const so = d.sections.find((s) => /sign-off/i.test(s.title));
+  assert.deepEqual(so?.rows?.[0], ['Name', 'Pat PM', 'Sam Jones']);
+  const cd = contractorRows(d);
+  assert.equal(cd.find((r) => r[0] === 'Client')?.[1], 'Bellway Homes');
+  assert.equal(cd.find((r) => r[0] === 'Email')?.[1], 'pat@rtb.co');
+  // Each section sits on a tab.
+  assert.deepEqual(d.sections.map((s) => omTab(s)), ['people', 'details', 'works', 'works', 'works', 'works', 'works', 'works', 'works', 'issue', 'people', 'people']);
+});
+
+test('O&M: filling from the plan again never overwrites what was typed', () => {
+  const d = job(null);
+  const team = ensureTeam(d);
+  assert.equal(team, teamSec(d), 'a new manual already has its Project Team');
+  (team.rows as string[][])[0][1] = 'Typed Client';
+  const n = omFromCpp(d, plan);
+  assert.ok(n > 5);
+  assert.equal(team.rows?.[0][1], 'Typed Client');
+  assert.equal(omFromCpp(d, plan), 0, 'a second fill finds nothing empty');
+  // An older manual without a Project Team gets one, before Contacts.
+  const old: OmData = { cover: {}, attach: {}, appendix: [], sections: [{ id: 'c', type: 'table', title: 'Contacts', columns: ['', 'RTB'], rows: [['Contact name', '']] }] };
+  omFromCpp(old, plan);
+  assert.deepEqual(old.sections.map((s) => s.key || s.title), ['team', 'Contacts']);
+  assert.equal(old.sections[1].rows?.[0][1], 'Pat PM');
+});
+
+test('O&M: checklist, printed sections and revision numbers', () => {
+  const d = job(null);
+  const c = omChecklist(d, { pcDate: null });
+  assert.deepEqual(c.filter((x) => !x.ok).map((x) => x.key), ['scope', 'pc', 'client', 'pd', 'mat', 'guar', 'sign']);
+  assert.equal(c.find((x) => x.key === 'scope')?.must, true);
+  const d2 = job(plan);
+  assert.deepEqual(omChecklist(d2, { pcDate: '2026-11-20' }).filter((x) => !x.ok).map((x) => x.key), ['mat', 'guar']);
+  // Unnamed roles are left out of the PDF; no names at all and the table goes.
+  assert.equal(printSections(d).some((s) => s.key === 'team'), false);
+  assert.deepEqual(printSections(d2).find((s) => s.key === 'team')?.rows?.map((r) => r[0]), ['Client', 'Client’s Agent', 'Principal Designer', 'Architect', 'Principal Contractor', 'Project Manager']);
+  assert.equal(nextRevision(d), '1');
+  d.revisions = [{ rev: '1', date: '2026-11-20', by: 'Pat', note: 'First issue' }];
+  assert.equal(nextRevision(d), '2');
 });

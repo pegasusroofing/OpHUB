@@ -1,6 +1,7 @@
 // The Construction Phase Plan editor (Andy, 19 Nov 2026), for a job's plan and for the company's CPP template
-// (Admin > H&S). A job's plan: Details / People / Plan / Emergency / Issue, saving by itself, with Save and Next at the
-// bottom of every tab. The template: Company / Plan / Emergency / Contacts, saved with Save. Site layout and fire route
+// (Admin > H&S). A job's plan: Details / People / Plan / Emergency / Issue. The template: Company / Plan / Emergency /
+// Contacts. Both save by themselves, with Next at the bottom of every tab (Andy, 20 Nov 2026: "make sure the cpp has a
+// next button at the bottom of the tabs to go to the next one and auto save"). Site layout and fire route
 // plans are a map snapshot (or a photo) marked up in the app; issuing again is a revision with its history.
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
@@ -54,28 +55,27 @@ export function CppEditor(props: JobProps | TemplateProps) {
   const [busy, setBusy] = useState('');
   const [snap, setSnap] = useState<{ k: 'sitePlan' | 'firePlan'; at: { lat: number; lon: number } | null } | null>(null);
   const [mark, setMark] = useState<{ k: 'sitePlan' | 'firePlan'; src: string; base: string; ops: MarkOp[] } | null>(null);
-  const [saveState, setSaveState] = useState(!job ? 'Your company\'s starting point for every new plan' : props.row0.status === 'issued' ? `Issued v${props.row0.version} · changes go in the next revision` : 'Draft · saves by itself');
+  const [saveState, setSaveState] = useState(!job ? 'Your company\'s starting point for every new plan · saves by itself' : props.row0.status === 'issued' ? `Issued v${props.row0.version} · changes go in the next revision` : 'Draft · saves by itself');
   const latest = useRef(p), timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const persist = async (x: CppPlan) => (job ? saveCpp((row as CppRow).id, x) : saveCppDefaults((props as TemplateProps).orgId, x));
   const saveNow = async () => {
     if (timer.current) { clearTimeout(timer.current); timer.current = null; }
     const ok = await persist(latest.current);
-    setSaveState(ok ? (job ? (row?.status === 'issued' ? `Issued v${row?.version} · changes go in the next revision` : 'Draft · saves by itself') : 'Template saved - new plans start from this') : 'Not saved - check signal');
+    setSaveState(ok ? (job ? (row?.status === 'issued' ? `Issued v${row?.version} · changes go in the next revision` : 'Draft · saves by itself') : 'Your company\'s starting point for every new plan · saves by itself') : 'Not saved - check signal');
     if (job) void qc.invalidateQueries({ queryKey: ['cppPlans', siteId] });
     return ok;
   };
   const change = (fn: (x: CppPlan) => CppPlan) => {
     const next = fn(latest.current); latest.current = next; setP(next);
-    if (!job) { setSaveState('Not saved yet - press Save'); return; }
     setSaveState('Saving…');
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => { void saveNow(); }, 700);
   };
-  useEffect(() => () => { if (job && timer.current) { clearTimeout(timer.current); void persist(latest.current); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { if (timer.current) { clearTimeout(timer.current); void persist(latest.current); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
   if (!me) return null;
   const set = <K extends keyof CppPlan>(k: K, v: CppPlan[K]) => change((x) => ({ ...x, [k]: v }));
   const setIn = <K extends 'pc' | 'client' | 'pm' | 'hospital' | 'hospitalFrom'>(k: K, f: string, v: string) => change((x) => ({ ...x, [k]: { ...x[k], [f]: v } }));
-  const go = async (t: Tab) => { if (job && timer.current) await saveNow(); setTab(t); setEditId(null); };
+  const go = async (t: Tab) => { if (timer.current) await saveNow(); setTab(t); setEditId(null); };
 
   const input = (l: string, value: string, onChange: (v: string) => void, o: { multi?: boolean; kb?: 'phone-pad' | 'email-address' | 'numeric'; ph?: string; lines?: number; off?: boolean } = {}) => (
     <View key={l}>
@@ -90,11 +90,10 @@ export function CppEditor(props: JobProps | TemplateProps) {
   const spacer = <View style={{ width: X_W }} />;
   const imgUrl = (path: string | null) => (path ? supabase.storage.from('mc-documents').getPublicUrl(path).data.publicUrl : null);
 
-  // ----- Save and Next (Andy, 19 Nov 2026) -----
+  // ----- Next at the bottom of every tab; it saves by itself (Andy, 19 and 20 Nov 2026) -----
   const footer = (t: Tab) => {
     const nx = TABS[TABS.indexOf(t) + 1];
     return centre(
-      <Button key="save" kind="ghost" busy={busy === 'save'} title="Save" onPress={async () => { setBusy('save'); await saveNow(); setBusy(''); }} />,
       nx ? <Button key="next" title={`Next: ${TAB_LABEL[nx]} ›`} onPress={() => void go(nx)} /> : null,
     );
   };
@@ -258,7 +257,7 @@ export function CppEditor(props: JobProps | TemplateProps) {
       })}
       {centre(
         <Button key="add" small kind="ghost" title="+ Add Section" onPress={() => { const n = { id: cppUid(), num: String((Number(p.sections[p.sections.length - 1]?.num) || 18) + 1), title: 'New Section', body: '' }; change((x) => ({ ...x, sections: [...x.sections, n] })); setEditId(n.id); setOpenId(n.id); }} />,
-        !job ? <Button key="std" small kind="ghost" title="Back To Standard Wording" onPress={async () => { if (await confirmAsk('Put every section back to the standard wording? Your changes to the sections are lost when you press Save.', 'Yes', 'No')) set('sections', blankCpp().sections); }} /> : null,
+        !job ? <Button key="std" small kind="ghost" title="Back To Standard Wording" onPress={async () => { if (await confirmAsk('Put every section back to the standard wording? Your changes to the sections are lost.', 'Yes', 'No')) set('sections', blankCpp().sections); }} /> : null,
       )}
     </>
   );

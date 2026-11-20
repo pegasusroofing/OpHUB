@@ -65,7 +65,7 @@ export function useSubco(companyId: string | undefined, me: Profile | null) {
     queryFn: async () => {
       const c = ((orThrow(await db.from('subcontractor_companies').select('*').eq('id', companyId as string).limit(1)) as Subco[]) ?? [])[0] ?? null;
       if (!c) return null;
-      const [rams, coshh, tbt, brief, ops, sched, permits, insp, admin] = await Promise.all([
+      const [rams, coshh, tbt, brief, ops, sched, permits, insp, admin, om] = await Promise.all([
         db.from('rams_docs').select('id').eq('subcontractor_company_id', c.id).eq('status', 'current'),
         db.from('coshh_docs').select('id').eq('subcontractor_company_id', c.id),
         db.from('toolbox_talks').select('id').eq('subcontractor_company_id', c.id).eq('status', 'live'),
@@ -75,12 +75,14 @@ export function useSubco(companyId: string | undefined, me: Profile | null) {
         db.from('permits').select('id').eq('subcontractor_company_id', c.id).eq('status', 'open'),
         db.from('subcontractor_inspections').select('id').eq('subcontractor_company_id', c.id),
         db.from('subcontractor_operatives').select('id').eq('subcontractor_company_id', c.id).eq('user_id', (me as Profile).id).eq('is_admin', true).limit(1),
+        // Their O&M manuals (20 Nov 2026): the database shows them to managers and the company's admin only.
+        db.from('handover_om_manuals').select('submitted_at').eq('subcontractor_company_id', c.id),
       ]);
       const n = (r: { data: unknown }) => ((r.data as unknown[] | null) ?? []).length;
       const tasks = (sched.data as { status: string }[] | null) ?? [];
       return {
         company: c, isAdmin: n(admin) > 0,
-        counts: { rams: n(rams), coshh: n(coshh), tbt: n(tbt), briefings: n(brief), operatives: n(ops), tasks: tasks.length, done: tasks.filter((t) => t.status === 'done').length, permits: n(permits), inspections: n(insp) },
+        counts: { rams: n(rams), coshh: n(coshh), tbt: n(tbt), briefings: n(brief), operatives: n(ops), tasks: tasks.length, done: tasks.filter((t) => t.status === 'done').length, permits: n(permits), inspections: n(insp), om: n(om), omSubmitted: ((om.data as { submitted_at: string | null }[] | null) ?? []).filter((x) => x.submitted_at).length },
       };
     },
   });

@@ -90,6 +90,25 @@
   - It uses the same `ANTHROPIC_API_KEY` secret as `finance-ai-read`.
   - 30 drafts a day per company. Each call is logged in the new table `ai_usage_log`, which only admins can read.
 
+## O&M builder in tabs, with the CPP; subcontractors' O&Ms (20 Nov 2026, evening, app.operativehub)
+- **O&M builder:** `sites/[id]/om/[manual].tsx`.
+  - Tabs: Details · People · Works · Appendix · Issue, with Next at the bottom of each tab. It saves as you type.
+  - A new manual takes the client, client's agent, principal designer, architect, PM, start date and outline of works from the job's CPP (the issued one first; `jobCpp`, `omFromCpp`).
+  - New **Project Team** table. Unnamed roles are left out of the PDF.
+  - Page 2 has **Project Dates** (start on site, practical completion).
+  - **Issue tab:**
+    - a "Before You Issue" checklist;
+    - Issue Revision N keeps each PDF with the manual (`data.revisions`) and copies it to OneDrive ('om_manual' rule);
+    - offers practical completion as today if it isn't set.
+- **Subcontractors' O&Ms:**
+  - The company page has an **O&M Manual** tile (their admin and our managers).
+  - They upload a PDF (submitted at once), or build one in the same builder (`mc/subcontractors/[co]/om/[manual]` re-exports it). That starts from the tasks assigned to them and their COSHH, and Submit sends it to us.
+  - Our Handover lists them. Our manual's Appendix ticks "Subcontractors' O&M Manuals (N Submitted)", which puts them in the back of our PDF.
+  - DB: `handover_om_manuals.subcontractor_company_id / file_path / submitted_at`, `is_sub_admin_of()`, four sub-admin policies (SQL file 7, proved with a self-undoing test).
+- **CPP:** the company template (Admin › H&S) now saves by itself like a job's plan. There's no Save button, just Next at the bottom of each tab.
+- **Main contractor walk-through and gaps:** `MAIN-CONTRACTOR-PROCESS-2026-11-20.md`.
+- **Tests:** `om20-check.js`, `subom20-check.js`; the older O&M and CPP tests are updated for the tabs.
+
 ## Close a RAMS / COSHH for signing (20 Nov 2026, both apps)
 - **Old web app:** ⋯ menu › Close for signing (`src/js/9219zzh-hs-close-signing.js`).
 - **New app (afternoon):** ⋮ menu › 🔒 Close For Signing / ↺ Reopen For Signing, for managers with Sign Off H&S (`components/HsDocList.tsx`). A closed document shows "🔒 Closed" and stays on file. It drops out of the HUB, the job tiles, the PM dashboard, operatives' To Do, Sign All, and Ask Outstanding To Sign. Operatives see "Closed — No Signature Needed".

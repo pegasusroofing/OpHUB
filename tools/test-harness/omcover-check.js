@@ -23,7 +23,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/sites/'+S1+'/om/om1'); await page.waitForTimeout(6000);
   const img = path.join(os.tmpdir(), 'cover.png'); fs.writeFileSync(img, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64'));
-  await page.getByText('Edit Cover', {exact: true}).first().click(); await page.waitForTimeout(500); // the cover editor opens from Edit Cover since 14 Nov
+  // The cover is on the Details tab, open (tabbed builder, 20 Nov 2026; before that it opened from Edit Cover).
   await page.getByText('📷 Take Or Upload').click(); await page.waitForTimeout(400);
   const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout:15000}), page.getByText('🖼 Choose From Library').click()]);
   await fc.setFiles(img); await page.waitForTimeout(6000);
