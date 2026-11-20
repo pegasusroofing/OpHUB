@@ -53,7 +53,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   // RAMS / COSHH: a Document Type fill-in, not the number.
   await page.getByText('+ New Template', {exact: true}).click(); await page.waitForTimeout(1000);
   await page.locator('[aria-label="For"] >> visible=true').first().click(); await page.waitForTimeout(600);
-  await page.getByText('RAMS / COSHH documents (H&S)', {exact: true}).last().click(); await page.waitForTimeout(600);
+  await page.getByText('RAMS / COSHH Documents (H&S)', {exact: true}).last().click(); await page.waitForTimeout(600);
   t = await text();
   check(/\+ Document Type \(RAMS \/ COSHH\)/.test(t) && !/\+ Document /.test(t.replace('+ Document Type', '')), 'RAMS / COSHH templates have a Document Type button');
   await page.getByText('Cancel', {exact: true}).last().click(); await page.waitForTimeout(600);

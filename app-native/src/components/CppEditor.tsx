@@ -60,7 +60,7 @@ export function CppEditor(props: JobProps | TemplateProps) {
   const saveNow = async () => {
     if (timer.current) { clearTimeout(timer.current); timer.current = null; }
     const ok = await persist(latest.current);
-    setSaveState(ok ? (job ? 'All changes saved' : 'Template saved - new plans start from this') : 'Not saved - check signal');
+    setSaveState(ok ? (job ? (row?.status === 'issued' ? `Issued v${row?.version} · changes go in the next revision` : 'Draft · saves by itself') : 'Template saved - new plans start from this') : 'Not saved - check signal');
     if (job) void qc.invalidateQueries({ queryKey: ['cppPlans', siteId] });
     return ok;
   };

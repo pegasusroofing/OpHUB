@@ -20,7 +20,7 @@ const seed = require('./fresh/seed');
   await page.getByText('✉ Email', {exact:true}).click(); await page.waitForTimeout(800);
   await page.screenshot({path:'shots/native_email_cc-1300.png'});
   await page.fill('input[placeholder="name@company.co.uk"]', 'qs@main.test');
-  await page.getByText(/^CC me a copy/).click(); await page.getByText(/^CC the client/).click();
+  await page.getByText(/^CC Me A Copy/).click(); await page.getByText(/^CC The Client/).click();
   await page.getByText('Send', {exact:true}).click();
   const seen = new Set();
   for(let i=0;i<16;i++){ await page.waitForTimeout(500); const t = await page.evaluate(()=>document.body.innerText.match(/(Building[^\n]*|Could not[^\n]*|Nothing to export[^\n]*|Sending…|Emailed|skipped[^\n]*)/g)); (t||[]).forEach(x=>seen.add(x)); }

@@ -28,14 +28,14 @@ export default function FinTemplates() {
     <FinPage title="Templates" section="settings" sub="templates" onSub={(k) => { if (k !== 'templates') finSettingsGo(k); }}>
       <Muted style={{ marginBottom: 10 }}>The wording of the emails Finance sends. The default for each kind is picked first when you send; you can still choose another or change the words before sending. In a template, buttons add the client, project and the rest, filled in when it’s sent.</Muted>
       <SignatureCard finance />
-      {canEdit && <View style={{ alignSelf: 'flex-start', marginBottom: 8 }}><Button title="+ New Template" onPress={() => startNew('application')} /></View>}
+      {canEdit && <View style={{ alignSelf: 'center', marginBottom: 8 }}><Button title="+ New Template" onPress={() => startNew('application')} /></View>}
       {TPL_KINDS.map(([k, l]) => {
         const mine = list.filter((t) => t.kind === k);
         return (
           <View key={k}>
             <SectionTitle>{l}</SectionTitle>
             {mine.length ? mine.map((t) => <FinRow compact key={t.id} title={t.name} sub={t.subject || ''} right={t.is_default ? 'Default' : ''} tone={base.blue} onPress={canEdit ? () => setEdit(t) : undefined} />)
-              : <Card><Muted>Using the standard wording.</Muted>{canEdit && <Pressable onPress={() => startNew(k)}><Text style={{ color: base.blue, fontWeight: '500', marginTop: 6 }}>+ Make your own</Text></Pressable>}</Card>}
+              : <Card><Muted>Using the standard wording.</Muted>{canEdit && <Pressable onPress={() => startNew(k)}><Text style={{ color: base.blue, fontWeight: '500', marginTop: 6 }}>+ Make Your Own</Text></Pressable>}</Card>}
           </View>
         );
       })}
@@ -62,8 +62,8 @@ function TemplateForm({ t, onClose }: { t: Partial<Tpl>; onClose: () => void }) 
         { k: 'kind', label: 'For', kind: 'choice', options: TPL_KINDS, half: true },
         { k: 'subject', label: 'Subject' },
         { k: 'body', label: 'Message', kind: 'multiline', tall: true },
-        { k: 'is_default', label: 'Default for this kind', kind: 'check' },
-        { k: 'show_logo', label: 'Show the company logo', kind: 'check' },
+        { k: 'is_default', label: 'Default For This Kind', kind: 'check' },
+        { k: 'show_logo', label: 'Show The Company Logo', kind: 'check' },
       ]}
       extra={(v) => (
         <View style={{ marginTop: 8 }}>

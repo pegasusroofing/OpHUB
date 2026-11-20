@@ -23,7 +23,8 @@ export function useFillIns(start: string) {
 /** The buttons: one per fill-in, under the boxes they add to. */
 export function FillInButtons({ items, target, onPick }: { items: [string, string][]; target: string; onPick: (token: string) => void }) {
   return (
-    <View style={{ flexBasis: '100%', marginBottom: 10 }}>
+    // width, not flexBasis: inside a column (the quote chaser card) a 100% basis is 100% of the height (UI check, 20 Nov 2026).
+    <View style={{ width: '100%', marginBottom: 10 }}>
       <Muted style={{ fontSize: 12, marginBottom: 5 }}>Tap to add to the {target.toLowerCase()}, where the cursor is:</Muted>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
         {items.map(([token, label]) => (

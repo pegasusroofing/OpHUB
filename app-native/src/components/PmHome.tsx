@@ -2,7 +2,7 @@
 // projects, on site now, to do, notifications), the sites map with a Today panel beside it, then plain tiles
 // (2 across on a phone, 4 on a laptop), "Pick up where you left off", and name / role / Sign out.
 import { router } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { AdminGuide } from '@/components/AdminGuide';
@@ -201,13 +201,18 @@ type TodayRow = { ic: string; t: string; sub: string; go: string };
 function TodayBar({ rows, go, first }: { rows: TodayRow[]; go: (p: string) => () => void; first?: (width: number) => ReactNode }) {
   const [w, setW] = useState(0);
   const tw = w ? (w - 10) / 2 : 170;
+  // The weather comes first (UI check, 20 Nov 2026): it can arrive a moment after the other tiles, and the browser then
+  // kept the tile you were looking at in view, so the bar opened one along. Back to the start when it arrives.
+  const bar = useRef<ComponentRef<typeof ScrollView>>(null);
+  const hasFirst = !!first;
+  useEffect(() => { if (hasFirst) { const t = setTimeout(() => bar.current?.scrollTo({ x: 0, animated: false }), 50); return () => clearTimeout(t); } return undefined; }, [hasFirst]);
   return (
     <View style={{ marginBottom: space.m }} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
       <Text style={{ fontWeight: '700', color: base.ink, fontSize: 16, marginBottom: 8 }}>Today</Text>
       {/* It stops on a tile's edge after a swipe, so it always lines up with the tiles below (Andy, 17 Nov 2026: "the
           spacing between the weather and who's on site ... looks out of align"). Web: snap to each tile; phone app: every
           tile and gap. */}
-      <ScrollView horizontal testID="today-bar" showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}
+      <ScrollView ref={bar} horizontal testID="today-bar" showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}
         {...(Platform.OS === 'web' ? { pagingEnabled: true } : { snapToInterval: tw + 10, decelerationRate: 'fast' as const, snapToAlignment: 'start' as const })}>
         {first?.(tw)}
         {rows.map((r, k) => (

@@ -46,7 +46,8 @@ function ExpensesPage({ id }: { id?: string }) {
   const toEmail = (org as unknown as { expenses_email?: string | null })?.expenses_email || '';
   const total = groups.reduce((n, g) => n + g.files.length, 0);
   const upd = (key: string, patch: Partial<ExpGroup>) => setGroups(groups.map((g) => (g.key === key ? { ...g, ...patch } : g)));
-  const jobs: [string, string][] = sites.slice().sort((a, b) => a.name.localeCompare(b.name)).map((x) => [`site:${x.id}`, `${x.job_number ? `${x.job_number} · ` : ''}${x.name}`]);
+  // In job number order, then name (UI check, 20 Nov 2026).
+  const jobs: [string, string][] = sites.slice().sort((a, b) => String(a.job_number || '~').localeCompare(String(b.job_number || '~'), 'en', { numeric: true }) || a.name.localeCompare(b.name)).map((x) => [`site:${x.id}`, `${x.job_number ? `${x.job_number} · ` : ''}${x.name}`]);
   const rowLabel = (r: ExpenseRow) => (r.site_id ? `${sites.find((s) => s.id === r.site_id)?.name || 'Job'}${r.category === 'fuel' ? ` — Fuel${r.manual_label ? ` (${r.manual_label})` : ''}` : ''}` : r.category === 'fuel' ? `Fuel${r.manual_label ? ` — ${r.manual_label}` : ''}` : r.manual_label || 'Not on the app');
 
   const addPhotos = async (g: ExpGroup, source: 'camera' | 'library') => {
@@ -145,14 +146,14 @@ function ExpensesPage({ id }: { id?: string }) {
                 {!!r.note && <Muted>{r.note}</Muted>}
                 {full && r.created_by !== me.id && <Muted>Sent by {nameOf(people, r.created_by)}</Muted>}
                 <Text style={{ color: r.emailed_at ? base.ok : base.warn, fontWeight: '600', marginVertical: 6 }}>{r.emailed_at ? `✓ Emailed${r.emailed_to ? ` to ${r.emailed_to}` : ''}` : 'Not emailed yet'}</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
                   {(r.file_paths || []).map((p, k) => (
                     <Button key={p} kind="ghost" title={`${/\.pdf$/i.test(p) ? '📄' : '🖼'} ${(r.file_names || [])[k] || 'Receipt'}`}
                       onPress={async () => { const u = await openDocLink('site-photos', p); if (u) viewDoc(u); }} />
                   ))}
                   {(r.created_by === me.id || full) && (
                     <Button kind="ghost" title={r.emailed_at ? '✉️ Resend' : '✉️ Send Now'} onPress={async () => {
-                      if (!(await confirmAsk(`Email ${nf === 1 ? 'this receipt' : `these ${nf} receipts`} to the office${r.emailed_at ? ' again' : ''}?`, 'Send'))) return;
+                      if (!(await confirmAsk(`Email ${nf === 1 ? 'this receipt' : `these ${nf} receipts`} to the office${r.emailed_at ? ' again' : ''}?`, 'Yes', 'No'))) return;
                       const s = await sendExpenses(r.emailed_at ? { batch_id: r.batch_id, expense_id: r.id, resend: true } : { batch_id: r.batch_id });
                       if (s.ok) showAlert(`✓ ${r.emailed_at ? 'Sent again' : 'Sent'}${s.to ? ` to ${s.to}` : ''}${(s.emails || 0) > 1 ? ` — ${s.emails} emails` : ''}.`); else toast(`Could not send — ${s.error}`);
                       void qc.invalidateQueries({ queryKey: ['expenses'] });
@@ -160,7 +161,7 @@ function ExpensesPage({ id }: { id?: string }) {
                   )}
                   {full && (
                     <Button kind="ghost" title="🗑 Delete" onPress={async () => {
-                      if (!(await confirmAsk("Delete this expense entry? This removes it from the app only — any email already sent to the office stays sent. This can't be undone.", 'Delete'))) return;
+                      if (!(await confirmAsk("Delete this expense entry? This removes it from the app only — any email already sent to the office stays sent. This can't be undone.", 'Yes', 'No'))) return;
                       toast((await deleteExpense(r.id)) ? 'Expense deleted' : 'Could not delete — only a Project Manager or Admin can.');
                       void qc.invalidateQueries({ queryKey: ['expenses'] });
                     }} />

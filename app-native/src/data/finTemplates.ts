@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase';
 export type TplKind = 'application' | 'invoice' | 'certificate' | 'credit' | 'po' | 'signatures' | 'hsdocs' | 'pi_query';
 export type Tpl = { id: string; kind: TplKind; name: string; subject: string | null; body: string | null; is_default: boolean; show_logo: boolean; logos: string[] };
 
-export const TPL_KINDS: [TplKind, string][] = [['application', 'Application for payment'], ['invoice', 'Invoice'], ['certificate', 'Payment certificate'], ['credit', 'Credit note'], ['po', 'Purchase order'], ['pi_query', 'Query on a supplier’s invoice'], ['signatures', 'Outstanding signatures (H&S)'], ['hsdocs', 'RAMS / COSHH documents (H&S)']];
+export const TPL_KINDS: [TplKind, string][] = [['application', 'Application For Payment'], ['invoice', 'Invoice'], ['certificate', 'Payment Certificate'], ['credit', 'Credit Note'], ['po', 'Purchase Order'], ['pi_query', 'Query On A Supplier’s Invoice'], ['signatures', 'Outstanding Signatures (H&S)'], ['hsdocs', 'RAMS / COSHH Documents (H&S)']];
 
 /** The fill-ins each kind of email can use, as add buttons in the template (Andy, 19 Nov 2026: "add in the place holders
  *  that are possible as add buttons"). Each is filled in by the screen that sends that kind of email. */

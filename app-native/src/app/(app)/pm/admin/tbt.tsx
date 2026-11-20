@@ -64,7 +64,7 @@ export default function TbtTemplates() {
           </Pressable>
           {!!t.builder && <Button small kind="ghost" title="✎ Edit" onPress={() => setBuilding({ id: t.id, start: readTbt(t.builder), path: t.storage_path })} />}
           <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={`Remove ${t.title}`} onPress={async () => {
-            if (!(await confirmAsk('Remove this template? Sites already created keep their copy — this only affects sites created from now on.', 'Remove'))) return;
+            if (!(await confirmAsk('Remove this template? Sites already created keep their copy — this only affects sites created from now on.', 'Yes', 'No'))) return;
             if (!(await db.from('tbt_templates').delete().eq('id', t.id).select('id')).data?.length) toast('Could not remove — try again.');
             refresh();
           }}><Text>🗑</Text></Pressable>
@@ -73,8 +73,10 @@ export default function TbtTemplates() {
       <Card>
         <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 8 }}>Upload A PDF Instead</Text>
         <TextInput value={title} onChangeText={setTitle} placeholder="Title, e.g. Alcohol & Drugs" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 8 }} />
-        <Button kind="ghost" title={file ? `📎 ${file.name}` : 'Choose PDF'} onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setFile(r.assets[0]); }} />
-        <View style={{ marginTop: 4 }}><Button busy={busy} title="Add to Bank" onPress={async () => {
+        {/* One centred row (UI check, 20 Nov 2026). */}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
+        <Button small kind="ghost" title={file ? `📎 ${file.name}` : 'Choose PDF'} onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setFile(r.assets[0]); }} />
+        <Button small busy={busy} title="Add To Bank" onPress={async () => {
           if (!title.trim() || !file) { toast('Add a title and choose a PDF.'); return; }
           setBusy(true);
           try {
@@ -84,7 +86,8 @@ export default function TbtTemplates() {
             if ((await db.from('tbt_templates').insert({ org_id: me.org_id, title: title.trim(), storage_path: up.data.path, created_by: me.id } as never)).error) { toast('Could not save — try again.'); return; }
             setTitle(''); setFile(null); refresh();
           } finally { setBusy(false); }
-        }} /></View>
+        }} />
+        </View>
       </Card>
     </ScrollView>
   );

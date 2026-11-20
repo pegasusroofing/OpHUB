@@ -83,9 +83,9 @@ export function TbtBuilder({ start, id, path, onClose }: { start: TbtBuild; id: 
       </Card>
       {err ? <Text style={{ color: '#C0392B', fontWeight: '500', textAlign: 'center', marginBottom: 8 }}>{err}</Text> : null}
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 20 }}>
-        <View style={{ flex: 1, maxWidth: 170 }}><Button kind="ghost" busy={busy === 'view'} title="👁 Preview PDF" onPress={() => void preview()} /></View>
-        <View style={{ flex: 1, maxWidth: 200 }}><Button busy={busy === 'save'} title={id ? 'Save Changes' : 'Save Template'} onPress={() => void save()} /></View>
-        <View style={{ flex: 1, maxWidth: 140 }}><Button kind="ghost" title="Cancel" onPress={onClose} /></View>
+        <View style={{ flex: 1, maxWidth: 170 }}><Button small kind="ghost" busy={busy === 'view'} title="👁 Preview" onPress={() => void preview()} /></View>
+        <View style={{ flex: 1, maxWidth: 200 }}><Button small busy={busy === 'save'} title={id ? 'Save Changes' : 'Save Template'} onPress={() => void save()} /></View>
+        <View style={{ flex: 1, maxWidth: 140 }}><Button small kind="ghost" title="Cancel" onPress={onClose} /></View>
       </View>
     </View>
   );

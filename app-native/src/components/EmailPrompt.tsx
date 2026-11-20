@@ -54,8 +54,8 @@ export function EmailPromptHost() {
       )) : <Text style={{ color: base.slate, marginBottom: 6 }}>No other PMs / admins found.</Text>)}
       {!!req.pick && <Text style={{ color: base.slate, fontSize: 12, marginTop: 6, marginBottom: 4 }}>Add another address</Text>}
       <TextInput value={to} onChangeText={(v) => { setTo(v); setErr(''); }} autoFocus={!req.pick} autoCapitalize="none" keyboardType="email-address" placeholder="name@company.co.uk" placeholderTextColor="#9AA1AB" style={{ borderWidth: 1, borderColor: '#D5D9DF', borderRadius: 10, padding: 10, fontSize: 15, marginBottom: 8, color: base.ink }} />
-      {!!req.myEmail && !req.pick && <Check label={`CC me a copy (${req.myEmail})`} value={ccMe} onChange={setCcMe} />}
-      {!!req.clientEmail && <Check label={`CC the client (${req.clientEmail})`} value={ccClient} onChange={setCcClient} />}
+      {!!req.myEmail && !req.pick && <Check label={`CC Me A Copy (${req.myEmail})`} value={ccMe} onChange={setCcMe} />}
+      {!!req.clientEmail && <Check label={`CC The Client (${req.clientEmail})`} value={ccClient} onChange={setCcClient} />}
       {!!err && <Text style={{ color: '#C0392B', marginTop: 4 }}>{err}</Text>}
     </Popup>
   );
