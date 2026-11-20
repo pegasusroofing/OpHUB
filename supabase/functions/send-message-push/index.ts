@@ -197,7 +197,15 @@ Deno.serve(async (req) => {
     };
     const taskId = relatedId || '';
     const isDeliveryUpdate = audience === 'single' && kind === 'message' && !!relatedId;
-    const title = isDeliveryUpdate ? 'Delivery schedule update' : (titles[kind] || 'OpHUB');
+    // A subcontractor's documents sent to the main contractor get their own titles (Andy, 21 Nov 2026: "Title should be O&M
+    // documentation submitted for review"), told apart by their wording (they are plain 'message' rows).
+    const bodyText = String(msgBody || '');
+    const subTitle = kind === 'message' && audience === 'managers'
+      ? (/ submitted their O&M manual /.test(bodyText) ? 'O&M Documentation Submitted For Review'
+        : / uploaded RAMS ".*" for your approval/.test(bodyText) ? 'RAMS Submitted For Approval'
+        : / uploaded a COSHH assessment: /.test(bodyText) ? 'Subcontractor COSHH Uploaded' : null)
+      : null;
+    const title = isDeliveryUpdate ? 'Delivery schedule update' : (subTitle || titles[kind] || 'OpHUB');
     const preview = (msgBody || '').toString().slice(0, 140);
 
     // ---- Email the managers too (never blocks or fails the push below) ----
