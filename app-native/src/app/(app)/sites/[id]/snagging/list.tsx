@@ -3,6 +3,9 @@
 // open to show their photos, who's tagged and Close Snag. Closing asks again with the fix photo shown, so it doesn't just
 // upload and vanish into Closed. Exports in the footer bar. Ported from renderSnagging (500), with the Snagging Report
 // PDF export / email, and photo mark-up (draw / add text on a photo before the snag is added, or on a live snag's photo).
+// Snags given to a subcontractor company (Andy, 20 Nov 2026: "yes snags issued to the subcontract company please (all
+// operatrives for them then see it)"): our managers choose Give To; the company's Snags tile opens this page for just theirs
+// (mc/subcontractors/[co]/snags), where all their people see and close them.
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -21,7 +24,8 @@ import { Button, Empty, Muted } from '@/components/ui';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { packPdfBytes } from '@/data/jobPack';
 import { useSite } from '@/data/sites';
-import { addSnag, closeSnag, emailSnagPdf, replaceSnagPhoto, snagPhotos, snagsForPdf, tagSnag, useSnags, type Snag } from '@/data/snags';
+import { addSnag, closeSnag, emailSnagPdf, giveSnag, replaceSnagPhoto, snagPhotos, snagsForPdf, tagSnag, useSnags, type Snag } from '@/data/snags';
+import { useSubcos } from '@/data/subcontractors';
 import { useAuth } from '@/lib/auth';
 import { deliverPdf } from '@/lib/fileOut';
 import { pickPhotos, type Picked } from '@/lib/photos';
@@ -52,15 +56,17 @@ function TagPop({ people, start, onDone, onClose }: { people: Person[]; start: s
 }
 
 export default function SnagList() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, co } = useLocalSearchParams<{ id: string; co?: string }>();
   const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: site } = useSite(id);
   const [pdfBusy, setPdfBusy] = useState<string | null>(null);
   const [filter, setFilter] = useState<'open' | 'closed'>('open');
-  const { data: snags, isLoading } = useSnags(id, filter);
-  const { data: otherSnags } = useSnags(id, filter === 'open' ? 'closed' : 'open');
+  const { data: snags, isLoading } = useSnags(id, filter, co);
+  const { data: otherSnags } = useSnags(id, filter === 'open' ? 'closed' : 'open', co);
+  const { data: subcos } = useSubcos(site, me);
+  const [giveTo, setGiveTo] = useState<string | null>(co ?? null);
   const { data: people } = usePeople();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
@@ -78,6 +84,13 @@ export default function SnagList() {
   const team = ((people ?? []) as Person[]).filter((p) => p.role !== 'client' && p.role !== 'driver');
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['snags', id] }); void qc.invalidateQueries({ queryKey: ['snagFolder', id] }); };
   const names = (ids?: string[] | null) => (ids ?? []).map((u) => nameOf(people, u)).filter(Boolean).join(', ');
+  const companies = subcos?.companies ?? [];
+  const coName = (cid?: string | null) => (cid ? companies.find((c) => c.id === cid)?.name || 'A subcontractor' : '');
+  // Our managers choose which subcontractor a snag is given to (none: our own snag).
+  const chooseCompany = async (): Promise<string | null | undefined> => {
+    const k = await chooseAction('Give To', [{ key: '-', label: 'Nobody — Our Own Snag' }, ...companies.map((c) => ({ key: c.id, label: `👷 ${c.name}` }))]);
+    return k ? (k === '-' ? null : k) : undefined;
+  };
 
   // Close: the fix photo, then a Yes / No with it shown, before the snag closes (Andy, 11 Nov 2026).
   const close = async (s: Snag) => {
@@ -99,10 +112,10 @@ export default function SnagList() {
   const add = async () => {
     if (!title.trim()) { toast('What’s the issue?'); return; }
     setBusy('new');
-    const msg = await addSnag(me, site, title.trim(), loc.trim(), newPhotos, tags);
+    const msg = await addSnag(me, site, title.trim(), loc.trim(), newPhotos, tags, giveTo);
     setBusy(null);
     if (msg) showAlert(msg);
-    if (!msg || msg.startsWith('Snag added')) { setTitle(''); setLoc(''); setNewPhotos([]); setTags([]); setAdding(false); refresh(); }
+    if (!msg || msg.startsWith('Snag added')) { setTitle(''); setLoc(''); setNewPhotos([]); setTags([]); setGiveTo(co ?? null); setAdding(false); refresh(); }
   };
 
   const detail = (s: Snag) => (
@@ -124,6 +137,7 @@ export default function SnagList() {
       )}
       {!!s.pdf_path && <View style={{ alignItems: 'flex-start', marginBottom: 6 }}><Button small kind="ghost" title="📄 View Attachment" onPress={async () => { const u = await openDocLink('site-photos', s.pdf_path as string); if (u) viewDoc(u); }} /></View>}
       <Text style={{ fontSize: 12.5, color: base.slate, marginBottom: 8 }}>Tagged: <Text style={{ color: base.ink }}>{names(s.tagged) || 'Nobody'}</Text></Text>
+      {(!!s.subcontractor_company_id || (mgr && !!companies.length)) && <Text style={{ fontSize: 12.5, color: base.slate, marginBottom: 8 }}>Given To: <Text style={{ color: base.ink }}>{coName(s.subcontractor_company_id) || 'Nobody — our own snag'}</Text></Text>}
       {s.status === 'closed' ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           {!!s.closed_photo_path && <StorageImage zoom bucket="site-photos" path={s.closed_photo_path} style={{ width: 56, height: 56, borderRadius: 8 }} />}
@@ -133,6 +147,10 @@ export default function SnagList() {
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
           <Button small busy={busy === s.id} title={busy === s.id ? 'Uploading…' : '📷 Close Snag'} onPress={() => void close(s)} />
           {mgr && <Button small kind="ghost" title="🏷 Tag Someone" onPress={() => setTagFor(s)} />}
+          {mgr && !!companies.length && <Button small kind="ghost" title="👷 Give To ▾" onPress={async () => {
+            const k = await chooseCompany(); if (k === undefined || k === (s.subcontractor_company_id ?? null)) return;
+            if (!(await giveSnag(me, site, s, k))) toast('Could not save — try again.'); refresh();
+          }} />}
         </View>
       )}
     </View>
@@ -147,7 +165,7 @@ export default function SnagList() {
     if (email && site.client_email && (await confirmAsk(`Copy in the client contact${site.client_contact_name || site.client_name ? ` (${site.client_contact_name || site.client_name})` : ''} on this email?`, 'Yes', 'No'))) cc = site.client_email;
     setPdfBusy(k);
     try {
-      const list = await snagsForPdf(site.id, scope);
+      const list = await snagsForPdf(site.id, scope, co ?? null);
       if (!list.length) { toast('No snags to export for that filter.'); return; }
       const b = await buildSnagPdf(list, site, org, scope, (u) => nameOf(people, u));
       packPdfBytes(site.id, 'snag_report', b.filename, b.bytes); // the job's OneDrive folder, when added (19 Nov 2026)
@@ -160,7 +178,7 @@ export default function SnagList() {
   const closedN = filter === 'closed' ? snags?.length ?? 0 : otherSnags?.length ?? 0;
   return (
     <ScrollView contentContainerStyle={[page(900), { flexGrow: 1 }]}>
-      <Stack.Screen options={{ title: 'Snagging' }} />
+      <Stack.Screen options={{ title: co ? `${coName(co) || 'Subcontractor'} — Snags` : 'Snagging' }} />
       <HowTo k="snagging" />
       <FinTabs even items={[['open', 'Live', liveN], ['closed', 'Closed', closedN]]} value={filter} onChange={(k) => setFilter(k as 'open' | 'closed')} />
       {mgr && filter === 'open' && <View style={{ marginBottom: 10 }}><Button title="+ Add Snag" onPress={() => setAdding(true)} /></View>}
@@ -176,7 +194,7 @@ export default function SnagList() {
                   {ph ? <StorageImage bucket="site-photos" path={ph} style={{ width: 40, height: 40, borderRadius: 6 }} /> : <View style={{ width: 40, height: 40, borderRadius: 6, backgroundColor: '#F1F2F4', alignItems: 'center', justifyContent: 'center' }}><Text>🔧</Text></View>}
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text numberOfLines={1} style={{ fontSize: 13.5, fontWeight: '600', color: base.ink }}>{s.title}</Text>
-                    <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate }}>{[s.location || 'No location', s.status === 'closed' ? `Closed ${d(s.closed_at)}` : `Raised ${d(s.created_at)}`, s.tagged?.length ? `🏷 ${names(s.tagged)}` : ''].filter(Boolean).join(' · ')}</Text>
+                    <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate }}>{[s.location || 'No location', s.status === 'closed' ? `Closed ${d(s.closed_at)}` : `Raised ${d(s.created_at)}`, s.tagged?.length ? `🏷 ${names(s.tagged)}` : '', !co && s.subcontractor_company_id ? `👷 ${coName(s.subcontractor_company_id)}` : ''].filter(Boolean).join(' · ')}</Text>
                   </View>
                   <Text style={{ color: base.slate, fontSize: 12 }}>{open ? '▴' : '▾'}</Text>
                 </Pressable>
@@ -208,9 +226,11 @@ export default function SnagList() {
             </View>
           )}
           <Text style={{ fontSize: 12.5, color: base.slate, marginBottom: 8 }}>Tagged: <Text style={{ color: base.ink }}>{names(tags) || 'Nobody'}</Text></Text>
-          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
+          {!!companies.length && <Text style={{ fontSize: 12.5, color: base.slate, marginBottom: 8 }}>Given To: <Text style={{ color: base.ink }}>{coName(giveTo) || 'Nobody — our own snag'}</Text></Text>}
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
             <Button small kind="ghost" title="📷 Add Photos" onPress={async () => { const p = await pickPhotos('library'); if ('error' in p) showAlert(p.error); else setNewPhotos([...newPhotos, ...p]); }} />
             <Button small kind="ghost" title="🏷 Tag Someone" onPress={() => setTagFor('new')} />
+            {!!companies.length && <Button small kind="ghost" title="👷 Give To ▾" onPress={async () => { const k = await chooseCompany(); if (k !== undefined) setGiveTo(k); }} />}
           </View>
         </Pop>
       )}

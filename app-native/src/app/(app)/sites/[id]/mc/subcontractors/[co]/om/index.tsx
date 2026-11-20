@@ -36,7 +36,7 @@ export default function SubcoOm() {
   if (!me || !site || isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!subco) return <Muted style={{ padding: space.l }}>Subcontractor not found.</Muted>;
   const canEdit = isManager(me) || subco.isAdmin;
-  if (!canEdit) return <Muted style={{ padding: space.l }}>Only your company’s admin and the main contractor’s managers can see the O&amp;M manuals.</Muted>;
+  if (!canEdit) return <Muted style={{ padding: space.l }}>Only your company’s Project Manager and the main contractor’s managers can see the O&amp;M manuals.</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['subSow', id] }); void qc.invalidateQueries({ queryKey: ['subOms', id] }); void qc.invalidateQueries({ queryKey: ['subco', co] }); void qc.invalidateQueries({ queryKey: ['handover', id] }); };
   const mc = org?.name || 'the main contractor';
 

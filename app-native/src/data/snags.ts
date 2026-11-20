@@ -16,15 +16,20 @@ export type Snag = {
   photo_path: string | null; photo_paths: string[] | null; pdf_path: string | null;
   closed_photo_path: string | null; closed_by: string | null; closed_at: string | null; created_at: string | null;
   tagged?: string[] | null; // people tagged on it (Andy, 11 Nov 2026)
+  subcontractor_company_id?: string | null; // given to a subcontractor company (Andy, 20 Nov 2026)
 };
 export const snagPhotos = (s: Snag) => (s.photo_paths?.length ? s.photo_paths : s.photo_path ? [s.photo_path] : []);
 
-export function useSnags(siteId: string | undefined, status: 'open' | 'closed') {
+/** A job's snags; with a company, only the ones given to that subcontractor (their Snags tile). */
+export function useSnags(siteId: string | undefined, status: 'open' | 'closed', companyId?: string | null) {
   return useQuery({
-    queryKey: ['snags', siteId, status],
+    queryKey: ['snags', siteId, status, companyId || ''],
     enabled: !!siteId,
-    queryFn: () => cachedQuery(`snags:${siteId}:${status}`, async () =>
-      orThrow(await db.from('snags').select('*').eq('site_id', siteId as string).eq('status', status).order('created_at', { ascending: false })) as Snag[]),
+    queryFn: () => cachedQuery(`snags:${siteId}:${status}${companyId ? `:${companyId}` : ''}`, async () => {
+      let q = db.from('snags').select('*').eq('site_id', siteId as string).eq('status', status);
+      if (companyId) q = q.eq('subcontractor_company_id', companyId);
+      return orThrow(await q.order('created_at', { ascending: false })) as Snag[];
+    }),
   });
 }
 
@@ -67,15 +72,16 @@ export async function closeSnag(me: Profile, site: Site, snag: Snag, p: Picked):
 }
 
 /** Managers: add a snag with photos; the operatives on the job are told, and anyone tagged gets their own message. */
-export async function addSnag(me: Profile, site: Site, title: string, location: string, picked: Picked[], tagged: string[] = []): Promise<string> {
+export async function addSnag(me: Profile, site: Site, title: string, location: string, picked: Picked[], tagged: string[] = [], companyId: string | null = null): Promise<string> {
   const paths: string[] = []; let failed = 0;
   for (const p of picked) { const path = await upload(`${site.id}/snags/${rid()}.jpg`, p); if (path) paths.push(path); else failed++; }
-  const r = await db.from('snags').insert({ site_id: site.id, title, location, photo_path: paths[0] || null, photo_paths: paths.length ? paths : null, status: 'open', created_by: me.id, ...(tagged.length ? { tagged } : {}) } as never).select('id').single();
+  const r = await db.from('snags').insert({ site_id: site.id, title, location, photo_path: paths[0] || null, photo_paths: paths.length ? paths : null, status: 'open', created_by: me.id, ...(tagged.length ? { tagged } : {}), ...(companyId ? { subcontractor_company_id: companyId } : {}) } as never).select('id').single();
   if (r.error) return 'Could not save — try again.';
   // Its photos into the job's OneDrive folder, when the company has added it (19 Nov 2026).
   paths.forEach((p, i) => { void packPut(site.id, 'snag_photo', `${snagFileName(title)} - Raised ${new Date().toISOString().slice(0, 10)}${paths.length > 1 ? ` (${i + 1})` : ''}.jpg`, { photo_path: p }).catch(() => undefined); });
   if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'operatives', kind: 'snag_raised', body: `New snag raised: "${title}"` } as never).then(undefined, () => undefined);
   void tellTagged(me, site, (r.data as { id: string }).id, title, tagged);
+  if (companyId) void tellCompany(me, site, (r.data as { id: string }).id, title, companyId);
   if (failed) return `Snag added, but ${failed} photo${failed > 1 ? 's' : ''} failed to upload — check your connection.`;
   return '';
 }
@@ -86,6 +92,23 @@ export async function tagSnag(me: Profile, site: Site, snag: Snag, tagged: strin
   void tellTagged(me, site, snag.id, snag.title, tagged.filter((u) => !(snag.tagged ?? []).includes(u)));
   return true;
 }
+/** Give a snag to a subcontractor company, or take it back (null). Everyone in that company is told. */
+export async function giveSnag(me: Profile, site: Site, snag: Snag, companyId: string | null): Promise<boolean> {
+  const r = mustHit(await db.from('snags').update({ subcontractor_company_id: companyId } as never).eq('id', snag.id).select('id'));
+  if (r.error) return false;
+  if (companyId && companyId !== snag.subcontractor_company_id) void tellCompany(me, site, snag.id, snag.title, companyId);
+  return true;
+}
+async function tellCompany(me: Profile, site: Site, snagId: string, title: string, companyId: string) {
+  const [ops, co] = await Promise.all([
+    db.from('subcontractor_operatives').select('user_id').eq('subcontractor_company_id', companyId),
+    db.from('subcontractor_companies').select('name').eq('id', companyId).limit(1),
+  ]);
+  const to = [...new Set(((ops.data as { user_id: string }[] | null) ?? []).map((x) => x.user_id))].filter((u) => u && u !== me.id);
+  const name = ((co.data as { name: string }[] | null) ?? [])[0]?.name || 'your company';
+  if (!me.org_id || !to.length) return;
+  await db.from('messages').insert(to.map((u) => ({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'single', recipient_id: u, kind: 'snag_tagged', body: `A snag on ${site.name} was given to ${name}: "${title || 'Untitled'}"`, related_id: snagId })) as never).then(undefined, () => undefined);
+}
 async function tellTagged(me: Profile, site: Site, snagId: string, title: string, ids: string[]) {
   const to = ids.filter((u) => u && u !== me.id);
   if (!me.org_id || !to.length) return;
@@ -93,9 +116,10 @@ async function tellTagged(me: Profile, site: Site, snagId: string, title: string
 }
 
 /* ---------- Snagging Report PDF (500 exportSnaggingPDF / emailSnaggingPDF) ---------- */
-export async function snagsForPdf(siteId: string, scope: 'live' | 'closed' | 'all'): Promise<Snag[]> {
+export async function snagsForPdf(siteId: string, scope: 'live' | 'closed' | 'all', companyId: string | null = null): Promise<Snag[]> {
   let q = db.from('snags').select('*').eq('site_id', siteId);
   q = scope === 'live' ? q.eq('status', 'open') : scope === 'closed' ? q.eq('status', 'closed') : q.in('status', ['open', 'closed']);
+  if (companyId) q = q.eq('subcontractor_company_id', companyId);
   return ((await q.order('created_at')).data as Snag[] | null) ?? [];
 }
 /** Sends the report to the person's own inbox (send-snags-email), optionally CC'ing the client. */

@@ -2,7 +2,7 @@
 // an operative opens only their own company. Managers add (linked to the company
 // library), rename (when not shared with another job) and remove.
 // + Add Subcontractor (Andy, 20 Nov 2026) picks from the Company Library, approved sign-ups first, each with its insurance;
-// a company whose insurance is missing or out of date asks first; the person who signed them up can be made their admin here.
+// a company whose insurance is missing or out of date asks first; the person who signed them up is their Project Manager on the job by default.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -41,12 +41,14 @@ export default function Subcontractors() {
     setBusy('');
     if (!cid) { toast('Could not save — try again.'); return; }
     setPicking(false); refresh();
-    // The person who signed the company up runs it on the job.
+    // The person who signed the company up is their Project Manager on the job by default (Andy, 20 Nov 2026: "the
+    // subcontractors need a project manager by default who sets up their company"). No one to use: invite one from Operatives.
     const who = from?.contactUserId ? people?.find((p) => p.id === from.contactUserId) : null;
-    if (from?.contactUserId && await confirmAsk(`Make ${who?.name || 'the person who signed them up'} ${from.name}’s admin on this job? They can then upload their company’s RAMS, COSHH and O&M.`, 'Yes', 'No')) {
-      if (!(await makeSubAdmin(me, site.id, cid, from.contactUserId))) toast('Could not make them admin — do it from the company’s Operatives tile.');
+    if (from?.contactUserId) {
+      if (await makeSubAdmin(me, site.id, cid, from.contactUserId)) toast(`${who?.name || 'The person who signed them up'} is ${from.name}’s Project Manager on this job.`, { confirm: true });
+      else toast('Could not make them their Project Manager — do it from the company’s Operatives tile.');
       refresh();
-    }
+    } else router.push(`/sites/${id}/mc/subcontractors/${cid}/operatives` as never);
   };
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">

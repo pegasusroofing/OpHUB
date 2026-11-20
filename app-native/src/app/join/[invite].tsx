@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { confirmAsk } from '@/components/toast';
 import { Button, Card, Field, Muted, Notice, Screen, Title } from '@/components/ui';
 import { joinCompanyWithInvite, switchCompany } from '@/data/companies';
+import { claimSubInvite, subInviteInfo, type SubInviteInfo } from '@/data/subcontractors';
 import { getInviteInfo, useAuth } from '@/lib/auth';
 import { isSwitchSite } from '@/lib/betaOnly';
 import type { InviteInfo } from '@/lib/types';
@@ -25,7 +26,10 @@ export default function Join() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
-  useEffect(() => { if (invite) getInviteInfo(invite).then(setInfo); }, [invite]);
+  // A subcontractor's link (20 Nov 2026): it says which company and job it's for.
+  const [subInfo, setSubInfo] = useState<SubInviteInfo | null>(null);
+  useEffect(() => { if (invite) { getInviteInfo(invite).then(setInfo); subInviteInfo(invite).then(setSubInfo); } }, [invite]);
+  const forWhat = subInfo ? ` with ${subInfo.company}${subInfo.admin ? ' as its Project Manager' : ''} on ${subInfo.site}` : '';
 
   const go = async () => {
     if (busy || !invite) return;
@@ -68,7 +72,7 @@ export default function Join() {
         <Screen center>
           <Card>
             <Title>Add {info.org_name}?</Title>
-            <Muted style={{ marginBottom: 12 }}>You&apos;re signed in as {me.name}. Add {info.org_name} to your account, and switch between your companies from the top of the menu. Each company keeps its own work, and your role in it is the one it gave you.</Muted>
+            <Muted style={{ marginBottom: 12 }}>You&apos;re signed in as {me.name}. Add {info.org_name}{forWhat} to your account, and switch between your companies from the top of the menu. Each company keeps its own work, and your role in it is the one it gave you.</Muted>
             {error && <Notice kind="error" text={error} />}
             <Button title={busy || `Add ${info.org_name} To My Account`} busy={!!busy} onPress={async () => {
               if (busy || !invite) return;
@@ -76,6 +80,7 @@ export default function Join() {
               const r = await joinCompanyWithInvite(invite);
               setBusy(null);
               if (typeof r === 'string') { setError(r); return; }
+              if (subInfo) await claimSubInvite(invite);
               void qc.invalidateQueries({ queryKey: ['myCompanies'] });
               if (await confirmAsk(`${r.company} is on your account. Switch to it now?`, 'Yes', 'No')) {
                 const err = await switchCompany(r.orgId);
@@ -95,7 +100,7 @@ export default function Join() {
       <Screen center>
         <Card>
           <Title>Join OpHUB</Title>
-          <Muted style={{ marginBottom: 12 }}>You&apos;ve been invited to join {info.org_name} on OpHUB.</Muted>
+          <Muted style={{ marginBottom: 12 }}>{subInfo ? `You've been invited to work${forWhat} for ${info.org_name}, on OpHUB.` : `You've been invited to join ${info.org_name} on OpHUB.`}</Muted>
           {error && <Notice kind="error" text={error} />}
           <Field label="Your Name" value={name} onChangeText={setName} placeholder="e.g. Andy Turner" autoComplete="name" />
           <Field label="Email" value={email} onChangeText={setEmail} placeholder="you@yourcompany.co.uk" autoCapitalize="none" keyboardType="email-address" autoComplete="email" />

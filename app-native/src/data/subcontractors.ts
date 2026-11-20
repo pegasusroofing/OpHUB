@@ -12,6 +12,7 @@ import type { Profile, Site } from '@/lib/types';
 import { mustHit } from '@/lib/mustHit';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
+const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
 type Asset = { uri: string; name: string; mimeType?: string | null };
 
 export type Subco = { id: string; site_id: string; org_id: string; name: string; master_company_id: string | null };
@@ -68,24 +69,26 @@ export function useSubco(companyId: string | undefined, me: Profile | null) {
     queryFn: async () => {
       const c = ((orThrow(await db.from('subcontractor_companies').select('*').eq('id', companyId as string).limit(1)) as Subco[]) ?? [])[0] ?? null;
       if (!c) return null;
-      const [rams, coshh, tbt, brief, ops, sched, permits, insp, admin, om] = await Promise.all([
+      const [rams, coshh, tbt, brief, ops, sched, permits, insp, admin, om, snags] = await Promise.all([
         db.from('rams_docs').select('id').eq('subcontractor_company_id', c.id).eq('status', 'current'),
         db.from('coshh_docs').select('id').eq('subcontractor_company_id', c.id),
         db.from('toolbox_talks').select('id').eq('subcontractor_company_id', c.id).eq('status', 'live'),
         db.from('subcontractor_briefings').select('id').eq('subcontractor_company_id', c.id),
-        db.from('subcontractor_operatives').select('user_id').eq('subcontractor_company_id', c.id),
+        db.from('subcontractor_operatives').select('user_id,is_admin').eq('subcontractor_company_id', c.id),
         db.from('schedule_tasks').select('status').eq('site_id', c.site_id).eq('subcontractor_company_id', c.id),
         db.from('permits').select('id').eq('subcontractor_company_id', c.id).eq('status', 'open'),
         db.from('subcontractor_inspections').select('id').eq('subcontractor_company_id', c.id),
         db.from('subcontractor_operatives').select('id').eq('subcontractor_company_id', c.id).eq('user_id', (me as Profile).id).eq('is_admin', true).limit(1),
         // Their O&M manuals (20 Nov 2026): the database shows them to managers and the company's admin only.
         db.from('handover_om_manuals').select('submitted_at').eq('subcontractor_company_id', c.id),
+        // Snags given to them (20 Nov 2026).
+        db.from('snags').select('id').eq('subcontractor_company_id', c.id).eq('status', 'open'),
       ]);
       const n = (r: { data: unknown }) => ((r.data as unknown[] | null) ?? []).length;
       const tasks = (sched.data as { status: string }[] | null) ?? [];
       return {
-        company: c, isAdmin: n(admin) > 0,
-        counts: { rams: n(rams), coshh: n(coshh), tbt: n(tbt), briefings: n(brief), operatives: n(ops), tasks: tasks.length, done: tasks.filter((t) => t.status === 'done').length, permits: n(permits), inspections: n(insp), om: n(om), omSubmitted: ((om.data as { submitted_at: string | null }[] | null) ?? []).filter((x) => x.submitted_at).length },
+        company: c, isAdmin: n(admin) > 0, hasPm: ((ops.data as { is_admin: boolean | null }[] | null) ?? []).some((x) => x.is_admin),
+        counts: { rams: n(rams), coshh: n(coshh), tbt: n(tbt), briefings: n(brief), operatives: n(ops), tasks: tasks.length, done: tasks.filter((t) => t.status === 'done').length, permits: n(permits), inspections: n(insp), snags: n(snags), om: n(om), omSubmitted: ((om.data as { submitted_at: string | null }[] | null) ?? []).filter((x) => x.submitted_at).length },
       };
     },
   });
@@ -154,6 +157,29 @@ export const allocateSubOp = async (me: Profile, siteId: string, companyId: stri
   !(await db.from('subcontractor_operatives').insert({ site_id: siteId, subcontractor_company_id: companyId, user_id: userId, assigned_by: me.id, is_admin: admin } as never)).error;
 export const setSubOpAdmin = async (id: string, admin: boolean) => !!(await db.from('subcontractor_operatives').update({ is_admin: admin } as never).eq('id', id).select('id')).data?.length;
 export const removeSubOp = async (id: string) => !!(await db.from('subcontractor_operatives').delete().eq('id', id).select('id')).data?.length;
+
+/* Their project manager sets up their company (Andy, 20 Nov 2026: "the subcontractors need a project manager by default who
+   sets up their company"). A join link for one person: whoever signs up with it goes onto this job in this company (the
+   project manager kind, only from our managers, makes them its project manager). Database: SQL file 11. */
+export async function createSubInvite(companyId: string, admin = false, email = ''): Promise<string | null> {
+  const r = await rpc('sub_invite_create', { p_company: companyId, p_admin: admin, p_email: email.trim() || null });
+  const d = r.data as { ok?: boolean; invite_id?: string } | null;
+  return r.error || !d?.ok || !d.invite_id ? null : d.invite_id;
+}
+export type SubInvite = { id: string; email: string | null; subcontractor_admin: boolean; created_at: string; expires_at: string };
+export function useSubInvites(companyId: string | undefined) {
+  return useQuery({ queryKey: ['subInvites', companyId], enabled: !!companyId, queryFn: async () => ((await rpc('sub_invites_open', { p_company: companyId })).data as SubInvite[] | null) ?? [] });
+}
+export const cancelSubInvite = async (inviteId: string) => (await rpc('sub_invite_cancel', { p_invite_id: inviteId })).data === true;
+/** Their project manager takes one of their operatives off the job (not another project manager). */
+export const removeMySubOp = async (rowId: string) => (await rpc('sub_remove_operative', { p_row: rowId })).data === true;
+/** After an existing login joins with a subcontractor link: into the company too. */
+export const claimSubInvite = async (inviteId: string) => { await rpc('sub_invite_claim', { p_invite_id: inviteId }); };
+export type SubInviteInfo = { company: string; site: string; admin: boolean };
+export async function subInviteInfo(inviteId: string): Promise<SubInviteInfo | null> {
+  const r = await rpc('sub_invite_info', { p_invite_id: inviteId });
+  return r.error || !r.data ? null : (r.data as SubInviteInfo);
+}
 
 /* Inspections: files kept exactly as chosen (never compressed); the PM is emailed each upload. */
 export function useSubInspections(companyId: string | undefined, folderId: string | null) {

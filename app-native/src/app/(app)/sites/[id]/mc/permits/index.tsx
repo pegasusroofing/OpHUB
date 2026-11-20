@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { useToast } from '@/components/toast';
+import { FinTabs } from '@/components/FinNav';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { DateBox } from '@/components/DateField';
 import { issuePermit, PERMIT_ICON, PERMIT_LABEL, permitRoster, usePermits } from '@/data/mc';
@@ -53,10 +54,8 @@ export default function Permits() {
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Permits To Work' }} />
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-        <Chip on={tab === 'open'} label="Open" onPress={() => { setTab('open'); setIssuing(false); }} />
-        <Chip on={tab === 'closed'} label="Closed" onPress={() => { setTab('closed'); setIssuing(false); }} />
-      </View>
+      {/* The Finance-style tabs, not red pill buttons (Andy, 20 Nov 2026). */}
+      <FinTabs even value={tab} onChange={(k) => { setTab(k as 'open' | 'closed'); setIssuing(false); }} items={[['open', 'Open'], ['closed', 'Closed']]} />
       {isLoading ? <Muted>Loading…</Muted> : data?.permits.length ? data.permits.map((p) => (
         <Pressable key={p.id} onPress={() => router.push(`/sites/${id}/mc/permits/${p.id}` as never)}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>

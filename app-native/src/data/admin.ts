@@ -52,8 +52,9 @@ export function useInvites(orgId: string | null | undefined) {
     enabled: !!orgId,
     queryFn: async () => {
       const [p, perm] = await Promise.all([
-        db.from('invites').select('*').eq('org_id', orgId as string).is('used_at', null).eq('is_reusable', false).order('created_at', { ascending: false }),
-        db.from('invites').select('*').eq('org_id', orgId as string).eq('is_reusable', true).order('created_at', { ascending: false }).limit(1),
+        // A subcontractor company's join links are listed on that company's Operatives page instead (20 Nov 2026).
+        db.from('invites').select('*').eq('org_id', orgId as string).is('used_at', null).eq('is_reusable', false).is('subcontractor_company_id', null).order('created_at', { ascending: false }),
+        db.from('invites').select('*').eq('org_id', orgId as string).eq('is_reusable', true).is('subcontractor_company_id', null).order('created_at', { ascending: false }).limit(1),
       ]);
       return { pending: (p.data as Invite[] | null) ?? [], permanent: ((perm.data as Invite[] | null) ?? [])[0] ?? null };
     },

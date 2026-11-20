@@ -208,13 +208,13 @@ export function AppBar({ title, onBack, home, right, noHistory, routeName }: { t
           </View>
           <View style={{ flex: 1, alignItems: fin ? 'flex-start' : 'center', minWidth: 0, opacity: home && app.busy ? 0.45 : 1 }}>
             <Pressable disabled={!titleGo && !home} onPress={() => { if (home) void app.refresh(); else if (titleGo) router.navigate(titleGo as never); }}
-              accessibilityRole={home ? 'button' : titleGo ? 'link' : undefined} accessibilityLabel={home ? `${main}: refresh` : undefined} accessibilityState={home ? { busy: app.busy } : undefined} style={noSelect}><Text numberOfLines={1} style={[brand(700), home
+              accessibilityRole={home ? 'button' : titleGo ? 'link' : undefined} accessibilityLabel={home ? `${main}: refresh` : undefined} accessibilityState={home ? { busy: app.busy } : undefined} style={[noSelect, { maxWidth: '100%' }]}><Text numberOfLines={1} style={[brand(700), home
               // Home as the old app (130 shell centerHeader; Andy, 14 Nov 2026): the company name in Sora 700 in its colour,
               // a short grey line, then "OpHUB" in dark Sora 800 (not grey capitals).
               ? { fontSize: desk ? 21.4 : 18.5, color: t.brand1, letterSpacing: 0.7 }
               : { fontSize: fin ? 21 : desk ? 22.8 : 19, color: fin ? '#111827' : base.ink, letterSpacing: -0.2 }]}>{main}</Text></Pressable>
             {home && <View style={{ width: 28, height: 2.5, backgroundColor: '#E6E8EC', marginTop: 3, marginBottom: 2 }} />}
-            {!!sub && <Pressable disabled={!copyable && !home} onPress={async () => { if (home) { void app.refresh(); return; } if (await copyAddress(copyLine)) { setCopied(true); setTimeout(() => setCopied(false), 1300); } }} accessibilityRole={copyable ? 'button' : undefined} accessibilityHint={copyable ? 'Copies the site name and address' : undefined} style={noSelect}><Text numberOfLines={1} style={home ? [brand(800), { fontSize: desk ? 14.25 : 12.5, color: base.ink, marginTop: 1, letterSpacing: 0.5 }] : { fontSize: 12.5, color: '#6b7280', marginTop: 3 }}>{sub}</Text></Pressable>}
+            {!!sub && <Pressable disabled={!copyable && !home} onPress={async () => { if (home) { void app.refresh(); return; } if (await copyAddress(copyLine)) { setCopied(true); setTimeout(() => setCopied(false), 1300); } }} accessibilityRole={copyable ? 'button' : undefined} accessibilityHint={copyable ? 'Copies the site name and address' : undefined} style={[noSelect, { maxWidth: '100%' }]}><Text numberOfLines={1} style={home ? [brand(800), { fontSize: desk ? 14.25 : 12.5, color: base.ink, marginTop: 1, letterSpacing: 0.5 }] : { fontSize: 12.5, color: '#6b7280', marginTop: 3 }}>{sub}</Text></Pressable>}
             {copied && <View pointerEvents="none" style={{ position: 'absolute', bottom: -8, alignSelf: 'center', backgroundColor: base.ink, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 2, zIndex: 5 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>Copied</Text></View>}
           </View>
           <View style={{ minWidth: sideW, alignItems: 'flex-end' }}>

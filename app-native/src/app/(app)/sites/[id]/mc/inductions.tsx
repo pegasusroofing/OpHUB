@@ -10,6 +10,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { promptEmail } from '@/components/EmailPrompt';
 import { StorageImage } from '@/components/StorageImage';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
+import { FinTabs } from '@/components/FinNav';
 import { Button, Card, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
@@ -73,13 +74,8 @@ export default function Inductions() {
     return (
       <ScrollView contentContainerStyle={pageStyle(720)} keyboardShouldPersistTaps="handled">
         <Stack.Screen options={{ title: 'Site Inductions' }} />
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-          {(['outstanding', 'completed'] as const).map((k) => (
-            <Pressable key={k} onPress={() => setTab(k)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: tab === k ? live.brand1 : base.line, backgroundColor: tab === k ? live.brand1 : base.card }}>
-              <Text style={{ fontWeight: '500', color: tab === k ? live.brand1Text : base.ink }}>{k === 'outstanding' ? 'Outstanding' : 'Completed Inductions'}</Text>
-            </Pressable>
-          ))}
-        </View>
+        {/* The Finance-style tabs, not red pill buttons (Andy, 20 Nov 2026). */}
+        <FinTabs even value={tab} onChange={(k) => setTab(k as 'outstanding' | 'completed')} items={[['outstanding', 'Outstanding'], ['completed', 'Completed Inductions']]} />
         {mgr && tab === 'outstanding' && (
           <>
             <Toggle title="Induction Form" open={qOpen} onPress={() => setQOpen(!qOpen)} />
