@@ -32,6 +32,7 @@ export const buildCppPdf = lazy('buildCppPdf');
 export const buildHavsPdf = lazy('buildHavsPdf');
 export const buildIncidentPdf = lazy('buildIncidentPdf');
 export const buildInductionPdf = lazy('buildInductionPdf');
+export const buildInductionFormPdf = lazy('buildInductionFormPdf');
 export const buildInvoicePdf = lazy('buildInvoicePdf');
 export const buildOmPdf = lazy('buildOmPdf');
 export const buildOmWord = lazy('buildOmWord');

@@ -7,7 +7,8 @@ import { useQuery } from '@tanstack/react-query';
 
 import { orThrow } from '@/lib/offlineCache';
 import { fetchBytes } from '@/lib/fileOut';
-import { buildInductionPdf } from '@/lib/pdfLazy';
+import { buildInductionFormPdf, buildInductionPdf } from '@/lib/pdfLazy';
+import { emergencyOf, normaliseInductionForm, type IndAnswers, type IndForm } from '@/lib/rules/inductionForm';
 import { publicUrl } from '@/lib/privateFiles';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile, Site } from '@/lib/types';
@@ -102,4 +103,65 @@ export async function submitInduction(me: Profile & { signature_path?: string | 
 export const deleteCompletion = async (id: string) => !!(await db.from('site_induction_completions').delete().eq('id', id).select('id')).data?.length;
 export async function setInductionQuestions(orgId: string, list: string[]) {
   return !!(await db.from('organizations').update({ site_induction_questions: list } as never).eq('id', orgId).select('id')).data?.length;
+}
+
+/* ---------- The company's own induction form (Andy, 20 Nov 2026; SQL file 13: induction_templates) ---------- */
+/** The form: the company's saved one, or the standard form built round its tick list. */
+export function useInductionForm(org: Organization | null) {
+  return useQuery({
+    queryKey: ['inductionForm', org?.id], enabled: !!org?.id,
+    queryFn: async () => {
+      const r = (await db.from('induction_templates').select('data').eq('org_id', org?.id as string).maybeSingle()).data as { data: Partial<IndForm> | null } | null;
+      return normaliseInductionForm(r?.data, inductionItems(org));
+    },
+  });
+}
+/** Saves the form; its first section's ticks also become the company's induction questions, so the old app asks the same. */
+export async function saveInductionForm(orgId: string, form: IndForm): Promise<boolean> {
+  const ok = !(await db.from('induction_templates').upsert({ org_id: orgId, data: form, updated_at: new Date().toISOString() } as never, { onConflict: 'org_id' })).error;
+  const ticks = form.sections[0]?.items.filter((i) => i.type === 'tick').map((i) => i.label.trim()).filter(Boolean) ?? [];
+  if (ok && ticks.length) await setInductionQuestions(orgId, ticks);
+  return ok;
+}
+/** What they gave last time (any job), to fill in what doesn't change: next of kin, employer, CSCS. */
+export function useMyLastInduction(meId: string | undefined) {
+  return useQuery({
+    queryKey: ['myLastInduction', meId], enabled: !!meId,
+    queryFn: async () => {
+      const r = ((await db.from('site_induction_completions').select('answers,emergency_contact_name,emergency_contact_number,completed_at').eq('operative_id', meId as string).order('completed_at', { ascending: false }).limit(1)).data as { answers: { v2?: IndAnswers } | null; emergency_contact_name: string | null; emergency_contact_number: string | null }[] | null) ?? [];
+      return r[0] ? { answers: r[0].answers?.v2 ?? null, name: r[0].emergency_contact_name, number: r[0].emergency_contact_number } : null;
+    },
+  });
+}
+/** Signs and files an induction from the company's form: the PDF, the record (answers kept as given, with the older
+ *  item_N / health keys too), the site rules signed with it, and the job's OneDrive inductions folder. */
+export async function submitInductionForm(me: Profile & { signature_path?: string | null }, org: Organization | null, site: Site, form: IndForm, a: IndAnswers, onStep: (s: string) => void, rules: SiteRule[] = []): Promise<string | null> {
+  onStep('Saving — building PDF…');
+  const ruleFiles = await Promise.all(rules.map(async (r) => ({ name: r.name, bytes: await fetchBytes(publicUrl('mc-documents', r.storage_path)).catch(() => null) })));
+  let built: { bytes: Uint8Array; filename: string };
+  try { built = await buildInductionFormPdf(site, org, me, form, a, ruleFiles); } catch (e) { return `Could not build the induction PDF — ${e instanceof Error ? e.message : 'unknown error'}. Please try again.`; }
+  onStep('Saving — uploading PDF…');
+  const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
+  const up = await supabase.storage.from('mc-documents').upload(`${site.id}/site-inductions/${rid}-${me.id}.pdf`, built.bytes, { contentType: 'application/pdf' });
+  if (up.error) return 'Could not upload the PDF — check your signal and try again.';
+  onStep('Saving — writing record…');
+  const answers: Record<string, unknown> = { v2: a, form };
+  form.sections.forEach((s) => s.items.forEach((it) => { if (/^item_\d+$/.test(it.id)) answers[it.id] = a[it.id] === true; }));
+  const healthItems = form.sections.flatMap((s) => s.items).filter((it) => /^health_\d+$/.test(it.id));
+  if (healthItems.length) answers.health = healthItems.map((it) => ({ category: it.label.split(':')[0], question: it.label.split(':').slice(1).join(':').trim() || it.label, answer: a[it.id] || null, details: a[it.id] === 'yes' ? String(a[`${it.id}__details`] || '').trim() : null }));
+  const em = emergencyOf(a);
+  const r = await db.from('site_induction_completions').insert({ site_id: site.id, operative_id: me.id, answers, signature_image_path: me.signature_path, pdf_path: up.data.path, emergency_contact_name: em.name || null, emergency_contact_number: em.number || null } as never).select('id').single();
+  if (r.error) return 'The PDF uploaded but the record failed to save — please try again.';
+  if (rules.length) {
+    const had = new Set((((await db.from('site_layout_signatures').select('layout_id').eq('user_id', me.id).in('layout_id', rules.map((x) => x.id))).data as { layout_id: string }[] | null) ?? []).map((x) => x.layout_id));
+    const todo = rules.filter((x) => !had.has(x.id));
+    if (todo.length) await db.from('site_layout_signatures').insert(todo.map((x) => ({ layout_id: x.id, user_id: me.id, signature_image_path: me.signature_path || null })) as never);
+  }
+  const s = site as Site & { site_inductions_folder_id?: string | null; site_inductions_drive_id?: string | null };
+  if (s.site_inductions_folder_id) {
+    let bin = ''; for (let i = 0; i < built.bytes.length; i += 0x8000) bin += String.fromCharCode(...built.bytes.subarray(i, i + 0x8000));
+    void invokeAsUser<{ ok?: boolean }>('onedrive-upload', { filename: built.filename, content_base64: btoa(bin), folder_id: s.site_inductions_folder_id, drive_id: s.site_inductions_drive_id || undefined })
+      .then((x) => { if (x.data?.ok) void db.from('site_induction_completions').update({ pushed_to_onedrive_at: new Date().toISOString() } as never).eq('id', (r.data as { id: string }).id).then(undefined, () => undefined); });
+  }
+  return null;
 }

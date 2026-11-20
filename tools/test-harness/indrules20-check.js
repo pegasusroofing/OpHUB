@@ -29,24 +29,27 @@ const B = 'http://localhost:8081';
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
   await page.goto(`${B}/sites/${S1}/mc/inductions`); await page.waitForTimeout(5000);
+  // The company's own induction form since 20 Nov 2026: a tab per section, then Sign (the rules are on the Sign tab).
+  const tab = async (re) => { await page.getByRole('tab').filter({hasText: re}).first().click(); await page.waitForTimeout(600); };
+  const n = await page.locator('text="☐" >> visible=true').count();
+  for (let i = 0; i < n; i++) { await page.locator('text="☐" >> visible=true').first().click(); await page.waitForTimeout(150); }
+  await tab(/^Next Of Kin/);
+  await page.getByLabel('Name', {exact: true}).fill('Sue Fitter'); await page.getByLabel('Phone Number', {exact: true}).fill('07700 900999');
+  await tab(/^Health/);
+  const nos = page.getByRole('button', {name: /: No$/}); const k = await nos.count();
+  for (let i = 0; i < k; i++) { await nos.nth(i).click(); await page.waitForTimeout(80); }
+  await tab(/^Sign/);
   let t = await text();
-  check(/Site Rules & Layout/i.test(t) && /Site Rules and Layout Plan\.pdf/.test(t) && /Signing this induction signs these too/.test(t) && /I have read and understood the site rules and layout/.test(t), 'page 1: the site rules with View, and a tick to say they’re read');
-  // Tick every induction item (not the rules yet), fill the emergency contact.
-  const boxes = page.locator('text="☐" >> visible=true'); const n = await boxes.count();
-  for (let i = 0; i < n - 1; i++) { await page.locator('text="☐" >> visible=true').first().click(); await page.waitForTimeout(150); }
-  await page.getByPlaceholder('Emergency contact name *').fill('Sue Fitter'); await page.getByPlaceholder('Emergency contact number *').fill('07700 900999');
-  await page.getByText('Next: Health Questionnaire ›').click(); await page.waitForTimeout(1200);
-  check(/Read the site rules and layout, then tick/.test(await text()), 'it won’t go on until the rules are ticked as read');
+  check(/Site Rules & Layout/i.test(t) && /Site Rules and Layout Plan\.pdf/.test(t) && /Signing this induction signs these too/.test(t) && /I have read and understood the site rules and layout/.test(t), 'the Sign tab: the site rules with View, and a tick to say they’re read');
+  await page.getByRole('button', {name: 'Sign and complete induction'}).click(); await page.waitForTimeout(1200);
+  check(/Read the site rules and layout, then tick/.test(await text()), 'it won’t sign until the rules are ticked as read');
   await page.getByText('I have read and understood the site rules and layout').click(); await page.waitForTimeout(300);
   await page.screenshot({path: path.join(__dirname, 'shots', 'indrules20-page1.png'), fullPage: true});
-  await page.getByText('Next: Health Questionnaire ›').click(); await page.waitForTimeout(1500);
-  const nos = page.locator('text="No" >> visible=true'); const k = await nos.count();
-  for (let i = 0; i < k; i++) { await nos.nth(i).click(); await page.waitForTimeout(80); }
-  await page.getByText(/Tap to sign & complete induction/).click(); await page.waitForTimeout(9000);
+  await page.getByRole('button', {name: 'Sign and complete induction'}).click(); await page.waitForTimeout(9000);
   check(db.site_induction_completions.length === 1, 'the induction is saved');
   check(db.site_layout_signatures.some((x) => x.layout_id === 'lr1' && x.user_id === 'me' && x.signature_image_path === 'sig/me.png'), 'and the site rules are signed with the same signature');
   let pages = 0; try { pages = pdf ? (await PDFDocument.load(pdf)).getPageCount() : 0; } catch { pages = -1; }
-  check(pages >= 5, `the induction PDF has the rules in the back (${pages} pages: induction, health, a rules page, and the 2-page rules)`);
+  check(pages >= 4, `the induction PDF has the rules in the back (${pages} pages: the induction, a rules page, and the 2-page rules)`);
   check(!errs.length, `no page errors ${errs.slice(0, 2).join(' | ')}`);
   await browser.close();
 })();

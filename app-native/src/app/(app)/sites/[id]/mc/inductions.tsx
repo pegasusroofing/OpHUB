@@ -1,20 +1,20 @@
-// Site Inductions (550). Operatives: tick every item, emergency contact, then the
-// health questionnaire (any Yes needs details) and sign — once; a manager deletes
-// it if it needs redoing. Managers: Outstanding / Completed, view a signed PDF,
-// delete one, and edit the company-wide induction questions.
+// Site Inductions (550). Operatives fill in the company's own induction form (Andy, 20 Nov 2026: "a bit more of a
+// customisable form ... adding info missing, ie next of kin etc"): a tab per section, then Sign; next of kin and the
+// like come from their last induction. A manager deletes one if it needs redoing. Managers: Outstanding / Completed,
+// view a signed PDF, delete one; the form itself is edited in Admin › H&S › Induction Form.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { promptEmail } from '@/components/EmailPrompt';
-import { StorageImage } from '@/components/StorageImage';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { FinTabs } from '@/components/FinNav';
-import { Button, Card, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
+import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
-import { deleteCompletion, HEALTH_ITEMS, inductionItems, setInductionQuestions, submitInduction, useInductions, useSiteRules } from '@/data/inductions';
+import { InductionFill } from '@/components/InductionFill';
+import { deleteCompletion, useInductionForm, useInductions, useSiteRules } from '@/data/inductions';
 import { unlinkFolder } from '@/data/onedrive';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -23,10 +23,9 @@ import { PDFDocument } from '@/lib/pdfLazy';
 import { publicUrl } from '@/lib/privateFiles';
 import { supabase } from '@/lib/supabase';
 
-import { isManager } from '@/lib/roles';
-import { base, page as pageStyle, radius, space, live } from '@/theme/theme';
+import { isFullManager, isManager } from '@/lib/roles';
+import { base, page as pageStyle, radius, space } from '@/theme/theme';
 
-const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 const day = (s: string) => new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
 /** Emails stored induction PDFs (550 emailSiteInductionPdf / emailSelectedInductions). Gives the problem, or null. */
@@ -40,7 +39,7 @@ async function emailInductions(siteId: string, to: { to: string; cc?: string | n
 
 export default function Inductions() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { me, org, refresh: refreshAuth } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: site } = useSite(id);
@@ -48,20 +47,10 @@ export default function Inductions() {
   const { data: people } = usePeople();
   const [tab, setTab] = useState<'outstanding' | 'completed'>('outstanding');
   const [sel, setSel] = useState<Set<string>>(new Set());
-  const [qOpen, setQOpen] = useState(false);
-  const [newQ, setNewQ] = useState('');
-  const [ticks, setTicks] = useState<Record<number, boolean>>({});
   // The site rules and layout, read and signed with the induction (Andy, 20 Nov 2026).
   const { data: rules = [] } = useSiteRules(id);
-  const [rulesRead, setRulesRead] = useState(false);
-  const [ename, setEname] = useState('');
-  const [enum_, setEnum] = useState('');
-  const [page, setPage] = useState(1);
-  const [health, setHealth] = useState<Record<number, string>>({});
-  const [details, setDetails] = useState<Record<number, string>>({});
-  const [busy, setBusy] = useState<string | null>(null);
+  const { data: form } = useInductionForm(org);
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
-  const items = inductionItems(org);
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['inductions', id] }); void qc.invalidateQueries({ queryKey: ['mcTiles', id] }); };
   const view = async (path: string | null) => { if (!path) { toast('PDF not available.'); return; } const u = await openDocLink('mc-documents', path); if (u) viewDoc(u); else toast('Could not open the PDF.'); };
 
@@ -76,30 +65,8 @@ export default function Inductions() {
         <Stack.Screen options={{ title: 'Site Inductions' }} />
         {/* The Finance-style tabs, not red pill buttons (Andy, 20 Nov 2026). */}
         <FinTabs even value={tab} onChange={(k) => setTab(k as 'outstanding' | 'completed')} items={[['outstanding', 'Outstanding'], ['completed', 'Completed Inductions']]} />
-        {mgr && tab === 'outstanding' && (
-          <>
-            <Toggle title="Induction Form" open={qOpen} onPress={() => setQOpen(!qOpen)} />
-            {qOpen && (
-              <Card>
-                <Muted style={{ marginBottom: 8 }}>Every operative ticks each of these before signing. Add a question below and it applies to every site&apos;s induction form for your organisation straight away.</Muted>
-                {items.map((q, i) => (
-                  <View key={i} style={{ flexDirection: 'row', gap: 8, paddingVertical: 6, borderTopWidth: 1, borderTopColor: base.line }}>
-                    <Text style={{ flex: 1, color: base.ink }}>{i + 1}. {q}</Text>
-                    {items.length > 1 && <Pressable onPress={async () => {
-                      if (!(await confirmAsk("Remove this question from every site's induction form? Operatives who already completed their induction keep their existing signed PDF as-is.", 'Remove'))) return;
-                      if (me.org_id && await setInductionQuestions(me.org_id, items.filter((_, j) => j !== i))) { toast('Removed'); await refreshAuth(); }
-                    }}><Text>🗑</Text></Pressable>}
-                  </View>
-                ))}
-                <TextInput value={newQ} onChangeText={setNewQ} placeholder="Add another question…" style={[box, { marginTop: 8 }]} />
-                <Button kind="ghost" title="+ Add Question" onPress={async () => {
-                  if (!newQ.trim()) { toast('Enter a question first.'); return; }
-                  if (me.org_id && await setInductionQuestions(me.org_id, [...items, newQ.trim()])) { toast("Question added — now on every site's induction form"); setNewQ(''); await refreshAuth(); }
-                }} />
-              </Card>
-            )}
-          </>
-        )}
+        {/* The form operatives fill in is the company's own (Admin › H&S › Induction Form, 20 Nov 2026). */}
+        {mgr && tab === 'outstanding' && isFullManager(me) && <View style={{ alignItems: 'center', marginBottom: 8 }}><Button small kind="ghost" title="✎ Edit The Induction Form" onPress={() => router.push('/pm/admin/inductionform' as never)} /></View>}
         <Muted style={{ marginBottom: 8 }}>{roster.length} on the roster · {data?.total ?? 0} completed</Muted>
         {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((u) => {
           const c = byOp[u];
@@ -177,92 +144,10 @@ export default function Inductions() {
       </ScrollView>
     );
   }
-  const allTicked = items.every((_, i) => ticks[i]);
-  const healthDone = HEALTH_ITEMS.every((_, i) => health[i] === 'yes' || health[i] === 'no') && HEALTH_ITEMS.every((_, i) => health[i] !== 'yes' || (details[i] || '').trim());
-  const sig = (me as { signature_path?: string | null }).signature_path;
-
   return (
     <ScrollView contentContainerStyle={pageStyle(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Site Inductions' }} />
-      {page === 1 ? (
-        <>
-          <Muted style={{ marginBottom: 12 }}>Please read and confirm each item below, then continue to the health questionnaire to complete your site induction for {site.name}.</Muted>
-          {items.map((t, i) => (
-            <Pressable key={i} onPress={() => setTicks({ ...ticks, [i]: !ticks[i] })} style={{ flexDirection: 'row', gap: 8, padding: 12, borderWidth: 1, borderColor: ticks[i] ? base.ok : base.line, backgroundColor: ticks[i] ? base.okBg : base.card, borderRadius: radius.row, marginBottom: 8 }}>
-              <Text style={{ fontSize: 18 }}>{ticks[i] ? '☑' : '☐'}</Text>
-              <Text style={{ flex: 1, color: base.ink }}>{t}</Text>
-            </Pressable>
-          ))}
-          {rules.length > 0 && (
-            <Card>
-              <SectionTitle>Site Rules & Layout *</SectionTitle>
-              <Muted style={{ marginBottom: 6 }}>Read each one. Signing this induction signs these too.</Muted>
-              {rules.map((r) => (
-                <Pressable key={r.id} accessibilityRole="button" onPress={() => void view(r.storage_path)} style={{ paddingVertical: 7, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text style={{ flex: 1, color: base.ink }}>📄 {r.name}</Text>
-                  <Text style={{ color: base.blue, fontWeight: '600' }}>View</Text>
-                </Pressable>
-              ))}
-              <Pressable onPress={() => setRulesRead(!rulesRead)} style={{ flexDirection: 'row', gap: 8, padding: 12, marginTop: 6, borderWidth: 1, borderColor: rulesRead ? base.ok : base.line, backgroundColor: rulesRead ? base.okBg : base.card, borderRadius: radius.row }}>
-                <Text style={{ fontSize: 18 }}>{rulesRead ? '☑' : '☐'}</Text>
-                <Text style={{ flex: 1, color: base.ink }}>I have read and understood the site rules and layout</Text>
-              </Pressable>
-            </Card>
-          )}
-          <Card>
-            <SectionTitle>Emergency Contact Details *</SectionTitle>
-            <Muted style={{ marginBottom: 8 }}>Required before you can sign and complete this induction.</Muted>
-            <TextInput value={ename} onChangeText={setEname} placeholder="Emergency contact name *" style={box} />
-            <TextInput value={enum_} onChangeText={setEnum} keyboardType="phone-pad" placeholder="Emergency contact number *" style={box} />
-          </Card>
-          <Button title="Next: Health Questionnaire ›" onPress={() => {
-            if (!allTicked) { toast('Tick every item first.'); return; }
-            if (rules.length && !rulesRead) { toast('Read the site rules and layout, then tick to say you have.'); return; }
-            if (!ename.trim() || !enum_.trim()) { toast('Please enter an emergency contact name and number.'); return; }
-            setPage(2);
-          }} />
-        </>
-      ) : (
-        <>
-          <Muted style={{ marginBottom: 12 }}>Health Questionnaire for {site.name} — please answer every question. Any &quot;Yes&quot; needs a few details so we can keep you safe on site.</Muted>
-          {HEALTH_ITEMS.map((it, i) => (
-            <Card key={i}>
-              <Text style={{ fontSize: 11.5, fontWeight: '600', color: base.slate }}>{it.category.toUpperCase()}</Text>
-              <Text style={{ color: base.ink, marginVertical: 6 }}>{it.question}</Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {['no', 'yes'].map((v) => (
-                  <Pressable key={v} onPress={() => setHealth({ ...health, [i]: v })} style={{ flex: 1, alignItems: 'center', padding: 9, borderRadius: 8, borderWidth: 1, borderColor: health[i] === v ? live.brand1 : base.line, backgroundColor: health[i] === v ? live.brand1 : base.card }}>
-                    <Text style={{ fontWeight: '500', color: health[i] === v ? live.brand1Text : base.ink }}>{v === 'yes' ? 'Yes' : 'No'}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              {health[i] === 'yes' && <TextInput value={details[i] || ''} onChangeText={(t) => setDetails({ ...details, [i]: t })} multiline placeholder="Please give details *" style={[box, { marginTop: 8, minHeight: 56 }]} />}
-            </Card>
-          ))}
-          <Card>
-            <SectionTitle>Sign to confirm</SectionTitle>
-            {sig ? (
-              <Pressable disabled={!!busy} onPress={async () => {
-                if (!healthDone) { toast(HEALTH_ITEMS.every((_, i) => health[i]) ? 'Please give details for every "Yes" answer on the health questionnaire.' : 'Please answer every health questionnaire question.'); return; }
-                setBusy('Saving…');
-                const err = await submitInduction(me, org, site, { emergencyName: ename.trim(), emergencyNumber: enum_.trim(), health, details }, setBusy, rules);
-                setBusy(null);
-                if (err) { toast(err); return; }
-                toast('Induction completed'); refresh();
-              }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1.5, borderStyle: 'dashed', borderColor: base.line, borderRadius: radius.input, padding: 12, opacity: healthDone ? 1 : 0.6 }}>
-                <StorageImage bucket="signatures" path={sig} style={{ height: 32, width: 140, resizeMode: 'contain' }} />
-                <Text style={{ flex: 1, color: base.ink }}>{busy ?? (healthDone ? 'Tap to sign & complete induction' : 'Answer every health question first')}</Text>
-              </Pressable>
-            ) : (
-              <>
-                <Muted style={{ color: base.warn, marginBottom: 8 }}>Adopt your signature first — one tap and it&apos;s used everywhere.</Muted>
-                <Button title="Adopt Your Signature" onPress={() => router.push('/signature')} />
-              </>
-            )}
-          </Card>
-          <Button kind="ghost" title="‹ Back" onPress={() => setPage(1)} />
-        </>
-      )}
+      {form ? <InductionFill site={site} form={form} rules={rules} onView={(p) => void view(p)} onDone={() => { toast('Induction completed', { confirm: true }); refresh(); }} /> : <Muted>Loading…</Muted>}
     </ScrollView>
   );
 }
