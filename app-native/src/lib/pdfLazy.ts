@@ -43,6 +43,7 @@ export const buildReportPdf = lazy('buildReportPdf');
 export const buildSignedHsPdf = lazy('buildSignedHsPdf');
 export const buildSignedLayoutPdf = lazy('buildSignedLayoutPdf');
 export const buildSignedTbtPdf = lazy('buildSignedTbtPdf');
+export const buildSiteRulesPdf = lazy('buildSiteRulesPdf');
 export const buildSnagPdf = lazy('buildSnagPdf');
 export const buildSowPdf = lazy('buildSowPdf');
 export const buildSubNoticePdf = lazy('buildSubNoticePdf');

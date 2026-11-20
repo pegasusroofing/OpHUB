@@ -71,6 +71,9 @@ export const ADMIN_ITEMS: AdminItem[] = [
   { key: 'coshhbuilder', page: 'hs', group: 'Libraries', icon: '🧪', label: 'COSHH Library', sub: 'Data sheets → products → assessments in folders', kw: 'coshh substance product data sheet', route: '/pm/admin/coshh', show: isFullManager },
   // The Construction Phase Plan template (Andy, 19 Nov 2026), on the website (beta link and app.operativehub.co.uk) like the builder.
   { key: 'cpptemplate', page: 'hs', group: 'Libraries', icon: '📘', label: 'CPP Template', sub: 'Construction Phase Plan wording for new plans', kw: 'cpp construction phase plan template main contractor', route: '/pm/admin/cpptemplate', show: (me) => isFullManager(me) && isBetaSite() },
+  // The Site Rules template and the induction form (Andy, 20 Nov 2026).
+  { key: 'siterules', page: 'hs', group: 'Libraries', icon: '📏', label: 'Site Rules Template', sub: 'The numbered rules every job’s Site Rules sheet starts from', kw: 'site rules layout template numbered main contractor', route: '/pm/admin/siterules', show: isFullManager },
+  { key: 'inductionform', page: 'hs', group: 'Libraries', icon: '🦺', label: 'Induction Form', sub: 'The questions operatives answer at a site induction', kw: 'induction form questions next of kin emergency health site induction main contractor', route: '/pm/admin/inductionform', show: isFullManager },
   // One tab since 19 Nov 2026 (Andy: "move the toolbox talks required into the toolbox talks templates and have the tab
   // header as toolbox talks"): how often each live project needs a talk (14 Nov), the templates, and Create A Toolbox Talk.
   { key: 'tbt', page: 'hs', group: 'Toolbox Talks', icon: '🗣️', label: 'Toolbox Talks', sub: 'How often, templates and making talks', kw: 'toolbox talk tbt template create builder how often monthly frequency rule required', route: '/pm/admin/tbt', show: (me) => isFullManager(me) && admin(me) },

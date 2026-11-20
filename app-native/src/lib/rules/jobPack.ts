@@ -53,6 +53,7 @@ export const PACK_RULES: { key: string; area: string; when: string; folder: stri
   // More things that can save (Andy, 19 Nov 2026: "are there no more areas for it to auto save to the one drive?" ...
   // "Add them all"). Off until a company adds them.
   { key: 'cpp_issued', area: 'Construction Phase Plan', when: 'Plan issued (each version)', folder: `${MC}/1. Construction Phase Plan`, on: false },
+  { key: 'site_rules_issued', area: 'Site Rules & Layout', when: 'Site rules sheet issued (each version)', folder: `${MC}/1. Construction Phase Plan`, on: false },
   { key: 'snag_report', area: 'Snagging', when: 'Snagging list PDF made', folder: '8. Handover/3. Defects  Snagging', on: false },
   { key: 'snag_photo', area: 'Snagging', when: 'Snag raised or closed (its photos)', folder: '8. Handover/3. Defects  Snagging', on: false },
   { key: 'havs_record', area: 'HAVS', when: 'HAVS record PDF made', folder: HS, on: false },

@@ -25,6 +25,7 @@ export * from '@/lib/ramsPdf';
 export * from '@/lib/repairReportPdf';
 export * from '@/lib/reportPdf';
 export * from '@/lib/signedPdf';
+export * from '@/lib/siteRulesPdf';
 export * from '@/lib/snagPdf';
 export * from '@/lib/sowPdf';
 export * from '@/lib/tableExport';
