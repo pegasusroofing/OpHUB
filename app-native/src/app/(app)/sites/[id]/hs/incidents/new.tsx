@@ -8,7 +8,8 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { StorageImage } from '@/components/StorageImage';
 import { chooseAction, showAlert, useToast } from '@/components/toast';
-import { Button, Muted, SectionTitle } from '@/components/ui';
+import { Button, Muted } from '@/components/ui';
+import { FinTabs } from '@/components/FinNav';
 import { DateBox, todayIso } from '@/components/DateField';
 import { incidentProblem, submitIncident, uploadIncidentPhoto, type IncidentDraft } from '@/data/incidents';
 import { useSite } from '@/data/sites';
@@ -39,6 +40,8 @@ export default function NewIncident() {
   });
   const [d, setD] = useState<IncidentDraft | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  // In tabs (Andy, 20 Nov 2026: "change the 7 items into tab style").
+  const [tab, setTab] = useState<'details' | 'injury' | 'damage' | 'analysis'>('details');
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const v: IncidentDraft = d ?? {
     type: '', siteAddress: `${site.name}${fullSiteAddress(site) ? `, ${fullSiteAddress(site)}` : ''}`, location: '', date: localISODate(new Date()), operatives: '', filedBy: me.name || '',
@@ -103,7 +106,9 @@ export default function NewIncident() {
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'New Report' }} />
-      <Muted style={{ marginBottom: 14 }}>Fill in what you can — the more detail the better. Fields marked * are required.</Muted>
+      <Muted style={{ marginBottom: 10 }}>Fill in what you can — the more detail the better. Fields marked * are required.</Muted>
+      <FinTabs even value={tab} onChange={(k) => setTab(k as typeof tab)} items={[['details', 'Details'], ['injury', 'Injury'], ['damage', 'Damage'], ['analysis', 'Analysis']]} />
+      {tab === 'details' && (<>
       {toggle('type', '* What type of report is this?', [['incident', 'Incident'], ['accident', 'Accident'], ['near_miss', 'Near Miss']])}
       {text('siteAddress', 'Site of accident / incident / near miss')}
       {text('location', 'Location of incident')}
@@ -129,7 +134,10 @@ export default function NewIncident() {
       {v.witnesses === 'yes' && text('witnessNames', 'Witness name(s)')}
       {toggle('medical', '* Operative requires further medical treatment', [['yes', 'Yes'], ['no', 'No']])}
       {v.medical === 'yes' && text('medicalDetail', 'What medical treatment is required/advised?', { multi: true })}
-      <SectionTitle>Details of injury, if applicable</SectionTitle>
+      <Button title="Next: Injury ›" onPress={() => setTab('injury')} />
+      </>)}
+      {tab === 'injury' && (<>
+      <Muted style={{ marginBottom: 8 }}>Details of injury, if applicable.</Muted>
       {toggle('injury', '* Any injuries occurred?', [['yes', 'Yes'], ['no', 'No']])}
       {v.injury === 'yes' && (
         <>
@@ -138,7 +146,10 @@ export default function NewIncident() {
           {toggle('injuryFurther', 'Further medical treatment required', [['yes', 'Yes'], ['no', 'No']])}
         </>
       )}
-      <SectionTitle>Details of damage</SectionTitle>
+      <Button title="Next: Damage ›" onPress={() => setTab('damage')} />
+      </>)}
+      {tab === 'damage' && (<>
+      <Muted style={{ marginBottom: 8 }}>Details of damage.</Muted>
       {toggle('damage', 'Did any damage occur to any property or plant?', [['yes', 'Yes'], ['no', 'No']])}
       {v.damage === 'yes' && (
         <>
@@ -147,7 +158,9 @@ export default function NewIncident() {
           {text('damageDescription', 'Detailed description of how the incident happened, and what happened', { multi: true })}
         </>
       )}
-      <SectionTitle>Analysis</SectionTitle>
+      <Button title="Next: Analysis ›" onPress={() => setTab('analysis')} />
+      </>)}
+      {tab === 'analysis' && (<>
       {text('factors', 'Any contributing factors to incident?', { multi: true })}
       {text('corrective', 'Corrective action (include detail of action and person(s) responsible)', { multi: true })}
       {toggle('potential', 'What was the potential for severity?', [['minor', 'Minor'], ['serious', 'Serious'], ['major', 'Major']])}
@@ -157,13 +170,15 @@ export default function NewIncident() {
       <Muted style={{ marginBottom: 8 }}>Submitting signs this report with your adopted signature — the same one used on RAMS and Toolbox Talks.</Muted>
       <Button busy={busy === 'submit'} title="Sign & Submit Report" onPress={async () => {
         const p = incidentProblem(v);
-        if (p) { toast(p); return; }
+        // A missing answer: go to its tab.
+        if (p) { setTab(/injur/i.test(p) ? 'injury' : /riddor/i.test(p) ? 'analysis' : /damage/i.test(p) ? 'damage' : 'details'); toast(p); return; }
         if (!(me as { signature_path?: string | null }).signature_path) { toast("Adopt your signature first — one tap and it's used everywhere."); router.push('/signature'); return; }
         setBusy('submit'); const r = await submitIncident(me, id, v); setBusy(null);
         if (!r.id) { toast(r.error || 'Could not submit.'); return; }
         toast('Report submitted'); void qc.invalidateQueries({ queryKey: ['incidents', id] });
         router.replace(`/sites/${id}/hs/incidents/${r.id}` as never);
       }} />
+      </>)}
     </ScrollView>
   );
 }

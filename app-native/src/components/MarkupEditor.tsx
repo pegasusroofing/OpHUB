@@ -52,7 +52,7 @@ function MarkShape({ o }: { o: MarkOp }) {
   return <G><Path d={a.shaft} stroke={o.c} strokeWidth={o.w} strokeLinecap="round" fill="none" /><Path d={a.head} fill={o.c} /></G>;
 }
 
-export function MarkupEditor({ src, ops: initial, keys = [], photo = false, plan = false, onClose }: { src: string; ops?: MarkOp[]; keys?: MarkKey[]; photo?: boolean; plan?: boolean; onClose: (out: { image: string; ops: MarkOp[] } | null) => void }) {
+export function MarkupEditor({ src, ops: initial, keys = [], photo = false, plan = false, title, onClose }: { src: string; ops?: MarkOp[]; keys?: MarkKey[]; photo?: boolean; plan?: boolean; title?: string; onClose: (out: { image: string; ops: MarkOp[] } | null) => void }) {
   const toast = useToast();
   const [size, setSize] = useState<{ W: number; H: number } | null>(null);
   const [area, setArea] = useState({ w: 0, h: 0 });
@@ -196,7 +196,7 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, plan
       <View style={{ flex: 1, backgroundColor: '#1c1f24' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: 10, gap: 8 }}>
           {chip(false, 'Cancel', () => void close())}
-          <Text style={{ flex: 1, color: '#fff', fontWeight: '600', textAlign: 'center' }}>{photo ? 'Mark up photo' : plan ? 'Mark Up Plan' : 'Mark up drawing'}</Text>
+          <Text style={{ flex: 1, color: '#fff', fontWeight: '600', textAlign: 'center' }}>{title || (photo ? 'Mark up photo' : plan ? 'Mark Up Plan' : 'Mark up drawing')}</Text>
           {chip(false, '↶ Undo', () => setOps((x) => x.slice(0, -1)))}
           {chip(false, 'Clear', async () => { if (ops.length && (await confirmAsk('Remove all the marks?', 'Clear'))) setOps([]); })}
           <Pressable onPress={() => void save()} disabled={saving} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, backgroundColor: base.blue }}><Text style={{ color: '#fff', fontWeight: '600' }}>{saving ? 'Saving…' : 'Save'}</Text></Pressable>

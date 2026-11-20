@@ -6,6 +6,8 @@
 // site and signature; plus traffic-light colour, note and photo under each
 // answer, and "+ Add another item" on a section. Photos upload in the
 // background and answers save as you go.
+// In tabs (Andy, 20 Nov 2026: "change the 7 items into tab style"): one tab per section of the template, then Finish, with
+// Save & Exit and Next at the bottom of each (Finish has Complete). A one-section template stays on one page.
 import { hasJobPack, packPut } from '@/data/jobPack';
 import { buildReportPdf } from '@/lib/pdfLazy';
 import { useSite } from '@/data/sites';
@@ -25,6 +27,7 @@ import { park, parkedFor, unpark } from '@/lib/reportOffline';
 import { pdfPageImages } from '@/lib/pdfjs';
 import { refreshKeyColours, type MarkOp } from '@/lib/rules/markup';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
+import { FinTabs } from '@/components/FinNav';
 import { DateBox } from '@/components/DateField';
 import { addTemplateCondition, completeReport, defaultOperatives, pendingPhotos, saveAnswers, uploadPhotos, type Sub } from '@/data/reports';
 import { useAuth } from '@/lib/auth';
@@ -64,6 +67,8 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
   const [extra, setExtra] = useState(false);
   const [condOpen, setCondOpen] = useState(false);
   const [mark, setMark] = useState<{ id: string; i: number } | null>(null);
+  const [tab, setTab] = useState<string>(() => (sub.sections || [])[0]?.id || 'finish');
+  const top = useRef<unknown>(null);
   const secLive = useRef(sections);
   useEffect(() => { secLive.current = sections; }, [sections]);
   const hasDrawing = sections.some((s) => (s.items || []).some((it) => it.type === 'drawing'));
@@ -366,7 +371,12 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
   const parkNow = (action: 'keep' | 'save' | 'complete') => park(me.id, { sub, siteId, answers: live.current, sections, extra, editingCompleted, action, at: new Date().toISOString() });
   const complete = async () => {
     const p = completeProblem(sections, answers, !!(me as { signature_path?: string | null }).signature_path);
-    if (p) { toast(p); return; }
+    if (p) {
+      // In tabs: go to the section with the missing answer.
+      const where = sections.length > 1 ? sections.find((x) => completeProblem([x], answers, !!(me as { signature_path?: string | null }).signature_path)) : null;
+      if (where) { setTab(where.id); toast(`${p} (${where.title || 'Section'} tab)`); return; }
+      toast(p); return;
+    }
     closing.current = true;
     setBusy('complete');
     await refreshDrawingColours();
@@ -409,13 +419,31 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
     const next = secLive.current.map((s, i) => (i === 0 && s.traffic ? { ...s, traffic: { ...s.traffic, levels: (s.traffic.levels || []).filter((x) => x.id !== id) } } : s));
     secLive.current = next; setSections(next); setExtra(true);
   };
+  const tabbed = sections.length > 1;
+  const onTab = tabbed && !sections.some((x) => x.id === tab) && tab !== 'finish' ? sections[0].id : tab;
+  const go = (t: string) => {
+    setTab(t);
+    // Back to the top of the new tab (web: the page scrolls).
+    const el = top.current as unknown as { scrollIntoView?: (o: object) => void } | null;
+    if (Platform.OS === 'web') el?.scrollIntoView?.({ block: 'start' });
+  };
+  const at = sections.findIndex((x) => x.id === onTab);
+  const next = tabbed ? (at >= 0 && at < sections.length - 1 ? { k: sections[at + 1].id, l: sections[at + 1].title || 'Next Section' } : at === sections.length - 1 ? { k: 'finish', l: 'Finish' } : null) : null;
+  const saveBtn = <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'save'} disabled={!!busy} title="Save & Exit" onPress={() => void saveExit()} /></View>;
   return (
-    <View>
+    <View ref={top as never}>
       <SectionTitle>{sub.template_name}</SectionTitle>
       <TrafficKey sections={sections} onAdd={() => setCondOpen(true)} onRemove={(id) => void removeCondition(id)} />
       {condOpen && <NewConditionPopup used={(sections[0]?.traffic?.levels || []).map((l) => l.color)} onClose={() => setCondOpen(false)} onAdd={(label, color) => { setCondOpen(false); void addCondition(label, color); }} />}
       {sc.overall.possible > 0 && <Text style={{ textAlign: 'right', fontWeight: '600', color: base.ink }}>Score: {scoreLabel(sc.overall)}</Text>}
-      {sections.map((s) => (
+      {tabbed && <FinTabs value={onTab} onChange={go} items={[...sections.map((x) => [x.id, x.title || 'Section'] as [string, string]), ['finish', 'Finish'] as [string, string]]} />}
+      {tabbed && onTab === 'finish' && (
+        <Card>
+          <SectionTitle>Finish</SectionTitle>
+          <Muted>{isBriefing ? 'Check each tab, then complete the briefing.' : 'Check each tab, then complete the inspection.'} Save &amp; Exit keeps it to finish later.</Muted>
+        </Card>
+      )}
+      {sections.filter((x) => !tabbed || x.id === onTab).map((s) => (
         <Card key={s.id}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <SectionTitle>{s.title}</SectionTitle>
@@ -431,8 +459,9 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
         </Card>
       ))}
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'save'} disabled={!!busy} title="Save & Exit" onPress={() => void saveExit()} /></View>
-        <View style={{ flex: 1 }}><Button busy={busy === 'complete'} disabled={!!busy} title={isBriefing ? 'Complete Briefing' : 'Complete Inspection'} onPress={() => void complete()} /></View>
+        {saveBtn}
+        {next ? <View style={{ flex: 1 }}><Button title={`Next: ${next.l} ›`} onPress={() => go(next.k)} /></View>
+          : <View style={{ flex: 1 }}><Button busy={busy === 'complete'} disabled={!!busy} title={isBriefing ? 'Complete Briefing' : 'Complete Inspection'} onPress={() => void complete()} /></View>}
       </View>
       {!!progress && <Text style={{ textAlign: 'center', fontWeight: '600', color: base.ink, marginTop: 10 }}>{progress}</Text>}
       {mark && markSrc && <MarkupEditor src={markSrc} ops={markOps} keys={reportDrawingKeys(sections, answers).map((x) => ({ n: x.n, label: x.label + (x.answer ? `: ${x.answer}` : ''), color: x.color }))} onClose={markDone} />}

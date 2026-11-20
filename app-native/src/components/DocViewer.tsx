@@ -28,13 +28,20 @@ export function viewDoc(url: string, name = '', opts: { onMarkup?: (src: string)
   listeners.forEach((l) => l(r));
 }
 
+/** How many pages a PDF has (laptop only; null when it can't be read). */
+export async function pdfPageCount(url: string): Promise<number | null> {
+  const lib = await loadPdfJs(); if (!lib) return null;
+  try { return (await lib.getDocument({ data: new Uint8Array(await (await fetch(url)).arrayBuffer()) }).promise).numPages; } catch { return null; }
+}
 /** Page 1 of a PDF as a picture (for marking up a drawing). Laptop only. */
-export async function pdfFirstPageImage(url: string): Promise<string | null> {
+export async function pdfFirstPageImage(url: string): Promise<string | null> { return pdfPageImage(url, 1); }
+/** Any page of a PDF as a picture (marking up a subcontractor's RAMS, 20 Nov 2026). Laptop only. */
+export async function pdfPageImage(url: string, n: number): Promise<string | null> {
   const lib = await loadPdfJs(); if (!lib || typeof document === 'undefined') return null;
   try {
     const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
     const pdf = await lib.getDocument({ data: bytes }).promise;
-    const page = await pdf.getPage(1);
+    const page = await pdf.getPage(Math.max(1, Math.min(n, pdf.numPages)));
     const v1 = page.getViewport({ scale: 1 });
     const scale = Math.min(4, 3000 / Math.max(v1.width, v1.height));
     const vp = page.getViewport({ scale });

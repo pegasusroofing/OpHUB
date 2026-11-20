@@ -165,6 +165,8 @@ export function useHub(me: Profile | null, allSites: Site[] | undefined, pmId: s
       });
       msgList.filter((m) => !readIds.has(m.id)).forEach((m) => {
         const s = m.site_id ? sites.find((x) => x.id === m.site_id) : null;
+        // A subcontractor's RAMS waiting for approval (20 Nov 2026): it opens the job's subcontractors.
+        if (s && m.related_id && / uploaded RAMS ".*" for your approval/.test(String(m.body || ''))) { items.push({ key: `msg-${m.id}`, type: 'message', area: 'projects', typeLbl: 'RAMS To Approve', label: String(m.body).replace(/\. Approve it, or send it back.*$/, ''), siteId: s.id, siteName: s.name, due: null, at: new Date(m.created_at), route: `/sites/${s.id}/mc/subcontractors`, markRead: m.id }); return; }
         // A subcontractor's O&M submitted (20 Nov 2026): said as it is, and it opens Handover.
         if (s && m.related_id && / submitted their O&M manual /.test(String(m.body || ''))) { items.push({ key: `msg-${m.id}`, type: 'message', area: 'projects', typeLbl: 'Subcontractor O&M', label: String(m.body).replace(/\. It goes in the back.*$/, ''), siteId: s.id, siteName: s.name, due: null, at: new Date(m.created_at), route: `/sites/${s.id}/handover`, markRead: m.id }); return; }
         items.push({ key: `msg-${m.id}`, type: 'message', area: 'projects', typeLbl: 'Message', label: s ? 'New message' : 'New message (all sites)', siteId: m.site_id, siteName: s ? s.name : 'All sites', due: null, at: new Date(m.created_at), route: s ? `/sites/${s.id}/messages` : '/inbox', markRead: m.id });

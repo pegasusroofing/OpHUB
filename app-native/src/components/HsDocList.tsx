@@ -8,6 +8,8 @@
 // 620 COSHH), with CC me / CC the client.
 // Managers can close a RAMS / COSHH for signing (⋮ › Close For Signing; Andy, 20 Nov 2026): it stays on file, but nobody is
 // asked to sign it, so it comes off the HUB, the tile counts, the operatives' to-sign list and the reminders. Reopen undoes it.
+// A subcontractor's own RAMS waits for the PM / site manager's approval before anyone signs it (Andy, 20 Nov 2026): ✓ Approve,
+// or ✕ Send Back with comments and marked-up pages; their admin sees why and uploads a revised version.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useFocusEffect } from 'expo-router';
 import { testFill } from '@/data/signTemplates';
@@ -17,6 +19,7 @@ import { Platform, Pressable, Text, useWindowDimensions, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ClientSignLines } from '@/components/ClientSignLines';
+import { RamsSendBack } from '@/components/RamsReview';
 import { Portal } from '@/components/Portal';
 import { promptEmail } from '@/components/EmailPrompt';
 import { StorageImage } from '@/components/StorageImage';
@@ -53,7 +56,7 @@ function SubDocsByCompany({ site, kind }: { site: Site; kind: 'rams' | 'coshh' }
       if (!cos.length) return [];
       let q = supabase.from(table).select('*').in('subcontractor_company_id', cos.map((c) => c.id));
       if (kind === 'rams') q = q.eq('status', 'current');
-      const docs = ((await q.order('uploaded_at', { ascending: false })).data as { id: string; name: string; storage_path: string; uploaded_at: string; subcontractor_company_id: string; doc_type?: string | null }[] | null) ?? [];
+      const docs = ((await q.order('uploaded_at', { ascending: false })).data as { id: string; name: string; storage_path: string; uploaded_at: string; subcontractor_company_id: string; doc_type?: string | null; approval_status?: string | null }[] | null) ?? [];
       return cos.map((c) => ({ ...c, docs: docs.filter((x) => x.subcontractor_company_id === c.id) })).filter((c) => c.docs.length);
     },
   });
@@ -79,7 +82,7 @@ function SubDocsByCompany({ site, kind }: { site: Site; kind: 'rams' | 'coshh' }
               {c.docs.map((x) => (
                 <View key={x.id} style={{ padding: 10, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginTop: 6, backgroundColor: base.card }}>
                   <Text style={{ fontWeight: '600', color: base.ink }}>{x.name}</Text>
-                  <Muted>{x.doc_type || word} · uploaded {new Date(x.uploaded_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted>
+                  <Muted>{x.doc_type || word} · uploaded {new Date(x.uploaded_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}{x.approval_status === 'pending' ? ' · ⏳ Awaiting Your Approval' : x.approval_status === 'rejected' ? ' · ✕ Sent Back' : ''}</Muted>
                   <View style={{ flexDirection: 'row', gap: 14, marginTop: 4 }}>
                     <Text style={{ color: base.blue }} onPress={async () => { const u = await openDocLink(kind === 'rams' ? 'rams-docs' : 'coshh-docs', x.storage_path); if (u) viewDoc(u, /\.pdf$/i.test(x.name) ? x.name : `${x.name}.pdf`); }}>View document ↗</Text>
                     <Text style={{ color: base.blue }} onPress={() => void signed(x.id, 'pdf')}>⬇ Export</Text>
@@ -123,6 +126,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
   const [busy, setBusy] = useState(false);
   const [supOpen, setSupOpen] = useState(false);
   const [sel, setSel] = useState<Set<string>>(new Set());
+  const [sendBack, setSendBack] = useState<HsDoc | null>(null);
   // The ticked-documents bar is drawn on top of the page (Portal), so it only shows while this screen is the one open.
   const [focused, setFocused] = useState(true);
   useFocusEffect(useCallback(() => { setFocused(true); return () => setFocused(false); }, []));
@@ -139,7 +143,9 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
   const sigsFor = (id: string) => data.sigs.filter((s) => sigDocId(kind, s) === id);
   const mineFor = (id: string) => sigsFor(id).find((s) => s.user_id === me.id);
   const label = DOC_LABEL[kind];
-  const toSign = data.docs.filter((r) => !r.signing_closed_at).filter((r) => manager && kind === 'rams'
+  // Not approved yet (a subcontractor's RAMS): nobody signs it.
+  const notApproved = (r: HsDoc) => r.approval_status === 'pending' || r.approval_status === 'rejected';
+  const toSign = data.docs.filter((r) => !r.signing_closed_at && !notApproved(r)).filter((r) => manager && kind === 'rams'
     ? !sigsFor(r.id).some((s) => s.issued || s.user_id === me.id)
     : !mineFor(r.id));
   const nameById = Object.fromEntries([...data.docs, ...data.superseded].map((x) => [x.id, x.name]));
@@ -260,15 +266,17 @@ It stays on file, but nobody will be asked to sign it and it comes off the HUB. 
           }}><Text style={{ color: base.blue, fontWeight: '600' }}>✉ Email all signed COSHH</Text></Pressable>}
         </View>
       )}
-      {data.docs.length ? data.docs.map((r) => {
+      {sendBack && <RamsSendBack doc={sendBack} site={site} onClose={() => setSendBack(null)} onDone={() => { setSendBack(null); void qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); }} />}
+      {data.docs.length ? data.docs.filter((r) => !(r.approval_status === 'rejected' && data.docs.some((x) => x.supersedes === r.id))).map((r) => {
         const sigs = sigsFor(r.id);
         const mine = mineFor(r.id);
         const { signed, waiting } = signers(data.roster, sigs);
         const issued = sigs.filter((s) => s.issued);
         const closedAt = kind !== 'layout' ? r.signing_closed_at || null : null;
+        const awaiting = r.approval_status === 'pending', sentBack = r.approval_status === 'rejected';
         const due = closedAt ? null : resignDue(r, site);
         // A manager's tap marks a RAMS as issued, so it needs Sign Off H&S.
-        const canTap = !client && !closedAt && !(manager && (issued.length || mine)) && !(kind !== 'rams' && manager) && (!manager || signOff);
+        const canTap = !client && !closedAt && !awaiting && !sentBack && !(manager && (issued.length || mine)) && !(kind !== 'rams' && manager) && (!manager || signOff);
         return (
           <Card key={r.id} style={{ paddingVertical: 12, paddingHorizontal: 14 }}>
             {/* View and the menu sit to the right, centred on the title and the line under it (Andy, 3 Nov 2026). */}
@@ -288,7 +296,7 @@ It stays on file, but nobody will be asked to sign it and it comes off the HUB. 
             </View>
             </View>
               <View style={narrow ? { alignItems: 'flex-end', gap: 6 } : { flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <StatusPill text={closedAt ? `🔒 Closed ${d(closedAt)}` : issued.length ? `Issued ${d(issued[0].signed_at)}` : kind === 'coshh' && r.uploaded_at && !data.roster.length ? `Issued ${d(r.uploaded_at)}` : data.roster.length ? `${signed.length} of ${data.roster.length} Signed` : 'Not Issued'} tone={closedAt ? 'grey' : issued.length || (kind === 'coshh' && !data.roster.length) || (data.roster.length && !waiting.length) ? 'ok' : waiting.length ? 'warn' : 'grey'} />
+              <StatusPill text={awaiting ? '⏳ Awaiting Approval' : sentBack ? '✕ Sent Back' : closedAt ? `🔒 Closed ${d(closedAt)}` : issued.length ? `Issued ${d(issued[0].signed_at)}` : kind === 'coshh' && r.uploaded_at && !data.roster.length ? `Issued ${d(r.uploaded_at)}` : data.roster.length ? `${signed.length} of ${data.roster.length} Signed` : 'Not Issued'} tone={awaiting || sentBack ? 'warn' : closedAt ? 'grey' : issued.length || (kind === 'coshh' && !data.roster.length) || (data.roster.length && !waiting.length) ? 'ok' : waiting.length ? 'warn' : 'grey'} />
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               {signOff && (
                 <Pressable hitSlop={8} onPress={async () => {
@@ -375,7 +383,38 @@ It stays on file, but nobody will be asked to sign it and it comes off the HUB. 
                 if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.');
               }} /></View>
             )}
-            <RowSigners total={data.roster.length} signed={signed} waiting={waiting} people={people} closed={!!closedAt} />
+            {awaiting && (isManager(me) && canSignOffHs(me) ? (
+              <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 8 }}>
+                <Button small title="✓ Approve" onPress={async () => {
+                  if (!(await confirmAsk(`Approve "${docTitle(r.name, site.name)}"? Their operatives can then sign it.`, 'Yes', 'No'))) return;
+                  const u = await supabase.from('rams_docs').update({ approval_status: 'approved' } as never).eq('id', r.id).select('id');
+                  if (u.error || !u.data?.length) { toast('Could not approve — try again.'); return; }
+                  // The version it replaces (sent back before) is superseded now.
+                  if (r.supersedes) await supabase.from('rams_docs').update({ status: 'superseded', superseded_by: r.id } as never).eq('id', r.supersedes);
+                  void qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] });
+                }} />
+                <Button small kind="ghost" title="✕ Send Back" onPress={() => setSendBack(r)} />
+              </View>
+            ) : <Muted style={{ marginTop: 8, textAlign: 'center' }}>Waiting for the main contractor to approve it. Nobody signs it until then.</Muted>)}
+            {sentBack && (
+              <View style={{ marginTop: 8, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#f8e7c2', backgroundColor: '#fffaf0' }}>
+                <Text style={{ fontWeight: '600', color: '#b45309' }}>Sent back{r.approval_by ? ` by ${nameOf(people, r.approval_by)}` : ''}{r.approval_at ? ` on ${d(r.approval_at)}` : ''}</Text>
+                <Text style={{ color: base.ink, marginTop: 2 }}>{r.approval_note || ''}</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 8 }}>
+                  {!!r.approval_markup_path && <Button small kind="ghost" title="📄 View Marked-Up Copy" onPress={async () => { const u = await openDocLink('rams-docs', r.approval_markup_path as string); if (u) viewDoc(u, `Marked up - ${r.name}.pdf`); else toast('Could not open it.'); }} />}
+                  {manager && !isManager(me) && <Button small title="⬆️ Upload A Revised Version" onPress={async () => {
+                    const p = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
+                    if (p.canceled || !p.assets[0]) return;
+                    setBusy(true);
+                    try {
+                      const err = await uploadHsDoc(me, 'rams', site.id, { name: r.name, docType: 'RAMS', supersedesId: r.id, file: { uri: p.assets[0].uri, name: p.assets[0].name || 'rams.pdf' }, companyId });
+                      if (err) toast(err); void qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] });
+                    } finally { setBusy(false); }
+                  }} />}
+                </View>
+              </View>
+            )}
+            {!awaiting && !sentBack && <RowSigners total={data.roster.length} signed={signed} waiting={waiting} people={people} closed={!!closedAt} />}
             {kind === 'rams' && manager && !companyId && multiOn(r) && <ClientSignLines ramsId={r.id} site={site} />}
           </Card>
         );

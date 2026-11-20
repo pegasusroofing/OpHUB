@@ -17,6 +17,8 @@ export type HsDoc = {
   resign_cycle_start: string | null; status?: string; supersedes?: string | null; superseded_by?: string | null; doc_type?: string;
   /** Closed for signing by a manager (20 Nov 2026): stays on file, nobody is asked to sign it. */
   signing_closed_at?: string | null;
+  /** A subcontractor's own RAMS (20 Nov 2026): awaiting the PM / site manager's approval, approved, or sent back. */
+  approval_status?: 'pending' | 'approved' | 'rejected' | null; approval_note?: string | null; approval_by?: string | null; approval_at?: string | null; approval_markup_path?: string | null;
 };
 export type HsSig = { id: string; user_id: string | null; signed_at: string | null; signature_image_path: string | null; issued?: boolean | null; rams_id?: string; coshh_id?: string; layout_id?: string; tbt_id?: string };
 export type Tbt = { id: string; site_id: string; title: string; storage_path: string; created_by: string | null; created_at: string; status: string };

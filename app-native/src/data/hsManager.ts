@@ -36,7 +36,7 @@ export async function uploadHsDoc(me: Profile & { signature_path?: string | null
   if (!path) return 'Could not upload — check your signal and try again.';
   const co = f.companyId ? { subcontractor_company_id: f.companyId } : {};
   const row = kind === 'rams'
-    ? { site_id: siteId, name: f.name, storage_path: path, uploaded_by: me.id, doc_type: f.companyId ? 'RAMS' : f.docType, supersedes: f.companyId ? null : f.supersedesId, ...(f.signLayout ? { sign_layout: f.signLayout } : {}), ...co }
+    ? { site_id: siteId, name: f.name, storage_path: path, uploaded_by: me.id, doc_type: f.companyId ? 'RAMS' : f.docType, supersedes: f.supersedesId, ...(f.signLayout ? { sign_layout: f.signLayout } : {}), ...co }
     : { site_id: siteId, name: f.name, storage_path: path, uploaded_by: me.id, ...co };
   const r = await db.from(T[kind].docs).insert(row as never).select('id').single();
   const id = (r.data as { id: string } | null)?.id;
