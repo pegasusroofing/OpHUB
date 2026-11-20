@@ -1,7 +1,7 @@
 // A small edit form in a pop-up, used all over Finance (the current app's
 // geo-modal-card forms): text, money, dates, multi-line notes and choices.
 import { useState, type ReactNode } from 'react';
-import { Modal, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { CalendarPopup, DateBox } from '@/components/DateField';
 import { FillInButtons, useFillIns } from '@/components/FillIns';
@@ -38,8 +38,6 @@ export function FinForm({ title, fields, initial, onSave, onClose, onDelete, del
   const [dayOpen, setDayOpen] = useState('');
   const set = (k: string, x: string | boolean) => setV((o) => { const n = { ...o, [k]: x }; const more = onChange?.(k, n, o); return more ? { ...n, ...more } as V : n; });
   const fill = useFillIns(fillIns?.keys[fillIns.keys.length - 1] || '');
-  // Two to a row on a laptop; one under the other on a phone, so nothing is squashed or cut off (UI check, 20 Nov 2026).
-  const narrow = useWindowDimensions().width < 520;
   const fillKey = (k: string) => !!fillIns?.keys.includes(k);
   const extra = typeof extraIn === 'function' ? extraIn(v) : extraIn;
   const field = (f: Field) => {
@@ -52,7 +50,7 @@ export function FinForm({ title, fields, initial, onSave, onClose, onDelete, del
   };
   const field1 = (f: Field) => {
     return (
-      <View key={f.k} style={{ flexBasis: f.half && !narrow ? '47%' : '100%', flexGrow: 1, marginBottom: 8 }}>
+      <View key={f.k} style={{ flexBasis: f.half ? '47%' : '100%', flexGrow: 1, marginBottom: 8 }}>
         <Muted style={{ fontWeight: '500' }}>{f.label}</Muted>
         {f.kind === 'choice' ? (
           <Pressable accessibilityRole="button" accessibilityLabel={f.label} onPress={async () => { const k = await chooseAction(f.label, (f.options || []).map(([key, label]) => ({ key, label }))); if (k !== null && k !== undefined) set(f.k, k); }} style={box}>

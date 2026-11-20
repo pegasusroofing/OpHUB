@@ -80,7 +80,7 @@ const seedRoles = (db, org) => {
   // 4: Expenses.
   await page.goto(B + '/pm/admin/expensesemail'); await page.waitForTimeout(4500);
   t = await body();
-  check(/Send expenses to/.test(t) && /Who Books Them In Finance/.test(t), 'Expenses: where receipts go and who books them, on one page');
+  check(/Send expenses to/i.test(t) && /Who Books Them In Finance/.test(t), 'Expenses: where receipts go and who books them, on one page');
   await page.getByLabel('Who Books Them In Finance').first().click(); await page.waitForTimeout(600);
   await page.getByText('Andy Admin', {exact: true}).filter({visible: true}).last().click(); await page.waitForTimeout(1500);
   check(db.fin_settings[0].expenses_user === 'me', `choosing who books them saves it (${db.fin_settings[0].expenses_user})`);

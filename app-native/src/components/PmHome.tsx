@@ -2,7 +2,7 @@
 // projects, on site now, to do, notifications), the sites map with a Today panel beside it, then plain tiles
 // (2 across on a phone, 4 on a laptop), "Pick up where you left off", and name / role / Sign out.
 import { router } from 'expo-router';
-import { useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { AdminGuide } from '@/components/AdminGuide';
@@ -107,7 +107,9 @@ export function PmHome() {
     </Card>
   );
 
-  const todayBar = <TodayBar rows={todayRows} go={go} first={me && wxSite ? (w: number) => <WeatherTile me={me} site={wxSite} company={org?.name || ''} width={w} /> : undefined} />;
+  // Still finding where the weather is for: the jobs or the company's address haven't loaded yet.
+  const wxPending = !wxSite && (sites === undefined || contact === undefined);
+  const todayBar = <TodayBar rows={todayRows} go={go} pending={wxPending} first={me && wxSite ? (w: number) => <WeatherTile me={me} site={wxSite} company={org?.name || ''} width={w} /> : undefined} />;
 
   return (
     <Screen>
@@ -198,23 +200,20 @@ type TodayRow = { ic: string; t: string; sub: string; go: string };
 
 /** Phone: Today as a bar you swipe sideways (Andy, 7 Nov 2026: the drifting one was jumpy on an iPhone). Each tile is
  *  as wide as a tile below, so they line up (Andy, 11 Nov 2026); the weather comes first. */
-function TodayBar({ rows, go, first }: { rows: TodayRow[]; go: (p: string) => () => void; first?: (width: number) => ReactNode }) {
+function TodayBar({ rows, go, first, pending }: { rows: TodayRow[]; go: (p: string) => () => void; first?: (width: number) => ReactNode; pending?: boolean }) {
   const [w, setW] = useState(0);
   const tw = w ? (w - 10) / 2 : 170;
-  // The weather comes first (UI check, 20 Nov 2026): it can arrive a moment after the other tiles, and the browser then
-  // kept the tile you were looking at in view, so the bar opened one along. Back to the start when it arrives.
-  const bar = useRef<ComponentRef<typeof ScrollView>>(null);
-  const hasFirst = !!first;
-  useEffect(() => { if (hasFirst) { const t = setTimeout(() => bar.current?.scrollTo({ x: 0, animated: false }), 50); return () => clearTimeout(t); } return undefined; }, [hasFirst]);
   return (
     <View style={{ marginBottom: space.m }} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
       <Text style={{ fontWeight: '700', color: base.ink, fontSize: 16, marginBottom: 8 }}>Today</Text>
       {/* It stops on a tile's edge after a swipe, so it always lines up with the tiles below (Andy, 17 Nov 2026: "the
           spacing between the weather and who's on site ... looks out of align"). Web: snap to each tile; phone app: every
           tile and gap. */}
-      <ScrollView ref={bar} horizontal testID="today-bar" showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}
+      <ScrollView horizontal testID="today-bar" showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}
         {...(Platform.OS === 'web' ? { pagingEnabled: true } : { snapToInterval: tw + 10, decelerationRate: 'fast' as const, snapToAlignment: 'start' as const })}>
-        {first?.(tw)}
+        {/* The weather comes first (UI check, 20 Nov 2026): until it's known, its space is kept, so the tiles don't shift
+            along when it arrives (the browser kept the tile in view and the bar opened one along). */}
+        {first ? first(tw) : pending ? <View style={{ width: tw, minHeight: 50, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 12 }} /> : null}
         {rows.map((r, k) => (
           <Pressable key={k} onPress={go(r.go)} accessibilityRole="button" style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 10, width: tw, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 12, paddingVertical: 9, paddingHorizontal: 12 }, pressed && { opacity: 0.85 }]}>
             <OphIcon name={r.ic} size={17} color={base.ink} />

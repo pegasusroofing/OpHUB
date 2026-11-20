@@ -35,13 +35,16 @@ const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(
     db.site_calendar_events = [
       {id: 'ev1', site_id: S1, title: 'Delivery: Finish clearing site', event_date: today(), created_at: new Date().toISOString()},
       {id: 'ev2', site_id: S1, title: 'Scaffold inspection', event_date: today(), created_at: new Date().toISOString()},
+      // A supplier PO's delivery date also starts "Delivery:" and stays; only the driver's (linked to a delivery) goes.
+      {id: 'ev3', site_id: S1, title: 'Delivery: PO 123 Jewson slates', event_date: today(), created_at: new Date().toISOString()},
     ];
+    db.delivery_tasks = [{id: 'dt-ev1', org_id: db.organizations[0].id, site_id: S1, calendar_event_id: 'ev1', scheduled_date: today(), status: 'scheduled', description: 'Finish clearing site'}];
     const page = await ctx.newPage(); page.on('pageerror', (e) => errs.push(e.message));
     await login(page);
     const t = await page.locator('body').innerText();
     // The Today tiles by the weather, not the Next 5 Days calendar under them (deliveries stay on the calendar).
     const todayPart = t.split('Next 5 Days')[0];
-    check(/Scaffold inspection/.test(todayPart) && !/Delivery: Finish clearing site/.test(todayPart), 'the Today tiles by the weather show key dates, not the drivers\' deliveries');
+    check(/Scaffold inspection/.test(todayPart) && !/Delivery: Finish clearing site/.test(todayPart) && /Delivery: PO 123 Jewson slates/.test(todayPart), 'the Today tiles by the weather show key dates and supplier deliveries, not the drivers\' deliveries');
     await page.screenshot({path: path.join(__dirname, 'shots', 'home19-today.png')});
     await ctx.close();
   }

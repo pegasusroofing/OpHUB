@@ -4,7 +4,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Image, Pressable, Text, View } from 'react-native';
+import { Image, Pressable, Text, useWindowDimensions, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { FinPage, FinRow, finSettingsGo } from '@/components/FinNav';
@@ -50,6 +50,7 @@ function TemplateForm({ t, onClose }: { t: Partial<Tpl>; onClose: () => void }) 
   const qc = useQueryClient();
   const [logos, setLogos] = useState<string[]>(t.logos || []);
   const [adding, setAdding] = useState(false);
+  const narrow = useWindowDimensions().width < 520;
   if (!me?.org_id) return null;
   const orgId = me.org_id;
   const refresh = () => void qc.invalidateQueries({ queryKey: ['finTpl'] });
@@ -58,8 +59,9 @@ function TemplateForm({ t, onClose }: { t: Partial<Tpl>; onClose: () => void }) 
       initial={{ name: t.name, kind: t.kind, subject: t.subject, body: t.body, is_default: t.is_default, show_logo: t.show_logo !== false }}
       fillIns={{ keys: ['subject', 'body'], items: (v) => tplFillIns((v.kind || t.kind || 'application') as TplKind) }}
       fields={[
-        { k: 'name', label: 'Name', ph: 'e.g. Standard application', half: true },
-        { k: 'kind', label: 'For', kind: 'choice', options: TPL_KINDS, half: true },
+        // One under the other on a phone, so the For list and the Name aren't squashed (UI check, 20 Nov 2026).
+        { k: 'name', label: 'Name', ph: 'e.g. Standard application', half: !narrow },
+        { k: 'kind', label: 'For', kind: 'choice', options: TPL_KINDS, half: !narrow },
         { k: 'subject', label: 'Subject' },
         { k: 'body', label: 'Message', kind: 'multiline', tall: true },
         { k: 'is_default', label: 'Default For This Kind', kind: 'check' },

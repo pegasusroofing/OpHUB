@@ -41,6 +41,9 @@ const NAMES = ['Contract Value', 'Still To Invoice', 'Owed To You', 'Overdue', '
     {id: 'pi6', org_id: O, site_id: S1, supplier_name: 'Travis Perkins', invoice_no: 'T1', invoice_date: '2026-11-06', due_date: iso(40), net: 250, vat: 50, total: 300, status: 'approved', created_at: '2026-11-06T09:00:00Z'},
   ];
   db.fin_statements = [{id: 'st1', org_id: O, supplier_name: 'Jewson', status: 'reconciled', statement_date: '2026-10-31', lines: [{id: 'l1', type: 'invoice', amount: 600, match: 'pi4'}]}];
+  // Enough key dates today for the phone's Today row to scroll (drivers' deliveries no longer show there, 20 Nov 2026).
+  { const d = new Date(), t = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    db.site_calendar_events = (db.site_calendar_events || []).concat(['Scaffold inspection', 'Skip swap', 'Client walk-round'].map((title, i) => ({id: 'kd' + i, site_id: S1, title, event_date: t, created_at: new Date().toISOString()}))); }
   const page = await ctx.newPage(); page.on('pageerror', (e) => errs.push(e.message));
   page.on('console', (m) => { if (/cannot contain a nested|cannot be a descendant/.test(m.text())) errs.push(m.text().slice(0, 90)); });
   const vis = (sel) => page.locator(`${sel} >> visible=true`).first();
@@ -61,7 +64,7 @@ const NAMES = ['Contract Value', 'Still To Invoice', 'Owed To You', 'Overdue', '
   const snap = await page.evaluate(() => { const b = document.querySelector('[data-testid="today-bar"]'); const kid = b && b.querySelector(':scope > div > div'); return {type: b ? getComputedStyle(b).scrollSnapType : '', align: kid ? getComputedStyle(kid).scrollSnapAlign : ''}; });
   check(/x mandatory/.test(snap.type) && /start/.test(snap.align), `phone Home: the Today row snaps to each tile's edge (${snap.type} / ${snap.align})`);
   const bar = await vis('[data-testid="today-bar"]').boundingBox();
-  await page.mouse.move(bar.x + bar.width / 2, bar.y + bar.height / 2); await page.mouse.wheel(70, 0); await page.waitForTimeout(1200);
+  await page.mouse.move(bar.x + bar.width / 2, bar.y + bar.height / 2); await page.mouse.wheel(130, 0); await page.waitForTimeout(1200); // more than half a tile, so it snaps on to the next (20 Nov 2026)
   const al = await page.evaluate(() => {
     const b = document.querySelector('[data-testid="today-bar"]'); const leaf = (t) => [...document.querySelectorAll('div[dir="auto"]')].find((e) => e.textContent.trim() === t && e.getBoundingClientRect().width > 0);
     let q = leaf('Quotes'); while (q && getComputedStyle(q).borderTopWidth === '0px') q = q.parentElement;

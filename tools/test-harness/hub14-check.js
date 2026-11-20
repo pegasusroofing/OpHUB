@@ -132,6 +132,8 @@ const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.
   // One Toolbox Talks tab since 20 Nov 2026 (How Often and the templates together).
   check(/Toolbox Talks/.test(await body()) && !/Toolbox Talks Required/.test(await body()), 'Admin lists Toolbox Talks (How Often is inside it)');
   await page.goto(B + '/pm/admin/tbtrule'); await page.waitForTimeout(4000);
+  // Once set it's one line with an Edit button (20 Nov 2026); open it to change it.
+  const editRule = page.getByText('✎ Edit', {exact: true}); if (await editRule.count()) { await editRule.first().click(); await page.waitForTimeout(700); }
   t = await body();
   check(/How Often Does Each Live Project Need A Toolbox Talk\?/.test(t) && /Every Month/.test(t) && /Due by the 7th of each month/.test(t), 'the admin page shows the current rule (Every Month)');
   await page.getByLabel('Toolbox Talks Required', {exact: true}).click(); await page.waitForTimeout(700);
