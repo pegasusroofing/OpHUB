@@ -231,7 +231,7 @@ export async function completeDelivery(me: Profile, t: Delivery, sites: Site[]):
   // driver file this delivery's photos only.
   if (t.site_id) {
     const label = String(t.description || 'Delivery').replace(/[\\/:*?"<>|]+/g, '-').trim().slice(0, 60) || 'Delivery';
-    photos.forEach((p, i) => { void packPut(t.site_id as string, 'delivery_completed', `Delivery ${now.slice(0, 10)} - ${label}${photos.length > 1 ? ` (${i + 1})` : ''}.jpg`, { file: { bucket: 'site-photos', path: p } }, { task_id: t.id }).catch(() => undefined); });
+    photos.forEach((p, i) => { void packPut(t.site_id as string, 'delivery_completed', `Delivery ${now.slice(0, 10)} - ${label}${photos.length > 1 ? ` (${i + 1})` : ''}.jpg`, { photo_path: p }, { task_id: t.id }).catch(() => undefined); });
   }
   // Tell the people the database says should know (site contact, PM…).
   try {

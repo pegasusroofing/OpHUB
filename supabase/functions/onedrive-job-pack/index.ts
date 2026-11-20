@@ -210,10 +210,14 @@ Deno.serve(async (req) => {
     const isManager = ['pm', 'admin'].includes(String(me.role));
     // A driver filing the photos of a delivery they completed (19 Nov 2026, Where Things Save › Deliveries): only that
     // delivery's job, and only that item. Drivers aren't on the job, so the job check alone would turn them away.
+    // Tightened 20 Nov 2026 (security review): the delivery must be completed, and the file must be one of its own
+    // completion photos, named by its path (nothing sent as bytes, no other file).
     let ownDelivery = false;
     if (!isManager && body.action === 'put' && String(body.rule || '') === 'delivery_completed' && body.task_id) {
-      const { data: t } = await admin.from('delivery_tasks').select('site_id, org_id, completed_by, driver_id').eq('id', String(body.task_id)).maybeSingle();
-      ownDelivery = !!t && t.site_id === site.id && t.org_id === me.org_id && (t.completed_by === me.id || t.driver_id === me.id);
+      const { data: t } = await admin.from('delivery_tasks').select('site_id, org_id, completed_by, driver_id, status, completion_photo_paths, completion_photo_path').eq('id', String(body.task_id)).maybeSingle();
+      const photos: string[] = [...(Array.isArray(t?.completion_photo_paths) ? t.completion_photo_paths : []), ...(t?.completion_photo_path ? [t.completion_photo_path] : [])].map(String);
+      ownDelivery = !!t && t.site_id === site.id && t.org_id === me.org_id && t.status === 'completed' && (t.completed_by === me.id || t.driver_id === me.id)
+        && typeof body.photo_path === 'string' && photos.includes(body.photo_path) && !body.file && typeof body.content_base64 !== 'string';
     }
     if (!isManager && !ownDelivery && (await access.json().catch(() => false)) !== true) return reply(req, { error: 'Forbidden' }, 403);
 
@@ -279,7 +283,9 @@ Deno.serve(async (req) => {
       let bytes: Uint8Array;
       const file = body.photo_path ? { bucket: 'site-photos', path: body.photo_path } : body.file;
       if (file) {
-        if (!BUCKETS.includes(String(file.bucket)) || typeof file.path !== 'string' || !file.path.startsWith(`${site.id}/`) || !storagePathSafe(file.path)) return reply(req, { error: 'Forbidden' }, 403);
+        // A driver's own completed delivery: its completion photo, checked above, wherever it's kept.
+        const deliveryPhoto = ownDelivery && file.bucket === 'site-photos' && typeof file.path === 'string' && storagePathSafe(file.path);
+        if (!deliveryPhoto && (!BUCKETS.includes(String(file.bucket)) || typeof file.path !== 'string' || !file.path.startsWith(`${site.id}/`) || !storagePathSafe(file.path))) return reply(req, { error: 'Forbidden' }, 403);
         const { data: blob, error } = await admin.storage.from(file.bucket).download(file.path);
         if (error || !blob) return reply(req, { error: 'Could not read the file.' }, 400);
         bytes = new Uint8Array(await blob.arrayBuffer());
