@@ -323,7 +323,20 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
                 })}
               </View>
             ))}
-            {tab === 'finance' && <Row title="Purchase Orders" sub="Their PDF, when it’s made"><FolderLink muted label="Each job’s Material PO’s folder (set on the job)" /></Row>}
+            {/* Only POs worth at least the minimum go to OneDrive (Andy, 19 Nov 2026: "Otherwise we could have excess data on
+                OneDrive for info we don't need"). They're kept in the app either way. */}
+            {tab === 'finance' && (
+              <Row title="Purchase Orders" sub={Number(cfg.po_min) > 0 ? `Their PDF, when it’s made · only POs of £${Number(cfg.po_min).toLocaleString('en-GB')} or more (excl. VAT)` : 'Their PDF, when it’s made · every PO'}
+                right={<Button small kind="ghost" title={Number(cfg.po_min) > 0 ? `✎ Minimum £${Number(cfg.po_min).toLocaleString('en-GB')}` : '✎ Set A Minimum'} onPress={async () => {
+                  const v = await promptText('Only save POs to OneDrive when they’re worth at least (£, excl. VAT). Leave it blank to save every PO.', Number(cfg.po_min) > 0 ? String(cfg.po_min) : '', { placeholder: 'e.g. 500' });
+                  if (v === null) return;
+                  const n = Number(String(v).replace(/[£,\s]/g, ''));
+                  if (String(v).trim() && (!Number.isFinite(n) || n < 0)) { toast('Enter an amount in pounds, e.g. 500.'); return; }
+                  await save({ ...cfg, po_min: String(v).trim() ? Math.round(n * 100) / 100 : 0 });
+                }} />}>
+                <FolderLink muted label="Each job’s Material PO’s folder (set on the job)" />
+              </Row>
+            )}
             {!groups.length && tab !== 'finance' && <Muted>Nothing saving here yet.</Muted>}
             <View style={{ alignItems: 'center', marginTop: 10 }}>
               {addable.length ? <Button title="+ Add Something To Save" onPress={() => { const r = addable[0]; setAdding({ key: r.key, folder: cfg.rules[r.key]?.folder || '', on: true }); }} />

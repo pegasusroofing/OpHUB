@@ -6,6 +6,7 @@ import { fdb, finInvoke, xeroAutoOk } from '@/data/finance';
 import { FIN_TRIAL_MSG, finBlocked, money, round2, today } from '@/lib/rules/finance';
 import { b64 } from '@/lib/oneDriveSave';
 import { supabase } from '@/lib/supabase';
+import { poGoesToOneDrive } from '@/lib/rules/jobPack';
 import type { Profile } from '@/lib/types';
 import { invokeAsUser } from '@/lib/userFunctions';
 
@@ -173,6 +174,9 @@ export async function pushPoToOneDrive(me: Profile, po: Record<string, any>, byt
   try {
     const s = ((await fdb.from('sites').select('material_orders_folder_id,material_orders_drive_id').eq('id', po.site_id).maybeSingle()).data as Record<string, string | null> | null);
     if (!s?.material_orders_folder_id) return 'not_linked';
+    // Only POs worth at least the company's minimum (Admin › OneDrive › Finance › Purchase Orders, 19 Nov 2026).
+    const min = (((await fdb.from('job_pack_settings').select('config').eq('org_id', me.org_id as string).maybeSingle()).data as { config: { po_min?: number } | null } | null)?.config?.po_min) ?? 0;
+    if (!poGoesToOneDrive(Number(po.value ?? po.total ?? 0), min)) return 'below_min';
     const payload: Record<string, unknown> = { filename: name.replace(/[\\/]+/g, '-'), folder_id: s.material_orders_folder_id, drive_id: s.material_orders_drive_id || null };
     if (bytes.length > 3 * 1024 * 1024) {
       const up = await supabase.storage.from('mc-documents').upload(`onedrive-tmp/${me.org_id}/${po.id}-${Date.now()}.pdf`, bytes, { contentType: 'application/pdf' });

@@ -11,7 +11,13 @@ export type PackConfig = {
   create_new?: boolean;
   /** When the folders and documents were last read from the company's own template in OneDrive (19 Nov 2026). */
   template_read?: string;
+  /** Purchase orders only go to the job's OneDrive folder at or above this value, excl. VAT (Andy, 19 Nov 2026: "only if
+   *  above a limit and have the admin set the minimum value ... Otherwise we could have excess data on OneDrive").
+   *  Missing or 0 = every PO. They're still kept in the app either way. */
+  po_min?: number;
 };
+/** Does this PO (its value excl. VAT) go to OneDrive, given the company's minimum? */
+export const poGoesToOneDrive = (net: number | null | undefined, min: number | null | undefined) => !(Number(min) > 0) || Number(net || 0) >= Number(min);
 /** RTB Roofing's own template: its pack was written from it, so it isn't read again by itself. */
 export const RTB_TEMPLATE = 'RTB Roofing Ltd/Live Projects/- New Job Pack - Template';
 /** A pack whose folders came from somewhere other than its own template (copied from another company before 19 Nov

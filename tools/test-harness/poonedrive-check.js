@@ -49,6 +49,35 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(!!(db.material_order_files || []).find((x) => x.item_id === 'finpo-pod2'), 'a job with no OneDrive PO folder: still filed in OpHUB');
   check(sent.length === 1, 'and nothing sent to OneDrive (' + sent.length + ')');
   check(/no OneDrive PO folder is linked/.test(msg2), 'it says no OneDrive PO folder is linked');
+
+  // A minimum for OneDrive, set by the admin (Andy, 19 Nov 2026: "only if above a limit and have the admin set the minimum
+  // value to upload"): under it, filed in OpHUB only; at or over it, into OneDrive as before.
+  db.job_pack_settings = (db.job_pack_settings || []).filter((x) => x.org_id !== O);
+  db.job_pack_settings.push({org_id: O, enabled: true, config: {parent_path: 'Jobs', template_path: '', folders: [], files: [], rules: {}, weekly: {name: 'Week {n}', addDate: true, weekStart: 1, week1: 'start'}, po_min: 500}});
+  db.purchase_orders.push(
+    {id: 'pod3', org_id: O, site_id: S1, number: 'J101-PO-022', status: 'open', supplier_name: 'Jewson', value: 400, vat: 80, total: 480, items: [{item: 'Battens', qty: '1', rate: 400, amount: 400}], required_by: '2026-11-22'},
+    {id: 'pod4', org_id: O, site_id: S1, number: 'J101-PO-023', status: 'open', supplier_name: 'Jewson', value: 600, vat: 120, total: 720, items: [{item: 'Lead', qty: '1', rate: 600, amount: 600}], required_by: '2026-11-22'});
+  await page.goto('http://localhost:8081/fin/po/pod3'); await page.waitForTimeout(5000);
+  const msg3 = await tickFolder();
+  check(!!(db.material_order_files || []).find((x) => x.item_id === 'finpo-pod3') && sent.length === 1, `a £400 PO with a £500 minimum: filed in OpHUB, not sent to OneDrive (${sent.length})`);
+  check(/under the company’s minimum for OneDrive/.test(msg3), 'it says it’s under the minimum');
+  await page.goto('http://localhost:8081/fin/po/pod4'); await page.waitForTimeout(5000);
+  await tickFolder();
+  check(sent.length === 2, `a £600 PO goes to OneDrive (${sent.length})`);
+  // The admin sets it on the OneDrive page, Finance tab (a company with Finance, OneDrive connected).
+  db.organizations[0].has_finance = true;
+  db.onedrive_connections = [{org_id: O, account_email: 'andy@rtb.example', connected_at: '2026-11-08T21:24:00Z'}];
+  global.__rpc = (n) => (n === 'onedrive_status' ? {exists: true, connected: true, needs_reconnect: false, account_email: 'andy@rtb.example'} : undefined);
+  await page.goto('http://localhost:8081/pm/admin/onedrive'); await page.waitForTimeout(5000);
+  // The OneDrive page's own Finance tab (the last one; the first is the Admin Centre's).
+  await page.locator('[role="tab"]', {hasText: /^Finance$/}).last().click(); await page.waitForTimeout(1200);
+  await page.screenshot({path: 'shots/poonedrive-min.png', fullPage: true});
+  let t = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
+  check(/only POs of £500 or more \(excl\. VAT\)/.test(t), 'the OneDrive page shows the minimum on Purchase Orders');
+  await page.getByText('✎ Minimum £500', {exact: true}).click(); await page.waitForTimeout(800);
+  await page.keyboard.press('Control+A'); await page.keyboard.type('750'); await page.getByText('OK', {exact: true}).last().click(); await page.waitForTimeout(2000);
+  check(db.job_pack_settings.find((x) => x.org_id === O).config.po_min === 750, `the admin changes it to £750 (${db.job_pack_settings.find((x) => x.org_id === O).config.po_min})`);
+  await page.screenshot({path: 'shots/poonedrive-min.png'});
   check(!errs.length, `no errors ${errs.slice(0, 2).join(' | ')}`);
   await browser.close();
 })();
