@@ -49,6 +49,10 @@ const seed = require('./fresh/seed');
   await page.getByText('Save Draft', {exact:true}).click(); await page.waitForTimeout(3000);
   console.log('ps1 saved items:', JSON.stringify((db.price_builder_sheet_items||[]).filter(i=>i.sheet_id==='ps1').map(i=>[i.name,i.quantity,i.line_total])), 'sheet total', (db.price_builder_sheets.find(x=>x.id==='ps1')||{}).total);
   // 4. issue the draft: name the tile, confirm; check the tile, access and Schedule of Works tasks
+  // (20 Nov 2026) it also raises its Finance subcontract order and files its PDF in the job's OneDrive folder once.
+  db.sites.find((s) => s.id === S1).job_pack = {path: 'Jobs/Studley Rd', root_id: 'r1'};
+  const rpcs = []; const prevRpc = global.__rpc; global.__rpc = (n, b) => { rpcs.push([n, b]); return prevRpc ? prevRpc(n, b) : undefined; };
+  const fns = []; global.__fn = (n, b) => { fns.push([n, b]); return null; };
   page.on('dialog', d => d.type()==='prompt' ? d.accept('Pitched roof') : d.accept());
   page.on('response', async r => { if(r.request().method()!=='GET' && /pricing_elements|schedule_sections/.test(r.url())) console.log('net:', r.request().method(), r.url().split('/rest/v1/')[1], r.status(), (await r.text().catch(()=>'')).slice(0,160)); });
   await page.getByText('Issue', {exact:true}).first().click(); await page.waitForTimeout(1000); await page.locator('input >> visible=true').last().fill('Pitched roof'); await page.locator('text="OK" >> visible=true').last().click(); await page.waitForTimeout(1000); await page.locator('text="Issue" >> visible=true').last().click(); await page.waitForTimeout(5000);
@@ -56,6 +60,12 @@ const seed = require('./fresh/seed');
   const tile = (db.pricing_elements||[]).find(e=>e.id===ps1.pricing_element_id);
   console.log('issue:', ps1.status, '| tile', tile && tile.name, tile && tile.price_total, '| SOW tasks', JSON.stringify((db.schedule_tasks||[]).filter(t=>t.section_id===ps1.schedule_section_id).map(t=>t.name)));
   console.log('debug:', ps1.pricing_element_id, JSON.stringify((db.pricing_elements||[]).map(e=>[e.id,e.name,e.price_total])), JSON.stringify(db.site_price_access||null));
+  await page.waitForTimeout(4000);
+  const sc = rpcs.filter(([n, b]) => n === 'site_sheet_subcontract' && b.p_sheet === 'ps1');
+  const puts = fns.filter(([n, b]) => n === 'onedrive-job-pack' && b.action === 'put' && b.rule === 'price_sheet');
+  console.log((sc.length === 1 ? 'PASS' : 'FAIL') + ' issuing raises its Finance subcontract order once (' + sc.length + ')');
+  console.log((puts.length === 1 ? 'PASS' : 'FAIL') + ' the issued sheet PDF goes to the job folder once (' + puts.map(([, b]) => b.filename).join(', ') + ')');
+  if (sc.length !== 1 || puts.length !== 1) process.exitCode = 1;
   console.log('errors:', errs.join(' / ').slice(0,400) || 'none');
-  await browser.close(); process.exit(0);
+  await browser.close(); process.exit(process.exitCode || 0);
 })();

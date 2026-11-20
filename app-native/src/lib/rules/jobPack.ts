@@ -62,6 +62,11 @@ export const PACK_RULES: { key: string; area: string; when: string; folder: stri
   // Finance (Andy, 8 Nov 2026): off until a company adds them under Admin › OneDrive.
   { key: 'fin_application', area: 'Applications For Payment', when: 'Application PDF made', folder: '1. Contract & Commercial/4. Applications for Payment & Certificates', on: false, tab: 'finance' },
   { key: 'fin_invoice', area: 'Sales Invoices', when: 'Invoice issued', folder: '1. Contract & Commercial/4. Applications for Payment & Certificates', on: false, tab: 'finance' },
+  // The client's payment certificate when it's brought in against an application (Andy, 20 Nov 2026: item 3).
+  { key: 'fin_certificate', area: 'Payment Certificates', when: 'Client’s certificate added', folder: '1. Contract & Commercial/4. Applications for Payment & Certificates', on: false, tab: 'finance' },
+  // A labour price sheet's PDF when it's issued in Projects; the same sheet raises its subcontract order in Finance, so it's
+  // filed once, from here (Andy, 20 Nov 2026: item 11, "let's not duplicate what we upload but make sure they sync up").
+  { key: 'price_sheet', area: 'Labour Price Sheets', when: 'Price sheet issued or changed', folder: '4. Subcontractors & Suppliers/1. Subcontractor Quotes & Orders', on: false, tab: 'finance' },
   { key: 'fin_sub_notice', area: 'Subcontractor Notices', when: 'Payment or pay less notice made', folder: '4. Subcontractors & Suppliers/1. Subcontractor Quotes & Orders', on: false, tab: 'finance' },
 ];
 /** Which tab of Where Things Save a rule sits on. */

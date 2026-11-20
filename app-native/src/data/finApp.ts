@@ -2,7 +2,7 @@
 // Bill of Quantities (last % carried forward, agreed variations, approved day
 // works), saving, Applied (locked) / back to draft, the client's certificate,
 // and the invoice raised from it.
-import { packPdfBytes } from '@/data/jobPack';
+import { packPdfBytes, packPut } from '@/data/jobPack';
 import { issue } from '@/data/finInvoice';
 import { fdb, finInvoke, insertNumbered, loadSettings } from '@/data/finance';
 import { syncSiteVariationValues, varToSow } from '@/data/finVar';
@@ -159,7 +159,10 @@ export async function saveCertificate(me: Profile, a: Row, v: Row, file?: { uri:
   const row: Row = { cert_gross: round2(v.cert_gross), cert_retention: round2(v.cert_retention), cert_previous: round2(v.cert_previous), cert_discount: round2(v.cert_discount || 0), cert_net: round2(v.cert_net), cert_date: v.cert_date || today(), cert_is_payless: !!v.cert_is_payless, cert_notes: v.cert_notes || null, status: 'certified', updated_at: new Date().toISOString(), ...(v.cert_lines ? { cert_lines: v.cert_lines } : {}) };
   if (file) {
     const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
-    const up = await supabase.storage.from('finance-docs').upload(`${me.org_id}/${a.site_id}/certificates/${rid}-${file.name.replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, await (await fetch(file.uri)).arrayBuffer(), { contentType: file.mimeType || 'application/octet-stream' });
+    const buf = await (await fetch(file.uri)).arrayBuffer();
+    // Into the job's OneDrive folder too, when the company has added Payment Certificates (20 Nov 2026). Fire and forget.
+    if (a.site_id) void packPut(a.site_id, 'fin_certificate', `Payment Certificate${a.number ? ` No. ${a.number}` : ''} - ${file.name}`.replace(/[\\/:*?"<>|]+/g, '-'), { bytes: new Uint8Array(buf) }).catch(() => undefined);
+    const up = await supabase.storage.from('finance-docs').upload(`${me.org_id}/${a.site_id}/certificates/${rid}-${file.name.replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, buf, { contentType: file.mimeType || 'application/octet-stream' });
     if (!up.error) { row.cert_file_path = up.data.path; row.cert_file_name = file.name; }
   }
   return !(await fdb.from('fin_applications').update(row as never).eq('id', a.id).select('id')).data?.length ? 'Could not save the certificate.' : null;

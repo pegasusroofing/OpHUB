@@ -19,6 +19,7 @@ import { deleteSheet, issueSheet, loadRateCard, loadSheet, renameSheet, saveDraf
 import { weeklyBookedIn, weeklyWages } from '@/lib/rules/priceWeeks';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { packPdfBytes } from '@/data/jobPack';
 import { emailPdf } from '@/lib/fileOut';
 import { money } from '@/lib/rules/price';
 import { canIssue, entryKey, lineTotal, pbRound2, PRICE_UNIT_LABEL, resolvedRate, workingFromRows, type PbWorking, type SheetItem } from '@/lib/rules/priceSheet';
@@ -56,6 +57,15 @@ function weekTables(sheet: Sheet, site: Site, wd?: { weeks: { week_number: numbe
   if (booked.length) out.push({ title: 'Weekly Booked In', site: site.name, sub, cols: [{ l: 'Week', w: 90 }, { l: 'Amount', money: true, w: 90 }, { l: 'Running Total', money: true, w: 100 }], rows: booked });
   if (wages.length) out.push({ title: 'Labour Wages', site: site.name, sub, cols: [{ l: 'Week', w: 90 }, { l: 'Total Wages', money: true, w: 100 }], rows: wages, totals: ['Total', pbRound2(wages.reduce((t, x) => t + x[1], 0))] });
   return out;
+}
+/** The issued sheet's PDF into the job's OneDrive folder when the company has added Labour Price Sheets (Admin › OneDrive ›
+ *  Finance; 20 Nov 2026). Filed once from here: its Finance subcontract order points at this same sheet. */
+async function fileSheetPdf(site: Site, org: Organization | null, sheetId: string) {
+  try {
+    const s = await loadSheet(sheetId); if (!s) return;
+    const name = `Price Sheet - ${s.sheet.title || 'Labour'}${s.sheet.subcontractor_name ? ` - ${s.sheet.subcontractor_name}` : ''}`.replace(/[\\/:*?"<>|]+/g, '-');
+    await exportTablePdf(sheetTable(s.sheet, s.items, site), org, async (b) => { packPdfBytes(site.id, 'price_sheet', name, b); return true; });
+  } catch { /* best effort: the sheet is issued either way */ }
 }
 function sheetTable(sheet: Sheet, items: SheetItem[], site: Site, f?: { total: number; taken: number; balance: number }): Table {
   const rows: Table['rows'] = items.map((it) => [it.category, it.option_label ? `${it.name} - ${it.option_label}` : it.name, it.quantity, PRICE_UNIT_LABEL[it.unit] || it.unit, Number(it.rate || 0), Number(it.line_total || 0), it.is_manual_rate ? 'Manual rate' : '']);
@@ -129,6 +139,7 @@ async function del(sheet: Sheet, siteId: string, toast: (m: string) => void, ref
 
 /* ---------- builder ---------- */
 function Builder({ me, site, sheet, items, alloc, rateItems, options }: { me: Profile; site: Site; sheet: Sheet; items: SheetItem[]; alloc: Record<string, number>; rateItems: RateItem[]; options: RateOption[] }) {
+  const { org } = useAuth(); // for the sheet's PDF into OneDrive (20 Nov 2026)
   const toast = useToast();
   const qc = useQueryClient();
   const byId: Record<string, RateItem> = Object.fromEntries(rateItems.map((i) => [i.id, i]));
@@ -164,12 +175,13 @@ function Builder({ me, site, sheet, items, alloc, rateItems, options }: { me: Pr
     if (!(await confirmAsk('Issue this sheet? It becomes read-only and visible to everyone assigned to this site. You can un-issue it later if you need to change it.', 'Issue'))) return;
     setBusy('i'); const err = await issueSheet(me, site, sheet, w, rateItems, names(), tile, subId); setBusy('');
     if (err) { toast(err); return; }
+    void fileSheetPdf(site, org, sheet.id);
     toast('Sheet issued'); refresh(); router.setParams({ edit: '' });
   };
   const saveEdits = async () => {
     if (!canIssue(w)) { toast('Enter a quantity for at least one ticked item (or add a custom row).'); return; }
     if (!(await confirmAsk('Save changes to this issued sheet? Anything already booked in against a line stays untouched.', 'Save changes'))) return;
-    setBusy('e'); toast(await saveIssuedEdits(me, site, sheet, w, rateItems, names())); setBusy(''); refresh(); router.setParams({ edit: '' });
+    setBusy('e'); toast(await saveIssuedEdits(me, site, sheet, w, rateItems, names())); setBusy(''); void fileSheetPdf(site, org, sheet.id); refresh(); router.setParams({ edit: '' });
   };
   const changeRate = async (key: string, v: string) => {
     const e = w.items[key], it = byId[e.rateItemId]; const val = parseFloat(v);

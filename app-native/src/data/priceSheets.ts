@@ -118,6 +118,11 @@ async function syncSow(siteId: string, sectionId: string | null, p: Persist) {
   for (const id of p.removedIds) { const t = byItem[id]; if (!t) continue; if ((t.status && t.status !== 'todo') || t.completed_at) await db.from('schedule_tasks').update({ sheet_item_id: null } as never).eq('id', t.id); else await db.from('schedule_tasks').delete().eq('id', t.id); }
 }
 
+/** The sheet's subcontract order in Finance: raised the first time it's issued, kept in step after (one per sheet; a sheet
+ *  made from a Finance order updates that order). Best effort: the sheet is issued either way (Andy, 20 Nov 2026). */
+export async function sheetToFinance(sheetId: string): Promise<void> {
+  try { await (supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<unknown>)('site_sheet_subcontract', { p_sheet: sheetId }); } catch { /* best effort */ }
+}
 export async function issueSheet(me: Profile, site: Site, sheet: Sheet, w: PbWorking, rateItems: RateItem[], names: string, tileName: string | null, subId: string | null): Promise<string | null> {
   const p = await persist(me, sheet.id, w, rateItems, 'issued', names);
   if (p.failed) return 'Sheet NOT issued — some items failed to save. Check your signal and try again.';
@@ -145,6 +150,7 @@ export async function issueSheet(me: Profile, site: Site, sheet: Sheet, w: PbWor
     await db.from('messages').insert(w.assignedUserIds.map((uid) => ({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'single', recipient_id: uid, kind: 'price_sheet_issued', body: `A price sheet ("${w.title}") has been issued to you on ${site.name || 'this site'}`, related_id: sheet.id })) as never);
     void supabase.functions.invoke('notify-price-sheet-issued', { body: { site_id: site.id, sheet_id: sheet.id, sheet_title: w.title, user_ids: w.assignedUserIds } }).catch(() => undefined);
   }
+  await sheetToFinance(sheet.id);
   return null;
 }
 export async function saveIssuedEdits(me: Profile, site: Site, sheet: Sheet, w: PbWorking, rateItems: RateItem[], names: string): Promise<string> {
@@ -152,6 +158,7 @@ export async function saveIssuedEdits(me: Profile, site: Site, sheet: Sheet, w: 
   if (p.failed) return 'Sheet NOT updated — some items failed to save. Check your signal and try again.';
   if (sheet.pricing_element_id) { await db.from('pricing_elements').update({ price_total: p.total } as never).eq('id', sheet.pricing_element_id); await grantAccess(me, sheet.pricing_element_id, site.id, w.assignedUserIds); }
   await syncSow(site.id, sheet.schedule_section_id, p);
+  await sheetToFinance(sheet.id);
   return p.blocked ? `Sheet updated — ${p.blocked} item(s) kept because they already have bookings against them.` : 'Sheet updated';
 }
 export const unissueSheet = async (id: string) => !!(await db.from('price_builder_sheets').update({ status: 'draft' } as never).eq('id', id).select('id')).data?.length;
