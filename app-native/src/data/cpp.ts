@@ -8,7 +8,7 @@ import { packPdfBytes } from '@/data/jobPack';
 import { loadSettings } from '@/data/ramsBuilder';
 import { buildCppPdf } from '@/lib/pdfLazy';
 import { fullSiteAddress } from '@/lib/rules/checkin';
-import { blankCpp, normaliseCpp, outlineFromSow, pickHospital, type CppHospital, type CppPlan, type CppSection } from '@/lib/rules/cpp';
+import { blankCpp, normaliseCpp, outlineFromSow, pickHospital, pullThroughCpp, type CppHospital, type CppPlan, type CppSection } from '@/lib/rules/cpp';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile, Site } from '@/lib/types';
 
@@ -120,6 +120,27 @@ export async function findHospital(from: { address: string; postcode: string }, 
   } catch { return 'Could not reach the hospital search - check signal, or type it in.'; }
 }
 
+/** What a plan can be filled from (Andy, 20 Nov 2026): the company's last plan (any job), our address and phone (the
+ *  RAMS settings, then Finance's company address) and the names of our own companies (so we're never the client). */
+export type CppSources = { prev: CppPlan | null; address: string; phone: string; ours: string[] };
+export async function cppSources(me: Me, org: Org, notId: string | null): Promise<CppSources> {
+  const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a?: object) => Promise<{ data: unknown }>;
+  const [last, st, fin, mine] = await Promise.all([
+    db.from('cpp_plans').select('id,data').eq('org_id', me.org_id as string).order('updated_at', { ascending: false }).limit(4),
+    loadSettings(org as never),
+    db.from('fin_settings').select('company_address').eq('org_id', me.org_id as string).limit(1),
+    // A database call is only promise-like: wrap it so a failure here never stops the plan.
+    Promise.resolve().then(() => rpc('my_companies')).catch(() => ({ data: null })),
+  ]);
+  const row = (((last.data as { id: string; data: Partial<CppPlan> | null }[] | null) ?? []).find((r) => r.id !== notId && r.data)) ?? null;
+  return {
+    prev: row ? normaliseCpp(row.data) : null,
+    address: String(st.address || (((fin.data as { company_address: string | null }[] | null) ?? [])[0]?.company_address) || ''),
+    phone: String(st.phone || ''),
+    ours: [org?.name || '', ...(((mine.data as { name: string }[] | null) ?? []).map((c) => c.name))].filter(Boolean),
+  };
+}
+
 /** A new plan for this job, filled from everything the job already knows. */
 export async function createCpp(me: Me, org: Org, site: Site): Promise<string | null> {
   const [defs, st] = await Promise.all([loadDefaults(me.org_id), loadSettings(org as never)]);
@@ -161,13 +182,15 @@ export async function createCpp(me: Me, org: Org, site: Site): Promise<string | 
     .filter((c) => /first\s*aid/i.test(`${c.name} ${c.category} ${c.other_type_description}`) && (!c.expiry_date || c.expiry_date >= today)).map((c) => c.operative_id))];
   const faPeople = faIds.length ? (((await db.from('profiles').select('name,phone').in('id', faIds)).data as { name: string | null; phone: string | null }[] | null) ?? []) : [];
   p.firstAiders = faPeople.map((f) => [f.name, f.phone ? `Tel: ${f.phone}` : ''].filter(Boolean).join(' ')).join('\n');
-  p.issues = [{ copy: '1', version: '1', issuedTo: p.client.contact || p.client.name, date: '' }];
+  p.issues = [{ copy: '1', version: '1', issuedTo: '', date: '' }];
   p.contacts = p.contacts.map((c) => (/project manager/i.test(c.role) && !c.name ? { ...c, name: p.pm.name, day: p.pm.phone, ooh: p.emergencyMobile } : /first aid/i.test(c.role) && !c.name && faPeople.length ? { ...c, name: faPeople.map((f) => f.name).join(', '), day: faPeople[0].phone || '', ooh: p.emergencyMobile } : c));
   // The nearest A&E (best effort; there's a button to try again).
   p.hospitalFrom = siteFrom(site);
   const h = await findHospital(p.hospitalFrom, site);
   if (typeof h !== 'string') p.hospital = h;
-  const r = await db.from('cpp_plans').insert({ org_id: me.org_id, site_id: site.id, title: `Construction Phase Plan - ${site.name || 'Job'}`, data: p } as never).select('id').single();
+  // The last plan's advisor, licence, HSE and company contacts; our address; never our own company as the client.
+  const filled = pullThroughCpp(p, await cppSources(me, org, null));
+  const r = await db.from('cpp_plans').insert({ org_id: me.org_id, site_id: site.id, title: `Construction Phase Plan - ${site.name || 'Job'}`, data: filled } as never).select('id').single();
   return (r.data as { id: string } | null)?.id ?? null;
 }
 
@@ -204,7 +227,7 @@ export async function issueCpp(me: Me, org: Org, row: CppRow, p: CppPlan, note: 
   const plan: CppPlan = { ...p, version: row.status === 'issued' ? p.version + 1 : p.version };
   const today = new Date().toISOString().slice(0, 10);
   plan.revisions = [...plan.revisions.filter((r) => r.version !== plan.version), { version: plan.version, date: today, by: me.name || '', note: note.trim() || (plan.version === 1 ? 'First issue' : ''), docId: null, path: null }];
-  if (row.status === 'issued') plan.issues = [...plan.issues, { copy: String(plan.issues.length + 1), version: String(plan.version), issuedTo: plan.client.contact || plan.client.name, date: new Date().toISOString().slice(0, 10) }];
+  if (row.status === 'issued') plan.issues = [...plan.issues, { copy: String(plan.issues.length + 1), version: String(plan.version), issuedTo: '', date: new Date().toISOString().slice(0, 10) }];
   else plan.issues = plan.issues.map((i, k) => (k === 0 && !i.date ? { ...i, date: new Date().toISOString().slice(0, 10) } : i));
   const out = await buildCppPdf(plan, org, await jobDocs(row.site_id));
   const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;

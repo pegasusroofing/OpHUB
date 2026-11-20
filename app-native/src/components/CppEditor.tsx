@@ -3,7 +3,9 @@
 // Contacts. Both save by themselves, with Next at the bottom of every tab (Andy, 20 Nov 2026: "make sure the cpp has a
 // next button at the bottom of the tabs to go to the next one and auto save"). Site layout and fire route
 // plans are a map snapshot (or a photo) marked up in the app; issuing again is a revision with its history.
-import { useQueryClient } from '@tanstack/react-query';
+// Once issued it closes (Andy, 20 Nov 2026): the issued plan with Export / Email / Edit / View; Edit opens the tabs, and
+// the Issue tab then issues the next revision. Names on the contact sheet pick from the company's people.
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Image, Linking, Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
@@ -13,16 +15,17 @@ import { promptEmail } from '@/components/EmailPrompt';
 import { FinTabs } from '@/components/FinNav';
 import { MapSnapshot } from '@/components/MapSnapshot';
 import { MarkupEditor } from '@/components/MarkupEditor';
+import { SuggestField, type Suggestion } from '@/components/SuggestField';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
-import { deleteCpp, findHospital, issueCpp, pointFor, previewCpp, saveCpp, saveCppDefaults, sowOutline, uploadCppImage, type CppRow } from '@/data/cpp';
+import { cppSources, deleteCpp, findHospital, issueCpp, pointFor, previewCpp, saveCpp, saveCppDefaults, sowOutline, uploadCppImage, type CppRow } from '@/data/cpp';
 import { openDocLink } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { deliverPdf, emailPdf, showPdf } from '@/lib/fileOut';
 import { pickPhotos } from '@/lib/photos';
-import { blankCpp, cppMissing, cppUid, f10Needed, fillCpp, type CppMarks, type CppPlan, type CppSection } from '@/lib/rules/cpp';
+import { blankCpp, cppMissing, cppUid, f10Needed, fillCpp, pullThroughCpp, type CppMarks, type CppPlan, type CppSection } from '@/lib/rules/cpp';
 import type { MarkOp } from '@/lib/rules/markup';
 import { supabase } from '@/lib/supabase';
 import { base, radius } from '@/theme/theme';
@@ -36,6 +39,8 @@ const label = { fontWeight: '600' as const, marginBottom: 3 };
 const X_W = 26; // the ✕ column, kept on every line of a row so the boxes line up (Andy, 19 Nov 2026)
 
 type JobProps = { mode: 'job'; row0: CppRow; initial: CppPlan; siteId: string };
+type Staff = { id: string; name: string | null; phone: string | null; email: string | null; role: string | null };
+const ROLE_NAME: Record<string, string> = { admin: 'Admin', pm: 'Project Manager', site_manager: 'Site Manager', operative: 'Operative', driver: 'Driver' };
 type TemplateProps = { mode: 'template'; initial: CppPlan; orgId: string };
 
 export function CppEditor(props: JobProps | TemplateProps) {
@@ -55,13 +60,20 @@ export function CppEditor(props: JobProps | TemplateProps) {
   const [busy, setBusy] = useState('');
   const [snap, setSnap] = useState<{ k: 'sitePlan' | 'firePlan'; at: { lat: number; lon: number } | null } | null>(null);
   const [mark, setMark] = useState<{ k: 'sitePlan' | 'firePlan'; src: string; base: string; ops: MarkOp[] } | null>(null);
-  const [saveState, setSaveState] = useState(!job ? 'Your company\'s starting point for every new plan · saves by itself' : props.row0.status === 'issued' ? `Issued v${props.row0.version} · changes go in the next revision` : 'Draft · saves by itself');
+  // An issued plan opens closed; Edit opens the tabs for the next revision.
+  const [editing, setEditing] = useState(!job || props.row0.status !== 'issued');
+  const editingRef = useRef(editing); editingRef.current = editing;
+  const stateText = (r: CppRow | null) => (!job ? 'Your company\'s starting point for every new plan · saves by itself' : r?.status === 'issued' ? (editingRef.current ? `Editing · issue revision ${(r?.version || 1) + 1} from the Issue tab · saves by itself` : `Issued v${r?.version} · press Edit to make changes`) : 'Draft · saves by itself');
+  const [saveState, setSaveState] = useState(stateText(job ? props.row0 : null));
+  // The company's people, for the names on the contact sheet (Andy, 20 Nov 2026).
+  const { data: staff = [] } = useQuery({ queryKey: ['cppStaff', me?.org_id], enabled: !!me?.org_id, staleTime: 300000,
+    queryFn: async () => (((await supabase.from('profiles').select('id,name,phone,email,role').eq('org_id', me?.org_id as string)).data as Staff[] | null) ?? []).filter((x) => x.name && x.role !== 'client') });
   const latest = useRef(p), timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const persist = async (x: CppPlan) => (job ? saveCpp((row as CppRow).id, x) : saveCppDefaults((props as TemplateProps).orgId, x));
   const saveNow = async () => {
     if (timer.current) { clearTimeout(timer.current); timer.current = null; }
     const ok = await persist(latest.current);
-    setSaveState(ok ? (job ? (row?.status === 'issued' ? `Issued v${row?.version} · changes go in the next revision` : 'Draft · saves by itself') : 'Your company\'s starting point for every new plan · saves by itself') : 'Not saved - check signal');
+    setSaveState(ok ? stateText(row) : 'Not saved - check signal');
     if (job) void qc.invalidateQueries({ queryKey: ['cppPlans', siteId] });
     return ok;
   };
@@ -72,6 +84,17 @@ export function CppEditor(props: JobProps | TemplateProps) {
     timer.current = setTimeout(() => { void saveNow(); }, 700);
   };
   useEffect(() => () => { if (timer.current) { clearTimeout(timer.current); void persist(latest.current); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // A draft fills its blanks from the company's last plan and our details when it opens (Andy, 20 Nov 2026).
+  useEffect(() => {
+    if (!job || !me || props.row0.status === 'issued') return;
+    let gone = false;
+    void cppSources(me, org as never, props.row0.id).then((src) => {
+      if (gone) return;
+      const next = pullThroughCpp(latest.current, src);
+      if (JSON.stringify(next) !== JSON.stringify(latest.current)) change(() => next);
+    }).catch(() => undefined);
+    return () => { gone = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   if (!me) return null;
   const set = <K extends keyof CppPlan>(k: K, v: CppPlan[K]) => change((x) => ({ ...x, [k]: v }));
   const setIn = <K extends 'pc' | 'client' | 'pm' | 'hospital' | 'hospitalFrom'>(k: K, f: string, v: string) => change((x) => ({ ...x, [k]: { ...x[k], [f]: v } }));
@@ -80,7 +103,8 @@ export function CppEditor(props: JobProps | TemplateProps) {
   const input = (l: string, value: string, onChange: (v: string) => void, o: { multi?: boolean; kb?: 'phone-pad' | 'email-address' | 'numeric'; ph?: string; lines?: number; off?: boolean } = {}) => (
     <View key={l}>
       <Muted style={label}>{l}</Muted>
-      <TextInput value={value} onChangeText={onChange} editable={!o.off} multiline={o.multi} keyboardType={o.kb} placeholder={o.ph} placeholderTextColor={base.slateLight} autoCapitalize={o.kb === 'email-address' ? 'none' : undefined}
+      {/* An email address on a phone: 0.85x the other boxes, so it fits (Andy, 20 Nov 2026; data-compact in lib/webShell). */}
+      <TextInput {...(o.kb === 'email-address' ? ({ dataSet: { compact: '1' } } as object) : {})} value={value} onChangeText={onChange} editable={!o.off} multiline={o.multi} keyboardType={o.kb} placeholder={o.ph} placeholderTextColor={base.slateLight} autoCapitalize={o.kb === 'email-address' ? 'none' : undefined}
         style={[box, o.multi ? { minHeight: 22 * (o.lines || 3), textAlignVertical: 'top' } : null, o.off ? { backgroundColor: '#EEF0F3', color: base.slate } : null]} />
     </View>
   );
@@ -88,6 +112,14 @@ export function CppEditor(props: JobProps | TemplateProps) {
   const centre = (...kids: React.ReactNode[]) => <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>{kids}</View>;
   const remove = (lab: string, fn: () => void) => <Pressable accessibilityLabel={lab} hitSlop={8} onPress={fn} style={{ width: X_W, alignItems: 'center', paddingBottom: 18 }}><Text style={{ color: base.slate, fontSize: 16 }}>✕</Text></Pressable>;
   const spacer = <View style={{ width: X_W }} />;
+  const staffItems: Suggestion[] = staff.map((x) => ({ key: x.id, label: x.name as string, sub: [ROLE_NAME[x.role || ''] || '', x.phone || ''].filter(Boolean).join(' · ') }));
+  const nameBox = (l: string, value: string, onChange: (v: string) => void, onPick: (x: Staff) => void) => (
+    <View key={l}>
+      <Muted style={label}>{l}</Muted>
+      <SuggestField value={value} onChangeText={onChange} items={staffItems} placeholder="Type a name" style={{ marginBottom: 0 }}
+        inputStyle={{ paddingHorizontal: 9, paddingVertical: 9, fontSize: 14, marginBottom: 8 }} onPick={(s) => { const x = staff.find((y) => y.id === s.key); if (x) onPick(x); }} />
+    </View>
+  );
   const imgUrl = (path: string | null) => (path ? supabase.storage.from('mc-documents').getPublicUrl(path).data.publicUrl : null);
 
   // ----- Next at the bottom of every tab; it saves by itself (Andy, 19 and 20 Nov 2026) -----
@@ -162,17 +194,13 @@ export function CppEditor(props: JobProps | TemplateProps) {
       </Card>
       <Card>
         <SectionTitle>Version And Issue Record</SectionTitle>
-        {two(input('Version', String(p.version), () => undefined, { off: true }), <View><Muted style={label}>Date Prepared</Muted><DateBox value={p.preparedDate} onChange={(v) => set('preparedDate', v)} title="Date Prepared" style={{ marginBottom: 8 }} /></View>)}
-        {input('Prepared By', p.preparedBy, (v) => set('preparedBy', v))}
-        {p.issues.map((iss, i) => (
-          <View key={i} style={{ flexDirection: 'row', gap: 6, alignItems: 'flex-end' }}>
-            <View style={{ width: 54 }}>{input('Copy', iss.copy, (v) => set('issues', p.issues.map((x, k) => (k === i ? { ...x, copy: v } : x))))}</View>
-            <View style={{ width: 62 }}>{input('Version', iss.version, (v) => set('issues', p.issues.map((x, k) => (k === i ? { ...x, version: v } : x))))}</View>
-            <View style={{ flex: 1, minWidth: 0 }}>{input('Issued To', iss.issuedTo, (v) => set('issues', p.issues.map((x, k) => (k === i ? { ...x, issuedTo: v } : x))))}</View>
-            {remove('Remove this row', () => set('issues', p.issues.filter((_, k) => k !== i)))}
-          </View>
-        ))}
-        {centre(<Button key="iss" small kind="ghost" title="+ Add Issue Row" onPress={() => set('issues', [...p.issues, { copy: String(p.issues.length + 1), version: String(p.version), issuedTo: '', date: '' }])} />)}
+        {/* Prepared By, Copy and Version on one row; no Issued To (Andy, 20 Nov 2026). */}
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>{nameBox('Prepared By', p.preparedBy, (v) => set('preparedBy', v), (x) => set('preparedBy', x.name || ''))}</View>
+          <View style={{ width: 58 }}>{input('Copy', p.issues[p.issues.length - 1]?.copy || '1', (v) => set('issues', p.issues.length ? p.issues.map((x, k) => (k === p.issues.length - 1 ? { ...x, copy: v } : x)) : [{ copy: v, version: String(p.version), issuedTo: '', date: '' }]), { kb: 'numeric' })}</View>
+          <View style={{ width: 66 }}>{input('Version', String(p.version), () => undefined, { off: true })}</View>
+        </View>
+        {two(<View><Muted style={label}>Date Prepared</Muted><DateBox value={p.preparedDate} onChange={(v) => set('preparedDate', v)} title="Date Prepared" style={{ marginBottom: 8 }} /></View>, <View />)}
       </Card>
       <Card>
         <SectionTitle>Site Plans</SectionTitle>
@@ -193,7 +221,7 @@ export function CppEditor(props: JobProps | TemplateProps) {
           <View key={i} style={{ borderTopWidth: i ? 1 : 0, borderTopColor: base.line, paddingTop: i ? 8 : 0 }}>
             <View style={{ flexDirection: 'row', gap: 6, alignItems: 'flex-end' }}>
               <View style={{ flex: 1, minWidth: 0 }}>{input('Person', c.role, (v) => upd('role', v))}</View>
-              <View style={{ flex: 1, minWidth: 0 }}>{input('Name', c.name, (v) => upd('name', v))}</View>
+              <View style={{ flex: 1, minWidth: 0 }}>{nameBox('Name', c.name, (v) => upd('name', v), (x) => set('contacts', latest.current.contacts.map((y, k) => (k === i ? { ...y, name: x.name || '', day: x.phone || y.day, ooh: y.ooh || x.phone || '' } : y))))}</View>
               {remove('Remove this contact', () => set('contacts', p.contacts.filter((_, k) => k !== i)))}
             </View>
             <View style={{ flexDirection: 'row', gap: 6, alignItems: 'flex-end' }}>
@@ -219,7 +247,7 @@ export function CppEditor(props: JobProps | TemplateProps) {
       </Card>
       <Card>
         <SectionTitle>Project Manager And First Aiders</SectionTitle>
-        {input('Project Manager', p.pm.name, (v) => setIn('pm', 'name', v))}
+        {nameBox('Project Manager', p.pm.name, (v) => setIn('pm', 'name', v), (x) => set('pm', { name: x.name || '', phone: x.phone || '', email: x.email || '' }))}
         {two(input('Phone', p.pm.phone, (v) => setIn('pm', 'phone', v), { kb: 'phone-pad' }), input('Email', p.pm.email, (v) => setIn('pm', 'email', v), { kb: 'email-address' }))}
         {input('First Aiders (From Certificates Of People On This Job)', p.firstAiders, (v) => set('firstAiders', v), { multi: true, lines: 2, ph: 'Nobody on the job has an in-date first aid certificate - type who it is' })}
       </Card>
@@ -352,7 +380,8 @@ export function CppEditor(props: JobProps | TemplateProps) {
     if (err) showAlert(err);
   };
   const when = (r: { date?: string | null; by?: string | null }) => `${r.date ? new Date(`${r.date}T00:00:00`).toLocaleDateString('en-GB') : ''}${r.by ? ` by ${r.by}` : ''}`;
-  const issue = () => (
+  const startEdit = () => { editingRef.current = true; setEditing(true); setTab(TABS[0]); setSaveState(stateText(row)); };
+  const issuedCard = () => (
     <>
       {cur ? (
         <Card>
@@ -363,11 +392,13 @@ export function CppEditor(props: JobProps | TemplateProps) {
               <Muted>Issued {when(cur)} · in the Construction Phase Plan folder{cur.note && cur.version > 1 ? ` · ${cur.note}` : ''}</Muted>
             </View>
           </View>
-          {centre(
-            <Button key="vw" small kind="ghost" title="👁 View" onPress={async () => { const u = await openDocLink('mc-documents', cur.path as string); if (u) viewDoc(u); else toast('Could not open the PDF.'); }} />,
-            <Button key="ex" small kind="ghost" busy={busy === 'ex'} title="⬇ Export" onPress={() => void exportPdf(cur.path as string, cur.version)} />,
-            <Button key="em" small kind="ghost" busy={busy === 'em'} title="✉ Email" onPress={() => void emailIt(cur.path as string, cur.version)} />,
-          )}
+          {/* Export, Email, Edit, then View in the company colour on the right (Andy, 20 Nov 2026). */}
+          <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
+            <Button small grow oneLine kind="ghost" busy={busy === 'ex'} title="⬇ Export" onPress={() => void exportPdf(cur.path as string, cur.version)} />
+            <Button small grow oneLine kind="ghost" busy={busy === 'em'} title="✉ Email" onPress={() => void emailIt(cur.path as string, cur.version)} />
+            {!editing && <Button small grow oneLine kind="ghost" title="✎ Edit" onPress={startEdit} />}
+            <Button small grow oneLine title="👁 View" onPress={async () => { const u = await openDocLink('mc-documents', cur.path as string); if (u) viewDoc(u); else toast('Could not open the PDF.'); }} />
+          </View>
           {older.length > 0 && (
             <View style={{ marginTop: 12 }}>
               <Muted style={{ fontWeight: '600', marginBottom: 2 }}>Earlier Versions</Muted>
@@ -383,19 +414,45 @@ export function CppEditor(props: JobProps | TemplateProps) {
             </View>
           )}
         </Card>
-      ) : null}
+      ) : (
+        <Card>
+          <Text style={{ fontSize: 17, fontWeight: '700', color: base.ink }}>Construction Phase Plan · Version {p.version}</Text>
+          <Muted>Issued · in the Construction Phase Plan folder</Muted>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 10 }}><Button small title="✎ Edit" onPress={startEdit} /></View>
+        </Card>
+      )}
+    </>
+  );
+  const bottomCard = (
+    <Card>
+      {centre(
+        <Button key="def" small kind="ghost" busy={busy === 'def'} title="Save Wording To Company Template" onPress={async () => {
+          if (!(await confirmAsk('Use this plan\'s wording, safety advisor, waste licence, site hours, emergency numbers and contacts as your company\'s CPP template (Admin › H&S) for every new plan?', 'Yes', 'No'))) return;
+          setBusy('def'); const ok = await saveCppDefaults(me.org_id as string, latest.current); setBusy('');
+          setSaveState(ok ? 'Wording saved to the company template' : 'Could not save the wording - try again');
+        }} />,
+        <Button key="del" small kind="ghost" title="Delete This Plan" onPress={async () => {
+          if (!(await confirmAsk(`Delete this plan?${issued ? ' The issued PDFs stay in the folder.' : ''}`, 'Yes', 'No'))) return;
+          if (await deleteCpp((row as CppRow).id)) { void qc.invalidateQueries({ queryKey: ['cppPlans', siteId] }); router.back(); } else toast('Could not delete - try again.');
+        }} />,
+      )}
+    </Card>
+  );
+  // Editing: the Issue tab issues the plan, or the next revision of an issued one.
+  const issue = () => (
+    <>
       <Card>
-        <SectionTitle>{issued ? 'Revise The Plan' : 'Ready To Issue?'}</SectionTitle>
+        <SectionTitle>{issued ? `Issue Revision ${p.version + 1}` : 'Ready To Issue?'}</SectionTitle>
         {missing.length ? <Muted style={{ color: base.warn, marginBottom: 8 }}>Still to fill in: {missing.join(', ')}.</Muted> : <Muted style={{ marginBottom: 8 }}>Everything needed is filled in.</Muted>}
-        <Muted style={{ marginBottom: 10 }}>{issued ? `Change what's needed on the other tabs, then issue revision ${p.version + 1} here. You'll be asked what has changed; the earlier version stays in the folder, marked superseded.` : 'Issuing makes the PDF and puts it in this job\'s Construction Phase Plan folder.'}</Muted>
+        <Muted style={{ marginBottom: 10 }}>{issued ? `You're editing version ${p.version}. When you're ready, issue revision ${p.version + 1}: you'll be asked what has changed, and version ${p.version} stays in the folder, marked superseded.` : 'Issuing makes the PDF and puts it in this job\'s Construction Phase Plan folder.'}</Muted>
         {centre(
-          <Button key="pv" small={issued} kind="ghost" busy={busy === 'pv'} title="Preview PDF" onPress={async () => {
+          <Button key="pv" kind="ghost" busy={busy === 'pv'} title="Preview PDF" onPress={async () => {
             if (timer.current) await saveNow();
             setBusy('pv');
             try { const out = await previewCpp(org as never, siteId, latest.current); await showPdf(out.bytes, `Construction Phase Plan - ${p.siteName || 'Job'}.pdf`); } catch { toast('Could not make the PDF - try again.'); }
             setBusy('');
           }} />,
-          <Button key="is" small={issued} kind={issued ? 'ghost' : 'primary'} busy={busy === 'is'} title={issued ? `Issue Revision ${p.version + 1}` : 'Issue Plan'} onPress={async () => {
+          <Button key="is" busy={busy === 'is'} title={issued ? `Issue Revision ${p.version + 1}` : 'Issue Plan'} onPress={async () => {
             if (missing.length && !(await confirmAsk(`Still to fill in: ${missing.join(', ')}.\n\nIssue it anyway?`, 'Yes', 'No'))) return;
             let note = 'First issue';
             if (issued) { const n = await promptText(`What has changed in revision ${p.version + 1}?`, ''); if (n === null) return; if (!n.trim()) { showAlert('Say briefly what has changed, so it shows in the revision history.'); return; } note = n.trim(); }
@@ -403,37 +460,35 @@ export function CppEditor(props: JobProps | TemplateProps) {
             setBusy('is'); const r = await issueCpp(me, org as never, row as CppRow, latest.current, note); setBusy('');
             if (typeof r === 'string') { showAlert(r); return; }
             latest.current = r.plan; setP(r.plan); setRow({ ...(row as CppRow), status: 'issued', version: r.plan.version, mc_document_id: r.docId });
+            // Issued: it closes again (Andy, 20 Nov 2026).
+            editingRef.current = false; setEditing(false); setTab(TABS[0]);
             setSaveState(`Issued v${r.plan.version} · in the Construction Phase Plan folder`);
             void qc.invalidateQueries({ queryKey: ['cppPlans', siteId] }); void qc.invalidateQueries({ queryKey: ['mcDocs', siteId, 'cpp'] }); void qc.invalidateQueries({ queryKey: ['mcTiles', siteId] });
           }} />,
+          issued ? <Button key="stop" kind="ghost" title="Stop Editing" onPress={() => { editingRef.current = false; setEditing(false); setSaveState(stateText(row)); }} /> : null,
         )}
       </Card>
-      <Card>
-        {centre(
-          <Button key="def" small kind="ghost" busy={busy === 'def'} title="Save Wording To Company Template" onPress={async () => {
-            if (!(await confirmAsk('Use this plan\'s wording, safety advisor, waste licence, site hours, emergency numbers and contacts as your company\'s CPP template (Admin › H&S) for every new plan?', 'Yes', 'No'))) return;
-            setBusy('def'); const ok = await saveCppDefaults(me.org_id as string, latest.current); setBusy('');
-            setSaveState(ok ? 'Wording saved to the company template' : 'Could not save the wording - try again');
-          }} />,
-          <Button key="del" small kind="ghost" title="Delete This Plan" onPress={async () => {
-            if (!(await confirmAsk(`Delete this plan?${issued ? ' The issued PDFs stay in the folder.' : ''}`, 'Yes', 'No'))) return;
-            if (await deleteCpp((row as CppRow).id)) { void qc.invalidateQueries({ queryKey: ['cppPlans', siteId] }); router.back(); } else toast('Could not delete - try again.');
-          }} />,
-        )}
-      </Card>
+      {bottomCard}
     </>
   );
 
   const tabCount = (t: Tab) => (t === 'plan' ? `Plan (${p.sections.length})` : t === 'details' && missing.some((m) => /Principal|Site|Outline/.test(m)) ? 'Details ⚠' : t === 'emergency' && job && missing.some((m) => /A&E|mobile/.test(m)) ? 'Emergency ⚠' : TAB_LABEL[t]);
+  const closed = job && issued && !editing;
   const body = tab === 'details' ? details() : tab === 'people' ? people() : tab === 'plan' ? plan() : tab === 'emergency' ? emergency() : tab === 'issue' ? issue() : tab === 'company' ? companyCard : contactsCard;
   return (
     <>
       <Text style={{ fontSize: 19, fontWeight: '600', color: base.ink }}>{job ? p.siteName || 'Construction Phase Plan' : 'Construction Phase Plan Template'}</Text>
       <Muted style={{ marginBottom: 8 }}>{saveState}</Muted>
-      <FinTabs even value={tab} onChange={(k) => void go(k as Tab)} items={TABS.map((t) => [t, tabCount(t)] as [string, string])} />
-      <View style={{ height: 10 }} />
-      {body}
-      <View style={{ marginTop: 6, marginBottom: 20 }}>{footer(tab)}</View>
+      {closed ? (
+        <>{issuedCard()}{bottomCard}</>
+      ) : (
+        <>
+          <FinTabs even value={tab} onChange={(k) => void go(k as Tab)} items={TABS.map((t) => [t, tabCount(t)] as [string, string])} />
+          <View style={{ height: 10 }} />
+          {body}
+          <View style={{ marginTop: 6, marginBottom: 20 }}>{footer(tab)}</View>
+        </>
+      )}
       {snap && <MapSnapshot at={snap.at} onClose={(pic) => { const k = snap.k; setSnap(null); if (pic) void startMarkup(k, pic); }} />}
       {mark && <MarkupEditor plan src={mark.src} ops={mark.ops} onClose={async (out) => {
         const m = mark; setMark(null);

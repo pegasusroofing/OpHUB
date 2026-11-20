@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { blankCpp, cppMissing, durationDays, f10Needed, fillCpp, isCppHeading, normaliseCpp, outlineFromSow, pickHospital } from './cpp.ts';
+import { blankCpp, CPP_OLD_SITE_HOURS, cppMissing, durationDays, f10Needed, fillCpp, isCppHeading, isOurCompany, normaliseCpp, outlineFromSow, pickHospital, pullThroughCpp } from './cpp.ts';
 
 test('CPP wording: names fill in, a line with nothing to fill is left out', () => {
   const p = blankCpp();
@@ -58,4 +58,28 @@ test('CPP: sub-headings and what is missing', () => {
   assert.ok(!isCppHeading('All waste will be suitably packed to ensure the safety of others.'));
   const p = blankCpp();
   assert.deepEqual(cppMissing(p), ['Principal Contractor', 'Site address', 'Outline of works', 'Nearest A&E', 'Emergency mobile']);
+});
+
+test('CPP pull-through (20 Nov 2026): the last plan, our address, 8 - 5, and our own company is never the client', () => {
+  const prev = blankCpp();
+  prev.advisor = 'Citation'; prev.wasteLicence = 'CBDU123'; prev.hse = 'HSE: www.hse.gov.uk (ours)'; prev.pc.address = '1 Old Yard';
+  prev.contacts = prev.contacts.map((c) => (c.role === 'HSEQ' ? { ...c, name: 'Sam Safe', day: '0700 1', ooh: '0700 2' } : c.role === 'Project Manager' ? { ...c, name: 'Old PM' } : c));
+  const p = blankCpp();
+  p.pc.name = 'Sandbox Roofing Ltd'; p.client.name = 'RTB Roofing'; p.client.contact = 'Andy'; p.siteHours = CPP_OLD_SITE_HOURS; p.wasteLicence = 'TYPED';
+  const out = pullThroughCpp(p, { prev, address: '', phone: '01234 567890', ours: ['RTB Roofing Ltd'] });
+  assert.equal(out.advisor, 'Citation');
+  assert.equal(out.wasteLicence, 'TYPED');
+  assert.equal(out.hse, 'HSE: www.hse.gov.uk (ours)');
+  assert.equal(out.pc.address, '1 Old Yard');
+  assert.equal(out.pc.phone, '01234 567890');
+  assert.match(out.siteHours, /8\.00am - 5\.00pm/);
+  assert.match(out.siteHours, /Weekend working/);
+  assert.equal(out.contacts.find((c) => c.role === 'HSEQ')?.name, 'Sam Safe');
+  assert.equal(out.contacts.find((c) => c.role === 'Project Manager')?.name, '');
+  assert.equal(out.client.name, '');
+  assert.equal(out.client.contact, '');
+  const other = blankCpp(); other.client.name = 'Stack London';
+  assert.equal(pullThroughCpp(other, { prev: null, address: '', phone: '', ours: ['RTB Roofing'] }).client.name, 'Stack London');
+  assert.equal(isOurCompany('RTB Roofing Limited', ['RTB Roofing Ltd']), true);
+  assert.equal(isOurCompany('', ['RTB Roofing Ltd']), false);
 });

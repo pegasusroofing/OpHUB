@@ -43,6 +43,9 @@ const SHOTS = path.join(__dirname, 'shots', 'sitetype20'); require('fs').mkdirSy
     await page.getByText(/OneDrive Sync Folder/).first().click(); await page.waitForTimeout(600);
     check(/Manual Sync/.test(await text()), `${tag}: the OneDrive folder opens`);
     await page.screenshot({path: path.join(SHOTS, `onedrive-open-${tag}.png`), fullPage: true});
+    check(/Open The Job.s Documents/.test(await text()), `${tag}: the job's Documents are in the OneDrive drop-down`);
+    await page.goto(B + '/sites/' + S1); await page.waitForTimeout(4500);
+    check(!/The job’s OneDrive folder/.test(await text()), `${tag}: no Documents row on the project page`);
     await ctx.close();
   }
   check(!errs.length, `no page errors ${errs.slice(0, 2).join(' | ')}`);

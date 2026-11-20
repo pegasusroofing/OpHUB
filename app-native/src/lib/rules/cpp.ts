@@ -196,7 +196,9 @@ Security
 Special attention will be paid to maintaining fire exit routes where this conflicts with maintaining security on site.` },
 ];
 
-export const CPP_SITE_HOURS = 'The hours on site will be 7.00am - 7.00pm Monday - Friday. Weekend working will only be carried out upon agreement of all parties.';
+// 8am - 5pm by default (Andy, 20 Nov 2026: "change the hours by default to 8am - 5pm in site hours, keep weekend bit in there").
+export const CPP_SITE_HOURS = 'The hours on site will be 8.00am - 5.00pm Monday - Friday. Weekend working will only be carried out upon agreement of all parties.';
+export const CPP_OLD_SITE_HOURS = 'The hours on site will be 7.00am - 7.00pm Monday - Friday. Weekend working will only be carried out upon agreement of all parties.';
 
 /** A new plan, before the job's details go in. */
 export function blankCpp(sections?: Omit<CppSection, 'id'>[] | null): CppPlan {
@@ -296,4 +298,38 @@ export function cppMissing(p: CppPlan): string[] {
   if (!p.hospital.name.trim()) m.push('Nearest A&E');
   if (!p.emergencyMobile.trim()) m.push('Emergency mobile');
   return m;
+}
+
+/** Is this name one of our own companies (Ltd / Limited and punctuation ignored)? */
+export function isOurCompany(name: string, ours: string[]): boolean {
+  const n = (s: string) => String(s || '').toLowerCase().replace(/\b(ltd|limited|plc|llp)\b/g, '').replace(/[^a-z0-9]/g, '');
+  const k = n(name);
+  return !!k && ours.some((o) => n(o) === k);
+}
+/** People on the contact sheet who belong to one job (the rest are the company's and carry over). */
+const JOB_ROLES = /project manager|first aid|architect|principal designer/i;
+/** Fills what a plan is missing (Andy, 20 Nov 2026): the safety advisor, waste carrier licence, HSE details and the
+ *  company's contacts (HSEQ, directors…) from the last plan the company made; our address and phone (we're the
+ *  principal contractor); 8am - 5pm for the old 7am - 7pm hours; and a client that is really one of our own companies
+ *  is cleared ("the client shouldnt pull through company name, we are the main contractor not the client"). Only blanks
+ *  are filled, so anything typed stays. */
+export function pullThroughCpp(p: CppPlan, src: { prev: CppPlan | null; address: string; phone: string; ours: string[] }): CppPlan {
+  const blank = (s: string | null | undefined) => !String(s || '').trim();
+  const prev = src.prev;
+  const x: CppPlan = { ...p, pc: { ...p.pc }, client: { ...p.client } };
+  if (blank(x.advisor) && prev && !blank(prev.advisor)) x.advisor = prev.advisor;
+  if (blank(x.wasteLicence) && prev && !blank(prev.wasteLicence)) x.wasteLicence = prev.wasteLicence;
+  if ((blank(x.hse) || x.hse === CPP_HSE) && prev && !blank(prev.hse)) x.hse = prev.hse;
+  if (blank(x.pc.address)) x.pc.address = src.address.trim() || prev?.pc.address || '';
+  if (blank(x.pc.phone)) x.pc.phone = src.phone.trim() || prev?.pc.phone || '';
+  if (blank(x.siteHours) || x.siteHours.trim() === CPP_OLD_SITE_HOURS) x.siteHours = CPP_SITE_HOURS;
+  if (prev) {
+    x.contacts = x.contacts.map((c) => {
+      if (!blank(c.name) || JOB_ROLES.test(c.role)) return c;
+      const m = prev.contacts.find((q) => q.role.trim().toLowerCase() === c.role.trim().toLowerCase() && !blank(q.name));
+      return m ? { ...c, name: m.name, day: m.day, ooh: m.ooh } : c;
+    });
+  }
+  if (isOurCompany(x.client.name, [...src.ours, x.pc.name])) x.client = { ...x.client, name: '', contact: '', phone: '', email: '', address: '' };
+  return x;
 }

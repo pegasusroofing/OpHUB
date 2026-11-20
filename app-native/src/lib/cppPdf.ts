@@ -84,7 +84,8 @@ export async function buildCppPdf(p: CppPlan, org: { name?: string | null; color
 
   // ---- cover ----
   newPage();
-  if (logo) { const d = logo.scale(1), s = Math.min(180 / d.width, 90 / d.height); page.drawImage(logo, { x: (W - d.width * s) / 2, y: H - M - d.height * s - 30, width: d.width * s, height: d.height * s }); }
+  // The logo twice the size it was, still centred (Andy, 20 Nov 2026).
+  if (logo) { const d = logo.scale(1), s = Math.min(360 / d.width, 180 / d.height); page.drawImage(logo, { x: (W - d.width * s) / 2, y: H - M - d.height * s - 30, width: d.width * s, height: d.height * s }); }
   y = H * 0.62;
   ['CONSTRUCTION PHASE', 'HEALTH AND SAFETY PLAN'].forEach((t) => { txt(t, (W - bold.widthOfTextAtSize(t, 24)) / 2, y, 24, bold, BRAND); y -= 32; });
   y -= 30;
@@ -97,7 +98,8 @@ export async function buildCppPdf(p: CppPlan, org: { name?: string | null; color
   newPage();
   kv([['Version Number', String(p.version)], ['Date Prepared', ukDate(p.preparedDate)], ['Prepared By', p.preparedBy], ['Start Date', ukDate(p.startDate)], ['Expected Duration', p.duration]]);
   txt('Construction Phase Plan Issue Record', M, y - 12, 12, bold); y -= 22;
-  table([['Copy Number', 0.18], ['Version', 0.14], ['Issued To', 0.46], ['Date', 0.22]], (p.issues.length ? p.issues : [{ copy: '1', version: String(p.version), issuedTo: '', date: '' }]).map((i) => [i.copy, i.version, i.issuedTo, ukDate(i.date)]));
+  // No Issued To column (Andy, 20 Nov 2026: "the issued to should be removed").
+  table([['Copy Number', 0.34], ['Version', 0.33], ['Date', 0.33]], (p.issues.length ? p.issues : [{ copy: '1', version: String(p.version), issuedTo: '', date: '' }]).map((i) => [i.copy, i.version, ukDate(i.date)]));
   // Revisions (Andy, 19 Nov 2026: "allow revisions to be made"): each issued version, when, by whom and what changed.
   const revs = (p.revisions || []).filter((r) => r.version <= p.version).sort((a, b) => a.version - b.version);
   if (revs.length) {

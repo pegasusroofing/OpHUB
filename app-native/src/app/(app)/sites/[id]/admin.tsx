@@ -285,6 +285,9 @@ function SyncFolderCard({ site, full }: { site: SyncSite; full: boolean }) {
     <Toggle title={`☁️ OneDrive Sync Folder — ${site.onedrive_folder_name ? `📁 ${site.onedrive_folder_name}` : 'Not Linked'}${od?.needs_reconnect ? ' ⚠' : ''}`} open={open} onPress={() => setOpen(!open)} />
     {open && (
     <Card>
+      {/* The job's documents, moved here from the project page (Andy, 20 Nov 2026: "move the documents row in the projects
+          page into the settings page as a item there. it doesnt need to be a row"). */}
+      {!!site.onedrive_folder_id && (me?.role === 'pm' || me?.role === 'admin') && <View style={{ alignItems: 'center', marginBottom: 6 }}><Button small title="📂 Open The Job's Documents" onPress={() => router.push(`/sites/${site.id}/documents` as never)} /></View>}
       {od?.needs_reconnect && <Muted style={{ color: base.warn, marginTop: 6 }}>OneDrive isn&apos;t syncing at the moment — the company connection needs reconnecting by an admin (Admin Centre › Integrations).</Muted>}
       <Muted style={{ marginVertical: 6 }}>{site.onedrive_folder_name ? `📁 ${site.onedrive_folder_name} — photos, drawings and exports sync there` : "Not linked — link the job's real OneDrive folder so photos and exports sync there."}</Muted>
       {full && !!packSettings?.enabled && (!site.onedrive_folder_id || !!(site as { job_pack?: unknown }).job_pack) && <Button kind={site.onedrive_folder_id ? 'ghost' : undefined} title={site.onedrive_folder_id ? '📦 Fill in anything missing from the job pack' : '📦 Set up job pack folder'} onPress={async () => {

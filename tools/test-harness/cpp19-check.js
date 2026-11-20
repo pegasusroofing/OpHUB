@@ -133,7 +133,12 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
       await page.getByText('Issue Plan', {exact: true}).click(); await page.waitForTimeout(7000);
       check((db.mc_documents || []).some((d) => /Construction Phase Plan v1/.test(d.name)) && db.cpp_plans[0].status === 'issued', 'laptop: Issue Plan files v1 in the CPP folder');
       // The issued plan first, as a RAMS row, with View / Export / Email; revising under it (Andy, 19 Nov 2026).
-      check(/Construction Phase Plan · Version 1/.test(await text()) && /👁 View/.test(await text()) && /⬇ Export/.test(await text()) && /✉ Email/.test(await text()) && /Revise The Plan/i.test(await text()) && /Issue Revision 2/.test(await text()), 'laptop: once issued: the issued plan with View / Export / Email, then Revise The Plan');
+      // Once issued it closes (Andy, 20 Nov 2026): Export / Email / Edit / View, no tabs; Edit opens the tabs for revision 2.
+      check(/Construction Phase Plan · Version 1/.test(await text()) && /👁 View/.test(await text()) && /⬇ Export/.test(await text()) && /✉ Email/.test(await text()) && /✎ Edit/.test(await text()) && !/Revise The Plan/i.test(await text()) && await page.getByRole('tab').count() === 0, 'laptop: once issued it closes: Export / Email / Edit / View, no tabs');
+      await page.getByText('✎ Edit', {exact: true}).first().click(); await page.waitForTimeout(800);
+      check(await page.getByRole('tab').count() > 0, 'laptop: Edit opens the tabs');
+      await tab(/^Issue/);
+      check(/You.re editing version 1/.test(await text()) && /Issue Revision 2/.test(await text()), 'laptop: the Issue tab says to issue revision 2');
       await page.screenshot({path: path.join(SHOTS, 'laptop-issued-v1.png'), fullPage: true});
       await page.getByText('Issue Revision 2', {exact: true}).click(); await page.waitForTimeout(800);
       // Typing boxes that pop up are ready to type in (Andy, 19 Nov 2026: the mark-up's Text box "doesnt automatically
@@ -149,7 +154,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
       check(pages >= 9, `laptop: the revision's PDF is made (${pages} pages, with the site plan)`);
       if (pdfs.length) fs.writeFileSync(path.join(SHOTS, 'cpp-sample.pdf'), pdfs[pdfs.length - 1]);
       await page.screenshot({path: path.join(SHOTS, 'laptop-issue.png'), fullPage: true});
-      check(/Construction Phase Plan · Version 2/.test(await text()) && /Earlier Versions/i.test(await text()) && /Version 1 \(Superseded\)/.test(await text()), 'laptop: after a revision the top shows Version 2, with Version 1 under Earlier Versions');
+      check(await page.getByRole('tab').count() === 0 && /Construction Phase Plan · Version 2/.test(await text()) && /Earlier Versions/i.test(await text()) && /Version 1 \(Superseded\)/.test(await text()), 'laptop: after a revision the top shows Version 2, with Version 1 under Earlier Versions');
       const sent = []; global.__fn = (name, body) => { if (name === 'send-document-email') sent.push(body); return null; };
       await page.getByText('✉ Email', {exact: true}).first().click(); await page.waitForTimeout(800);
       await page.locator('input[placeholder="name@company.co.uk"]').fill('client@example.co.uk'); await page.getByText('Send', {exact: true}).last().click(); await page.waitForTimeout(4000);
