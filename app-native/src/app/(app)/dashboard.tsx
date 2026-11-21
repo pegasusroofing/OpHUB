@@ -11,6 +11,7 @@ import { MyToolsList } from '@/components/MyToolsList';
 import { useToast } from '@/components/toast';
 import { pickRecipient } from '@/components/pickRecipient';
 import { useTeam } from '@/data/admin';
+import { SelectBox } from '@/components/SelectBox';
 import { Button, Card, Field, Muted, Screen, SectionTitle, Toggle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { DateField } from '@/components/DateField';
@@ -20,7 +21,7 @@ import { deliverPdf, emailPdf } from '@/lib/fileOut';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { CERT_CATEGORIES_AZ, certCategoryLabel, certDisplayName, certStats } from '@/lib/rules/certs';
-import { base, space, live } from '@/theme/theme';
+import { base, space } from '@/theme/theme';
 
 export default function Dashboard() {
   const { me } = useAuth();
@@ -94,8 +95,8 @@ export default function Dashboard() {
         <View style={{ marginTop: 8 }}>
           {certs.length > 0 && (
             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 6 }}>
-              <View style={{ flex: 1 }}><Button kind="ghost" busy={bulk === 'pdf'} title="📄 Export all (PDF)" onPress={() => void bundle('pdf')} /></View>
-              <View style={{ flex: 1 }}><Button kind="ghost" busy={bulk === 'email'} title="✉️ Email all" onPress={() => void bundle('email')} /></View>
+              <View style={{ flex: 1 }}><Button kind="ghost" busy={bulk === 'pdf'} title="📄 Export All (PDF)" onPress={() => void bundle('pdf')} /></View>
+              <View style={{ flex: 1 }}><Button kind="ghost" busy={bulk === 'email'} title="✉️ Email All" onPress={() => void bundle('email')} /></View>
             </View>
           )}
           <Pressable onPress={() => setAdding(!adding)} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 }}>
@@ -104,16 +105,9 @@ export default function Dashboard() {
           </Pressable>
           {adding && (
             <Card>
-              <Muted style={{ fontWeight: '600', marginBottom: 6 }}>Type</Muted>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-                {CERT_CATEGORIES_AZ.map((c) => (
-                  <Pressable key={c.key} onPress={() => setCat(c.key)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: cat === c.key ? live.brand1 : base.line, backgroundColor: cat === c.key ? live.brand1 : base.card }}>
-                    <Text style={{ fontSize: 12, fontWeight: '500', color: cat === c.key ? live.brand1Text : base.ink }}>{c.label}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              {cat === 'other' && <Field label="Describe the certificate type" value={other} onChangeText={setOther} />}
-              <DateField label="Expiry date (optional)" value={expiry} onChange={setExpiry} />
+              <SelectBox label="Type" title="Certificate Type" value={cat} options={CERT_CATEGORIES_AZ.map((c): [string, string] => [c.key, c.label])} onChange={setCat} />
+              {cat === 'other' && <Field label="Describe The Certificate Type" value={other} onChangeText={setOther} />}
+              <DateField label="Expiry Date (Optional)" value={expiry} onChange={setExpiry} />
               <Button kind="ghost" title={file ? `📎 ${file.name}` : 'Choose file…'} onPress={async () => {
                 const r = await DocumentPicker.getDocumentAsync({ type: ['image/*', 'application/pdf'], copyToCacheDirectory: true });
                 if (!r.canceled && r.assets[0]) setFile(r.assets[0]);

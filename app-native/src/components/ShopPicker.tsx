@@ -5,12 +5,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { Button } from '@/components/ui';
+import { Button, FilterRow } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { money } from '@/lib/rules/finance';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
-import { base, radius, live } from '@/theme/theme';
+import { base, radius } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 export type ShopItem = { id: string; description: string; unit: string | null; code: string | null; supplier_id: string | null; supplier_name: string | null; quote_id: string | null; quote_label: string | null; rate?: number | null };
@@ -57,13 +57,7 @@ export function ShopPicker({ siteId, onPick, onClose }: { siteId: string; onPick
           ) : (
             <>
               {Object.keys(quotes).length > 1 && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 8 }}>
-                  {[['', 'All quotes'], ...Object.entries(quotes)].map(([k, l]) => (
-                    <Pressable key={k || 'all'} onPress={() => setQuote(k)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: quote === k ? live.brand1 : base.line, backgroundColor: quote === k ? live.brand1 : base.card }}>
-                      <Text style={{ fontSize: 12, fontWeight: '500', color: quote === k ? live.brand1Text : base.ink }}>{l}</Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
+                <FilterRow options={[['', 'All Quotes'] as [string, string], ...Object.entries(quotes)]} value={quote} onChange={setQuote} />
               )}
               <TextInput value={q} onChangeText={setQ} placeholder="Search" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 8, color: base.ink }} />
               <ScrollView style={{ maxHeight: 420 }}>

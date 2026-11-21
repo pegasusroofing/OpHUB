@@ -1,4 +1,4 @@
-// Job Settings & Admin › Main Contractor › Company Library opens the subcontractor library.
+// Job Project Settings › Main Contractor › Company Library opens the subcontractor library.
 const {chromium, makeContext, S1} = require('./harness');
 (async()=>{
   const BASE = 'http://localhost:8081';

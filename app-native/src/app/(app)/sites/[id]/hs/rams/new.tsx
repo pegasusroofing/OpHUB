@@ -80,11 +80,11 @@ export default function RamsNew() {
       <TextInput value={name} onChangeText={setTitle} style={box} />
       <Toggle title={`Start From A Template${tpls.length ? ` (${tpls.length} ticked)` : ''}`} open={tplOpen} onPress={() => setTplOpen(!tplOpen)} />
       {tplOpen && <Card>
-        {templates.length > 1 && <Check label="Select all templates" value={tpls.length === templates.length} onChange={(v) => setTpls(v ? templates.map((t) => t.id) : [])} />}
+        {templates.length > 1 && <Check label="Select All Templates" value={tpls.length === templates.length} onChange={(v) => setTpls(v ? templates.map((t) => t.id) : [])} />}
         {templates.map((t) => <Check key={t.id} label={`📋 ${t.title} · ${((t.data || {}).hazards as unknown[] || []).length} hazards · ${((t.data || {}).sections as unknown[] || []).length} sections`} value={tpls.includes(t.id)} onChange={() => tick(tpls, setTpls, t.id)} />)}
         <Muted style={{ marginTop: 6 }}>Tick nothing to start blank. Ticking several combines them — anything in more than one is only added once. Whatever you start from, you can change it or add to it on the next screen. That only changes this RAMS, not the template.</Muted>
         {!templates.length && <Muted style={{ marginTop: 6 }}>No templates yet — {lib.length ? 'save one from any RAMS.' : 'load the starter library to get going.'}</Muted>}
-        {!templates.length && !lib.length && <Button kind="ghost" title="📚 Load the starter library" onPress={async () => {
+        {!templates.length && !lib.length && <Button kind="ghost" title="📚 Load The Starter Library" onPress={async () => {
           const r = await supabase.from('rams_library_items').insert(starterRows().map((x) => ({ ...x, org_id: me.org_id, created_by: me.id })) as never);
           toast(r.error ? 'Could not load it — try again.' : 'Starter library loaded'); void qc.invalidateQueries();
         }} />}

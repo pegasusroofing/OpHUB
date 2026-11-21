@@ -31,7 +31,7 @@ export default function FinPlant() {
   // Without Finance – Edit (Admin › Roles) the hire is shown, not changed; a new one isn't offered.
   if (!canEditFinance(me)) return (
     <ScrollView contentContainerStyle={{ padding: space.l }}>
-      <Stack.Screen options={{ title: h ? h.item : 'Plant hire' }} />
+      <Stack.Screen options={{ title: h ? h.item : 'Plant Hire' }} />
       {c && <Muted style={{ marginBottom: 8 }}>{h?.off_hire ? `Off hire ${fdate(h.off_hire)}` : `On hire ${c.weeks} wk`} · cost so far £{c.cost.toLocaleString('en-GB', { minimumFractionDigits: 2 })}</Muted>}
       {h && (
         <Card>
@@ -44,16 +44,16 @@ export default function FinPlant() {
   );
   return (
     <ScrollView contentContainerStyle={{ padding: space.l }}>
-      <Stack.Screen options={{ title: h ? h.item : 'Plant hire' }} />
+      <Stack.Screen options={{ title: h ? h.item : 'Plant Hire' }} />
       {c && <Muted style={{ marginBottom: 8 }}>{h?.off_hire ? `Off hire ${fdate(h.off_hire)}` : `On hire ${c.weeks} wk`} · cost so far £{c.cost.toLocaleString('en-GB', { minimumFractionDigits: 2 })}</Muted>}
-      <FinForm title={h ? 'Plant hire' : 'Add plant hire'}
-        extra={h ? <>{!h.off_hire && <Button kind="ghost" title="Off-hire today" onPress={async () => {
+      <FinForm title={h ? 'Plant Hire' : 'Add Plant Hire'}
+        extra={h ? <>{!h.off_hire && <Button kind="ghost" title="Off-Hire Today" onPress={async () => {
         if (!(await fdb.from('fin_plant_hires').update({ off_hire: today() } as never).eq('id', h.id).select('id')).data?.length) { toast('Could not save — try again.'); return; }
         toast('Off hire from today'); ['finPlant', 'finPurchases', 'finBook'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); router.back();
       }} />}<AllocRow table="fin_plant_hires" row={h} /></> : null} initial={h || { on_hire: today(), rate_period: 'week', cost_from: 'rate' }} onClose={() => router.back()}
         fields={[
-          { k: 'item', label: 'What’s on hire' }, { k: 'supplier_name', label: 'Supplier', half: true }, { k: 'hire_ref', label: 'Hire ref', half: true },
-          { k: 'on_hire', label: 'On hire', kind: 'date', half: true }, { k: 'off_hire', label: 'Off hire (blank = still on hire)', kind: 'date', half: true },
+          { k: 'item', label: 'What’s On Hire' }, { k: 'supplier_name', label: 'Supplier', half: true }, { k: 'hire_ref', label: 'Hire Ref', half: true },
+          { k: 'on_hire', label: 'On Hire', kind: 'date', half: true }, { k: 'off_hire', label: 'Off Hire (Blank = Still On Hire)', kind: 'date', half: true },
           { k: 'rate', label: 'Hire rate £', kind: 'money', half: true }, { k: 'rate_period', label: 'Per', kind: 'choice', options: [['week', 'Week'], ['day', 'Day']], half: true },
           { k: 'cost_from', label: 'Cost comes from', kind: 'choice', options: [['rate', 'The hire rate'], ['invoices', 'The supplier’s invoices']] }, { k: 'notes', label: 'Notes', kind: 'multiline' },
         ]}

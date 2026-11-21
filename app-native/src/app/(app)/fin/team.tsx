@@ -42,7 +42,7 @@ export default function FinTeam() {
               if (!p.finance_enabled && !['pm', 'admin'].includes(p.role) && !(await confirmAsk(`Give ${p.name} Finance? This also makes them a manager. Switching Finance off later puts their old role back.`, 'Give Finance'))) return;
               toast(await toggleFinance(p, true)); refresh();
             }} />}
-            {me.role === 'admin' && p.id !== me.id && p.role !== 'admin' && p.finance_enabled && <Button small kind="ghost" title="Make admin" onPress={async () => {
+            {me.role === 'admin' && p.id !== me.id && p.role !== 'admin' && p.finance_enabled && <Button small kind="ghost" title="Make Admin" onPress={async () => {
               if (!(await confirmAsk(`Make ${p.name} an admin? Admins can give and remove Finance for others.`, 'Make admin'))) return;
               if (!(await setRole(p.id, 'admin'))) toast('Could not save — try again.'); refresh();
             }} />}
@@ -57,7 +57,7 @@ export default function FinTeam() {
             <>
               <Text selectable style={{ fontSize: 12, color: base.ink, backgroundColor: '#F6F7F9', borderRadius: 6, padding: 8 }}>{joinLink(invite)}</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8, alignItems: 'center' }}>
-                <Button small kind="ghost" title="Copy link" onPress={async () => { const link = joinLink(invite); try { if (Platform.OS === 'web' && globalThis.navigator?.clipboard) { await globalThis.navigator.clipboard.writeText(link); toast('Link copied'); } else await Share.share({ message: link }); } catch { toast('Select and copy the link.'); } }} />
+                <Button small kind="ghost" title="Copy Link" onPress={async () => { const link = joinLink(invite); try { if (Platform.OS === 'web' && globalThis.navigator?.clipboard) { await globalThis.navigator.clipboard.writeText(link); toast('Link copied'); } else await Share.share({ message: link }); } catch { toast('Select and copy the link.'); } }} />
                 <TextInput value={email} onChangeText={setEmail} placeholder="Or email it to name@company.co.uk" autoCapitalize="none" keyboardType="email-address" style={{ flex: 1, minWidth: 220, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 8, color: base.ink }} />
                 <Button small busy={busy === 'mail'} title="Send" onPress={async () => {
                   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { toast('Enter a valid email address.'); return; }
@@ -65,7 +65,7 @@ export default function FinTeam() {
                 }} />
               </View>
             </>
-          ) : <Button small busy={busy === 'make'} title="Make an invite link" onPress={async () => { setBusy('make'); const id = await createInvite(me, 'operative'); setBusy(''); if (id) setInvite(id); else toast('Could not make the link — try again.'); }} />}
+          ) : <Button small busy={busy === 'make'} title="Make An Invite Link" onPress={async () => { setBusy('make'); const id = await createInvite(me, 'operative'); setBusy(''); if (id) setInvite(id); else toast('Could not make the link — try again.'); }} />}
         </Card>
       )}
     </FinPage>

@@ -69,7 +69,7 @@ export default function QuotePage() {
   const firstDays = settings?.chase_first_days ?? 30;
   useEffect(() => { if (q) setV(formOf(q)); }, [q?.id, q?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!me) return null;
-  if (me.role !== 'pm' && me.role !== 'admin') return <Muted style={{ padding: space.l }}>Project managers and admins only.</Muted>;
+  if (me.role !== 'pm' && me.role !== 'admin') return <><Stack.Screen options={{ title: 'New Enquiry' }} /><Muted style={{ padding: space.l }}>Project managers and admins only.</Muted></>;
   if (!isNew && !q) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const people = (team ?? []).filter((p) => p.role === 'pm' || p.role === 'admin');
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['quote', id] }); void qc.invalidateQueries({ queryKey: ['quotes', me.org_id] }); syncTracker(me.org_id as string, org); };
@@ -304,7 +304,7 @@ export default function QuotePage() {
       <Fold title="Email Chaser" open={isOpen('chase', true)} onToggle={() => flip('chase', true)} right={<Text style={{ fontSize: 12, color: base.slate, marginRight: 6 }}>{quoted ? chaseStatus(q, localISODate(new Date())) : q.chase_on ? 'On' : 'Off'}</Text>}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
           <Text style={{ flex: 1, fontSize: 13.5, color: base.ink }}>Chase This Quote</Text>
-          <YesNo label="Chase this quote" value={q.chase_on} onChange={async (on) => { if (await saveQuote(me, q.id, chasePatch(q, on, firstDays))) refresh(); else toast('Could not save. Try again.'); }} />
+          <YesNo label="Chase This Quote" value={q.chase_on} onChange={async (on) => { if (await saveQuote(me, q.id, chasePatch(q, on, firstDays))) refresh(); else toast('Could not save. Try again.'); }} />
         </View>
         {q.chase_on && (
           <>

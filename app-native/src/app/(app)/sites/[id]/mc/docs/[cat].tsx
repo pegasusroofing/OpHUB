@@ -69,8 +69,8 @@ export default function McDocs() {
             {mgr && <Pressable hitSlop={6} onPress={async () => { const n = (await promptText('Rename document', d.name))?.trim(); if (n && n !== d.name && await renameMcDoc(d.id, n)) { toast('Renamed'); refresh(); } }}><Text>✏️</Text></Pressable>}
             {mgr && <Pressable hitSlop={6} onPress={async () => { if (await confirmAsk('Delete this document?', 'Delete') && await deleteMcDoc(d)) { toast('Deleted'); refresh(); } }}><Text>🗑</Text></Pressable>}
           </View>
-          <Muted>Uploaded by {nameOf(people, d.uploaded_by)} · {new Date(d.uploaded_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted>
-          <Button title="📄 View Document" onPress={async () => { const u = await openDocLink('mc-documents', d.storage_path); if (u) viewDoc(u); else toast('Could not open the document.'); }} />
+          <Muted>{nameOf(people, d.uploaded_by) === 'Unknown' ? 'Uploaded' : `Uploaded by ${nameOf(people, d.uploaded_by)}`} · {new Date(d.uploaded_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted>
+          <Button small kind="ghost" title="📄 View Document" onPress={async () => { const u = await openDocLink('mc-documents', d.storage_path); if (u) viewDoc(u); else toast('Could not open the document.'); }} />
         </Card>
       )) : <Empty>No documents uploaded.</Empty>}
       {mgr && (
@@ -79,15 +79,17 @@ export default function McDocs() {
           {isOpen && (
             <Card>
               <TextInput value={name} onChangeText={setName} placeholder="Document name" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 8 }} />
-              <Button kind="ghost" title={file ? `📄 ${file.name}` : 'Choose PDF'} onPress={async () => {
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
+              <Button small kind="ghost" title={file ? `📄 ${file.name}` : 'Choose PDF'} onPress={async () => {
                 const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
                 if (!r.canceled && r.assets[0]) { setFile({ uri: r.assets[0].uri, name: r.assets[0].name || 'document.pdf' }); if (!name.trim()) setName((r.assets[0].name || '').replace(/\.pdf$/i, '')); }
               }} />
-              <Button busy={busy} title="Upload" onPress={async () => {
+              <Button small busy={busy} title="Upload" onPress={async () => {
                 if (!name.trim() || !file) { toast('Add a name and choose a PDF.'); return; }
                 setBusy(true); const ok = await uploadMcDoc(me, id, cat, name.trim(), file); setBusy(false);
                 if (ok) { toast('Uploaded'); setName(''); setFile(null); setOpen(false); refresh(); } else toast('Could not upload — try again.');
               }} />
+              </View>
             </Card>
           )}
         </>

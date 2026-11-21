@@ -28,9 +28,9 @@ export default function CoshhPick() {
   const cur = data?.current ?? null;
   return (
     <ScrollView contentContainerStyle={page(720)}>
-      <Stack.Screen options={{ title: 'Add from Library' }} />
+      <Stack.Screen options={{ title: 'Add From Library' }} />
       <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 8 }}>{cur ? cur.name : 'Element of Works'}</Text>
-      {cur && <View style={{ marginBottom: 10 }}><Button kind="ghost" title="‹ Up one level" onPress={() => setFolderId(cur.parent_id)} /></View>}
+      {cur && <View style={{ marginBottom: 10 }}><Button kind="ghost" title="‹ Up One Level" onPress={() => setFolderId(cur.parent_id)} /></View>}
       {!!data?.subfolders.length && <Muted style={{ marginBottom: 8 }}>Tap a folder to open it, or &quot;Select Folder&quot; to select every document inside it (including subfolders) at once.</Muted>}
       {isLoading ? <Muted>Loading…</Muted> : (
         <>

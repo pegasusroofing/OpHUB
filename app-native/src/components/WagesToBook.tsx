@@ -54,8 +54,8 @@ export function WagesToBook({ me, siteId, invoiceId, title = 'Wages to book', sh
               </View>
               {p.status === 'pending' ? (
                 <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
-                  <View style={{ flex: 1 }}><Button small busy={busy === p.id} title="Book to a price…" onPress={() => void toPrice(p)} /></View>
-                  <View style={{ flex: 1 }}><Button small kind="ghost" title="Other job costs" onPress={() => void run(p.id, () => bookWage(me, p.id, 'general'), 'Added to other job costs')} /></View>
+                  <View style={{ flex: 1 }}><Button small busy={busy === p.id} title="Book To A Price…" onPress={() => void toPrice(p)} /></View>
+                  <View style={{ flex: 1 }}><Button small kind="ghost" title="Other Job Costs" onPress={() => void run(p.id, () => bookWage(me, p.id, 'general'), 'Added to other job costs')} /></View>
                 </View>
               ) : (
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>

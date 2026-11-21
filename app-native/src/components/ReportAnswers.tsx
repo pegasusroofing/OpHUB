@@ -25,7 +25,7 @@ export function TrafficKey({ sections, onAdd, onRemove }: { sections: ReportSect
   if (!lv) return null;
   return (
     <Card>
-      <SectionTitle>Condition key</SectionTitle>
+      <SectionTitle>Condition Key</SectionTitle>
       {lv.map((l) => (
         <View key={l.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 3 }}>
           <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: trafficHex(l.color) }} />

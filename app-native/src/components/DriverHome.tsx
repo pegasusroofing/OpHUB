@@ -27,10 +27,10 @@ export function DriverHome() {
       <JobGrid>
       <Tile icon="📍" tint={s?.onDuty ? base.okBg : '#E7E9EE'} title="Check In / Out"
         sub={s ? (s.openBreak ? 'On a break' : s.onDuty ? 'Currently checked in' : 'Not checked in') : '…'} onPress={() => router.push('/driver/checkin')} />
-      <Tile icon="📅" tint={base.blueBg} title="Today's Schedule" sub={`${pending} ${pending === 1 ? 'delivery' : 'deliveries'} today`} onPress={() => router.push('/driver/schedule')} />
-      <Tile icon="🚐" tint={base.warnBg} title="Vehicle Checklist" sub="Weekly inspection" onPress={() => router.push('/driver/vehicle')} />
-      <Tile icon="📦" tint="#EEF4FF" title="Book Stock Into The Yard" sub="Deliveries and leftovers" onPress={() => router.push('/driver/yard')} />
-      <Tile icon="🌴" tint="#ECFDF3" title="Book Time Off"
+      <Tile icon="📅" tint="#E7E9EE" title="Today's Schedule" sub={`${pending} ${pending === 1 ? 'delivery' : 'deliveries'} today`} onPress={() => router.push('/driver/schedule')} />
+      <Tile icon="🚐" tint="#E7E9EE" title="Vehicle Checklist" sub="Weekly inspection" onPress={() => router.push('/driver/vehicle')} />
+      <Tile icon="📦" tint="#E7E9EE" title="Book Stock Into The Yard" sub="Deliveries and leftovers" onPress={() => router.push('/driver/yard')} />
+      <Tile icon="🌴" tint="#E7E9EE" title="Book Time Off"
         sub={next ? `Next: ${next.start_date === next.end_date ? dtoFmt(next.start_date) : `${dtoFmt(next.start_date)} →`}` : 'Days off and holidays'}
         onPress={() => router.push('/driver/timeoff')} />
       </JobGrid>

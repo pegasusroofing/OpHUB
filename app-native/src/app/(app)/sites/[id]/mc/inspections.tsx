@@ -38,7 +38,11 @@ export default function McInspections() {
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Inspections' }} />
-      {mgr && <View style={{ marginBottom: 8 }}><Button kind="ghost" title={manage ? 'Close templates' : 'Manage Templates'} onPress={() => setManage(!manage)} /></View>}
+      {/* One centred row; only one of the two opens at a time, so there is one way to make a template (app review, 21 Nov 2026). */}
+      {mgr && <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 8 }}>
+        <Button small kind="ghost" title={manage ? 'Close Templates' : 'Manage Templates'} onPress={() => { setManage(!manage); setPicker(false); }} />
+        <Button small title={picker ? 'Close' : '+ New Inspection'} onPress={() => { setPicker(!picker); setManage(false); }} />
+      </View>}
       {mgr && manage && (
         <Card>
           <Muted style={{ marginBottom: 8 }}>Main Contractor Inspection templates — separate from the general Report Templates. Editing a template never changes inspections already started from it.</Muted>
@@ -53,10 +57,9 @@ export default function McInspections() {
               }} />
             </View>
           )) : <Empty>No Main Contractor Inspection templates yet.</Empty>}
-          <Button small title="+ New Template" onPress={async () => { const tid = await quickTemplate(me, 'mc'); if (tid) router.push(`/pm/admin/templates/${tid}` as never); else toast('Could not create it — try again.'); }} />
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8 }}><Button small title="+ New Template" onPress={async () => { const tid = await quickTemplate(me, 'mc'); if (tid) router.push(`/pm/admin/templates/${tid}` as never); else toast('Could not create it — try again.'); }} /></View>
         </Card>
       )}
-      {mgr && <Button title={picker ? 'Cancel' : '+ New Inspection'} onPress={() => setPicker(!picker)} />}
       {mgr && picker && (
         <Card>
           <Muted style={{ marginBottom: 8 }}>Pick a template to start a new inspection:</Muted>
@@ -70,7 +73,7 @@ export default function McInspections() {
                 router.push(`/sites/${id}/snagging/reports/fill/${sid}` as never);
               }} />
             </View>
-          )) : <View><Empty>No inspection templates yet.</Empty>{isFullManager(me) && <Button small title="+ Create an inspection template" onPress={async () => { const tid = await quickTemplate(me, 'mc'); if (tid) router.push(`/pm/admin/templates/${tid}` as never); }} />}</View>}
+          )) : <View><Empty>No inspection templates yet.</Empty>{isFullManager(me) && <Button small title="+ Create An Inspection Template" onPress={async () => { const tid = await quickTemplate(me, 'mc'); if (tid) router.push(`/pm/admin/templates/${tid}` as never); }} />}</View>}
         </Card>
       )}
       {!mgr && !!data?.subs.length && <Muted style={{ marginBottom: 8 }}>Ask a project manager if you need to see a full inspection report.</Muted>}

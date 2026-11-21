@@ -63,7 +63,7 @@ export function FinSettingsBody({ only: one }: { only?: string | string[] }) {
   const canEdit = canEditFinance(me);
   const initial = { ...s, po_enabled: !!s.po_enabled, pi_auto_approve: s.pi_auto_approve !== false, expenses_user: s.expenses_user || '', po_vat_default: String(s.po_vat_default || '20'), auto_job_numbers: !!o?.auto_job_numbers, job_number_prefix: o?.job_number_prefix || '', next_job_number: o?.next_job_number ?? '' };
   const xs = xero?.data, xErr = xero?.error;
-  const EDIT_TITLE: Record<string, string> = { nums: 'Project numbers', po: 'Purchase orders', pi: 'Purchase invoices', vat: 'Default VAT (Sales And Purchases)', inv: 'Invoice numbers', def: 'Defaults for new projects', ohp: 'Company overheads (OHP)', bill: 'On your invoices' };
+  const EDIT_TITLE: Record<string, string> = { nums: 'Project Numbers', po: 'Purchase Orders', pi: 'Purchase Invoices', vat: 'Default VAT (Sales And Purchases)', inv: 'Invoice Numbers', def: 'Defaults For New Projects', ohp: 'Company Overheads (OHP)', bill: 'On Your Invoices' };
   const EDIT_FIELDS: Record<string, Field[]> = {
     nums: [{ k: 'auto_job_numbers', label: 'Number new projects automatically', kind: 'check' }, { k: 'job_number_prefix', label: 'Project number prefix', half: true }, { k: 'next_job_number', label: 'Next project number', kind: 'number', half: true }],
     inv: [{ k: 'invoice_prefix', label: 'Invoice prefix', half: true }, { k: 'next_invoice_number', label: 'Next invoice number', kind: 'number', half: true }],
@@ -124,16 +124,16 @@ export function FinSettingsBody({ only: one }: { only?: string | string[] }) {
     <>
       {/* Each part opens on its own, with its own Edit (Andy, 2 Nov 2026). */}
       {([
-        ['costs', 'Who can see material costs', 'eye', []],
-        ['nums', 'Project numbers', 'hash', [['Project numbers', o?.auto_job_numbers ? `Automatic · next ${o.job_number_prefix || ''}${o.next_job_number ?? ''}` : 'Typed by hand']]],
-        ['po', 'Purchase orders', 'reports', [['Raise a PO for every PM’s order', s.po_enabled ? 'On' : 'Off'], ['VAT on new PO lines', vatList(s).find((x) => x.code === String(s.po_vat_default || '20'))?.name || String(s.po_vat_default || '20')]]],
-        ['pi', 'Purchase invoices', 'reports', [['Approve automatically when nothing looks wrong', s.pi_auto_approve === false ? 'Off' : 'On'], ['Expense receipts go to (Admin › Company › Expenses)', s.expenses_user ? nameOf(people, s.expenses_user) : 'Nobody chosen']]],
-        ['vat', 'VAT rates', 'percent', [['Default VAT On Sales', FIN_VAT_LABEL[s.default_vat] || '—'], ['Default VAT On Purchases', vatList(s).find((x) => x.code === String(s.po_vat_default || '20'))?.name || String(s.po_vat_default || '20')]]],
-        ['inv', 'Invoice numbers', 'list', [['Next invoice number', `${s.invoice_prefix || ''}${s.next_invoice_number ?? ''}`]]],
-        ['def', 'Defaults for new projects', 'gear', [['Retention', `${s.default_retention_pct ?? 5}%`], ['Payment terms', `${s.default_due_days ?? 30} days · final ${s.default_final_days ?? 14} days`], ['Application date', s.app_reminder_day ? `${s.app_reminder_day} of each month` : 'Not set']]],
-        ['ohp', 'Company overheads (OHP)', 'chart', [['Company overheads', `${s.ohp_pct ?? 0}%`]]],
-        ['bill', 'On your invoices', 'building', [['Company address', s.company_address || '—'], ['VAT no.', s.company_vat_no || '—'], ['Company no.', s.company_reg_no || '—'], ['Bank', [s.bank_name, s.bank_account_name, s.bank_sort_code, s.bank_account_no].filter(Boolean).join(' · ') || '—'], ['Contractor UTR (CIS)', s.contractor_utr || '—'], ['Employer ref', s.employer_ref || '—']]],
-        ['inbox', 'Invoice inbox (email)', 'mail', []],
+        ['costs', 'Who Can See Material Costs', 'eye', []],
+        ['nums', 'Project Numbers', 'hash', [['Project Numbers', o?.auto_job_numbers ? `Automatic · next ${o.job_number_prefix || ''}${o.next_job_number ?? ''}` : 'Typed by hand']]],
+        ['po', 'Purchase Orders', 'reports', [['Raise a PO for every PM’s order', s.po_enabled ? 'On' : 'Off'], ['VAT on new PO lines', vatList(s).find((x) => x.code === String(s.po_vat_default || '20'))?.name || String(s.po_vat_default || '20')]]],
+        ['pi', 'Purchase Invoices', 'reports', [['Approve automatically when nothing looks wrong', s.pi_auto_approve === false ? 'Off' : 'On'], ['Expense receipts go to (Admin › Company › Expenses)', s.expenses_user ? nameOf(people, s.expenses_user) : 'Nobody chosen']]],
+        ['vat', 'VAT Rates', 'percent', [['Default VAT On Sales', FIN_VAT_LABEL[s.default_vat] || '—'], ['Default VAT On Purchases', vatList(s).find((x) => x.code === String(s.po_vat_default || '20'))?.name || String(s.po_vat_default || '20')]]],
+        ['inv', 'Invoice Numbers', 'list', [['Next invoice number', `${s.invoice_prefix || ''}${s.next_invoice_number ?? ''}`]]],
+        ['def', 'Defaults For New Projects', 'gear', [['Retention', `${s.default_retention_pct ?? 5}%`], ['Payment terms', `${s.default_due_days ?? 30} days · final ${s.default_final_days ?? 14} days`], ['Application date', s.app_reminder_day ? `${s.app_reminder_day} of each month` : 'Not set']]],
+        ['ohp', 'Company Overheads (OHP)', 'chart', [['Company overheads', `${s.ohp_pct ?? 0}%`]]],
+        ['bill', 'On Your Invoices', 'building', [['Company address', s.company_address || '—'], ['VAT no.', s.company_vat_no || '—'], ['Company no.', s.company_reg_no || '—'], ['Bank', [s.bank_name, s.bank_account_name, s.bank_sort_code, s.bank_account_no].filter(Boolean).join(' · ') || '—'], ['Contractor UTR (CIS)', s.contractor_utr || '—'], ['Employer ref', s.employer_ref || '—']]],
+        ['inbox', 'Invoice Inbox (Email)', 'mail', []],
         ['xero', 'Xero', 'link', []],
         ['onedrive', 'OneDrive', 'cloud', []],
       ] as [string, string, string, [string, string][]][]).filter(([k]) => !only || only.includes(k)).sort((x, y) => (only ? only.indexOf(x[0]) - only.indexOf(y[0]) : 0)).map(([k, title, ic, rows]) => {
@@ -237,8 +237,8 @@ function VatRates({ s, canEdit, onSaved }: { s: Row; canEdit: boolean; onSaved: 
       ))}
       {canEdit && (
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-          <Button kind="ghost" title="+ Add VAT rate" onPress={() => { setList([...list, { code: `c${Date.now().toString(36)}`, name: '', rate: 0, rc: false, active: true, custom: true }]); setDirty(true); }} />
-          {dirty && <Button title="Save VAT rates" onPress={async () => {
+          <Button kind="ghost" title="+ Add VAT Rate" onPress={() => { setList([...list, { code: `c${Date.now().toString(36)}`, name: '', rate: 0, rc: false, active: true, custom: true }]); setDirty(true); }} />
+          {dirty && <Button title="Save VAT Rates" onPress={async () => {
             const out = list.filter((r) => r.name.trim() || !r.custom).map((r) => ({ ...r, name: r.name.trim() || r.code, rate: Math.max(0, Math.min(100, Number(r.rate) || 0)) }));
             if (!out.some((r) => r.active)) { toast('Keep at least one VAT rate switched on.'); return; }
             let res = await fdb.from('fin_settings').update({ vat_rates: out } as never).eq('org_id', me?.org_id as string).select('org_id');

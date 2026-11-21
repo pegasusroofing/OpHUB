@@ -131,7 +131,7 @@ Thanks`;
           }} />
         </View>
       )}
-      {isFullManager(me) && <Button kind="ghost" title="🗑 Delete application" onPress={async () => {
+      {isFullManager(me) && <Button kind="ghost" title="🗑 Delete Application" onPress={async () => {
         if (!(await confirmAsk("Delete this application? This can't be undone.", 'Delete'))) return;
         if (!!(await db.from('subcontractor_applications').delete().eq('id', r.id).select('id')).data?.length) { toast('Deleted'); void qc.invalidateQueries({ queryKey: ['subApps'] }); router.back(); } else toast('Could not delete — try again.');
       }} />}

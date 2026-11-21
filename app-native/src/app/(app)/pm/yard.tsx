@@ -25,7 +25,7 @@ export default function PmYard() {
   const tab: Tab = t0 === 'stock' || t0 === 'bookin' ? t0 : 'plant';
   if (!me) return null;
   const fin = isFinanceUser(me, org);
-  if (!isManager(me) && !fin) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me) && !fin) return <><Stack.Screen options={{ title: 'Yard & Plant' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   return (
     <ScrollView contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Yard & Plant' }} />

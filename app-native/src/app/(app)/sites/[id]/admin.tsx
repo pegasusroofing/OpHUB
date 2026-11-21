@@ -1,4 +1,4 @@
-// A job's Settings & Admin (380 renderAssignTeam + 370). Site set up: name/address/
+// A job's Project Settings (380 renderAssignTeam + 370). Site set up: name/address/
 // job number/start date, Site Type (Main Contractor, Multi-Site and its addresses, Repair
 // Contract, Subcontractor On A Price), the OneDrive folder. Team: operatives, site managers, subcontractor crews, clients. Job
 // status, Price switch, Activity History and Site Info. Managers only.
@@ -48,7 +48,7 @@ export default function SiteAdmin() {
   const [addrForm, setAddrForm] = useState<{ id: string | null; name: string; address: string; postcode: string } | null>(null);
   const [details, setDetails] = useState<{ name: string; address: string; postcode: string; job: string; start: string } | null>(null);
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Only managers can open a job's Settings & Admin.</Muted>;
+  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Only managers can open a job's Project Settings.</Muted>;
   const full = isFullManager(me);
   const flip = (k: string) => setOpen({ ...open, [k]: !open[k] });
   const sk = siteStatusKey(site);
@@ -73,7 +73,7 @@ export default function SiteAdmin() {
 
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'Settings & Admin' }} />
+      <Stack.Screen options={{ title: 'Project Settings' }} />
 
       <Toggle title="⚙ Site Set Up — Name & Address, Site Type, OneDrive" open={!!open.setup} onPress={() => flip('setup')} />
       {open.setup && (
@@ -92,7 +92,7 @@ export default function SiteAdmin() {
                   <Muted style={{ fontWeight: '600' }}>Job Number</Muted>
                   <TextInput value={details.job} onChangeText={(t) => setDetails({ ...details, job: t })} placeholder="Optional" style={box} />
                   <Muted style={{ fontWeight: '600' }}>Start Date</Muted>
-                  <DateBox value={details.start} onChange={(v) => setDetails({ ...details, start: v })} title="Start date" style={{ marginBottom: 8 }} />
+                  <DateBox value={details.start} onChange={(v) => setDetails({ ...details, start: v })} title="Start Date" style={{ marginBottom: 8 }} />
                   <Button title="Save" onPress={async () => {
                     if (!details.name.trim()) { showAlert('Site name cannot be blank.'); return; }
                     // A number another job has: say which, not just "Could not save" (Andy, 18 Nov 2026: "it doesn't let me save the edit").
@@ -171,10 +171,10 @@ export default function SiteAdmin() {
         </View>
       )}
 
-      <Toggle title="👥 Team — operatives, site managers & clients" open={!!open.team} onPress={() => flip('team')} />
+      <Toggle title="👥 Team — Operatives, Site Managers & Clients" open={!!open.team} onPress={() => flip('team')} />
       {open.team && (
         <View style={{ marginLeft: 6 }}>
-          <Toggle title="Assign Operatives to Project" open={!!open.ops} onPress={() => flip('ops')} />
+          <Toggle title="Assign Operatives To Project" open={!!open.ops} onPress={() => flip('ops')} />
           {open.ops && (
             <View>
               <Muted style={{ marginBottom: 10 }}>Only operatives assigned here can see this site. Project Managers and Admins can always see every site; Site Managers need to be assigned like anyone else.</Muted>
@@ -190,7 +190,7 @@ export default function SiteAdmin() {
           )}
           {(team?.companies ?? []).map((c) => (
             <View key={c.id}>
-              <Toggle title={`Assign Operatives to ${c.name}`} open={!!open[`c:${c.id}`]} onPress={() => flip(`c:${c.id}`)} />
+              <Toggle title={`Assign Operatives To ${c.name}`} open={!!open[`c:${c.id}`]} onPress={() => flip(`c:${c.id}`)} />
               {open[`c:${c.id}`] && (
                 <View>
                   <Muted style={{ marginBottom: 10 }}>Tick every operative working for {c.name} on this site. Ticking here also gives them access to this site if they don't have it already.</Muted>
@@ -217,7 +217,7 @@ export default function SiteAdmin() {
 
       {full && (
         <>
-          <SectionTitle>Job status</SectionTitle>
+          <SectionTitle>Job Status</SectionTitle>
           <SelectBox title="Job Status" value={sk} options={[['live', '🟢 Live'], ['upcoming', '🗓 Upcoming'], ['closed', '🔒 Closed']]} onChange={async (k) => {
             if (k === sk) return;
             if (k === 'closed' && !(await confirmAsk(`Close "${site.name}"? Operatives lose access to it, and the Handover tile (O&M manual) appears on the job. You can reopen it any time from here or the Closed list.`, 'Close job'))) return;
@@ -295,10 +295,10 @@ function SyncFolderCard({ site, full }: { site: SyncSite; full: boolean }) {
         if ('error' in r) { toast(r.error); return; }
         toast(r.failed.length ? `Folder made, but these didn’t go across: ${r.failed.join(', ')}` : `Job pack made: ${r.made} folders, ${r.copied} documents`); refresh();
       }} />}
-      {full && <Button kind="ghost" title={site.onedrive_folder_name ? 'Change folder' : 'Link folder'} onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'progress', id: site.id } } as never)} />}
+      {full && <Button kind="ghost" title={site.onedrive_folder_name ? 'Change Folder' : 'Link Folder'} onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'progress', id: site.id } } as never)} />}
       {full && !!site.onedrive_folder_id && (
         <>
-          <Button kind="ghost" title="Unlink folder" onPress={async () => {
+          <Button kind="ghost" title="Unlink Folder" onPress={async () => {
             if (!(await confirmAsk(`Unlink "${site.onedrive_folder_name || 'this folder'}"? Nothing is deleted — new photos and files just stop syncing there.`, 'Unlink'))) return;
             toast((await unlinkFolder('progress', site.id)) ? 'Folder unlinked' : 'Could not unlink — try again.'); refresh();
           }} />

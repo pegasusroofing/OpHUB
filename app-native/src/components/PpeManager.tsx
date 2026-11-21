@@ -109,8 +109,8 @@ export function PpeManager({ site }: { site: Site }) {
               </View>
               {r.status === 'pending' ? (
                 <>
-                  <Button title="Fulfil" onPress={async () => { if (!!(await db.from('ppe_requests').update({ status: 'fulfilled', fulfilled_at: new Date().toISOString(), fulfilled_by: me.id } as never).eq('id', r.id).select('id')).data?.length) { toast('Marked fulfilled'); refresh(); } }} />
-                  <Button kind="ghost" title="Cancel" onPress={async () => { if (!!(await db.from('ppe_requests').update({ status: 'cancelled', fulfilled_at: new Date().toISOString(), fulfilled_by: me.id } as never).eq('id', r.id).select('id')).data?.length) { toast('Request cancelled'); refresh(); } }} />
+                  <Button small title="Fulfil" onPress={async () => { if (!!(await db.from('ppe_requests').update({ status: 'fulfilled', fulfilled_at: new Date().toISOString(), fulfilled_by: me.id } as never).eq('id', r.id).select('id')).data?.length) { toast('Marked fulfilled'); refresh(); } }} />
+                  <Button small kind="ghost" title="Cancel" onPress={async () => { if (!!(await db.from('ppe_requests').update({ status: 'cancelled', fulfilled_at: new Date().toISOString(), fulfilled_by: me.id } as never).eq('id', r.id).select('id')).data?.length) { toast('Request cancelled'); refresh(); } }} />
                 </>
               ) : <Text style={{ color: base.slate }}>{cap1(r.status)}</Text>}
             </View>

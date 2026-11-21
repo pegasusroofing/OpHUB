@@ -77,7 +77,7 @@ export default function Login() {
             </>
           ) : (
             <>
-              <Check label="Remember my email and password on this device" value={remember} onChange={setRemember} />
+              <Check label="Remember My Email And Password On This Device" value={remember} onChange={setRemember} />
               <Button title={busy || 'Sign In'} busy={!!busy} onPress={go} />
               <Link title="Forgot Password?" onPress={() => { setNotice(null); setForgot(true); }} />
             </>

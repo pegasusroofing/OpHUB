@@ -1,4 +1,4 @@
-// Purchases › Price Lists (Andy, 14 Nov 2026: "Price lists should be one tab only, remove price book … per company"): one
+// Purchases › Price Lists (Andy, 14 Nov 2026: "Price Lists should be one tab only, remove price book … per company"): one
 // tab, no Price Book; a table of suppliers; tap one for their prices, the price list's and the learned ones together.
 // Laptop and phone, fake database. node prices-check.js   (more on the phone: yardprices-phone-check.js)
 const {chromium, makeContext} = require('./harness');
@@ -21,7 +21,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
     await page.goto(B + '/fin/purchases?tab=prices'); await page.waitForTimeout(4000);
     check(await page.getByText('Price Book', {exact: true}).count() === 0, `${width}: no Price Book tab`);
     // A laptop has the Finance table (no label); a phone the phone table.
-    const t = width < 800 ? await page.locator('[aria-label="Price lists"] >> visible=true').first().innerText().catch(() => '') : await page.locator('body').innerText();
+    const t = width < 800 ? await page.locator('[aria-label="Price Lists"] >> visible=true').first().innerText().catch(() => '') : await page.locator('body').innerText();
     check(/Bauder/.test(t) && /\b2\b/.test(t), `${width}: a table of suppliers (Bauder, 2 items)`);
     await page.screenshot({path: path.join(__dirname, 'shots', 'job', `prices-${width}-book.png`)});
     await page.getByText('Bauder', {exact: true}).filter({visible: true}).first().click(); await page.waitForTimeout(2500);

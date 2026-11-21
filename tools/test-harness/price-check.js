@@ -44,7 +44,7 @@ const seed = require('./fresh/seed');
   // 3. draft builder: tick, qty, save draft
   await page.goto(BASE+'/sites/'+S1+'/price/sheets/ps1'); await page.waitForTimeout(6000);
   await page.getByText('Strip and re-slate — £12.50 / m²').click(); await page.waitForTimeout(500);
-  await page.getByText('Next — enter quantities').click(); await page.waitForTimeout(800);
+  await page.getByText('Next — Enter Quantities').click(); await page.waitForTimeout(800);
   await page.getByPlaceholder('Qty').first().fill('20'); await page.getByPlaceholder('Qty').first().blur(); await page.waitForTimeout(500);
   t = await txt(); console.log('ps1 total:', m(t, /Total £[\d,.]+/));
   await page.getByText('Save Draft', {exact:true}).click(); await page.waitForTimeout(3000);

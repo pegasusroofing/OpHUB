@@ -38,7 +38,7 @@ export function GrnForm({ siteId, m, onDone, onCancel }: { siteId: string; m: Ma
           ))}
         </View>
       )}
-      <Button kind="ghost" title="📷 Add photos" onPress={async () => {
+      <Button kind="ghost" title="📷 Add Photos" onPress={async () => {
         const p = await pickCameraOrLibrary(true);
         if ('error' in p) showAlert(p.error); else setPhotos([...photos, ...p]);
       }} />

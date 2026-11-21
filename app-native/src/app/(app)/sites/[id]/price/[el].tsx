@@ -93,7 +93,7 @@ export default function PriceElementPage() {
               <TextInput value={total ?? (el.price_total == null ? '' : String(el.price_total))} onChangeText={setTotal} keyboardType="decimal-pad" style={box} onBlur={() => { if (total != null) void saveNum('price_total', total); }} />
               <Muted style={{ fontWeight: '600' }}>Booked In override (£) — leave blank to add up the weeks ({money(f.autoBookedIn)})</Muted>
               <TextInput value={override ?? (el.price_booked_override == null ? '' : String(el.price_booked_override))} onChangeText={setOverride} keyboardType="decimal-pad" style={box} onBlur={() => { if (override != null) void saveNum('price_booked_override', override); }} />
-              {el.closed && <Check label="Operatives can see the price while closed" value={!!el.closed_show_price_to_operatives} onChange={async (v) => { toast((await patchElement(el.id, { closed_show_price_to_operatives: v })) ? 'Saved' : 'Could not save — try again.'); refresh(); }} />}
+              {el.closed && <Check label="Operatives Can See The Price While Closed" value={!!el.closed_show_price_to_operatives} onChange={async (v) => { toast((await patchElement(el.id, { closed_show_price_to_operatives: v })) ? 'Saved' : 'Could not save — try again.'); refresh(); }} />}
             </View>
           )}
         </Card>
@@ -104,7 +104,7 @@ export default function PriceElementPage() {
 
       {canPrice && (
         <>
-          <SectionTitle>Variations to Price</SectionTitle>
+          <SectionTitle>Variations To Price</SectionTitle>
           {vs.length ? vs.map((v) => (
             <Pressable key={v.id} disabled={!mgr && !(v.requested_by === me.id && v.status === 'pending')} onPress={() => void vMenu(v)}>
               <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -128,7 +128,7 @@ export default function PriceElementPage() {
             <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Request a variation to price</Muted>
             <TextInput value={amt} onChangeText={setAmt} keyboardType="decimal-pad" placeholder="Amount (£)" style={box} />
             <TextInput value={note} onChangeText={setNote} placeholder="Explain the variation" multiline style={[box, { minHeight: 56 }]} />
-            <Button busy={busy} title="Add request" onPress={async () => {
+            <Button busy={busy} title="Add Request" onPress={async () => {
               const n = readAmount(amt); if (n === 'bad' || !n || n <= 0) { toast('Enter an amount'); return; }
               if (!note.trim()) { toast('Explain the variation'); return; }
               setBusy(true); const ok = await requestVariation(me, site, el.id, n, note.trim(), money(n)); setBusy(false);

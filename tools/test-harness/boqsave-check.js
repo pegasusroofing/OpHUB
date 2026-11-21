@@ -16,7 +16,7 @@ const seed = require('./fresh/seed');
   await page.getByText('Import / Export', {exact:true}).click(); await page.waitForTimeout(600); // the import sits in the Import / Export menu
   const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout:15000}), page.getByText('Import a breakdown (Excel, CSV or PDF)', {exact:true}).click()]);
   await fc.setFiles('shots/samples/boq.csv'); await page.waitForTimeout(3000);
-  await page.getByText('Use this breakdown', {exact:true}).click(); await page.waitForTimeout(800); await page.locator('text="Replace" >> visible=true').last().click(); await page.waitForTimeout(6000);
+  await page.getByText('Use This Breakdown', {exact:true}).click(); await page.waitForTimeout(800); await page.locator('text="Replace" >> visible=true').last().click(); await page.waitForTimeout(6000);
   console.log('after autosave:', names());
   // Autosave runs when a line is finished or every 2 minutes; an import that keeps the line count waits for Save Bill of Quantities.
   if (!/Strip and re-slate/.test(names())) { await page.getByText('Save Bill of Quantities', {exact:true}).click(); await page.waitForTimeout(2500); console.log('after Save Bill of Quantities:', names()); }

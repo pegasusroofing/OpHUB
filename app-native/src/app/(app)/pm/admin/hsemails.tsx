@@ -46,7 +46,7 @@ export default function HsEmails() {
       <Stack.Screen options={{ title: 'H&S Emails' }} />
       <Card>
         <Muted style={{ marginBottom: 12 }}>When anyone at {org.name} emails a report, COSHH assessment, HAVS record, PUWER check or incident report from the app, a copy also goes to this address. Leave it blank for no office copy.</Muted>
-        <Field label="Copy health & safety emails to" value={email} onChangeText={(t) => { setTyped(t); setSaved(false); setBad(false); }}
+        <Field label="Copy Health & Safety Emails To" value={email} onChangeText={(t) => { setTyped(t); setSaved(false); setBad(false); }}
           placeholder="e.g. office@yourcompany.co.uk" autoCapitalize="none" autoCorrect={false} keyboardType="email-address"
           accessibilityLabel="Copy health and safety emails to" onSubmitEditing={() => void save()} />
         {bad && <Text style={{ color: base.red, marginTop: -4, marginBottom: 10 }}>Enter a valid email address, or leave it blank for no office copy.</Text>}

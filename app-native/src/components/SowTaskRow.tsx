@@ -222,7 +222,7 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
       {completing ? (
         <View style={s.completeCard}>
           <Text style={{ color: '#7A1F1F', marginBottom: 4 }}>Upload at least one completed photo to mark this task complete.</Text>
-          <View style={{ marginTop: 6 }}><Button kind="ghost" busy={busy} title="📷 Add completed photos" onPress={() => void addPhotosNow('complete')} /></View>
+          <View style={{ marginTop: 6 }}><Button kind="ghost" busy={busy} title="📷 Add Completed Photos" onPress={() => void addPhotosNow('complete')} /></View>
           {mgr && (
             <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderStyle: 'dashed', borderTopColor: '#E8B4B4' }}>
               <Text style={{ color: '#7A1F1F', fontWeight: '600', marginBottom: 6 }}>PM: or tick photos already uploaded to use as Completed photos</Text>

@@ -1,4 +1,4 @@
-// Andy, 7 Nov 2026 (phone): Project Admin — the Client row reads across (it was squeezed into a vertical strip), the
+// Andy, 7 Nov 2026 (phone): Project Settings — the Client row reads across (it was squeezed into a vertical strip), the
 // Client PO is a row under the contract value, one Edit ▾ button (Edit Project / Edit Project Financials / Link
 // Estimating Folder, the last gone once a folder is linked), no Client POs list at the bottom, no practical completion or
 // defects period. Project Financials on an invoice job: payment due days only (no final date, no application date),
@@ -38,7 +38,7 @@ const tile = (page, label) => page.evaluate((t) => { const el = [...document.que
   const page = await ctx.newPage(); page.on('pageerror', (e) => errs.push(e.message));
   await login(page);
 
-  // Project Admin (an invoice job).
+  // Project Settings (an invoice job).
   await page.goto(`http://localhost:8081/fin/job/${S2}?tab=setup`); await page.waitForTimeout(6000);
   let t = await page.locator('body').innerText();
   const lab = await box(page, 'Client');

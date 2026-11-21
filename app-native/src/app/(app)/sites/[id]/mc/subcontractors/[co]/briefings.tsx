@@ -66,7 +66,7 @@ export default function SubBriefings() {
       )) : <Empty>No daily briefings logged yet.</Empty>}
       {manage && (
         <Card>
-          <SectionTitle>Log a briefing</SectionTitle>
+          <SectionTitle>Log A Briefing</SectionTitle>
           <TextInput value={title} onChangeText={setTitle} placeholder="e.g. Monday morning briefing" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 8 }} />
           {!!ops?.allocated.length && (
             <View style={{ marginBottom: 8 }}>

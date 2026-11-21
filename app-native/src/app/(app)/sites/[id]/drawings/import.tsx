@@ -34,10 +34,10 @@ export default function DrawingsImport() {
   const keys = Object.keys(sel);
   return (
     <ScrollView contentContainerStyle={page(720)}>
-      <Stack.Screen options={{ title: 'Import from OneDrive' }} />
+      <Stack.Screen options={{ title: 'Import From OneDrive' }} />
       {!root ? <Empty>This job has no OneDrive folder linked — link one in Team &amp; Admin › Sync Folder.</Empty> : <>
         <Muted style={{ marginBottom: 8 }}>{path.map((p) => p.name).join(' › ')}</Muted>
-        {stack.length > 0 && <Button kind="ghost" title="‹ Up one level" onPress={() => setStack(stack.slice(0, -1))} />}
+        {stack.length > 0 && <Button kind="ghost" title="‹ Up One Level" onPress={() => setStack(stack.slice(0, -1))} />}
         {isLoading ? <Muted>Loading…</Muted> : data?.error ? <Empty>{data.error}</Empty> : <>
           {data?.folders.map((f) => (
             <Pressable key={f.id} onPress={() => setStack([...stack, { ...f, driveId: f.driveId || cur?.driveId }])} style={card}>

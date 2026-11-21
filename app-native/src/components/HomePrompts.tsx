@@ -60,7 +60,7 @@ export function HomePrompts() {
           <Muted style={{ marginBottom: 12 }}>Please read and sign these.</Muted>
           {left.pol > 0 && row('📄', `Company policies${left.pol > 1 ? ` ×${left.pol}` : ''}`)}
           {left.hb > 0 && row('📘', 'Company handbook')}
-          <View style={{ marginTop: 4 }}><Button kind="ghost" title="Not now" onPress={() => setLeft(null)} /></View>
+          <View style={{ marginTop: 4 }}><Button kind="ghost" title="Not Now" onPress={() => setLeft(null)} /></View>
         </Pressable>
       </Pressable>
     </Modal>

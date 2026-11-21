@@ -151,7 +151,7 @@ export function SubmitQuote({ q, firstDays, cc, people, onDone, onClose }: { q: 
           <QBox label="To *" value={to} onChangeText={setTo} keyboardType="email-address" autoCapitalize="none" />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: space.m }}>
             <Text style={{ flex: 1, fontSize: 13.5, color: base.ink }}>{cc ? <>Copy To <Text style={{ fontWeight: '600' }}>{cc}</Text></> : 'No preset copy-to address (Quote Settings)'}</Text>
-            {!!cc && <YesNo label="Copy in the preset address" value={useCc} onChange={setUseCc} />}
+            {!!cc && <YesNo label="Copy In The Preset Address" value={useCc} onChange={setUseCc} />}
           </View>
           <QBox label="Subject" value={subject} onChangeText={setSubject} />
           <Text style={lab}>Message</Text>

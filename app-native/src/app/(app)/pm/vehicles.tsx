@@ -10,13 +10,13 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { StorageImage } from '@/components/StorageImage';
 import { confirmAsk, useToast } from '@/components/toast';
-import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { Button, Card, Empty, FilterRow, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { VEHICLE_ITEMS, VEHICLE_PHOTOS, type VItem } from '@/lib/rules/driver';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, space, live } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Check = { id: string; driver_id: string; vehicle_reg: string | null; week_start: string; mileage: number | null; has_fails: boolean; submitted_at: string | null; items: VItem[] | null };
@@ -38,7 +38,7 @@ export default function Vehicles() {
     return { checks: (c.data as Check[] | null) ?? [], vstat: (v.data as VStat[] | null) ?? [] };
   } });
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Vehicle Checklist' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   if (isLoading || !data) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
 
   if (id) {
@@ -54,7 +54,7 @@ export default function Vehicles() {
           <Muted>{[r.vehicle_reg, r.mileage ? `${Number(r.mileage).toLocaleString('en-GB')} miles` : '', `Week of ${day(r.week_start)}`].filter(Boolean).join(' · ')}</Muted>
           {r.submitted_at && <Muted>Submitted {new Date(r.submitted_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</Muted>}
         </Card>
-        <SectionTitle>Vehicle photos</SectionTitle>
+        <SectionTitle>Vehicle Photos</SectionTitle>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {VEHICLE_PHOTOS.map((p) => (
             <View key={p.key} style={{ width: '48%' }}>
@@ -86,8 +86,8 @@ export default function Vehicles() {
   const shown = fails ? data.checks.filter((r) => r.has_fails) : data.checks;
   return (
     <ScrollView contentContainerStyle={page(720)}>
-      <Stack.Screen options={{ title: 'Vehicle health checks' }} />
-      <SectionTitle>Vehicles · 10,000-mile health checks</SectionTitle>
+      <Stack.Screen options={{ title: 'Vehicle Health Checks' }} />
+      <SectionTitle>Vehicles · 10,000-Mile Health Checks</SectionTitle>
       {data.vstat.length ? data.vstat.map((v) => {
         const since = v.last_miles != null && v.baseline_miles != null ? v.last_miles - v.baseline_miles : 0, due = since >= 10000;
         return (
@@ -100,7 +100,7 @@ export default function Vehicles() {
               {due && <Text style={{ fontWeight: '600', color: base.red }}>Due</Text>}
             </View>
             <View style={{ height: 6, borderRadius: 99, backgroundColor: '#ECEEF2', marginVertical: 8, overflow: 'hidden' }}><View style={{ height: 6, width: `${Math.max(0, Math.min(100, Math.round(since / 100)))}%`, backgroundColor: due ? base.red : base.ok }} /></View>
-            <Button kind="ghost" title="✓ Health check done" onPress={async () => {
+            <Button kind="ghost" title="✓ Health Check Done" onPress={async () => {
               if (!(await confirmAsk(`Mark the vehicle health check for ${v.vehicle_reg} as done? This restarts its 10,000-mile count.`, 'Yes'))) return;
               const now = new Date().toISOString();
               const r = await db.from('vehicle_service_status').update({ baseline_miles: v.last_miles, last_reminder_miles: null, health_check_done_at: now, health_check_done_by: me.id, updated_at: now } as never).eq('org_id', me.org_id as string).eq('vehicle_reg', v.vehicle_reg);
@@ -110,10 +110,8 @@ export default function Vehicles() {
           </Card>
         );
       }) : <Muted style={{ marginBottom: 12 }}>Mileage starts being tracked from each vehicle&apos;s next weekly check.</Muted>}
-      <SectionTitle>Weekly checklists</SectionTitle>
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-        {([[false, 'All'], [true, '⚠ Had Fails']] as const).map(([k, l]) => <Pressable key={l} onPress={() => setFails(k)} style={{ flex: 1, paddingVertical: 8, borderRadius: 16, borderWidth: 1, alignItems: 'center', borderColor: fails === k ? live.brand1 : base.line, backgroundColor: fails === k ? live.brand1 : base.card }}><Text style={{ fontWeight: '500', color: fails === k ? live.brand1Text : base.ink }}>{l}</Text></Pressable>)}
-      </View>
+      <SectionTitle>Weekly Checklists</SectionTitle>
+      <FilterRow options={[['all', 'All'], ['fails', '⚠ Had Fails']]} value={fails ? 'fails' : 'all'} onChange={(k) => setFails(k === 'fails')} />
       {shown.length ? shown.map((r) => (
         <Pressable key={r.id} onPress={() => router.setParams({ id: r.id })}>
           <Card>

@@ -30,7 +30,7 @@ export default function JobPackRules() {
     setC({ ...startingPack(true), ...data.config, rules: { ...(data.config.rules || {}) } });
   }, [data?.config]);
   if (!me?.org_id) return null;
-  if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Admins only.</Muted>;
+  if (me.role !== 'admin') return <><Stack.Screen options={{ title: 'New Job Pack' }} /><Muted style={{ padding: space.l }}>Admins only.</Muted></>;
   if (isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const orgId = me.org_id;
   const save = async (enabled = !!data?.enabled) => {
@@ -77,7 +77,7 @@ export default function JobPackRules() {
 
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'New job pack' }} />
+      <Stack.Screen options={{ title: 'New Job Pack' }} />
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={{ flex: 1 }}>
@@ -92,8 +92,8 @@ export default function JobPackRules() {
       </Card>
       <Card>
         <SectionTitle>Where</SectionTitle>
-        <Field label="New job folders go in" value={c.parent_path} onChangeText={(t) => setC({ ...c, parent_path: t })} />
-        <Field label="Template folder, for the documents below" value={c.template_path} onChangeText={(t) => setC({ ...c, template_path: t })} />
+        <Field label="New Job Folders Go In" value={c.parent_path} onChangeText={(t) => setC({ ...c, parent_path: t })} />
+        <Field label="Template Folder, For The Documents Below" value={c.template_path} onChangeText={(t) => setC({ ...c, template_path: t })} />
       </Card>
 
       {section('sync', `What the app files where (${onCount} on)`, 'Photos, RAMS, talks and the rest.')}
@@ -125,7 +125,7 @@ export default function JobPackRules() {
       {section('week', 'Weekly folders', `${weekExample(c.weekly, 1)}, ${weekExample(c.weekly, 2)} and so on.`)}
       {!!open.week && (
         <Card>
-          <Field label="Name of each week’s folder" value={c.weekly.name} onChangeText={(t) => setC({ ...c, weekly: { ...c.weekly, name: t } })} />
+          <Field label="Name Of Each Week’s Folder" value={c.weekly.name} onChangeText={(t) => setC({ ...c, weekly: { ...c.weekly, name: t } })} />
           <Muted style={{ marginBottom: 10 }}>Week 1 will be “{weekExample(c.weekly, 1)}”, week 2 “{weekExample(c.weekly, 2)}”. A week’s folder is made when its first file arrives, so quiet weeks don’t get an empty one.</Muted>
           <View style={[line, { borderBottomWidth: 0 }]}>
             <Text style={{ flex: 1, color: base.ink }}>Add the date to the name</Text>
@@ -148,7 +148,7 @@ export default function JobPackRules() {
               }}><Text style={{ fontSize: 18, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>
             </View>
           ))}
-          <View style={{ marginTop: 10 }}><Button kind="ghost" title="+ Add a folder" onPress={() => void addFolder()} /></View>
+          <View style={{ marginTop: 10 }}><Button kind="ghost" title="+ Add A Folder" onPress={() => void addFolder()} /></View>
         </Card>
       )}
 

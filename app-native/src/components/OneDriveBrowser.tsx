@@ -54,7 +54,7 @@ export function OneDriveBrowser({ root }: { root: { id: string; driveId?: string
           <Pressable key={t.id} onPress={() => setTrail(trail.slice(0, i + 1))}><Text style={{ fontWeight: '600', color: i === trail.length - 1 ? base.ink : base.blue }}> › {t.name}</Text></Pressable>
         ))}
       </View>
-      <View style={{ marginBottom: 10 }}><Button kind="ghost" busy={busy} title="⬆️ Add a file here" onPress={() => void upload()} /></View>
+      <View style={{ marginBottom: 10 }}><Button kind="ghost" busy={busy} title="⬆️ Add A File Here" onPress={() => void upload()} /></View>
       {!level ? <Muted>Loading from OneDrive…</Muted> : level.error ? <Muted style={{ color: base.warn }}>{level.error}</Muted> : !level.folders.length && !level.files.length ? <Empty>This folder is empty.</Empty> : (
         <>
           {level.folders.map((f) => (

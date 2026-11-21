@@ -25,7 +25,7 @@ const B = 'http://localhost:8081', J = `/fin/job/${S1}`;
   const inputs = page.locator('input:visible'); const n = await inputs.count();
   for (let i = 0; i < n; i++) { const v = await inputs.nth(i).inputValue(); if (!v) { await inputs.nth(i).fill('Test rate'); break; } }
   await page.waitForTimeout(200);
-  await page.getByText(/Save VAT rates/i).first().click(); await page.waitForTimeout(1500);
+  await page.getByText(/Save VAT Rates/i).first().click(); await page.waitForTimeout(1500);
   const fs0 = (db.fin_settings || [])[0];
   check('VAT rate saved', !!(fs0 && (fs0.vat_rates || []).some((r) => r.name === 'Test rate')), new URL(page.url()).pathname);
   check('VAT save stays on settings', new URL(page.url()).pathname === '/fin/settings');
@@ -37,7 +37,7 @@ const B = 'http://localhost:8081', J = `/fin/job/${S1}`;
   await page.getByText(/Record an application/i).first().click(); await page.waitForTimeout(500);
   const appl = page.locator('input:visible[inputmode="decimal"], input:visible[inputmode="numeric"]');
   await appl.first().fill('1200'); await page.waitForTimeout(300);
-  await page.getByText(/Save as received/i).first().click(); await page.waitForTimeout(1500);
+  await page.getByText(/Save As Received/i).first().click(); await page.waitForTimeout(1500);
   check('Subcontractor application saved', (db.fin_sub_apps || []).length === was + 1, await say());
 
   // Operative invoice: choose who, choose the job, type the amount, save.
@@ -48,7 +48,7 @@ const B = 'http://localhost:8081', J = `/fin/job/${S1}`;
   await page.getByText('Choose the job').first().click(); await page.waitForTimeout(500);
   await page.getByText(/Studley Rd/).last().click(); await page.waitForTimeout(500);
   await page.locator('input:visible[placeholder="£"]').first().fill('350'); await page.waitForTimeout(200);
-  await page.getByText(/Save — ready for the pay run/i).first().click(); await page.waitForTimeout(1500);
+  await page.getByText(/Save — Ready For The Pay Run/i).first().click(); await page.waitForTimeout(1500);
   const pay = (db.fin_sub_payments || []).slice(-1)[0];
   check('Operative invoice saved', (db.fin_sub_payments || []).length === lbefore + 1 && Number(pay.lines[0].amount) === 350, await say());
 

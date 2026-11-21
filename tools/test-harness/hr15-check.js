@@ -186,7 +186,7 @@ const pressChange = (page, name) => page.evaluate((n) => {
   await page.getByText('Yes, Use It', {exact: true}).click(); await page.waitForTimeout(2000);
   check(/already used in OpHUB/.test(await body()), 'a folder already used in OpHUB is refused, with why');
   await page.getByText('OK', {exact: true}).last().click(); await page.waitForTimeout(600);
-  await page.getByText('‹ Up one level', {exact: true}).click(); await page.waitForTimeout(2000);
+  await page.getByText('‹ Up One Level', {exact: true}).click(); await page.waitForTimeout(2000);
   await page.getByText('📁 HR Private', {exact: true}).click(); await page.waitForTimeout(2500);
   await page.getByText('Use "HR Private"', {exact: true}).click(); await page.waitForTimeout(1500);
   await page.getByText('Yes, Use It', {exact: true}).click(); await page.waitForTimeout(4000);

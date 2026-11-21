@@ -65,7 +65,7 @@ export default function PiQuery() {
         </View>
       )) : <Muted style={{ marginBottom: 8 }}>No replies yet.</Muted>}
       <TextInput value={text} onChangeText={setText} multiline placeholder="e.g. Yes, 2 packs came short — the driver has the note" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, minHeight: 70, color: base.ink, backgroundColor: base.card, marginVertical: 8 }} />
-      <Button busy={busy} title="Send reply" onPress={async () => {
+      <Button busy={busy} title="Send Reply" onPress={async () => {
         const t = text.trim(); if (!t) { toast('Write a reply first.'); return; }
         setBusy(true); const r = await rpc('fin_pi_query_reply', { p_pi: pi, p_text: t.slice(0, 2000) }); setBusy(false);
         if (r.error) { toast(`Couldn’t send the reply — ${String(r.error.message || '').slice(0, 120)}`); return; }

@@ -293,8 +293,8 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
               {([['valuation_date', 'Valuation Date'], ['due_date', 'Due Date'], ['final_date', 'Final Date For Payment']] as const).map(([k, l]) => (
                 <DetailRow key={k} l={l}>{locked ? <Val>{a[k] ? fdate(a[k]) : '—'}</Val> : <DateBox value={a[k] || ''} onChange={(x) => setA({ ...a, [k]: x })} title={l} style={{ width: 150, paddingVertical: 5 }} />}</DetailRow>
               ))}
-              <DetailRow l={`Retention${jf.retention_limit_pct ? ` (limit ${jf.retention_limit_pct}%)` : ''}`}>{locked ? <Val>{pct(a.retention_pct)}%</Val> : <PctIn key={`ret${a.retention_release || 0}`} label="Retention percent" value={pct(a.retention_pct)} onChange={(x) => setA({ ...a, retention_pct: x })} />}</DetailRow>
-              <DetailRow l="Discount" last={locked && !a.retention_release}>{!draftEdit ? <Val>{pct(a.discount_pct || 0)}%</Val> : <PctIn label="Discount percent" value={pct(a.discount_pct || 0)} onChange={(x) => setA({ ...a, discount_pct: x })} />}</DetailRow>
+              <DetailRow l={`Retention${jf.retention_limit_pct ? ` (limit ${jf.retention_limit_pct}%)` : ''}`}>{locked ? <Val>{pct(a.retention_pct)}%</Val> : <PctIn key={`ret${a.retention_release || 0}`} label="Retention Percent" value={pct(a.retention_pct)} onChange={(x) => setA({ ...a, retention_pct: x })} />}</DetailRow>
+              <DetailRow l="Discount" last={locked && !a.retention_release}>{!draftEdit ? <Val>{pct(a.discount_pct || 0)}%</Val> : <PctIn label="Discount Percent" value={pct(a.discount_pct || 0)} onChange={(x) => setA({ ...a, discount_pct: x })} />}</DetailRow>
               {(!locked || !!a.retention_release) && (
                 <DetailRow l="Retention Release" last>{a.retention_release ? <Val>{a.retention_release === 1 ? 'First half' : 'Final release'}</Val> : ret1Done && ret2Done ? <Val>Released</Val> : <Button small kind="ghost" title="Release ▾" onPress={() => void chooseRelease()} />}</DetailRow>
               )}
@@ -396,7 +396,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
         return (
           <Card style={{ backgroundColor: ahead ? '#fffaf0' : '#f1fbf5' }}>
             <Text style={{ color: base.ink }}>{ahead ? `Site progress is ahead on ${ahead} line${ahead === 1 ? '' : 's'} (from the operatives’ Schedule of Works).` : 'Matches site progress from the operatives’ Schedule of Works.'}</Text>
-            {ahead > 0 && <View style={{ marginTop: 6 }}><Button kind="ghost" title="Use site progress" onPress={async () => {
+            {ahead > 0 && <View style={{ marginTop: 6 }}><Button kind="ghost" title="Use Site Progress" onPress={async () => {
               const list = ch.slice(0, 25).map((x) => `• ${x.what}: ${x.from}% → ${x.to}%`).join('\n') + (ahead > 25 ? `\n…and ${ahead - 25} more` : '');
               if (!(await confirmAsk(`Use site progress on ${ahead} line${ahead === 1 ? '' : 's'}?\n\n${list}\n\nLines where you've already put more than site are left alone. You can still change any of them before saving.`, 'Use site progress'))) return;
               const lines = (a.lines || []).map((l: Row, i: number) => { const x = ch.find((y) => !y.isVar && y.i === i); return x ? { ...l, pct: x.to } : l; });
@@ -586,8 +586,8 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
             </>
           )}
           <FigRow label="Contract" rate={rate} pct="100%" qty={String(vq)} total={money(v.value)} plain bold inputs={locked ? undefined : {
-            qty: <TapNum label="Variation quantity" value={v.qty != null ? String(v.qty) : '1'} onChange={(x) => setVar(i, { qty: x })} />,
-            rate: <TapNum label="Variation rate" value={v.rate != null ? String(v.rate) : v.value != null ? String(v.value) : ''} show={rate} onChange={(x) => setVar(i, { rate: x })} wide />,
+            qty: <TapNum label="Variation Quantity" value={v.qty != null ? String(v.qty) : '1'} onChange={(x) => setVar(i, { qty: x })} />,
+            rate: <TapNum label="Variation Rate" value={v.rate != null ? String(v.rate) : v.value != null ? String(v.value) : ''} show={rate} onChange={(x) => setVar(i, { rate: x })} wide />,
           }} />
           {pv > 0 && <FigRow label="Previous" rate={rate} pct={`${pct(pv)}%`} qty={qd(pv)} total={money(round2((Number(v.value || 0) * pv) / 100))} plain />}
           <FigRow label="Applied" rate={rate} pct={`${pct(v.pct)}%`} qty={qd(pct(v.pct))} total={money(v.gross)} inputs={locked ? undefined : boxes(pct(v.pct), ['Percent done', 'Amount done', 'Quantity done'], (x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: x } : y)) }), `va${i}-${gen}`)} />

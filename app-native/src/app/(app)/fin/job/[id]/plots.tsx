@@ -46,16 +46,16 @@ export default function FinPlots() {
       {s.repair_contract ? <Muted>This is a repair contract, so it has repair jobs rather than plots. A project is one or the other.</Muted> : !s.multi_site ? (
         <View style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, padding: 14, gap: 10, alignItems: 'flex-start' }}>
           <Text style={{ fontSize: 15, fontWeight: '500', color: base.ink }}>This project is a single site.</Text>
-          {canEdit && <Button small title="Make it multi-site" onPress={() => void turnOn()} />}
+          {canEdit && <Button small title="Make It Multi-Site" onPress={() => void turnOn()} />}
         </View>
       ) : (
         <>
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10, marginBottom: 14 }}>
             <View style={{ alignItems: 'flex-start', gap: 8 }}>
               <Text style={{ fontSize: desk ? 20 : 17, fontWeight: '600', color: base.ink }}>Plots</Text>
-              {canEdit && <Button small kind="ghost" title="+ Add plot" onPress={() => setEdit('new')} />}
+              {canEdit && <Button small kind="ghost" title="+ Add Plot" onPress={() => setEdit('new')} />}
             </View>
-            <Button small kind="ghost" title="Costs by plot" onPress={() => router.push(`/fin/job/${id}/parts` as never)} />
+            <Button small kind="ghost" title="Costs By Plot" onPress={() => router.push(`/fin/job/${id}/parts` as never)} />
           </View>
           {!plots.length ? <Muted>No plots added yet.</Muted> : (
             <View style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, overflow: 'hidden' }}>

@@ -116,13 +116,13 @@ export default function Variations() {
 
       {filter !== 'closed' && (
         <Card style={{ marginTop: 14 }}>
-          <SectionTitle>Raise a variation</SectionTitle>
+          <SectionTitle>Raise A Variation</SectionTitle>
           <Muted style={{ fontWeight: '600', marginBottom: 6 }}>Photo Evidence</Muted>
           <Pressable onPress={async () => { const p = await pickCameraOrLibrary(false); if ('error' in p) showAlert(p.error); else if (p[0]) { setPhoto(p[0]); setMarking(true); } }}
             style={{ borderWidth: 1.5, borderStyle: 'dashed', borderColor: base.line, borderRadius: radius.input, minHeight: 90, alignItems: 'center', justifyContent: 'center', marginBottom: 10, overflow: 'hidden' }}>
             {photo ? <Image source={{ uri: photo.uri }} style={{ width: '100%', height: 160 }} resizeMode="cover" /> : <Text style={{ color: base.slate }}>📷 Tap to add a photo</Text>}
           </Pressable>
-          {!!photo && <View style={{ marginBottom: 10 }}><Button kind="ghost" small title="✏️ Mark up photo" onPress={() => setMarking(true)} /></View>}
+          {!!photo && <View style={{ marginBottom: 10 }}><Button kind="ghost" small title="✏️ Mark Up Photo" onPress={() => setMarking(true)} /></View>}
           <Muted style={{ fontWeight: '600', marginBottom: 6 }}>Description</Muted>
           <TextInput multiline value={desc} onChangeText={setDesc} placeholder="What's changed and why..."
             style={{ minHeight: 70, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 6 }} />

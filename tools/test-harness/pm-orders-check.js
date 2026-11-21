@@ -2,7 +2,7 @@
 // On the fake database, laptop, signed in as a PM with no Finance: Client Info — the client's PO (number, date, the PO
 // file, into Finance's own folder) and, with the client set up in Finance, the contact still editable but not the name;
 // Plant — hired plant put on hire and off hire (no rate); Materials › Subcontract Orders — raised from the company's
-// subcontractors (who and the scope, no value); Material PO's — the job's POs with no prices, lines taken off and a PO
+// subcontractors (who and the scope, no value); Material POs — the job's POs with no prices, lines taken off and a PO
 // cancelled. The database functions behind these were checked on Sandbox (rolled back). node pm-orders-check.js
 const path = require('path');
 const {chromium, makeContext, S1} = require('./harness');
@@ -91,10 +91,10 @@ const BASE = 'http://localhost:8081';
   check(/SC-001 · Leadline Ltd/.test(t) && /Finance To Add The Value/.test(t) && !/£/.test(t), 'listed: number, who, scope; Finance adds the value');
   await page.screenshot({path: 'shots/pm-sub-orders.png'});
 
-  // ---- Material PO's ----
+  // ---- Material POs ----
   await page.goto(`${BASE}/sites/${S1}/materials/pos`); await page.waitForTimeout(4500);
   t = await text();
-  check(/PURCHASE ORDERS/.test(t) && /J101-PO-001 · SIG Roofing/.test(t) && /J101-PO-002/.test(t) && !/£/.test(t), "Material PO's: the job's POs, no prices");
+  check(/PURCHASE ORDERS/.test(t) && /J101-PO-001 · SIG Roofing/.test(t) && /J101-PO-002/.test(t) && !/£/.test(t), "Material POs: the job's POs, no prices");
   await page.getByLabel('PO J101-PO-001').click(); await page.waitForTimeout(500);
   check(/400 × Slate 500x250/.test(await text()), 'a PO opens to its lines');
   await page.getByRole('button', {name: 'Change ▾'}).click(); await page.waitForTimeout(500); await menu('Take Lines Off').click(); await page.waitForTimeout(600);

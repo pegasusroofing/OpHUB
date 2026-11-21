@@ -35,8 +35,8 @@ export default function Reset() {
           <Muted>This link isn't complete. Go back to the log in page and tap "Forgot password?" again.</Muted>
         ) : (
           <>
-            <Field label="New password" value={pw1} onChangeText={setPw1} secureTextEntry placeholder="At least 8 characters" autoComplete="new-password" />
-            <Field label="Type it again" value={pw2} onChangeText={setPw2} secureTextEntry autoComplete="new-password" />
+            <Field label="New Password" value={pw1} onChangeText={setPw1} secureTextEntry placeholder="At least 8 characters" autoComplete="new-password" />
+            <Field label="Type It Again" value={pw2} onChangeText={setPw2} secureTextEntry autoComplete="new-password" />
             <Button title={busy ? 'Saving…' : 'Save new password'} busy={busy} onPress={save} />
           </>
         )}

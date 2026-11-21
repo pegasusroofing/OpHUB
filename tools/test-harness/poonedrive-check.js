@@ -1,5 +1,5 @@
 // POs go to OneDrive too (Andy, 7 Nov 2026): ticking "File In Project PO Folder" on a saved PO files its PDF in OpHUB's PO folder
-// AND copies it into the job's linked OneDrive "Material PO's" folder, under the same name (so the OneDrive → OpHUB sync
+// AND copies it into the job's linked OneDrive "Material POs" folder, under the same name (so the OneDrive → OpHUB sync
 // doesn't bring it back as a second copy). No folder linked: filed in OpHUB only, nothing sent to OneDrive.
 // Fake database; onedrive-upload is caught here, nothing reaches OneDrive.
 // node poonedrive-check.js

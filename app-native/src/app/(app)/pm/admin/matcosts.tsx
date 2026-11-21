@@ -23,7 +23,7 @@ export default function MaterialCosts() {
   const qc = useQueryClient();
   const { data: team = [], refetch } = useQuery({ queryKey: ['matCosts', me?.org_id], enabled: !!me?.org_id, queryFn: async () => (((await db.from('profiles').select('id,name,role,see_costs,finance_enabled').eq('org_id', me?.org_id as string)).data as P[] | null) ?? []).sort((a, b) => String(a.name).localeCompare(String(b.name))) });
   if (!me) return null;
-  if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Company admins only.</Muted>;
+  if (me.role !== 'admin') return <><Stack.Screen options={{ title: 'Material Costs' }} /><Muted style={{ padding: space.l }}>Company admins only.</Muted></>;
   const canEdit = isFinanceUser(me, org);
   const ops = team.filter((p) => p.role === 'operative');
   const office = team.filter((p) => !['operative', 'admin', 'driver', 'client'].includes(p.role) && !p.role.startsWith('subcontractor') && p.see_costs && !p.finance_enabled);

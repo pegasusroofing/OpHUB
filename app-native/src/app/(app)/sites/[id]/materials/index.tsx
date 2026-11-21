@@ -1,6 +1,6 @@
 // A job's Materials. Operatives (725): their collection list as a tick list, what's
 // coming to site, their waiting requests and "Request materials". Managers (720):
-// big rows for Material Requests, Material PO's, Plant and Expenses (Andy, 11 Nov 2026: option A; PMs / admins choose
+// big rows for Material Requests, Material POs, Plant and Expenses (Andy, 11 Nov 2026: option A; PMs / admins choose
 // who else sees Plant and Expenses on this job from the row's ⋯). Subcontract Orders is its own row on the job page.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -52,7 +52,7 @@ function ManagerTiles({ siteId, vis, role, me, site }: { siteId: string; vis: Pa
       <HowTo k="materials" />
       <BigRows rows={[
         { k: 'req', ic: 'chat', t: 'Requests', s: sub || 'Nothing waiting', badge: pending?.length || 0, go: go('materials/requests') },
-        { k: 'po', ic: 'reports', t: "Material PO's", s: office?.length ? `${office.length} raised by the office` : 'Orders to suppliers', go: go('materials/pos') },
+        { k: 'po', ic: 'reports', t: "Material POs", s: office?.length ? `${office.length} raised by the office` : 'Orders to suppliers', go: go('materials/pos') },
         ...(canSeeMatTile(vis, 'plant', role) ? [{ k: 'plant', ic: 'truck', t: 'Plant', s: 'Hired plant on this job', go: go('plant'), ...visProps('plant', 'Plant') }] : []),
         // Expenses has its own page from the menu since 19 Nov 2026 (Andy: "remove it from anywhere else in the app").
         // Raise a subcontract order from here when the job page doesn't show the row (not on a price) (Andy, 13 Nov 2026).

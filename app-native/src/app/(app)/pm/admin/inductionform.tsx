@@ -22,7 +22,7 @@ export default function InductionFormScreen() {
   const { me, org } = useAuth();
   const { data, isLoading } = useInductionForm(org);
   if (!me) return null;
-  if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
+  if (!isFullManager(me)) return <><Stack.Screen options={{ title: 'Induction Form' }} /><Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted></>;
   if (isLoading || !data) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   return (
     <ScrollView contentContainerStyle={page(820)} keyboardShouldPersistTaps="handled">

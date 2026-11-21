@@ -84,8 +84,8 @@ export default function FinParts() {
       {/* A tab beside Live Jobs, or beside the Bill's Plots (Andy, 8 Nov 2026). */}
       {subKind(site) === 'repair' ? <RepairTabs id={id} on="parts" /> : <BoqTabs id={id} on="parts" />}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-        <FinStat v={money(sum('cost'), 0)} label="Total cost" /><FinStat v={money(round2(rows.reduce((t, r) => t + r.cost, 0)), 0)} label={`Allocated to ${nouns}`} />
-        <FinStat v={money(un.cost, 0)} label="Not allocated" tone={un.cost > 0 ? 'amber' : undefined} /><FinStat v={money(sum('committed'), 0)} label="Committed (ordered)" />
+        <FinStat v={money(sum('cost'), 0)} label="Total Cost" /><FinStat v={money(round2(rows.reduce((t, r) => t + r.cost, 0)), 0)} label={`Allocated to ${nouns}`} />
+        <FinStat v={money(un.cost, 0)} label="Not Allocated" tone={un.cost > 0 ? 'amber' : undefined} /><FinStat v={money(sum('committed'), 0)} label="Committed (Ordered)" />
       </View>
       {sv.subs.length > 0 && cv != null && valTot > 0 && Math.abs(valTot - cv) >= 1 && <Card style={{ backgroundColor: '#fffaf0' }}><Text style={{ color: base.ink }}>The {nouns} add up to {money(valTot)} but the contract value is {money(cv)}.</Text></Card>}
       {!sv.subs.length && <Card><Text style={{ color: base.ink }}>No {nouns} on this project yet. {subKind(site) === 'repair' ? 'Add repair jobs from the project home.' : 'Add them in the project’s Settings › Multi-Site.'}</Text></Card>}

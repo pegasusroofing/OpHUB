@@ -14,7 +14,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/fin/job/'+S1); await page.waitForTimeout(5000);
-  await page.getByText('Project Admin', {exact:true}).first().click(); await page.waitForTimeout(1500);
+  await page.getByText('Project Settings', {exact:true}).first().click(); await page.waitForTimeout(1500);
   // Edit ▾ › Edit Project Financials; the Client box picks from the Directory.
   await page.getByText('Edit ▾', {exact:true}).first().click(); await page.waitForTimeout(600);
   await page.locator('text="Edit Project Financials" >> visible=true').last().click(); await page.waitForTimeout(1200);

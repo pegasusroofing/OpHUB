@@ -249,7 +249,7 @@ function YardList({ items, rateBy, loading, canEdit, onNew, onIn, onOut }: { ite
           ]}
           footLabel={(rows) => `${rows.length} shown`} />
       ) : desk && !items.length ? <Empty>{f === 'low' ? 'Nothing is below its minimum level.' : 'No yard stock yet — add the first item.'}</Empty>
-        : items.length ? <PhoneTable label="Yard stock" cols={pcols} rows={items} keyOf={(s) => s.id} onRow={(s) => openItem(s.id)} find={find}
+        : items.length ? <PhoneTable label="Yard Stock" cols={pcols} rows={items} keyOf={(s) => s.id} onRow={(s) => openItem(s.id)} find={find}
           foot={find.shown.length ? <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, paddingHorizontal: 10, borderTopWidth: 1, borderTopColor: '#EEF0F2', backgroundColor: '#F6F7F9' }}><Text style={{ fontSize: 11.5, color: base.slate }}>{find.shown.length} Item{find.shown.length === 1 ? '' : 's'}</Text><Text style={{ fontSize: 11.5, fontWeight: '500', color: base.slate }}>Value {money(find.shown.reduce((x, s) => x + val(s), 0))}</Text></View> : undefined} />
         : <Empty>No yard stock yet — add the first item.</Empty>}
       {desk && list.length > 0 && <Muted style={{ marginTop: 4 }}>Stock value {money(total)} (items with a rate).</Muted>}
@@ -293,7 +293,7 @@ function ItemView({ s, rate, jobName, canEdit, onEdit, onIn, onOut }: { s: Item;
       </View>}
       <SectionTitle>History</SectionTitle>
       {moves.length ? (
-        <PhoneTable label="Yard history" search={false} rows={moves} keyOf={(m) => m.id}
+        <PhoneTable label="Yard History" search={false} rows={moves} keyOf={(m) => m.id}
           cols={[
             { k: 'd', l: 'Date', w: 82, main: (m) => fdate(String(m.created_at).slice(0, 10)) },
             { k: 'm', l: 'Move', lines: 2, main: (m) => moveWord(m), sub: (m) => [jobName(m.site_id), m.supplier_name, m.ref, isLost(m) ? String(m.note).replace(/^Lost:?\s*/, '') : m.note, m.job_cost_id ? 'On The Job’s Costs' : ''].filter(Boolean).join(' · ') },

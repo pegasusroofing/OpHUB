@@ -87,23 +87,23 @@ function yard(db) {
   await page.getByText('Book Out', {exact: true}).last().click(); await page.waitForTimeout(2500);
   const mv = db.yard_moves.find((m) => m.stock_id === 'y1');
   check(mv && mv.kind === 'adjust' && Number(mv.qty) === -2 && /^Lost: Stolen/.test(mv.note || '') && !mv.site_id, 'Lost: saved as −2 marked Lost, on no job');
-  t = await vis('[aria-label="Yard history"]').innerText().catch(() => '');
+  t = await vis('[aria-label="Yard History"]').innerText().catch(() => '');
   check(/Booked Out As Lost/.test(t) && /Stolen from the van/.test(t), 'Item history shows Booked Out As Lost');
   await page.screenshot({path: path.join(SHOTS, 'yard-item-lost.png')});
 
   // ---- Price Lists ----
   await page.goto(B + '/fin/purchases?tab=prices'); await page.waitForTimeout(4500);
   check(await page.getByText('Price Book', {exact: true}).count() === 0, 'Price Lists: one tab, no Price Book');
-  t = await vis('[aria-label="Price lists"]').innerText();
+  t = await vis('[aria-label="Price Lists"]').innerText();
   check(t.indexOf('Alltype Roofing') >= 0 && t.indexOf('Alltype Roofing') < t.indexOf('Bauder') && t.indexOf('Bauder') < t.indexOf('JJ Roofing') && /1 Price List/.test(t), 'Price Lists: a table of suppliers A to Z (Alltype, Bauder, JJ)');
   await page.screenshot({path: path.join(SHOTS, 'pricelists.png')});
-  await vis('[aria-label="Price lists"]').getByRole('button').filter({hasText: 'Bauder'}).first().click(); await page.waitForTimeout(2500);
+  await vis('[aria-label="Price Lists"]').getByRole('button').filter({hasText: 'Bauder'}).first().click(); await page.waitForTimeout(2500);
   check(/sup=Bauder/.test(page.url()) && await page.getByRole('heading', {name: 'Bauder'}).filter({visible: true}).count() === 1 && /Price Lists › Bauder/.test(await body()), 'Bauder: opens with their name at the top; the trail reads Price Lists › Bauder');
   t = await vis('[aria-label="Prices"]').innerText();
   check(/Thermofol U 15 Membrane/.test(t) && /Karat Cap Sheet/.test(t) && /Bauder Primer 25L/.test(t) && /Price List/.test(t) && /Invoice/.test(t) && !/Natural Slate/.test(t), 'Bauder: their list’s items and the price from an invoice, in one table');
   const ub = await page.getByRole('button', {name: '📥 Upload Price List', exact: true}).filter({visible: true}).first().boundingBox(), ab = await page.getByRole('button', {name: '+ Add A Price', exact: true}).filter({visible: true}).first().boundingBox();
   check(ub && ab && Math.abs(ub.y - ab.y) < 2, 'Bauder: Upload Price List and Add A Price on one row');
-  check(/2026 Rates/.test(await vis('[aria-label="Their price lists"]').innerText()), 'Bauder: their uploaded list shows (2026 Rates)');
+  check(/2026 Rates/.test(await vis('[aria-label="Their Price Lists"]').innerText()), 'Bauder: their uploaded list shows (2026 Rates)');
   await page.screenshot({path: path.join(SHOTS, 'pricelist-bauder.png')});
   await vis('[aria-label="Search Price"]').click(); await page.waitForTimeout(500);
   await page.getByText('Picked Up', {exact: true}).last().click(); await page.waitForTimeout(500);

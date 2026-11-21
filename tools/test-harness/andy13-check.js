@@ -33,7 +33,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
 
   // ---- Home ----
   let t = await body();
-  check(/Due In/.test(t) && /Quotes To Price/.test(t) && !/On site now/.test(t) && !/\nTo do\n/.test(t), 'home: the middle two are Due In and Quotes To Price');
+  check(/Due In/.test(t) && /Quotes To Price/.test(t) && !/On Site Now/.test(t) && !/\nTo do\n/.test(t), 'home: the middle two are Due In and Quotes To Price');
   check(/💷 Applied/.test(t), 'home: today\'s application shows in Next 5 Days');
   await page.screenshot({path: path.join(SHOTS, 'home.png')});
 

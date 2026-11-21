@@ -20,7 +20,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.keyboard.press('Escape');
   await page.goto(BASE+'/sites/'+S1+'/admin'); await page.waitForTimeout(5000);
   await page.screenshot({path:'shots/adm-1.png', fullPage:true});
-  await page.getByLabel('Job status').click(); await page.waitForTimeout(600);
+  await page.getByLabel('Job Status').click(); await page.waitForTimeout(600);
   await page.screenshot({path:'shots/adm-2-status.png'});
   console.log('errors', errs.join(' / ').slice(0,400) || 'none');
   await browser.close(); process.exit(0);

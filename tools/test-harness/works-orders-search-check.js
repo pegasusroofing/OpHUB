@@ -50,11 +50,11 @@ const rows = async (page) => (await page.getByLabel('Jobs table').count()) ? (aw
     r = await rows(page);
     check(/WO-1003/.test(r) && !/WO-1001/.test(r) && !/WO-1002/.test(r), `${name}: All › Filter › Stage › Quotation Required`);
     await page.screenshot({path: `shots/works-orders-filter-${name}.png`});
-    await page.getByLabel('Filter', {exact: true}).click(); await page.waitForTimeout(400); await page.getByText('Show everything', {exact: true}).click(); await page.waitForTimeout(300); await page.getByText('Done', {exact: true}).last().click(); await page.waitForTimeout(500);
+    await page.getByLabel('Filter', {exact: true}).click(); await page.waitForTimeout(400); await page.getByText('Show Everything', {exact: true}).click(); await page.waitForTimeout(300); await page.getByText('Done', {exact: true}).last().click(); await page.waitForTimeout(500);
     await pick('Priority', /^Emergency/);
     r = await rows(page);
     check(/WO-1001/.test(r) && !/WO-1002/.test(r) && !/WO-1003/.test(r), `${name}: Filter › Priority › Emergency`);
-    await page.getByLabel('Filter', {exact: true}).click(); await page.waitForTimeout(400); await page.getByText('Show everything', {exact: true}).click(); await page.waitForTimeout(300); await page.getByText('Done', {exact: true}).last().click(); await page.waitForTimeout(500);
+    await page.getByLabel('Filter', {exact: true}).click(); await page.waitForTimeout(400); await page.getByText('Show Everything', {exact: true}).click(); await page.waitForTimeout(300); await page.getByText('Done', {exact: true}).last().click(); await page.waitForTimeout(500);
     // Search narrows the tab and the counts.
     const search = async (q) => { await page.getByLabel('Search jobs').fill(q); await page.waitForTimeout(700); return rows(page); };
     r = await search('ox161aa');

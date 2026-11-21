@@ -88,7 +88,7 @@ export default function Operatives() {
           {isManager(me) && (
             <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
               <TextInput value={newName} onChangeText={setNewName} placeholder="Name" style={{ flex: 1, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card }} />
-              <Button title="+ Add person" onPress={async () => { if (!newName.trim()) { toast('Enter a name.'); return; } if (await addManualPerson(me, site, newName.trim())) { toast('Added — you can now upload certificates for them.'); setNewName(''); void qc.invalidateQueries({ queryKey: ['manualPeople', site] }); } else toast('Could not save — try again.'); }} />
+              <Button title="+ Add Person" onPress={async () => { if (!newName.trim()) { toast('Enter a name.'); return; } if (await addManualPerson(me, site, newName.trim())) { toast('Added — you can now upload certificates for them.'); setNewName(''); void qc.invalidateQueries({ queryKey: ['manualPeople', site] }); } else toast('Could not save — try again.'); }} />
             </View>
           )}
         </>

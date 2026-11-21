@@ -16,7 +16,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.getByText(/Signed inductions are pushed to/).click(); await page.waitForTimeout(400);
   await page.getByText('🗑 Unlink').click(); await page.waitForTimeout(400);
   await page.getByText('Unlink', {exact:true}).last().click(); await page.waitForTimeout(2000);
-  console.log('unlinked:', st.site_inductions_folder_id === null, '| link button back:', await page.getByText(/Link OneDrive inductions folder/).count());
+  console.log('unlinked:', st.site_inductions_folder_id === null, '| link button back:', await page.getByText(/Link OneDrive Inductions Folder/).count());
   await page.screenshot({path:'shots/indod.png'});
   console.log('errors', errs.join(' / ').slice(0,400) || 'none');
   await browser.close(); process.exit(0);

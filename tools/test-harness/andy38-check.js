@@ -69,7 +69,7 @@ const B = 'http://localhost:8081', shot = (p, n) => p.screenshot({path: `shots/a
   const pick = page.getByText(/^@/).first(); say('@ lists people', await pick.count());
   if (await pick.count()) await pick.click();
   await page.getByText('Send', {exact: true}).first().click(); await page.waitForTimeout(800); await shot(page, 'hub-send');
-  // Who it goes to is a drop-down beside Send now (Andy, 4 Nov 2026): Site Operatives by default, no pop-up.
+  // Who it goes to is a drop-down beside Send Now (Andy, 4 Nov 2026): Site Operatives by default, no pop-up.
   await page.waitForTimeout(1500); t = await text(); say('send goes straight to site operatives', !t.includes('All company operatives'));
   say('message saved', (db.messages || []).filter((m) => /Please check/.test(m.body)).length);
 

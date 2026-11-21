@@ -113,7 +113,7 @@ export default function TbtView() {
             {mgr && (signOff || live || anySigs) && <Pressable hitSlop={8} disabled={busy} onPress={() => void menu()} style={{ height: 26, justifyContent: 'center' }}><Text style={{ fontSize: 18, lineHeight: 20, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>}
           </View>
           <Text style={{ fontSize: 12.5, color: '#6b7280', marginTop: 6 }}>{talk.created_at ? `Added ${new Date(talk.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}</Text>
-          {signOff && talk.status === 'bank' && <Button busy={busy} title="✍ Issue for Signing" onPress={async () => { setBusy(true); const r = await issueTbt(me, id, talk); setBusy(false); toast(r.msg); refresh(); if (r.id && r.id !== talk.id) router.replace(`/sites/${id}/hs/tbt/${r.id}`); }} />}
+          {signOff && talk.status === 'bank' && <Button busy={busy} title="✍ Issue For Signing" onPress={async () => { setBusy(true); const r = await issueTbt(me, id, talk); setBusy(false); toast(r.msg); refresh(); if (r.id && r.id !== talk.id) router.replace(`/sites/${id}/hs/tbt/${r.id}`); }} />}
           {me.role === 'client' ? (
             // 710:333 client view: who has signed and the signed PDF, no sign box.
             <View style={{ marginTop: 10 }}>

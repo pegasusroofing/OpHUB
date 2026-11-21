@@ -34,7 +34,7 @@ export default function Users() {
   const swatchText = (role: string) => (role === 'pm' || role === 'driver' ? th.brand1Text : '#fff');
   if (!me) return null;
   if (!can(me, 'people')) return <Muted style={{ padding: space.l }}>Your role doesn’t manage people. Ask your admin (Admin › Roles).</Muted>;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Users' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['team'] }); void qc.invalidateQueries({ queryKey: ['people'] }); };
   const iAmAdmin = me.role === 'admin';
   // Finance is switched on the person's row: office roles only, never operatives (Andy, 2 Nov 2026).

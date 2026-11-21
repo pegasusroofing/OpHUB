@@ -1,4 +1,4 @@
-// Project Admin: change the client → added to the Directory and becomes the bill-to. Retention half already
+// Project Settings: change the client → added to the Directory and becomes the bill-to. Retention half already
 // in an application shows "In Application N".
 const {chromium, makeContext, S1} = require('./harness');
 (async()=>{

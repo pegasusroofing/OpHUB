@@ -18,7 +18,7 @@ export default function Documents() {
   const title = <Stack.Screen options={{ title: 'Documents' }} />;
   if (!me || !s) return <>{title}<Muted style={{ padding: space.l }}>Loading…</Muted></>;
   if (me.role !== 'pm' && me.role !== 'admin') return <>{title}<Muted style={{ padding: space.l }}>Project managers and admins only.</Muted></>;
-  if (!s.onedrive_folder_id) return <>{title}<Muted style={{ padding: space.l }}>This job has no OneDrive folder yet. Set one up or link one in Project Admin.</Muted></>;
+  if (!s.onedrive_folder_id) return <>{title}<Muted style={{ padding: space.l }}>This job has no OneDrive folder yet. Set one up or link one in Project Settings.</Muted></>;
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Documents' }} />

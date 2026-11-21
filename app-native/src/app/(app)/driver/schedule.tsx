@@ -11,6 +11,7 @@ import { Linking, Modal, Pressable, ScrollView, Text, View } from 'react-native'
 import { StorageImage } from '@/components/StorageImage';
 import { useStoredPhotoMarkup } from '@/components/StoredPhotoMarkup';
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
+import { SelectBox } from '@/components/SelectBox';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { DateBox, todayIso } from '@/components/DateField';
 import {
@@ -27,7 +28,7 @@ import {
 } from '@/lib/rules/driver';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, useTheme, live } from '@/theme/theme';
+import { base, page, radius, useTheme } from '@/theme/theme';
 import { FinTabs } from '@/components/FinNav';
 
 type P = { id: string; name: string; phone: string | null };
@@ -111,9 +112,9 @@ export default function DriverSchedule() {
     <ScrollView contentContainerStyle={page(720)}>
       {preview ? (
         <Card style={{ backgroundColor: base.blueBg }}>
-          <Text style={{ fontWeight: '600', color: base.ink }}>👁 Driver view</Text>
+          <Text style={{ fontWeight: '600', color: base.ink }}>👁 Driver View</Text>
           <Muted>{drivers.length ? 'This is what the driver sees: their own deliveries plus any not yet given to a driver. View only.' : 'There are no drivers set up yet, so this shows only deliveries not given to a driver.'}</Muted>
-          {drivers.length > 1 && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>{drivers.map((p) => <Pressable key={p.id} onPress={() => setPick(p.id)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: viewAs === p.id ? live.brand1 : base.line, backgroundColor: viewAs === p.id ? live.brand1 : base.card }}><Text style={{ fontWeight: '500', color: viewAs === p.id ? live.brand1Text : base.ink }}>{p.name}</Text></Pressable>)}</View>}
+          {drivers.length > 1 && <SelectBox label="Driver" style={{ marginTop: 8 }} value={viewAs || null} options={drivers.map((p): [string, string] => [p.id, p.name])} onChange={setPick} />}
         </Card>
       ) : onDuty ? (
         <Button kind={brk ? 'primary' : 'ghost'} title={brk ? '▶ End Break' : '☕ Start Break'}
@@ -130,7 +131,7 @@ export default function DriverSchedule() {
       <FinTabs even value={tab} onChange={(k) => setTab(k as typeof tab)} items={[['todo', `To Do (${todo.length})`], ['done', `✓ Completed (${done.length})`]]} />
 
       {isLoading && <Muted>Loading…</Muted>}
-      {collections.length > 0 && <SectionTitle>Collections — what to pick up where</SectionTitle>}
+      {collections.length > 0 && <SectionTitle>Collections — What To Pick Up Where</SectionTitle>}
       {collections.map((pl) => {
         const isOpen = !!open[pl.key];
         const left = pl.tasks.filter((t) => t.status !== 'completed').length;
@@ -199,7 +200,7 @@ export default function DriverSchedule() {
                 {t.status === 'completed' ? (
                   <>
                     <Text style={{ color: base.ok, marginTop: 8 }}>✓ Completed {t.completed_at ? new Date(t.completed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</Text>
-                    {!preview && <Button kind="ghost" title="↩ Re-open delivery" onPress={() => setReopen(t)} />}
+                    {!preview && <Button kind="ghost" title="↩ Re-Open Delivery" onPress={() => setReopen(t)} />}
                   </>
                 ) : preview ? (
                   <>
@@ -279,14 +280,8 @@ function ReopenModal({ task, onClose, onDone }: { task: Delivery | null; onClose
           {isPast && <Text style={{ color: base.warn, marginTop: 4 }}>That date has already passed.</Text>}
           <Muted style={{ marginTop: 12, fontWeight: '600' }}>Or choose a new date</Muted>
           <DateBox value={d} onChange={setDate} min={todayIso()} title="New date" style={{ marginVertical: 8 }} />
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {DELIVERY_TIME_SLOTS.map((s) => (
-              <Pressable key={s.key} onPress={() => setSlot(s.key)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: sl === s.key ? live.brand1 : base.line, backgroundColor: sl === s.key ? live.brand1 : base.card }}>
-                <Text style={{ fontSize: 12, fontWeight: '500', color: sl === s.key ? live.brand1Text : base.ink }}>{s.label}</Text>
-              </Pressable>
-            ))}
-          </View>
-          <Button title="Re-open on this date" onPress={() => {
+          <SelectBox label="Time" value={sl || null} options={DELIVERY_TIME_SLOTS.map((s): [string, string] => [s.key, s.label])} onChange={setSlot} />
+          <Button title="Re-Open On This Date" onPress={() => {
             if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { showAlert('Choose a date first.'); return; }
             onDone({ date: d, slot: sl });
           }} />

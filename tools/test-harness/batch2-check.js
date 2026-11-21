@@ -1,4 +1,4 @@
-// Small rules: Off-hire today; the LOLER page refuses a non-LOLER report; repair job shows who signed it off.
+// Small rules: Off-Hire Today; the LOLER page refuses a non-LOLER report; repair job shows who signed it off.
 const {chromium, makeContext, S1} = require('./harness');
 (async()=>{
   const browser = await chromium.launch(); const errs = [];
@@ -14,7 +14,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto('http://localhost:8081/fin/plant/h1'); await page.waitForTimeout(5000);
-  await page.getByText('Off-hire today').click(); await page.waitForTimeout(2500);
+  await page.getByText('Off-Hire Today').click(); await page.waitForTimeout(2500);
   console.log('off hire set', !!db.fin_plant_hires[0].off_hire);
   await page.goto('http://localhost:8081/sites/'+S1+'/hs/loler/view/rs1'); await page.waitForTimeout(5000);
   console.log('non-LOLER refused', await page.getByText('Inspection not found.').count());

@@ -16,7 +16,7 @@ const fs = require('fs'), path = require('path');
   await page.goto(BASE+'/pm/admin/suppliers'); await page.waitForTimeout(5000);
   await page.getByText('+ Add Supplier').click(); await page.waitForTimeout(400);
   const fc = page.waitForEvent('filechooser');
-  await page.getByText('📊 Choose Excel / CSV file').click();
+  await page.getByText('📊 Choose Excel / CSV File').click();
   await (await fc).setFiles(csv); await page.waitForTimeout(3000);
   console.log('suppliers now:', db.suppliers.map(s=>s.name).join(', '));
   await page.screenshot({path:'shots/supimp.png'});

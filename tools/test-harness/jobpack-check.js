@@ -1,4 +1,4 @@
-// Admin Centre › New job pack: every rule edited in the app, at phone size and on a laptop, against the fake data.
+// Admin Centre › New Job Pack: every rule edited in the app, at phone size and on a laptop, against the fake data.
 const {chromium, makeContext} = require('./harness');
 (async () => {
   const BASE = 'http://localhost:8081';

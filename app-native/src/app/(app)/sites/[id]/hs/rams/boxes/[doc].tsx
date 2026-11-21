@@ -65,11 +65,11 @@ You then tap where each one signs on it.`, 'Yes', 'No'))) {
         extra={({ boxes, numPages, setBoxes }) => (
           <View style={{ gap: 8, marginTop: 8 }}>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <View style={{ flex: 1 }}><Button kind="ghost" disabled={!boxes.length} title="Save as template" onPress={async () => {
+              <View style={{ flex: 1 }}><Button kind="ghost" disabled={!boxes.length} title="Save As Template" onPress={async () => {
                 const n = await promptText('Name this template (e.g. "Hyde RAMS form"):', ''); if (!n || !n.trim()) return;
                 toast((await saveAsTemplate(n.trim(), boxes, numPages, d.storage_path)) ? 'Template saved' : 'Could not save'); void qc.invalidateQueries({ queryKey: ['signTemplates'] });
               }} /></View>
-              <View style={{ flex: 1 }}><Button kind="ghost" disabled={!usable.length} title="Use a template" onPress={async () => {
+              <View style={{ flex: 1 }}><Button kind="ghost" disabled={!usable.length} title="Use A Template" onPress={async () => {
                 const k = await chooseAction('Use a template', usable.map((t) => ({ key: t.id, label: `${t.name} · ${layoutSummary(t.layout)}` }))); if (!k) return;
                 const all = JSON.parse(JSON.stringify(boxesOf(usable.find((t) => t.id === k)!.layout))) as ReturnType<typeof boxesOf>;
                 const fit = all.filter((b) => !numPages || b.p <= numPages);
@@ -77,7 +77,7 @@ You then tap where each one signs on it.`, 'Yes', 'No'))) {
                 toast(fit.length < all.length ? `${all.length - fit.length} box(es) left out — this document has fewer pages.` : 'Template applied — check the boxes line up, then Save.');
               }} /></View>
             </View>
-            {!!d.sign_layout && <Button kind="ghost" title="Remove all boxes from this document" onPress={async () => {
+            {!!d.sign_layout && <Button kind="ghost" title="Remove All Boxes From This Document" onPress={async () => {
               if (!(await confirmAsk('Remove all signature boxes from this document? Signatures will go back to the summary page at the end.', 'Remove'))) return;
               if (await saveDocBoxes(d.id, [])) done('Signature boxes removed'); else toast('Could not save — please try again.');
             }} />}

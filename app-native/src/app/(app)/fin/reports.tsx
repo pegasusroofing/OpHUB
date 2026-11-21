@@ -188,10 +188,10 @@ function AutoRun({ id, title, f, dates }: { id: string; title: string; f: Filter
                 <Pressable onPress={() => setOpen(false)} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '500' }}>✕</Text></Pressable>
               </View>
               <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled">
-                <SelectBox label="How often" title="How often" value={freq} options={FREQ} onChange={setFreq} />
-                {freq === 'weekly' && <SelectBox label="Which day" title="Which day" value={day} options={WEEKDAYS} onChange={setDay} />}
-                {freq === 'monthly' && <SelectBox label="Day of the month" title="Day of the month" value={day} options={MONTH_DAYS} onChange={setDay} />}
-                {dates && <SelectBox label="Which dates" title="Which dates" value={period} options={[['last_month', 'Last month'], ['this_month', 'This month so far'], ...(id === 'cis' ? [['cis_month', 'Last CIS month (6th to 5th)'] as [string, string]] : []), ['all', 'All dates']]} onChange={setPeriod} />}
+                <SelectBox label="How Often" title="How often" value={freq} options={FREQ} onChange={setFreq} />
+                {freq === 'weekly' && <SelectBox label="Which Day" title="Which day" value={day} options={WEEKDAYS} onChange={setDay} />}
+                {freq === 'monthly' && <SelectBox label="Day Of The Month" title="Day of the month" value={day} options={MONTH_DAYS} onChange={setDay} />}
+                {dates && <SelectBox label="Which Dates" title="Which dates" value={period} options={[['last_month', 'Last month'], ['this_month', 'This month so far'], ...(id === 'cis' ? [['cis_month', 'Last CIS month (6th to 5th)'] as [string, string]] : []), ['all', 'All dates']]} onChange={setPeriod} />}
                 <Text style={{ fontSize: 12, fontWeight: '500', color: base.slate, marginBottom: 4 }}>Save to OneDrive folder</Text>
                 <Pressable accessibilityRole="button" accessibilityLabel="Save to OneDrive folder" onPress={() => setChoosing(!choosing)} style={{ flexDirection: 'row', borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 8 }}>
                   <Text numberOfLines={1} style={{ flex: 1, fontSize: 15, color: folder ? base.ink : base.slateLight }}>{folder?.name || 'Choose a folder'}</Text><Text style={{ color: base.slate, fontSize: 12 }}>▾</Text>
@@ -212,7 +212,7 @@ function AutoRun({ id, title, f, dates }: { id: string; title: string; f: Filter
               </ScrollView>
               <View style={{ gap: 8 }}>
                 <Button busy={busy === 'save'} title="Save" onPress={async () => { if (await save()) { toast(freq === 'off' ? 'Auto-run off' : 'Auto-run saved'); setOpen(false); } }} />
-                {!!folder && <Button kind="ghost" busy={busy === 'run'} title="Save and run now" onPress={async () => {
+                {!!folder && <Button kind="ghost" busy={busy === 'run'} title="Save And Run Now" onPress={async () => {
                   const sid = await save(); if (!sid) return;
                   setBusy('run'); const r = await invokeAsUser<{ ok?: boolean; message?: string; error?: string }>('finance-report-run', { schedule_id: sid }); setBusy('');
                   toast(r.data?.message || r.data?.error || r.error || 'Could not run it — try again.'); void qc.invalidateQueries({ queryKey: key }); setOpen(false);

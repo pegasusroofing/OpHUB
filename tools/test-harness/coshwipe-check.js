@@ -1,4 +1,4 @@
-// COSHH library (admin): Delete all folders and documents → two questions → library empty.
+// COSHH library (admin): Delete All Folders And Documents → two questions → library empty.
 const {chromium, makeContext} = require('./harness');
 (async()=>{
   const BASE = 'http://localhost:8081';
@@ -14,7 +14,7 @@ const {chromium, makeContext} = require('./harness');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/pm/admin/coshh'); await page.waitForTimeout(6000);
   const fl = page.getByText(/Folders/).first(); if (await fl.count()) { await fl.click(); await page.waitForTimeout(800); }
-  const b = page.getByText('🗑 Delete all folders and documents');
+  const b = page.getByText('🗑 Delete All Folders And Documents');
   console.log('wipe button:', await b.count());
   await b.click(); await page.waitForTimeout(400);
   await page.getByText('Delete all', {exact:true}).last().click(); await page.waitForTimeout(400);

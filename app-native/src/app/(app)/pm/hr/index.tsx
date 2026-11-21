@@ -19,7 +19,7 @@ export default function HrHub() {
   const { data: pol } = usePolicies(me?.org_id);
   const { data: acc } = useHrAccess(me?.org_id);
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'HR' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   const y = new Date().getFullYear();
   const left = hr ? hrAllowance(hr, me.id) - usedDays(hr.leave, me.id, y, ['approved', 'pending']) : null;
   const pending = hr ? hr.allLeave.filter((l) => l.status === 'pending').length : 0;
@@ -30,9 +30,9 @@ export default function HrHub() {
       <Stack.Screen options={{ title: 'HR' }} />
       <HowTo k="hr" />
       <ListGroup first>
-        <ListRow icon="calendar" tint="green" label="Holiday calendar" sub={left == null ? '…' : `${left} day${left === 1 ? '' : 's'} left this year${me.role === 'admin' && pending ? ` · ${pending} to approve` : ''}`} badge={me.role === 'admin' ? pending || undefined : undefined} onPress={() => router.push('/pm/hr/holidays' as never)} />
+        <ListRow icon="calendar" tint="grey" label="Holiday Calendar" sub={left == null ? '…' : `${left} day${left === 1 ? '' : 's'} left this year${me.role === 'admin' && pending ? ` · ${pending} to approve` : ''}`} badge={me.role === 'admin' ? pending || undefined : undefined} onPress={() => router.push('/pm/hr/holidays' as never)} />
         <ListRow icon="users" tint="grey" label="Employee Records" sub={acc?.team ? 'Everyone’s folder: details, documents, appraisals, bonus' : 'Your folder, and anyone HR lets you see'} onPress={() => router.push('/pm/hr/records' as never)} />
-        <ListRow icon="book" tint="blue" label="Company policies & handbook" sub={pol ? (toSign ? `${toSign} to read and sign` : (pol.pols ?? []).length ? 'All signed' : 'None uploaded yet') : '…'} badge={toSign || undefined} onPress={() => router.push('/pm/hr/policies' as never)} last />
+        <ListRow icon="book" tint="grey" label="Company Policies & Handbook" sub={pol ? (toSign ? `${toSign} to read and sign` : (pol.pols ?? []).length ? 'All signed' : 'None uploaded yet') : '…'} badge={toSign || undefined} onPress={() => router.push('/pm/hr/policies' as never)} last />
       </ListGroup>
     </ScrollView>
   );

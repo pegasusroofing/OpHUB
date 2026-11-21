@@ -16,7 +16,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/sites/'+S1+'/materials/requests'); await page.waitForTimeout(5000);
   await page.screenshot({path:'shots/mat-1.png', fullPage:true});
-  await page.getByText('🚚 Order from Merchant').first().click(); await page.waitForTimeout(800);
+  await page.getByText('🚚 Order From Merchant').first().click(); await page.waitForTimeout(800);
   await page.getByPlaceholder('Type to find a supplier — ★ favourites first').click(); await page.waitForTimeout(500);
   await page.screenshot({path:'shots/mat-2-panel.png'});
   await page.getByText('Delivery', {exact:true}).first().click().catch(()=>{});

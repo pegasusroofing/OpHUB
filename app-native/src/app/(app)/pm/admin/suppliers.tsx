@@ -61,7 +61,7 @@ export default function Suppliers() {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState(''), [email, setEmail] = useState('');
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Suppliers' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   const sups = list as Sup[];
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['suppliers'] }); };
   const saveField = async (s: Sup, field: 'name' | 'email', v: string) => {
@@ -97,15 +97,15 @@ export default function Suppliers() {
               <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
                 <Field key={`n${gen}`} label="Name" value={s.name} onSave={(v) => void saveField(s, 'name', v)} />
                 {fin && (() => { const linked = dir.find((f) => f.supplier_id === s.id); return (
-                  <SelectBox label="Finance Directory (accounts)" value={linked?.id || ''} options={[['', 'Not linked'], ...dir.map((f) => [f.id, `${f.name}${f.supplier_id && f.supplier_id !== s.id ? ' (linked to another)' : ''}`] as [string, string]), ['__new', '+ Add to the Finance Directory']]} onChange={async (v) => {
+                  <SelectBox label="Finance Directory (Accounts)" value={linked?.id || ''} options={[['', 'Not linked'], ...dir.map((f) => [f.id, `${f.name}${f.supplier_id && f.supplier_id !== s.id ? ' (linked to another)' : ''}`] as [string, string]), ['__new', '+ Add to the Finance Directory']]} onChange={async (v) => {
                     for (const p of dir.filter((f) => f.supplier_id === s.id && f.id !== v)) await db.from('fin_suppliers').update({ supplier_id: null } as never).eq('id', p.id);
                     if (v === '__new') { if ((await db.from('fin_suppliers').insert({ org_id: me.org_id, created_by: me.id, name: s.name, supplier_id: s.id } as never)).error) toast('Could not add it.'); void refetchDir(); return; }
                     if (v) { const f = dir.find((x) => x.id === v); if (f?.supplier_id && f.supplier_id !== s.id && !(await confirmAsk(`${f.name} is linked to another Projects supplier. Link it to this one instead?`, 'Link it here'))) return; await db.from('fin_suppliers').update({ supplier_id: s.id } as never).eq('id', v); }
                     void refetchDir();
                   }} />
                 ); })()}
-                <Field key={`e${gen}`} label="Order email" value={s.email || ''} keyboard="email-address" onSave={(v) => void saveField(s, 'email', v)} />
-                <Field label="Our account number" value={s.account_number || ''} placeholder="e.g. RTB001 — added to every order email to them" onSave={async (v) => {
+                <Field key={`e${gen}`} label="Order Email" value={s.email || ''} keyboard="email-address" onSave={(v) => void saveField(s, 'email', v)} />
+                <Field label="Our Account Number" value={s.account_number || ''} placeholder="e.g. RTB001 — added to every order email to them" onSave={async (v) => {
                   const val = v.slice(0, 60);
                   toast(!(await db.from('suppliers').update({ account_number: val || null } as never).eq('id', s.id).select('id')).data?.length ? 'Could not save — try again.' : val ? 'Account number saved — it goes on order emails' : 'Account number removed'); refresh();
                 }} />
@@ -122,8 +122,8 @@ export default function Suppliers() {
                   </View>
                 )) : <Muted style={{ marginBottom: 8 }}>No branches yet.</Muted>}
                 <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                  <View style={{ flex: 1 }}><Button kind="ghost" title="+ Add branch" onPress={async () => { if (await updateBranches(s.id, (bs) => bs.concat([{ id: `b${Math.random().toString(36).slice(2, 9)}`, name: '', address: '', phone: '', email: '' }]))) refresh(); }} /></View>
-                  <View style={{ flex: 1 }}><Button kind="ghost" title="Delete supplier" onPress={async () => {
+                  <View style={{ flex: 1 }}><Button kind="ghost" title="+ Add Branch" onPress={async () => { if (await updateBranches(s.id, (bs) => bs.concat([{ id: `b${Math.random().toString(36).slice(2, 9)}`, name: '', address: '', phone: '', email: '' }]))) refresh(); }} /></View>
+                  <View style={{ flex: 1 }}><Button kind="ghost" title="Delete Supplier" onPress={async () => {
                     if (!(await confirmAsk('Remove this supplier?', 'Remove'))) return;
                     toast(!(await db.from('suppliers').delete().eq('id', s.id).select('id')).data?.length ? 'Could not remove — try again.' : 'Supplier removed'); refresh();
                   }} /></View>
@@ -150,7 +150,7 @@ export default function Suppliers() {
             <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => setAdding(false)} /></View>
           </View>
           <Muted style={{ marginTop: 12, marginBottom: 6 }}>Or import a list — Excel / CSV with Name and Email columns (or name in column A, email in column B). Anything that looks like an existing supplier is skipped.</Muted>
-          <Button kind="ghost" title="📊 Choose Excel / CSV file" onPress={async () => {
+          <Button kind="ghost" title="📊 Choose Excel / CSV File" onPress={async () => {
             const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
             const a = r.assets[0];
             if (/\.xls$/i.test(a.name || '')) { toast('Save it as .xlsx or .csv first — old .xls files can’t be read.'); return; }

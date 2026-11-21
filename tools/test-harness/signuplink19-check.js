@@ -36,7 +36,7 @@ const INV = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
     await page.goto(B + '/login'); await page.waitForTimeout(5000);
     await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
     await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(8000);
-    check(new URL(page.url()).pathname === '/subform' && /Subcontractor form/i.test(await page.evaluate(() => document.body.innerText)), `once signed in, it goes straight to the subcontractor form (${new URL(page.url()).pathname})`);
+    check(new URL(page.url()).pathname === '/subform' && /Subcontractor Form/i.test(await page.evaluate(() => document.body.innerText)), `once signed in, it goes straight to the subcontractor form (${new URL(page.url()).pathname})`);
     // Only once: Home next time is Home.
     await page.goto(`${B}/home`); await page.waitForTimeout(4000);
     check(new URL(page.url()).pathname === '/home', 'and only the once');

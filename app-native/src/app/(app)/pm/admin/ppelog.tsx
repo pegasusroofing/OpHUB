@@ -9,7 +9,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { ThinExportBar } from '@/components/FinFilterBar';
 
 import { chooseAction, useToast } from '@/components/toast';
-import { Button, Card, Empty, Muted } from '@/components/ui';
+import { Button, Card, Empty, FilterRow, Muted } from '@/components/ui';
 import { useTeam } from '@/data/admin';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -19,7 +19,7 @@ import { exportTableExcel, type Table } from '@/lib/tableExcel';
 import { exportTablePdf } from '@/lib/pdfLazy';
 import { isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, space, live } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Row = { id: string; user_id: string; site_id: string; items: string[] | null; status: string; issued_at: string; issued_by?: string | null };
@@ -47,7 +47,7 @@ export default function PpeLog() {
     },
   });
   if (!me) return null;
-  if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
+  if (!isFullManager(me)) return <><Stack.Screen options={{ title: 'PPE Log' }} /><Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted></>;
   const shown = ops.length ? rows.filter((r) => ops.includes(r.user_id)) : rows;
   const name = (id: string) => team.find((p) => p.id === id)?.name || 'Unknown';
   const logTable = (): Table => ({ title: `PPE Log (${range.label})`, cols: [{ l: 'Operative' }, { l: 'Item' }, { l: 'Site' }, { l: 'Issued date' }, { l: 'Status' }, { l: 'Issued by' }], rows: shown.slice().sort((a, b) => a.issued_at.localeCompare(b.issued_at)).flatMap((r) => (r.items?.length ? r.items : ['—']).map((item) => [name(r.user_id), item, sites.find((x) => x.id === r.site_id)?.name || '', new Date(r.issued_at).toLocaleDateString('en-GB'), r.status === 'signed' ? 'Signed' : 'Pending signature', r.issued_by ? name(r.issued_by) : ''])) });
@@ -60,19 +60,17 @@ export default function PpeLog() {
     return exportTableExcel({ title: 'PPE Register', sub: 'Items each operative currently holds (latest signed issue)', cols: [{ l: 'Operative' }, ...items.map((x) => ({ l: x, w: 70 }))], rows: opsAll.map((p) => { const cur = new Set(currentPpe(all, p.id)); return [p.name, ...items.map((x) => (cur.has(x) ? 'Issued' : ''))]; }) }, org);
   };
   const run = async (k: string, fn: () => Promise<boolean>) => { if (k !== 'r' && !shown.length) { toast('No PPE issued in that range.'); return; } setBusy(k); const ok = await fn().catch(() => false); setBusy(''); if (!ok) toast('Could not make the file — try again.'); };
-  const chip = (on: boolean, l: string, onPress: () => void) => <Pressable key={l} onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card }}><Text style={{ fontWeight: '500', fontSize: 12, color: on ? live.brand1Text : base.ink }}>{l}</Text></Pressable>;
   return (
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'PPE Log' }} />
       <Muted style={{ marginBottom: 10 }}>PPE issued across every site, for whichever period and operative(s) you choose.</Muted>
-      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-        {(['weekly', 'monthly', 'yearly'] as const).map((m) => chip(mode === m, m[0].toUpperCase() + m.slice(1), () => { setMode(m); setOffset(0); }))}
-        <View style={{ flex: 1 }} />
-        {chip(!!ops.length, ops.length ? (ops.length === 1 ? name(ops[0]) : `${ops.length} selected`) : 'All operatives', async () => {
+      <FilterRow options={[['weekly', 'Weekly'], ['monthly', 'Monthly'], ['yearly', 'Yearly']]} value={mode} onChange={(m) => { setMode(m); setOffset(0); }} />
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 }}>
+        <Pressable accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: base.card }} onPress={async () => {
           const k = await chooseAction('Filter by operative', [{ key: '__clear', label: 'Clear filter' }, ...team.filter((p) => p.role === 'operative').map((p) => ({ key: p.id, label: `${ops.includes(p.id) ? '☑' : '☐'} ${p.name}` }))]);
           if (k === '__clear') setOps([]); else if (k) setOps(ops.includes(k) ? ops.filter((x) => x !== k) : [...ops, k]);
-        })}
+        }}><Text style={{ color: base.ink, fontSize: 13 }}>{ops.length ? (ops.length === 1 ? name(ops[0]) : `${ops.length} Selected`) : 'All Operatives'}</Text><Text style={{ color: base.slate, fontSize: 12 }}>▾</Text></Pressable>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
         <Pressable onPress={() => setOffset(offset - 1)} style={{ padding: 8 }}><Text style={{ fontSize: 18 }}>‹</Text></Pressable>

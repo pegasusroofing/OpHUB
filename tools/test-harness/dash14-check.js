@@ -23,10 +23,10 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   const xOf = (re) => page.evaluate((src) => { const r = new RegExp(src); const d = [...document.querySelectorAll('div')].find((e) => e.childElementCount === 0 && r.test(e.innerText) && e.getBoundingClientRect().width > 0); return d ? Math.round(d.getBoundingClientRect().left) : -1; }, re.source);
 
   // Home: the words in each tile start the same distance in.
-  const xs = [await xOf(/^Live projects$/), await xOf(/^Sites map$/), await xOf(/^Today$/)];
+  const xs = [await xOf(/^Live projects$/), await xOf(/^Sites Map$/), await xOf(/^Today$/)];
   // Each tile is the nearest white box around the words; measured to where the letters start.
-  const ins = await page.evaluate(() => [/^Sites map$/, /^Today$/, /^(Mon|Tue|Wed|Thu|Fri) [0-9]+$/].map((re) => { const d = [...document.querySelectorAll('div')].find((e) => e.childElementCount === 0 && re.test(e.innerText) && e.getBoundingClientRect().left > 260 && e.getBoundingClientRect().width > 0); if (!d) return -1; let p = d.parentElement; while (p && getComputedStyle(p).backgroundColor !== 'rgb(255, 255, 255)') p = p.parentElement; const rg = document.createRange(); rg.selectNodeContents(d); return p ? Math.round(rg.getBoundingClientRect().left - p.getBoundingClientRect().left) : -1; }));
-  check(ins.every((n) => n >= 18 && n <= 20), `Home: Sites map, Today and the Next 5 Days start 18 in from their tile edges (${ins.join(', ')})`);
+  const ins = await page.evaluate(() => [/^Sites Map$/, /^Today$/, /^(Mon|Tue|Wed|Thu|Fri) [0-9]+$/].map((re) => { const d = [...document.querySelectorAll('div')].find((e) => e.childElementCount === 0 && re.test(e.innerText) && e.getBoundingClientRect().left > 260 && e.getBoundingClientRect().width > 0); if (!d) return -1; let p = d.parentElement; while (p && getComputedStyle(p).backgroundColor !== 'rgb(255, 255, 255)') p = p.parentElement; const rg = document.createRange(); rg.selectNodeContents(d); return p ? Math.round(rg.getBoundingClientRect().left - p.getBoundingClientRect().left) : -1; }));
+  check(ins.every((n) => n >= 18 && n <= 20), `Home: Sites Map, Today and the Next 5 Days start 18 in from their tile edges (${ins.join(', ')})`);
   const mapX = await page.evaluate(() => { const c = document.querySelector('canvas, .maplibregl-map'); return c ? Math.round(c.getBoundingClientRect().left) : -1; });
   check(Math.abs(mapX - xs[1]) <= 1, `Home: the map lines up with its title (${mapX} / ${xs[1]})`);
   check(!/layers\.borough-name/.test(await body()), 'Home: no map error message');

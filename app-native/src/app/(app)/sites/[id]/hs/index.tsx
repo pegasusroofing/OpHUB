@@ -43,12 +43,12 @@ export default function HealthSafety() {
   const tiles: { key: string; icon: string; tint: string; title: string; sub: string; badge?: number | string; go?: string }[] = [
     { key: 'hs_rams', icon: '📄', tint: '#E7E9EE', title: 'RAMS', sub: sum ? plural(sum.rams) : '…', badge: mgr ? (sum?.mgr?.ramsGap ? '!' : 0) : sum?.ramsTodo, go: 'rams' },
     { key: 'hs_coshh', icon: '🧪', tint: '#E7E9EE', title: 'COSHH', sub: sum ? plural(sum.coshh) : '…', badge: mgr ? (sum?.mgr?.coshhGap ? '!' : 0) : sum?.coshhTodo, go: 'coshh' },
-    { key: 'hs_tbt', icon: '🗣', tint: base.blueBg, title: 'TBT', sub: sum ? (sum.liveTbts ? 'Live now' : 'None live') : '…', go: 'tbt' },
-    { key: 'hs_briefings', icon: '📣', tint: '#FDECEA', title: 'Daily Briefings', sub: mgr && sum?.mgr ? (sum.mgr.briefings ? `${sum.mgr.briefings} briefing${sum.mgr.briefings === 1 ? '' : 's'}` : 'None yet') : opCounts ? (opCounts.briefings ? `${opCounts.briefings} briefing${opCounts.briefings === 1 ? '' : 's'}` : 'None yet') : '…', go: 'briefings' },
-    { key: 'hs_havspuwer', icon: '🖐', tint: '#FFF3E0', title: 'Tools, HAVS & PUWER', sub: 'Tools, vibration & tool checks', go: 'havspuwer' },
-    { key: 'hs_ppe', icon: '🦺', tint: '#FDECEA', title: 'PPE', sub: mgr ? (sum?.mgr?.ppeRequests ? `${sum.mgr.ppeRequests} request${sum.mgr.ppeRequests === 1 ? '' : 's'}` : 'Issue & track PPE') : sum?.ppeToSign ? `${sum.ppeToSign} to sign` : 'My PPE', badge: mgr ? sum?.mgr?.ppeRequests : sum?.ppeToSign, go: '../ppe' },
-    { key: 'hs_incidents', icon: '⚠️', tint: '#FDECEA', title: 'Accident / Incident', sub: mgr && sum?.mgr ? (sum.mgr.incidents ? `${sum.mgr.incidents} filed` : 'Report near miss') : opCounts ? (opCounts.incidents ? `${opCounts.incidents} filed` : 'Report near miss') : '…', go: 'incidents' },
-    { key: 'hs_operatives', icon: '🪪', tint: '#E8F0FE', title: 'Operatives', sub: mgr ? 'Certificates & tools' : 'Dashboard & certifications', go: mgr || me.role === 'client' ? `/pm/operatives?site=${site.id}` : '/dashboard' },
+    { key: 'hs_tbt', icon: '🗣', tint: '#E7E9EE', title: 'TBT', sub: sum ? (sum.liveTbts ? 'Live now' : 'None live') : '…', go: 'tbt' },
+    { key: 'hs_briefings', icon: '📣', tint: '#E7E9EE', title: 'Daily Briefings', sub: mgr && sum?.mgr ? (sum.mgr.briefings ? `${sum.mgr.briefings} briefing${sum.mgr.briefings === 1 ? '' : 's'}` : 'None yet') : opCounts ? (opCounts.briefings ? `${opCounts.briefings} briefing${opCounts.briefings === 1 ? '' : 's'}` : 'None yet') : '…', go: 'briefings' },
+    { key: 'hs_havspuwer', icon: '🖐', tint: '#E7E9EE', title: 'Tools, HAVS & PUWER', sub: 'Tools, vibration & tool checks', go: 'havspuwer' },
+    { key: 'hs_ppe', icon: '🦺', tint: '#E7E9EE', title: 'PPE', sub: mgr ? (sum?.mgr?.ppeRequests ? `${sum.mgr.ppeRequests} request${sum.mgr.ppeRequests === 1 ? '' : 's'}` : 'Issue & track PPE') : sum?.ppeToSign ? `${sum.ppeToSign} to sign` : 'My PPE', badge: mgr ? sum?.mgr?.ppeRequests : sum?.ppeToSign, go: '../ppe' },
+    { key: 'hs_incidents', icon: '⚠️', tint: '#E7E9EE', title: 'Accident / Incident', sub: mgr && sum?.mgr ? (sum.mgr.incidents ? `${sum.mgr.incidents} filed` : 'Report near miss') : opCounts ? (opCounts.incidents ? `${opCounts.incidents} filed` : 'Report near miss') : '…', go: 'incidents' },
+    { key: 'hs_operatives', icon: '🪪', tint: '#E7E9EE', title: 'Operatives', sub: mgr ? 'Certificates & tools' : 'Dashboard & certifications', go: mgr || me.role === 'client' ? `/pm/operatives?site=${site.id}` : '/dashboard' },
   ];
   // 630 client branch: RAMS, COSHH, TBT, Completed Inspections (PUWER) and Operative Dashboard; view only, no badges.
   const clientTiles: typeof tiles = [

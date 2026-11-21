@@ -47,7 +47,7 @@ export default function RateCard() {
   const [adding, setAdding] = useState(false);
   const [nw, setNw] = useState({ category: '', name: '', unit: 'lm', dropdown: false, rate: '' });
   if (!me) return null;
-  if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Admins only.</Muted>;
+  if (me.role !== 'admin') return <><Stack.Screen options={{ title: 'Price Sheet Rate Card' }} /><Muted style={{ padding: space.l }}>Admins only.</Muted></>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['rateCard'] }); };
   const upd = async (table: string, id: string, patch: object, ok: string) => {
     if (!(await db.from(table).update(patch as never).eq('id', id).select('id')).data?.length) { toast('Could not save — try again.'); throw new Error('save'); }
@@ -66,10 +66,10 @@ export default function RateCard() {
       <Stack.Screen options={{ title: 'Price Sheet Rate Card' }} />
       <Muted style={{ marginBottom: 10 }}>One shared rate card for the whole company. Changes here don&apos;t affect any sheet already issued — those keep their own copy of the rates used.</Muted>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-        <View style={{ flex: 1 }}><Button kind="ghost" title="⬇ Download as Excel" onPress={async () => {
+        <View style={{ flex: 1 }}><Button kind="ghost" title="⬇ Download As Excel" onPress={async () => {
           if (!(await deliverXlsx(makeXlsx(rateCardSheets(data?.items ?? [], data?.options ?? [], org?.name || 'Company')), `${(org?.name || 'Company').replace(/[^a-z0-9]+/gi, '_')}_Price_Builder_Rate_Card.xlsx`))) toast('Could not make the file — try again.');
         }} /></View>
-        <View style={{ flex: 1 }}><Button kind="ghost" title="⬆ Upload Excel (replaces the card)" onPress={async () => {
+        <View style={{ flex: 1 }}><Button kind="ghost" title="⬆ Upload Excel (Replaces The Card)" onPress={async () => {
           const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
           let read;
           try { read = readRateCard(await readXlsx(new Uint8Array(await (await fetch(r.assets[0].uri)).arrayBuffer()))); } catch { toast('Could not read that file — check it’s a valid .xlsx exported from this tool.'); return; }

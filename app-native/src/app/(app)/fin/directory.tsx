@@ -152,12 +152,12 @@ export default function FinDirectory() {
                   <Text style={{ fontWeight: '500', color: base.ink }}>{a.company_name || (a.data as Row | null)?.trading_name || a.contact_name || 'Applicant'} <Text style={{ color: a.status === 'approved' ? base.ok : base.slate, fontWeight: '400' }}>· {a.status === 'approved' ? 'Approved' : 'New'}</Text></Text>
                   <Muted>{[a.contact_name, a.email, a.phone].filter(Boolean).join(' · ')}</Muted>
                 </View>
-                <Button small kind="ghost" title="Add to directory" onPress={() => void addFromApp(a)} />
+                <Button small kind="ghost" title="Add To Directory" onPress={() => void addFromApp(a)} />
               </View>
             ))}
           </View>
         )}
-        {canEdit && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: desk ? 'flex-end' : 'center', marginBottom: 10 }}>{xeroOn && <XeroWorkersButton />}<Button title="+ Add a person" onPress={() => setEdit({ key: '', name: '', r: { pay_type: 'subcontractor', cis_rate: 20 }, app: false })} /></View>}
+        {canEdit && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: desk ? 'flex-end' : 'center', marginBottom: 10 }}>{xeroOn && <XeroWorkersButton />}<Button title="+ Add A Person" onPress={() => setEdit({ key: '', name: '', r: { pay_type: 'subcontractor', cis_rate: 20 }, app: false })} /></View>}
         {desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search name or UTR' }} sel={pplSel} onChange={setPplSel} onClear={() => setPplSel({ show: [] })} sorts={[['az', 'Name A to Z'], ['za', 'Name Z to A']]} sort={pplSort} onSort={setPplSort}
           parts={[{ key: 'show', label: 'Show', items: [['subs', 'CIS subcontractors'], ['unver', 'Not verified'], ['paye', 'PAYE staff'], ['left', 'No longer working for us']].map(([v, l]) => ({ v, l, n: rows.filter(F[v]).length })) }]} />}
         {/* A laptop gets the current app's table: Name, CIS, UTR, HMRC Check, Day Rate, Bank and a day-rate total (9219j; cmp-fin 5 Nov 2026). */}
@@ -178,7 +178,7 @@ export default function FinDirectory() {
           );
         })() : !desk && rows.length ? (
           // A phone: a table like the rest of Finance (Andy, 14 Nov 2026); ▾ CIS / Not Verified / PAYE / Left under Pay.
-          <PhoneTable key="labour" label="People and rates" rows={rows.slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))} keyOf={(x) => x.key} onRow={canEdit ? (x) => setEdit(x) : undefined}
+          <PhoneTable key="labour" label="People And Rates" rows={rows.slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))} keyOf={(x) => x.key} onRow={canEdit ? (x) => setEdit(x) : undefined}
             cols={[
               { k: 'n', l: 'Name', lines: 2, main: (x) => x.name, sub: (x) => (x.r.pay_type === 'paye' ? 'PAYE' : x.r.utr ? `UTR ${x.r.utr}` : 'UTR Missing'), find: (x) => `${x.name} ${x.r.name || ''} ${x.r.utr || ''}`, sort: (x) => String(x.name || '').toLowerCase() },
               { k: 'p', l: 'Pay', w: 96, center: true, main: (x) => (x.r.pay_type === 'paye' ? 'PAYE' : CIS.find(([k]) => Number(k) === Number(x.r.cis_rate ?? 20))?.[1] || ''), sub: (x) => (x.r.pay_type === 'paye' ? (bankOk(x.r) ? '' : 'Payroll') : x.r.cis_verified_at ? 'Verified' : 'Unverified'), tone: (x) => (x.r.pay_type !== 'paye' && !x.r.cis_verified_at ? '#B45309' : undefined),
@@ -271,7 +271,7 @@ export default function FinDirectory() {
     const groups: Record<string, Row[]> = {}; list.forEach((c) => { (groups[c.grp || 'No group'] = groups[c.grp || 'No group'] || []).push(c); });
     return (
       <FinPage title="Cost codes" section={section} sub={subTab} onSub={onSub}>
-        <View style={{ flexDirection: 'row', marginBottom: 10 }}><Muted style={{ flex: 1 }}>The ID is the Xero account code each cost goes to. The type decides which column it adds up in on job costs and reports.</Muted>{canEdit && <Button title="+ Add cost code" onPress={() => setEdit({ category: 'materials', grp: list[0]?.grp || '' })} />}</View>
+        <View style={{ flexDirection: 'row', marginBottom: 10 }}><Muted style={{ flex: 1 }}>The ID is the Xero account code each cost goes to. The type decides which column it adds up in on job costs and reports.</Muted>{canEdit && <Button title="+ Add Cost Code" onPress={() => setEdit({ category: 'materials', grp: list[0]?.grp || '' })} />}</View>
         {desk && <TextInput value={q} onChangeText={setQ} placeholder="Search cost codes" style={box} />}
         {Object.keys(groups).sort().map((g) => (
           <View key={g}><SectionTitle>{g} · {groups[g].length} Cost Code{groups[g].length === 1 ? '' : 's'}</SectionTitle>{desk ? (

@@ -113,8 +113,8 @@ export function SplitBox({ table, row, po, onClose, onSaved }: { table: SplitTab
               );
             })}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 6 }}>
-              <Button kind="ghost" title="+ Add a line" onPress={() => { const last = rows[rows.length - 1], left = round2(target - splitTotal(rows)); setRows([...rows, { site_id: last ? last.site_id : row.site_id, sub: '', v: left > 0 ? left : null }]); }} />
-              <Button kind="ghost" title="Share evenly" onPress={() => setRows(splitEven(rows, target))} />
+              <Button kind="ghost" title="+ Add A Line" onPress={() => { const last = rows[rows.length - 1], left = round2(target - splitTotal(rows)); setRows([...rows, { site_id: last ? last.site_id : row.site_id, sub: '', v: left > 0 ? left : null }]); }} />
+              <Button kind="ghost" title="Share Evenly" onPress={() => setRows(splitEven(rows, target))} />
               {homeSubs.length > 0 && <Button kind="ghost" title={`Across all ${subNoun(home, true).toLowerCase()}`} onPress={() => setRows(splitAcross(row.site_id, homeSubs.map((j) => j.id), target))} />}
             </View>
             <Text style={{ fontWeight: '500', color: foot.ok ? '#1E7A3C' : '#C0392B', marginBottom: 6 }}>{foot.text}</Text>

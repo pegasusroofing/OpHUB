@@ -95,7 +95,7 @@ function Suppliers({ data, canEdit }: { data: { lists: Row[]; items: Row[]; book
           ]}
           footLabel={(shown) => `${shown.length} Supplier${shown.length === 1 ? '' : 's'}`} />
       ) : rows.length ? (
-        <PhoneTable label="Price lists" rows={rows} keyOf={(r) => r.name} onRow={(r) => open(r.key ? r.name : NO_SUPPLIER)}
+        <PhoneTable label="Price Lists" rows={rows} keyOf={(r) => r.name} onRow={(r) => open(r.key ? r.name : NO_SUPPLIER)}
           cols={[
             { k: 's', l: 'Supplier', lines: 2, main: (r) => r.name, sub: (r) => (r.lists ? `${r.lists} Price List${r.lists === 1 ? '' : 's'}` : ''), sort: (r) => r.name.toLowerCase() },
             { k: 'n', l: 'Items', w: 56, center: true, main: (r) => String(r.items), sort: (r) => r.items, bigFirst: true },
@@ -176,7 +176,7 @@ function SupplierPrices({ name, data, canEdit }: { name: string; data: { lists: 
                 { k: 'd', l: 'Dated', sort: (l) => String(l.quote_date || l.created_at || '').slice(0, 10), date: (l) => String(l.quote_date || l.created_at || '').slice(0, 10), render: (l) => <Cell>{fdate(String(l.quote_date || l.created_at || '').slice(0, 10))}</Cell> },
               ]} />
           ) : (
-          <PhoneTable label="Their price lists" search={false} rows={lists} keyOf={(l) => l.id} onRow={(l) => void listMenu(l)}
+          <PhoneTable label="Their Price Lists" search={false} rows={lists} keyOf={(l) => l.id} onRow={(l) => void listMenu(l)}
             cols={[
               { k: 'l', l: 'List', lines: 2, main: (l) => l.quote_no || l.file_name || 'Price List', sub: (l) => (l.quote_no && l.file_name ? l.file_name : '') },
               { k: 'n', l: 'Items', w: 56, center: true, main: (l) => String(data.items.filter((i) => i.quote_id === l.id).length) },

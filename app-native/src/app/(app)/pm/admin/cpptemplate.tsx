@@ -18,7 +18,7 @@ export default function CppTemplateScreen() {
   const { data, isLoading } = useQuery({ queryKey: ['cppTemplate', me?.org_id], enabled: !!me?.org_id, gcTime: 0, queryFn: () => loadCppTemplate(me?.org_id) });
   if (!me) return null;
   if (!isBetaSite()) return <Muted style={{ padding: space.l }}>The Construction Phase Plan template is on the website version of the app for now (app.operativehub.co.uk).</Muted>;
-  if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
+  if (!isFullManager(me)) return <><Stack.Screen options={{ title: 'CPP Template' }} /><Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted></>;
   if (isLoading || !data) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   return (
     <ScrollView contentContainerStyle={page(820)} keyboardShouldPersistTaps="handled">

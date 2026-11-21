@@ -1,4 +1,4 @@
-// Operative: Subcontractor form tile on Home, submit with blanks shows what's missing, fill in and send.
+// Operative: Subcontractor Form tile on Home, submit with blanks shows what's missing, fill in and send.
 const {chromium, makeContext} = require('./harness');
 const seed = require('./fresh/seed');
 const fs = require('fs'), path = require('path');
@@ -13,7 +13,7 @@ const fs = require('fs'), path = require('path');
   await page.goto(BASE+'/login'); await page.waitForTimeout(5000);
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(6000);
-  const home = (await page.evaluate(()=>document.body.innerText)).includes('Subcontractor form');
+  const home = (await page.evaluate(()=>document.body.innerText)).includes('Subcontractor Form');
   console.log('home tile:', home);
   await page.goto(BASE+'/subform'); await page.waitForTimeout(4000);
   await page.screenshot({path:'shots/subform.png'}); console.log('url now', page.url());

@@ -75,9 +75,9 @@ export default function Vehicle() {
         <Text style={{ fontWeight: '600', color: base.ink }}>Week commencing {new Date(`${d.week_start}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</Text>
         {submitted ? <Text style={{ color: base.ok }}>✓ Submitted</Text> : <Muted>{answered} of {VEHICLE_ITEMS.length} checked</Muted>}
         <View style={{ marginTop: 10 }}>
-          <Field label="Vehicle registration" value={d.vehicle_reg} editable={!submitted} placeholder="e.g. AB12 CDE" autoCapitalize="characters"
+          <Field label="Vehicle Registration" value={d.vehicle_reg} editable={!submitted} placeholder="e.g. AB12 CDE" autoCapitalize="characters"
             onChangeText={(v) => setD({ ...d, vehicle_reg: v })} onBlur={() => persist(d)} />
-          <Field label="Current mileage" value={d.mileage} editable={!submitted} placeholder="e.g. 48250" keyboardType="number-pad"
+          <Field label="Current Mileage" value={d.mileage} editable={!submitted} placeholder="e.g. 48250" keyboardType="number-pad"
             onChangeText={(v) => setD({ ...d, mileage: v })} onBlur={() => persist(d)} />
         </View>
       </Card>

@@ -32,7 +32,7 @@ export default function Signature() {
   return (
     <Screen>
       <Card>
-        <SectionTitle>Your signature</SectionTitle>
+        <SectionTitle>Your Signature</SectionTitle>
         {me.signature_path ? (
           <>
             <Muted style={{ marginBottom: 8 }}>Currently adopted:</Muted>

@@ -30,11 +30,11 @@ const seed = require('./fresh/seed');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   // Price a PO from a quote file (QUOTE env = path)
   await page.goto(BASE+'/fin/po/po1'); await page.waitForTimeout(6000);
-  const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout:15000}), page.getByText('💷 Price from a quote file (PDF, Excel or CSV)', {exact:true}).click()]);
+  const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout:15000}), page.getByText('💷 Price From A Quote File (PDF, Excel Or CSV)', {exact:true}).click()]);
   await fc.setFiles(process.env.QUOTE); await page.waitForTimeout(4000);
   const t = (await page.evaluate(()=>document.body.innerText)).replace(/\s+/g,' ');
   console.log('preview:', (t.match(/Price J101-PO-001 from the quote.{0,220}/)||[''])[0]);
-  await page.getByText('Apply prices', {exact:true}).click(); await page.waitForTimeout(3000);
+  await page.getByText('Apply Prices', {exact:true}).click(); await page.waitForTimeout(3000);
   const po = db.purchase_orders.find(p=>p.id==='po1');
   console.log('po:', JSON.stringify({value: po.value, items: po.items}), '| price book:', (db.fin_price_book||[]).length, '| quotes:', (db.fin_quotes||[]).length);
   console.log('errors:', errs.join(' / ').slice(0,400) || 'none');

@@ -40,13 +40,13 @@ const B = 'http://localhost:8081';
   check(['Details', 'Settings', 'Questions'].every((x) => tb.some((y) => y.startsWith(x))) && /Template Name/.test(t) && /Next: Settings ›/.test(t) && /Save Template/.test(t), `template builder: tabs ${tb.join(' | ')}; Save Template and Next`);
   await vis('Next: Settings ›').first().click(); await page.waitForTimeout(800);
   t = await text();
-  check(/Traffic light system/.test(t) && /Show unanswered questions/.test(t) && /Next: Questions ›/.test(t), 'template builder: Settings tab');
+  check(/Traffic Light System/i.test(t) && /Show Unanswered Questions/i.test(t) && /Next: Questions ›/.test(t), 'template builder: Settings tab');
   await vis('Next: Questions ›').first().click(); await page.waitForTimeout(800);
   t = await text();
   check(/Section Title/.test(t) && /\+ Add Section/.test(t) && !/Next:/.test(t), 'template builder: Questions tab');
   await page.screenshot({path: path.join(__dirname, 'shots', 'tabs20-template.png')});
 
-  // ---- Subcontractor form builder ----
+  // ---- Subcontractor Form builder ----
   await page.goto(`${B}/pm/admin/subapps/form`); await page.waitForTimeout(6000);
   t = await text(); tb = await tabs();
   check(tb.length >= 4 && /^1\. /.test(tb[0]) && /Next: /.test(t) && /Save/.test(t), `form builder: one tab per section (${tb.slice(0, 4).join(' | ')}…), Save and Next`);

@@ -10,7 +10,7 @@ import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-nativ
 
 import { CoshhFolderPicker } from '@/components/CoshhFolderPicker';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
-import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { Button, Card, Empty, FilterRow, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { alsoIn, loadProducts, useAllFolders, productFromSds, wipeLibrary, deleteFile, deleteFolder, deleteProductFull, moveFiles, newProduct, packPdf, productsFromSds, removeDuplicates, renameFile, renameFolder, saveAssessment, uploadFiles, useAssessMap, useFolderView, useProducts, createFolder } from '@/data/coshhLib';
 import { openDocLink } from '@/data/hs';
@@ -22,7 +22,6 @@ import { isFullManager } from '@/lib/roles';
 import { base, page, radius, space, live } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card };
-const chip = (on: boolean) => ({ flex: 1, padding: 9, borderRadius: 16, borderWidth: 1, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card });
 type Pick = { title: string; multi?: boolean; then: (ids: (string | null)[]) => void };
 
 function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
@@ -114,8 +113,8 @@ function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
       }} />
       <Muted style={{ marginTop: 6 }}>Pick one Safety Data Sheet to check it first, or several at once: each becomes a product with its own COSHH assessment in this folder. On the office laptop the codes are read off each sheet for you — always check them.</Muted>
       {!folderId && me.role === 'admin' && !!(data?.subfolders.length || data?.files.length) && (
-        <View style={{ marginTop: 18 }}>
-          <Button kind="ghost" title="🗑 Delete all folders and documents" onPress={async () => {
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 18 }}>
+          <Button small kind="ghost" title="🗑 Delete All Folders And Documents" onPress={async () => {
             if (!(await confirmAsk("Delete EVERY folder and document in the COSHH assessment library? Products stay. This can't be undone.", 'Delete all'))) return;
             if (!(await confirmAsk('Are you sure? Jobs keep the COSHH already added to them.', 'Delete all'))) return;
             setBusy('Deleting…'); setSel([]);
@@ -175,7 +174,7 @@ function Products({ setPick }: { setPick: (p: Pick | null) => void }) {
       {dupN > 0 && (
         <Card style={{ backgroundColor: '#FDECEA', borderColor: '#F5C2BD', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Text style={{ flex: 1, color: '#8E2B20' }}><Text style={{ fontWeight: '600' }}>{dupN} duplicate{dupN === 1 ? '' : 's'}</Text> — marked in red below</Text>
-          <Button title="Remove duplicates" onPress={async () => {
+          <Button title="Remove Duplicates" onPress={async () => {
             if (!(await confirmAsk(`Remove ${dupN} duplicate product${dupN === 1 ? '' : 's'}? The first copy of each is kept. Assessments already in folders aren't touched.`, 'Remove'))) return;
             const n = await removeDuplicates(all); toast(`${n} duplicate${n === 1 ? '' : 's'} removed`); refresh();
           }} />
@@ -211,7 +210,7 @@ function Products({ setPick }: { setPick: (p: Pick | null) => void }) {
           })}
         </View>
       )) : <Empty>{all.length ? 'Nothing matches.' : 'No products yet — add your first one below.'}</Empty>}
-      <Button title="+ Add a product" onPress={async () => {
+      <Button title="+ Add A Product" onPress={async () => {
         const n = await promptText('Product name', ''); if (!n || !n.trim()) return;
         const id = await newProduct(me, n.trim()); if (!id) { toast('Could not add — try again.'); return; }
         refresh(); router.push(`/pm/admin/coshh/${id}` as never);
@@ -225,15 +224,13 @@ export default function CoshhLibrary() {
   const [tab, setTab] = useState<'assess' | 'products'>('assess');
   const [pick, setPick] = useState<Pick | null>(null);
   if (!me) return null;
-  if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
+  if (!isFullManager(me)) return <><Stack.Screen options={{ title: 'COSHH Library' }} /><Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted></>;
   return (
     <View style={{ flex: 1 }}>
       <Stack.Screen options={{ title: 'COSHH Library' }} />
       <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
         <Muted style={{ marginBottom: 10 }}>1. Add a product and its data sheet. 2. Check it and tap Assess — the assessment is saved in a folder. 3. Add assessments to a job from its COSHH page (Add from COSHH Library), or tick them here to export or email.</Muted>
-        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
-          {([['assess', 'Assessments (folders)'], ['products', 'Products (data sheets)']] as const).map(([k, l]) => <Pressable key={k} onPress={() => setTab(k)} style={chip(tab === k)}><Text style={{ textAlign: 'center', fontWeight: '600', fontSize: 12, color: tab === k ? live.brand1Text : base.ink }}>{l}</Text></Pressable>)}
-        </View>
+        <FilterRow options={[['assess', 'Assessments (Folders)'], ['products', 'Products (Data Sheets)']]} value={tab} onChange={setTab} />
         {tab === 'assess' ? <Folders setPick={setPick} /> : <Products setPick={setPick} />}
       </ScrollView>
       {pick && <CoshhFolderPicker title={pick.title} multi={pick.multi} onCancel={() => setPick(null)} onDone={pick.then} />}

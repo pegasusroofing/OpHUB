@@ -46,7 +46,7 @@ export default function TemplateEditor() {
     if (loaded && !t) setT({ ...loaded, sections: loaded.sections?.length ? JSON.parse(JSON.stringify(loaded.sections)) : [{ id: uid(), title: 'Section 1', items: [] }] });
   }, [loaded, t]);
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Edit Template' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   if (!t) return <Muted style={{ padding: space.l }}>{loaded === null ? 'Template not found.' : 'Loading…'}</Muted>;
   const sets = orgSets ?? [];
   const secs = t.sections;
@@ -129,12 +129,12 @@ export default function TemplateEditor() {
             </Pressable>
             {open && (
               <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: base.line }}>
-                <Check label="Must be answered" value={!!it.required} onChange={(v) => patchItem(si, ii, { required: v })} />
-                {!!levels && !NO_EXTRAS.includes(it.type) && <Check label="Show the traffic light on this question" value={it.traffic !== false} onChange={(v) => patchItem(si, ii, { traffic: v })} />}
-                {!NO_EXTRAS.includes(it.type) && <Check label="Allow a note" value={it.allowNote !== false} onChange={(v) => patchItem(si, ii, { allowNote: v })} />}
+                <Check label="Must Be Answered" value={!!it.required} onChange={(v) => patchItem(si, ii, { required: v })} />
+                {!!levels && !NO_EXTRAS.includes(it.type) && <Check label="Show The Traffic Light On This Question" value={it.traffic !== false} onChange={(v) => patchItem(si, ii, { traffic: v })} />}
+                {!NO_EXTRAS.includes(it.type) && <Check label="Allow A Note" value={it.allowNote !== false} onChange={(v) => patchItem(si, ii, { allowNote: v })} />}
                 {it.type !== 'photo' && it.type !== 'signature' && !it.autofill && (
                   <>
-                    <Check label="Let a photo be added to this answer" value={it.allowMedia !== false} onChange={(v) => patchItem(si, ii, { allowMedia: v, ...(v ? {} : { mediaRequiredWhen: [] }) })} />
+                    <Check label="Let A Photo Be Added To This Answer" value={it.allowMedia !== false} onChange={(v) => patchItem(si, ii, { allowMedia: v, ...(v ? {} : { mediaRequiredWhen: [] }) })} />
                     {it.allowMedia !== false && (own ? (
                       <View style={{ marginLeft: 8 }}>
                         <Muted style={{ fontWeight: '600' }}>Require the photo when the answer is…</Muted>
@@ -142,7 +142,7 @@ export default function TemplateEditor() {
                           {own.map((o) => <Check key={String(o)} label={typeof o === 'boolean' ? (o ? 'Yes' : 'No') : pfLbl(it, String(o))} value={(it.mediaRequiredWhen || []).includes(o)} onChange={(v) => patchItem(si, ii, { mediaRequiredWhen: v ? [...(it.mediaRequiredWhen || []), o] : (it.mediaRequiredWhen || []).filter((x) => x !== o) })} />)}
                         </View>
                       </View>
-                    ) : <Check label="Photo required whenever this is answered" value={(it.mediaRequiredWhen || []).includes('__always__')} onChange={(v) => patchItem(si, ii, { mediaRequiredWhen: v ? ['__always__'] : [] })} />)}
+                    ) : <Check label="Photo Required Whenever This Is Answered" value={(it.mediaRequiredWhen || []).includes('__always__')} onChange={(v) => patchItem(si, ii, { mediaRequiredWhen: v ? ['__always__'] : [] })} />)}
                   </>
                 )}
                 {(it.type === 'passfail' || it.type === 'checkbox') && <Check label={`Count towards score${it.type === 'passfail' ? (it.pfWords ? ' (Pass = 1 point, N/A excluded)' : ' (Yes = 1 point, N/A excluded)') : ' (Yes = 1 point)'}`} value={!!it.scored} onChange={(v) => patchItem(si, ii, { scored: v })} />}
@@ -209,7 +209,7 @@ export default function TemplateEditor() {
       {usedOpen && (
         <Card>
           <Muted style={{ marginBottom: 8 }}>Leave all three unticked for a normal report or survey.</Muted>
-          <Check label="Use as a Daily Briefing template (Health & Safety › Daily Briefings)" value={!!t.is_daily_briefing} onChange={(v) => setT({ ...t, is_daily_briefing: v })} />
+          <Check label="Use As A Daily Briefing Template (Health & Safety › Daily Briefings)" value={!!t.is_daily_briefing} onChange={(v) => setT({ ...t, is_daily_briefing: v })} />
           <Check label="Use as a Main Contractor Inspection template (Main Contractor › Inspections)" value={!!t.is_mc_inspection} onChange={(v) => setT({ ...t, is_mc_inspection: v })} />
           <Check label="Use as a LOLER Inspection template (Health & Safety › LOLER, can be linked to plant)" value={!!t.is_loler_inspection} onChange={(v) => setT({ ...t, is_loler_inspection: v })} />
         </Card>
@@ -220,7 +220,7 @@ export default function TemplateEditor() {
       <Toggle title={`Traffic light system · ${levels ? `On — ${levels.length} colours` : 'Off'}`} open={trafficOpen} onPress={() => setTrafficOpen(!trafficOpen)} />
       {trafficOpen && (
         <Card>
-          <Check label="Use a traffic light system on this template" value={!!tr.on} onChange={(v) => setTraffic({ on: v, ...(v && !(tr.levels || []).length ? { levels: trafficDefaultLevels() } : {}) })} />
+          <Check label="Use A Traffic Light System On This Template" value={!!tr.on} onChange={(v) => setTraffic({ on: v, ...(v && !(tr.levels || []).length ? { levels: trafficDefaultLevels() } : {}) })} />
           <Muted style={{ marginBottom: 8 }}>Each question gets a row of colours to pick its condition. The key is printed on the report. You can switch it off for individual questions in their More options.</Muted>
           {tr.on && (
             <>
@@ -254,12 +254,12 @@ export default function TemplateEditor() {
                 </View>
               ))}
               <Pressable onPress={() => setSetsDraft(setsDraft.map((x, j) => (j === ai ? { ...x, options: [...x.options, ''] } : x)))}><Text style={{ color: base.blue, marginBottom: 6 }}>+ Add answer</Text></Pressable>
-              <Check label="More than one answer can be ticked" value={!!a.multi} onChange={(v) => setSetsDraft(setsDraft.map((x, j) => (j === ai ? { ...x, multi: v } : x)))} />
+              <Check label="More Than One Answer Can Be Ticked" value={!!a.multi} onChange={(v) => setSetsDraft(setsDraft.map((x, j) => (j === ai ? { ...x, multi: v } : x)))} />
             </View>
           ))}
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <View style={{ flex: 1 }}><Button kind="ghost" title="+ New answer type" onPress={() => setSetsDraft([...setsDraft, { id: uid(), name: '', options: ['', ''], multi: false }])} /></View>
-            <View style={{ flex: 1 }}><Button title="Save answer types" onPress={async () => {
+            <View style={{ flex: 1 }}><Button kind="ghost" title="+ New Answer Type" onPress={() => setSetsDraft([...setsDraft, { id: uid(), name: '', options: ['', ''], multi: false }])} /></View>
+            <View style={{ flex: 1 }}><Button title="Save Answer Types" onPress={async () => {
               const clean = cleanAnswerSets(setsDraft);
               if (!clean) { toast('Each answer type needs at least one answer.'); return; }
               if (!(await db.from('organizations').update({ report_answer_sets: clean } as never).eq('id', me.org_id as string).select('id')).data?.length) { toast('Could not save — only a Project Manager or Admin can change this.'); return; }
@@ -270,7 +270,7 @@ export default function TemplateEditor() {
       )}
 
       <Card>
-        <Check label="Show unanswered questions on the finished report and PDF" value={templateShowsUnanswered(secs)} onChange={(v) => setSecs(secs.map((x, i) => (i === 0 ? { ...x, showUnanswered: v } : x)))} />
+        <Check label="Show Unanswered Questions On The Finished Report And PDF" value={templateShowsUnanswered(secs)} onChange={(v) => setSecs(secs.map((x, i) => (i === 0 ? { ...x, showUnanswered: v } : x)))} />
       </Card>
       </>)}
       {tab === 'questions' && (<>

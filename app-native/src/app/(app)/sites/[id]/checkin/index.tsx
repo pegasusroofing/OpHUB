@@ -46,7 +46,7 @@ function AddressList({ siteId }: { siteId: string }) {
   if (isLoading) return <Muted>Loading addresses…</Muted>;
   return (
     <>
-      <SectionTitle>Choose the address you&apos;re checking in to</SectionTitle>
+      <SectionTitle>Choose The Address You&apos;re Checking In To</SectionTitle>
       {open.length ? open.map(row) : (
         <Empty>{closed.length ? 'No open addresses — see Closed Addresses below.'
           : `No addresses have been added for this project yet.${isManager(me) ? '' : ' Ask your project manager to add one.'}`}</Empty>
@@ -77,8 +77,8 @@ function AddAddress({ siteId }: { siteId: string }) {
     <Card style={{ backgroundColor: base.paper }}>
       <SectionTitle>Add Address</SectionTitle>
       <Field label="Name" value={name} onChangeText={setName} placeholder="e.g. 12 High Street" />
-      <Field label="Address (optional)" value={address} onChangeText={setAddress} autoCapitalize="words" />
-      <Field label="Postcode (optional)" value={postcode} onChangeText={(v) => setPostcode(v.toUpperCase())} autoCapitalize="characters" />
+      <Field label="Address (Optional)" value={address} onChangeText={setAddress} autoCapitalize="words" />
+      <Field label="Postcode (Optional)" value={postcode} onChangeText={(v) => setPostcode(v.toUpperCase())} autoCapitalize="characters" />
       <Muted style={{ marginBottom: 10 }}>The geofence for this address can be set from its own page afterwards.</Muted>
       <Button title="Add Address" onPress={async () => {
         if (!name.trim()) { toast('Enter a name for this address.'); return; }

@@ -1,4 +1,4 @@
-// One level of Drawings, Spec's & Programme (810): sub-folders, current files,
+// One level of Drawings, Specs & Programme (810): sub-folders, current files,
 // superseded files. Managers get + (Add Folder / Add Document), folder ⋮ (move,
 // rename, delete), file rename/delete, Supersedes on upload, and the "add a key
 // date to the Calendar?" card after a programme upload (an Excel programme is
@@ -50,9 +50,9 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
   const [markup, setMarkup] = useState<{ src: string; name: string } | null>(null);
   // The address when this folder opened: the page stays underneath while you go elsewhere, and mustn't claim the trail of the page on top.
   const [path] = useState(usePathname());
-  // Trail: Drawings, Spec's & Programme › parent folders › this folder — each step goes back up.
+  // Trail: Drawings, Specs & Programme › parent folders › this folder — each step goes back up.
   const top = `/sites/${siteId}/drawings`;
-  usePageCrumbs(path, folderId && data?.folder ? [["Drawings, Spec's & Programme", top], ...(data.parents || []).map((p) => [p.name, `${top}/${p.id}`] as [string, string]), [data.folder.name, null]] : null);
+  usePageCrumbs(path, folderId && data?.folder ? [["Drawings, Specs & Programme", top], ...(data.parents || []).map((p) => [p.name, `${top}/${p.id}`] as [string, string]), [data.folder.name, null]] : null);
   if (!me) return null;
   const mgr = isManager(me);
   const folder = data?.folder ?? null;
@@ -105,7 +105,7 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
 
   return (
     <View>
-      <Stack.Screen options={{ title: folder ? folder.name : "Drawings, Spec's & Programme" }} />
+      <Stack.Screen options={{ title: folder ? folder.name : "Drawings, Specs & Programme" }} />
       {!folderId && <HowTo k="drawings" />}
       {mgr && (
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
@@ -135,7 +135,7 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
       )}
       {mgr && mode === 'upload' && (
         <Card>
-          <SectionTitle>Upload files (any type — PDF, Word, Excel, photos…)</SectionTitle>
+          <SectionTitle>Upload Files (Any Type — PDF, Word, Excel, Photos…)</SectionTitle>
           <Muted>Uploads into {folder ? `"${folder.name}"` : 'the top level'}. You can pick more than one file — each is saved separately.</Muted>
           {!!data?.files.length && (
             <View style={{ marginTop: 8 }}>
@@ -166,7 +166,7 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
           <TextInput value={keyDate.label} onChangeText={(t) => setKeyDate({ ...keyDate, label: t })} style={box} />
           </>}
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-            <View style={{ flex: 1 }}><Button title="Add to Calendar" onPress={async () => {
+            <View style={{ flex: 1 }}><Button title="Add To Calendar" onPress={async () => {
               if (keyDate.cands.length) {
                 const on = keyDate.cands.filter((c) => c.on);
                 if (!on.length) { toast('Tick at least one date, or use Skip.'); return; }

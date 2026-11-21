@@ -72,7 +72,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
 
   // ---- Price Lists ----
   await page.goto(B + '/fin/purchases?tab=prices'); await page.waitForTimeout(4500);
-  check(await page.locator('[aria-label="Price lists"] >> visible=true').count() === 0 && /Bauder/.test(await body()) && /PRICE LISTS|Price Lists/.test(await body()), 'price lists: the laptop table (not the phone one)');
+  check(await page.locator('[aria-label="Price Lists"] >> visible=true').count() === 0 && /Bauder/.test(await body()) && /PRICE LISTS|Price Lists/.test(await body()), 'price lists: the laptop table (not the phone one)');
   await snap({path: path.join(SHOTS, 'laptop-pricelists2.png')});
 
   // ---- Back goes up a level; a tab isn't a level (Andy, 18 Nov, replacing 14 Nov's "back to the tab you were on") ----

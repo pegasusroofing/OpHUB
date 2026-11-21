@@ -36,7 +36,7 @@ const seed = require('./fresh/seed');
   await fc.setFiles(process.env.BOQ); await page.waitForTimeout(5000);
   let t = (await page.evaluate(()=>document.body.innerText)).replace(/\s+/g,' ');
   console.log('preview:', (t.match(/Check the breakdown.{0,300}/)||[''])[0]);
-  await page.getByText('Use this breakdown', {exact:true}).click(); await page.waitForTimeout(800);
+  await page.getByText('Use This Breakdown', {exact:true}).click(); await page.waitForTimeout(800);
   // Lines already there: it asks before replacing them (an in-app Yes/No now, not a browser dialog).
   if (await page.locator('text="Replace" >> visible=true').count()) await page.locator('text="Replace" >> visible=true').last().click();
   await page.waitForTimeout(2000);

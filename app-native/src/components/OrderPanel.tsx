@@ -125,14 +125,14 @@ export function OrderPanel({ siteId, mats, again, onDone, onCancel }: { siteId: 
       </View>
       {!suppliers?.length && <Muted>No suppliers yet — add them in Admin › Suppliers.</Muted>}
       {branches.length > 0 && <SelectBox label="Branch" value={branch?.id ?? ''} options={branchOpts} onChange={(k) => { const b = branches.find((x) => x.id === k); setBranch(b ? { id: b.id, name: b.name || '', address: b.address || '', phone: b.phone || '', email: b.email || '' } : null); }} />}
-      {sup && sendOpts.length > 1 && <SelectBox label="Send the order email to" value={sendKey} options={sendOpts.map((o) => [o.key, o.label] as [SendTo, string])} onChange={(k) => setSendTo(k)} />}
+      {sup && sendOpts.length > 1 && <SelectBox label="Send The Order Email To" value={sendKey} options={sendOpts.map((o) => [o.key, o.label] as [SendTo, string])} onChange={(k) => setSendTo(k)} />}
 
       {!opNoSup && <View style={{ marginBottom: 10 }}>
         <Text style={{ fontSize: 12, fontWeight: '600', color: base.slate, marginBottom: 4 }}>{mode === 'collection' ? 'Collection date' : 'Delivery date'} (the supplier sees this)</Text>
         <DateBox value={date} onChange={setDate} min={todayIso()} clearable={false} title={mode === 'collection' ? 'Collection date' : 'Delivery date'} />
       </View>}
-      {how === 'driver' && (drvOpts.length ? <SelectBox label="Which driver" value={who} options={drvOpts} onChange={setWho} placeholder="Choose the driver" /> : <Text style={{ color: base.warn, marginBottom: 8 }}>No drivers set up yet.</Text>)}
-      {how === 'driver' && who.startsWith('driver:') && <SelectBox label="Collection drop" value={slot} options={DELIVERY_TIME_SLOTS.map((x) => [x.key, x.label] as [string, string])} onChange={setSlot} />}
+      {how === 'driver' && (drvOpts.length ? <SelectBox label="Which Driver" value={who} options={drvOpts} onChange={setWho} placeholder="Choose the driver" /> : <Text style={{ color: base.warn, marginBottom: 8 }}>No drivers set up yet.</Text>)}
+      {how === 'driver' && who.startsWith('driver:') && <SelectBox label="Collection Drop" value={slot} options={DELIVERY_TIME_SLOTS.map((x) => [x.key, x.label] as [string, string])} onChange={setSlot} />}
       {how === 'op' && <SelectBox label={opNoSup ? 'Who collects (optional — you can choose later on Collections)' : 'Who collects'} value={who} options={opOpts} onChange={setWho} placeholder="Choose the operative" />}
 
       {!opNoSup && (

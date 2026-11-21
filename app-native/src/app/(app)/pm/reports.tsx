@@ -1,4 +1,4 @@
-// Reports & surveys across all projects (185 renderAllReports): Start a report for
+// Reports & surveys across all projects (185 renderAllReports): Start A Report for
 // a project or as a general survey (no project), search, In progress / Completed /
 // All, filter by template or surveyor, open any report; tick completed ones to
 // export or email them as one PDF. Completed TBTs (all projects) is linked below.
@@ -44,7 +44,7 @@ export default function AllReports() {
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [xBusy, setXBusy] = useState('');
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Reports & Surveys' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   const where = (r: (typeof rows)[number]) => (r.site_id ? (sites ?? []).find((s) => s.id === r.site_id)?.name || 'Project' : r.general_label || 'General survey');
   // General surveys (the card at the bottom): only those not linked to a project.
   const filtered = rows.filter((r) => (!tpl || r.template_name === tpl) && (!by || r.submitted_by === by) && (!gen || !r.site_id));
@@ -95,20 +95,20 @@ export default function AllReports() {
 
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'Reports & surveys' }} />
+      <Stack.Screen options={{ title: 'Reports & Surveys' }} />
       <HowTo k="reports" />
-      {gen && <Stack.Screen options={{ title: 'General surveys' }} />}
+      {gen && <Stack.Screen options={{ title: 'General Surveys' }} />}
       <Pressable onPress={() => void start()} disabled={busy} accessibilityRole="button"
         style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: t.brand1, borderRadius: 14, paddingVertical: 13 }, (pressed || busy) && { opacity: 0.8 }]}>
         <OphIcon name="plus" size={16} color={t.brand1Text} stroke={2.4} />
-        <Text style={[heading(700), { fontSize: 14, color: t.brand1Text }]}>{busy ? 'Starting…' : 'Start a report'}</Text>
+        <Text style={[heading(700), { fontSize: 14, color: t.brand1Text }]}>{busy ? 'Starting…' : 'Start A Report'}</Text>
       </Pressable>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: base.line, borderRadius: 14, paddingHorizontal: 14, height: 46, marginVertical: 12 }}>
         <OphIcon name="search" size={18} color={base.slate} />
         <TextInput value={q} onChangeText={setQ} placeholder="Search reports, projects, people" placeholderTextColor={base.slateLight} style={{ flex: 1, fontSize: 14, color: base.ink, height: 44 }} />
       </View>
       <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center', marginBottom: 12 }}>
-        {chip('open', 'In progress')}{chip('done', 'Completed')}{chip('all', 'All')}
+        {chip('open', 'In Progress')}{chip('done', 'Completed')}{chip('all', 'All')}
         <View style={{ flex: 1 }} />
         <Pressable onPress={async () => {
           const k = await chooseAction('Filter', [
@@ -144,7 +144,7 @@ export default function AllReports() {
             <Text style={{ fontWeight: '600', color: base.ink }}>{r.template_name || 'Report'}</Text>
             <Muted>{where(r)} · {nameOf(people, r.submitted_by)}{r.status === 'in_progress' || !r.submitted_at ? '' : ` · ${new Date(r.submitted_at).toLocaleDateString('en-GB')}`}</Muted>
           </View>
-          <Text style={{ fontWeight: '600', color: r.status === 'in_progress' ? base.warn : base.ok }}>{r.status === 'in_progress' ? 'In progress' : 'Completed'}</Text>
+          <Text style={{ fontWeight: '600', color: r.status === 'in_progress' ? base.warn : base.ok }}>{r.status === 'in_progress' ? 'In Progress' : 'Completed'}</Text>
         </Pressable>
       )) : <Empty>No reports here{tpl || by ? ' for these filters' : ''}.</Empty>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>

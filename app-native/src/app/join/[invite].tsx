@@ -50,7 +50,7 @@ export default function Join() {
         <Card>
           <Title>You&apos;re all set</Title>
           <Muted style={{ marginBottom: 16 }}>{done}</Muted>
-          <Button title="Go to log in" onPress={() => router.replace('/login')} />
+          <Button title="Go To Log In" onPress={() => router.replace('/login')} />
         </Card>
       </Screen>
     );
@@ -60,7 +60,7 @@ export default function Join() {
       <Screen center>
         <Card>
           <Muted style={{ marginBottom: 12 }}>This invite link isn&apos;t valid — it may have already been used or expired. Ask your Project Manager for a new one.</Muted>
-          <Button kind="ghost" title="Back to Sign In" onPress={() => router.replace('/login')} />
+          <Button kind="ghost" title="Back To Sign In" onPress={() => router.replace('/login')} />
         </Card>
       </Screen>
     );

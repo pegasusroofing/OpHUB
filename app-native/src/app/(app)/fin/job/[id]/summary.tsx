@@ -105,7 +105,7 @@ export default function FinDetail() {
     <>
       <SectionTitle>Applications &amp; Certificates</SectionTitle>
       {apps.filter((a) => inD(a.valuation_date)).sort((x, y) => y.number - x.number).map((a) => <FinRow key={a.id} left={`App ${a.number}`} title={fdate(a.valuation_date)} sub={`applied ${money(a.gross)}${a.cert_gross != null ? ` · certified ${money(a.cert_gross)}` : ''}`} right={money(a.cert_net ?? a.net_due)} onMenu={() => void rowMenu.appMenu(a, appStage(a as App).k)} onPress={() => router.push(`/fin/job/${id}/application/${a.id}` as never)} />)}
-      <SectionTitle>Sales invoices</SectionTitle>
+      <SectionTitle>Sales Invoices</SectionTitle>
       {rowMenu.form}
       {invsAll.filter((i) => inD(i.issue_date)).map((i) => <FinRow key={i.id} left={i.number || 'Draft'} title={fdate(i.issue_date)} sub={i.status} right={money(i.total)} onMenu={() => void rowMenu.invMenu(i)} onPress={() => router.push(`/fin/job/${id}/invoice/${i.id}` as never)} />)}
     </>
@@ -114,8 +114,8 @@ export default function FinDetail() {
     const pos = data.book.pos.filter((p) => p.site_id === id && inD(String(p.created_at || '').slice(0, 10)));
     body = (
       <>
-        <SectionTitle>Purchase invoices &amp; other costs</SectionTitle>{lines(cost.filter((l) => ['materials', 'overheads', 'other'].includes(l.cat)), 'No purchase invoices.')}
-        <SectionTitle>Purchase orders</SectionTitle>
+        <SectionTitle>Purchase Invoices &amp; Other Costs</SectionTitle>{lines(cost.filter((l) => ['materials', 'overheads', 'other'].includes(l.cat)), 'No purchase invoices.')}
+        <SectionTitle>Purchase Orders</SectionTitle>
         {pos.length ? pos.map((p) => { const inv = poInvoiced(p, data.book.pinvs), v = p.value != null ? Number(p.value) : null; return <FinRow key={p.id} left={p.number} title={p.supplier_name || '—'} sub={`invoiced ${money(inv)}${v != null ? ` · left ${money(Math.max(0, v - inv))}` : ''} · ${p.status}`} right={v != null ? money(v) : '—'} onPress={() => router.push(`/fin/po/${p.id}` as never)} />; }) : <Empty>No purchase orders.</Empty>}
       </>
     );

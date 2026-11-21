@@ -14,7 +14,7 @@ const {chromium, makeContext} = require('./harness');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/pm/admin/suppliers'); await page.waitForTimeout(4000);
   await page.getByText('Jewson', {exact:true}).click(); await page.waitForTimeout(800);
-  await page.getByLabel('Finance Directory (accounts)').click(); await page.waitForTimeout(400); await page.getByText('Jewson Ltd', {exact:true}).last().click(); await page.waitForTimeout(1500);
+  await page.getByLabel('Finance Directory (Accounts)').click(); await page.waitForTimeout(400); await page.getByText('Jewson Ltd', {exact:true}).last().click(); await page.waitForTimeout(1500);
   console.log('after projects side:', JSON.stringify(db.fin_suppliers.map(f=>[f.name, f.supplier_id])));
   await page.goto(BASE+'/fin/directory?kind=supplier'); await page.waitForTimeout(4000);
   await page.getByText('Travis Perkins Trading').first().click(); await page.waitForTimeout(1000);

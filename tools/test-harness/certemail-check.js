@@ -14,8 +14,8 @@ const {chromium, makeContext} = require('./harness');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/dashboard'); await page.waitForTimeout(6000);
-  if (!(await page.getByText('✉️ Email all').count())) { await page.getByText(/^Certifications [(]/).click(); await page.waitForTimeout(500); }
-  await page.getByText('✉️ Email all').click(); await page.waitForTimeout(600);
+  if (!(await page.getByText('✉️ Email All').count())) { await page.getByText(/^Certifications [(]/).click(); await page.waitForTimeout(500); }
+  await page.getByText('✉️ Email All').click(); await page.waitForTimeout(600);
   await page.screenshot({path:'shots/certemail.png'});
   await page.getByText(/Pete Manager/).click(); await page.waitForTimeout(500);
   await page.getByText('Yes', {exact:true}).last().click(); await page.waitForTimeout(6000);

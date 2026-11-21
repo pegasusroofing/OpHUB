@@ -25,7 +25,7 @@ export default function EditSignUpForm() {
   const { me } = useAuth();
   const { data, isLoading } = useQuery({ queryKey: ['subformTemplateEdit', me?.org_id], enabled: !!me?.org_id, gcTime: 0, queryFn: () => loadSubformTemplate(me?.org_id) });
   if (!me) return null;
-  if (me.role !== 'admin' && me.role !== 'superadmin') return <Muted style={{ padding: space.l }}>Company admins only.</Muted>;
+  if (me.role !== 'admin' && me.role !== 'superadmin') return <><Stack.Screen options={{ title: 'Edit Sign-Up Form' }} /><Muted style={{ padding: space.l }}>Company admins only.</Muted></>;
   if (isLoading || !data) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   return <Editor initial={data.sections} custom={data.custom} orgId={me.org_id as string} />;
 }
@@ -79,7 +79,7 @@ function Editor({ initial, custom, orgId }: { initial: SubSection[]; custom: boo
             {type === 'file' && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <Text style={{ color: base.ink }}>More Than One File?</Text>
-                <YesNo label="More than one file" value={!!q.multi} onChange={(v) => setQ(si, qi, { multi: v ? 1 : undefined })} />
+                <YesNo label="More Than One File" value={!!q.multi} onChange={(v) => setQ(si, qi, { multi: v ? 1 : undefined })} />
               </View>
             )}
             <Muted style={{ fontWeight: '600' }}>Help Text Under The Question (Optional)</Muted>
@@ -92,7 +92,7 @@ function Editor({ initial, custom, orgId }: { initial: SubSection[]; custom: boo
             )}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <Text style={{ color: base.ink }}>Half Width On A Laptop?</Text>
-              <YesNo label="Half width on a laptop" value={!!q.half} onChange={(v) => setQ(si, qi, { half: v ? 1 : undefined })} />
+              <YesNo label="Half Width On A Laptop" value={!!q.half} onChange={(v) => setQ(si, qi, { half: v ? 1 : undefined })} />
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'center' }}><Button small title="Done" onPress={() => setEdit(null)} /></View>
           </View>

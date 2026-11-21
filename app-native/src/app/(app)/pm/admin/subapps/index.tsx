@@ -56,7 +56,7 @@ export default function SubApps() {
   const { data: inv, refetch: reloadInv } = useInvites(me?.org_id);
   const [making, setMaking] = useState(false);
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Subcontractor Sign-Up' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   const web = Platform.OS === 'web' && typeof window !== 'undefined';
   const joinId = inv?.permanent?.id || null;
   const link = joinId && web ? `${webOrigin() || window.location.origin}/subcontractor?invite=${joinId}` : subSignUpLink(me.org_id as string);
@@ -64,9 +64,9 @@ export default function SubApps() {
   rows.forEach((r) => { counts[r.status] = (counts[r.status] || 0) + 1; });
   return (
     <ScrollView contentContainerStyle={page(720)}>
-      <Stack.Screen options={{ title: 'Subcontractor sign-up' }} />
+      <Stack.Screen options={{ title: 'Subcontractor Sign-Up' }} />
       <Card>
-        <SectionTitle>Your sign-up form</SectionTitle>
+        <SectionTitle>Your Sign-Up Form</SectionTitle>
         <Muted style={{ marginBottom: 8 }}>{joinId && web
           ? 'Send this link to any subcontractor. They sign up to the app first, then go straight to the form: company details, insurance, accreditations, operatives and their documents. It lands here, and they’re on your team in the app.'
           : 'Send this link to any subcontractor. They fill in their company details, insurance, accreditations and operatives, upload their documents and sign — it lands here.'}</Muted>
@@ -79,11 +79,11 @@ export default function SubApps() {
           </View>
         )}
         <Text selectable style={{ fontSize: 12, color: base.ink, padding: 8, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, marginBottom: 8 }}>{link}</Text>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 1 }}><Button title={Platform.OS === 'web' ? '📋 Copy link' : '📋 Share link'} onPress={async () => {
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
+          <Button small title={Platform.OS === 'web' ? '📋 Copy Link' : '📋 Share Link'} onPress={async () => {
             try { if (Platform.OS === 'web' && globalThis.navigator?.clipboard) { await globalThis.navigator.clipboard.writeText(link); toast('Link copied — paste it into an email or text'); } else await Share.share({ message: link }); } catch { toast('Could not copy — select the link above.'); }
-          }} /></View>
-          <View style={{ flex: 1 }}><Button kind="ghost" title="👁 Open the form" onPress={() => void Linking.openURL(link)} /></View>
+          }} />
+          <Button small kind="ghost" title="👁 Open The Form" onPress={() => void Linking.openURL(link)} />
         </View>
         {/* Edit the form's questions (Andy, 19 Nov 2026). */}
         {(me.role === 'admin' || me.role === 'superadmin') && <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8 }}><Button kind="ghost" title="✎ Edit The Form" onPress={() => router.push('/pm/admin/subapps/form' as never)} /></View>}

@@ -10,7 +10,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinChip } from '@/components/FinNav';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
-import { Button, Card, Check, Empty, Muted, Toggle } from '@/components/ui';
+import { Button, Card, Check, Empty, Muted, Toggle, FilterRow } from '@/components/ui';
 import {
   addHavsEntryFor, addHavsTool, closeHavsWeek, deleteHavsEntry, editHavsEntry, reopenHavsWeek, setSiteHavsTool, useHavsCompleted, useHavsManagerWeek, type HavsOp, type HavsTool,
 } from '@/data/havs';
@@ -97,9 +97,7 @@ export function HavsManager({ site }: { site: Site }) {
 
   return (
     <ScrollView contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-        <FinChip on={tab === 'week'} label="This Week" onPress={() => setTab('week')} /><FinChip on={tab === 'done'} label="Completed HAVS" onPress={() => setTab('done')} />
-      </View>
+      <FilterRow options={[['week', 'This Week'], ['done', 'Completed HAVS']]} value={tab} onChange={setTab} />
       {tab === 'done' ? (completed === undefined ? <Muted>Loading…</Muted> : !completed.length ? <Empty>No weeks saved &amp; closed yet — use &quot;Save &amp; Close for the Week&quot; on This Week once a week&apos;s register is finished.</Empty> : completed.map((r) => {
         const d = daysFrom(r.week_start);
         return (
@@ -131,7 +129,7 @@ export function HavsManager({ site }: { site: Site }) {
                   ); })}
                 </View>
                 {signOff && <Muted style={{ marginTop: 6 }}>Tap a tool to add it to, or take it off, this site (m/s²).</Muted>}
-                {signOff && <Button kind="ghost" title="+ New tool" onPress={async () => {
+                {signOff && <Button kind="ghost" title="+ New Tool" onPress={async () => {
                   const name = titleCaseWords(((await promptText('Tool name', '')) || '').trim()); if (!name) return;
                   const mag = parseFloat(((await promptText('Vibration magnitude (m/s²)', '')) || '').replace(',', '.'));
                   if (!isFinite(mag) || mag <= 0) { toast('Enter a magnitude greater than 0.'); return; }

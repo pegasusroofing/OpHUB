@@ -16,7 +16,7 @@ import { DateBox } from '@/components/DateField';
 import { Cell, FinTable } from '@/components/FinTable';
 import { StorageImage } from '@/components/StorageImage';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
-import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { Button, Card, Empty, FilterRow, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { acceptPlant, addPlantBatch, allocatePlant, approvePlant, confirmReturn, declineCheckout, markLost, opReturn, pmReturn, requestCheckout, setOutOfService, useOrgPlant, type PlantRow } from '@/data/plant';
 import { useSites } from '@/data/sites';
@@ -242,13 +242,7 @@ export function PlantRegister({ siteId }: { siteId?: string }) {
 
   return (
     <View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-        {FILTERS.map(([k, l]) => { const n = scoped.filter(inF[k]).length, on = f === k; return (
-          <Pressable key={k} onPress={() => setF(k)} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card }}>
-            <Text style={{ fontSize: 12.5, color: on ? live.brand1Text : base.ink }}>{l}{k !== 'all' && n ? ` (${n})` : ''}</Text>
-          </Pressable>
-        ); })}
-      </View>
+      <FilterRow options={FILTERS.map(([k, l]): [Filter, string] => { const n = scoped.filter(inF[k]).length; return [k, `${l}${k !== 'all' && n ? ` (${n})` : ''}`]; })} value={f} onChange={setF} />
       <TextInput value={q} onChangeText={setQ} placeholder="Search item, number, person or job" style={box} />
       {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map(row) : <Empty>{siteId ? 'No plant on this job.' : 'No plant here yet.'}</Empty>}
       {siteId && yardFree.length > 0 && (

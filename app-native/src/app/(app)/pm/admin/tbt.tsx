@@ -37,7 +37,7 @@ export default function TbtTemplates() {
     queryFn: async () => ((await db.from('tbt_templates').select('*').eq('org_id', me?.org_id as string).order('created_at', { ascending: false })).data as Tpl[] | null) ?? [],
   });
   if (!me) return null;
-  if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Company admins only.</Muted>;
+  if (me.role !== 'admin') return <><Stack.Screen options={{ title: 'Toolbox Talks' }} /><Muted style={{ padding: space.l }}>Company admins only.</Muted></>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['tbtTemplates'] }); };
   if (building) {
     return (

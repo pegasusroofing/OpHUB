@@ -11,6 +11,7 @@ import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } fro
 import { FinTabs } from '@/components/FinNav';
 
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
+import { SelectBox } from '@/components/SelectBox';
 import { Button, Card, Check, Empty, Muted, SectionTitle } from '@/components/ui';
 import { DateBox } from '@/components/DateField';
 import { bookLeave, cancelLeave, decideLeave, hrAllowance, hrCode, hrColour, saveApprovers, saveHrSettings, useHr } from '@/data/hr';
@@ -20,12 +21,9 @@ import { localISODate } from '@/lib/rules/driver';
 import { bankHolCount, bookingParts, dayFraction, HR_COLOURS, HR_TYPES, isBankHol, leaveDays, limitClash, offOn, usedDays, type Leave } from '@/lib/rules/hr';
 import { readIsoDate } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
-import { base, page, radius, space, live } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 10 };
-function Chip({ on, label, onPress }: { on: boolean; label: string; onPress: () => void }) {
-  return <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card }}><Text style={{ fontWeight: '500', color: on ? live.brand1Text : base.ink, fontSize: 12.5 }}>{label}</Text></Pressable>;
-}
 type Draft = { user_id: string; type: string; start: string; end: string; part: string; startPart: string; endPart: string; link: boolean; note: string };
 
 export default function Holidays() {
@@ -131,37 +129,34 @@ export default function Holidays() {
 
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: view === 'req' ? 'Time off requests' : view === 'set' ? 'Holiday settings' : 'Holiday calendar' }} />
+      <Stack.Screen options={{ title: view === 'req' ? 'Time Off Requests' : view === 'set' ? 'Holiday Settings' : 'Holiday Calendar' }} />
       <View style={{ flexDirection: 'row', gap: 8 }}>{stat(myAllow - myUsed - myPend, `Days left ${y}`)}{stat(myUsed, 'Taken / booked')}{stat(myPend, 'Awaiting approval', true)}</View>
       <Muted style={{ marginBottom: 10 }}>{bhCount(me.id) ? `Includes 1 day for each bank holiday (${bhCount(me.id)} this year), allocated automatically.` : `PMs and site managers get 1 day for each bank holiday (${bankHolCount(y)} this year) allocated automatically.`}</Muted>
-      {!d && <Button title="+ Book time off" onPress={() => open()} />}
+      {!d && <Button title="+ Book Time Off" onPress={() => open()} />}
       <Text style={{ fontSize: 12.5, color: base.slate, marginTop: 8 }}>Holidays Approved By: <Text style={{ color: base.ink, fontWeight: '600' }}>{approverNames}</Text></Text>
       {/* Tabs, as across the app (Andy, 19 Nov 2026), for the people who approve; Settings for admins. */}
       {canApprove && <View style={{ marginTop: 10 }}><FinTabs items={[['cal', 'Calendar'], ['req', 'Requests', pending.length || undefined], ...(isAdmin ? [['set', 'Settings'] as [string, string]] : [])]} value={view} onChange={(k) => setView(k as 'cal' | 'req' | 'set')} /></View>}
 
       {d && (
         <Card>
-          <SectionTitle>Book time off</SectionTitle>
+          <SectionTitle>Book Time Off</SectionTitle>
           {isAdmin && <Pressable style={[box, { paddingVertical: 12 }]} onPress={async () => { const k = await chooseAction('Who', hr.people.map((p) => ({ key: p.id, label: p.name }))); if (k) setD({ ...d, user_id: k }); }}><Text style={{ color: base.ink }}>▼ {name(d.user_id)}</Text></Pressable>}
-          <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Type</Muted>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>{Object.keys(HR_TYPES).map((k) => <Chip key={k} on={d.type === k} label={`${HR_TYPES[k]} (${hrCode(hr, k)})`} onPress={() => setD({ ...d, type: k })} />)}</View>
+          <SelectBox label="Type" title="Type Of Time Off" value={d.type} options={Object.keys(HR_TYPES).map((k): [string, string] => [k, `${HR_TYPES[k]} (${hrCode(hr, k)})`])} onChange={(k) => setD({ ...d, type: k })} />
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <View style={{ flex: 1 }}><Muted style={{ fontWeight: '600' }}>From</Muted><DateBox value={d.start} onChange={(v) => setD({ ...d, start: v, end: !d.end || d.end < v ? v : d.end })} clearable={false} title="From" style={{ marginBottom: 8 }} /></View>
             <View style={{ flex: 1 }}><Muted style={{ fontWeight: '600' }}>To</Muted><DateBox value={d.end} onChange={(v) => setD({ ...d, end: v })} min={d.start || undefined} clearable={false} title="To" style={{ marginBottom: 8 }} /></View>
           </View>
           {d.start === d.end ? (
-            <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>{[['full', 'Full day'], ['am', 'Morning'], ['pm', 'Afternoon']].map(([k, l]) => <Chip key={k} on={d.part === k} label={l} onPress={() => setD({ ...d, part: k })} />)}</View>
+            <SelectBox label="Full Day Or Half Day?" value={d.part} options={[['full', 'Full Day'], ['am', 'Morning'], ['pm', 'Afternoon']]} onChange={(k) => setD({ ...d, part: k })} />
           ) : (
             <>
-              <Muted style={{ fontWeight: '600' }}>First day</Muted>
-              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>{[['full', 'Full day'], ['pm', 'Afternoon only']].map(([k, l]) => <Chip key={k} on={d.startPart === k} label={l} onPress={() => setD({ ...d, startPart: k })} />)}</View>
-              <Muted style={{ fontWeight: '600' }}>Last day</Muted>
-              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>{[['full', 'Full day'], ['am', 'Morning only']].map(([k, l]) => <Chip key={k} on={d.endPart === k} label={l} onPress={() => setD({ ...d, endPart: k })} />)}</View>
+              <SelectBox label="First Day" value={d.startPart} options={[['full', 'Full Day'], ['pm', 'Afternoon Only']]} onChange={(k) => setD({ ...d, startPart: k })} />
+              <SelectBox label="Last Day" value={d.endPart} options={[['full', 'Full Day'], ['am', 'Morning Only']]} onChange={(k) => setD({ ...d, endPart: k })} />
             </>
           )}
           {preview != null && <Muted style={{ marginBottom: 10 }}>{preview} working day{preview === 1 ? '' : 's'}{d.type === 'annual' ? ' of annual leave' : ''} — weekends and bank holidays (already booked) don&apos;t count.</Muted>}
           <TextInput value={d.note} onChangeText={(v) => setD({ ...d, note: v })} placeholder="Note (optional) e.g. Family holiday" style={box} />
-          <Check label="Link with project calendars — operatives on jobs I run can see I'm off" value={d.link} onChange={(v) => setD({ ...d, link: v })} />
+          <Check label="Link With Project Calendars — Operatives On Jobs I Run Can See I'm Off" value={d.link} onChange={(v) => setD({ ...d, link: v })} />
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
             <View style={{ flex: 1 }}><Button busy={busy} title={isAdmin || d.type === 'sick' ? 'Book it' : 'Send for approval'} onPress={() => void save()} /></View>
             <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => setD(null)} /></View>
@@ -225,7 +220,7 @@ export default function Holidays() {
               </View>
             </Card>
           )) : <Muted style={{ marginBottom: 10 }}>{isBankHol(sel) ? 'Bank holiday — 1 day allocated to each PM automatically.' : "Everyone's in."}</Muted>}
-          <Button kind="ghost" title="+ Book this day" onPress={() => open(sel)} />
+          <Button kind="ghost" title="+ Book This Day" onPress={() => open(sel)} />
           {myUpcoming.length > 0 && (
             <>
               <View style={{ height: 14 }} />
@@ -287,7 +282,7 @@ export default function Holidays() {
             ))}
           </Card>
           <Card>
-            <SectionTitle>People — allowance &amp; colour</SectionTitle>
+            <SectionTitle>People — Allowance &amp; Colour</SectionTitle>
             <Muted style={{ marginBottom: 10 }}>Days a year including bank holidays. Bank holidays are booked automatically for PMs and site managers (not admins) and come out of this.</Muted>
             {hr.people.map((p) => {
               const cur = cols[p.id] ?? hrColour(hr, p.id);
@@ -304,7 +299,7 @@ export default function Holidays() {
               );
             })}
           </Card>
-          <Button busy={busy} title="Save settings" onPress={async () => {
+          <Button busy={busy} title="Save Settings" onPress={async () => {
             const cs: Record<string, string> = {};
             Object.keys(HR_TYPES).forEach((k) => { cs[k] = ((codes ?? {})[k] ?? hrCode(hr, k)).trim().toUpperCase().slice(0, 2) || hrCode(hr, k); });
             setBusy(true);

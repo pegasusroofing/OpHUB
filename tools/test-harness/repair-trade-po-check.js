@@ -58,7 +58,7 @@ const login = async (page) => {
   check(/PO J101-PO-001 ›/.test(t) && !/Finalise The Purchase Order/.test(t), 'the trade shows its PO; the pop-up closed');
   await page.screenshot({path: 'shots/repair-trade-po-done.png', fullPage: true});
   await page.getByText('+ Add Other Trade', {exact: true}).click(); await page.waitForTimeout(500);
-  await page.getByText('Cancel', {exact: true}).last().click(); await page.waitForTimeout(300);
+  await (async (p) => { const c = p.getByText('Cancel', {exact: true}).filter({visible: true}); if (await c.count()) await c.last().click(); else await p.getByRole('button', {name: 'Close', exact: true}).last().click(); })(page); await page.waitForTimeout(300);
   await page.getByLabel('Scaffold, change').click(); await page.waitForTimeout(600);
   t = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
   check(await page.getByText('Raise A Purchase Order', {exact: true}).count() === 0 && /Purchase order J101-PO-001 is raised/.test(t), 'opening the trade again: no second PO, it says which PO');

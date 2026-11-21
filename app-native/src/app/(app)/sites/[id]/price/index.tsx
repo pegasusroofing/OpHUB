@@ -2,7 +2,7 @@
 // booked in and balance (red when over-booked); colour groups get a combined
 // card (managers group tiles from each tile's ⋮); closed ones fold away.
 // Multi-address jobs pick an address first. Laid out as the current app (5 Nov 2026): managers get a Price Sheets
-// row with its count, then + Add price and ⋮ Manage on the right, then the prices as tiles (2 across on a phone,
+// row with its count, then + Add Price and ⋮ Manage on the right, then the prices as tiles (2 across on a phone,
 // 4 on a computer) with the ⋮ in the top left corner.
 import { WagesToBook } from '@/components/WagesToBook';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -11,7 +11,7 @@ import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
-import { Button, Card, Empty, Muted } from '@/components/ui';
+import { Button, Card, Empty, FilterRow, Muted } from '@/components/ui';
 import { addElement, GROUP_COLOURS, newGroupFor, setElementGroup, updateGroup, usePriceTile } from '@/data/price';
 import { listSheets } from '@/data/priceSheets';
 import { useSite } from '@/data/sites';
@@ -19,7 +19,7 @@ import { useAuth } from '@/lib/auth';
 import { heading } from '@/lib/fonts';
 import { supabase } from '@/lib/supabase';
 import { money, type PriceElement } from '@/lib/rules/price';
-import { base, page, space, live, useDesk } from '@/theme/theme';
+import { base, page, space, useDesk } from '@/theme/theme';
 
 // 390 .tile: centred icon, name, figures.
 const tileBox = { minHeight: 122, borderRadius: 10, alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 12, paddingHorizontal: 10, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine } as const;
@@ -103,12 +103,8 @@ export default function PriceTile() {
       <Stack.Screen options={{ title: 'Price' }} />
       {!!me && data.mgr && <WagesToBook me={me} siteId={id} />}
       {multi && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-          {data.subs.length ? data.subs.map((a) => (
-            <Pressable key={a.id} onPress={() => setSub(a.id)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: subId === a.id ? live.brand1 : base.line, backgroundColor: subId === a.id ? live.brand1 : base.card }}>
-              <Text style={{ fontWeight: '500', color: subId === a.id ? live.brand1Text : base.ink }}>{a.name}</Text>
-            </Pressable>
-          )) : <Muted>No addresses on this job yet.</Muted>}
+        <View style={{ marginBottom: 12 }}>
+          {data.subs.length && subId ? <FilterRow options={data.subs.map((a): [string, string] => [a.id, a.name])} value={subId} onChange={setSub} /> : <Muted>No addresses on this job yet.</Muted>}
         </View>
       )}
       {data.mgr && (
@@ -124,7 +120,7 @@ export default function PriceTile() {
       )}
       {data.mgr && (!multi || subId) && !sel && (
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginBottom: 10 }}>
-          <Button small title="+ Add price" onPress={addPrice} />
+          <Button small title="+ Add Price" onPress={addPrice} />
           <Button small kind="ghost" title="⋮ Manage" onPress={async () => {
             const k = await chooseAction('Manage', [{ key: 'add', label: '+ Add Sub Tile' }, ...(open.length > 1 ? [{ key: 'close', label: '☑ Close several…' }] : [])]);
             if (k === 'add') await addPrice(); else if (k === 'close') setSel(new Set());
@@ -144,7 +140,7 @@ export default function PriceTile() {
           <Button small kind="ghost" title="Cancel" onPress={() => setSel(null)} />
         </Card>
       )}
-      {!open.length && <Empty>{multi && !subId ? 'Choose an address above first.' : data.mgr ? 'No prices on this job yet. Tap + Add price to start one.' : 'Nothing priced here for you yet.'}</Empty>}
+      {!open.length && <Empty>{multi && !subId ? 'Choose an address above first.' : data.mgr ? 'No prices on this job yet. Tap + Add Price to start one.' : 'Nothing priced here for you yet.'}</Empty>}
       {groups.map((g) => { const fg = data.groupFigs[g.id]; return (
         <View key={g.id}>
           <Card style={{ borderColor: g.color, borderWidth: 1.5 }}>

@@ -89,7 +89,7 @@ export function RepairQuoteScreen() {
           <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 6 }}>From The Schedule Of Rates{qs?.ratesName ? ` — ${qs.ratesName}` : ''}</Text>
           <RateFinder rates={rates} onPick={(r) => { setLines([...lines, rateLine(r)]); toast(`Added ${r.code || 'the item'}`); }} />
         </Card>
-      ) : <Muted style={{ marginBottom: 8 }}>No schedule of rates on this contract yet: add your own lines, or one figure. (Upload one in Finance › Project Admin › Edit Project Financials › Contract Rates?)</Muted>}
+      ) : <Muted style={{ marginBottom: 8 }}>No schedule of rates on this contract yet: add your own lines, or one figure. (Upload one in Finance › Project Settings › Edit Project Financials › Contract Rates?)</Muted>}
 
       {/* The lines. */}
       <Card>
@@ -179,7 +179,7 @@ export function SendQuoteForm({ job, site, lines, discount, onClose, onSent }: {
   };
   return (
     <FinForm title="Send Quote To Client" saveLabel="Send" onClose={onClose}
-      note={qs?.onlineApproval ? 'The email has an Approve Or Reject Online button.' : 'Client Approves Quotes Online is off for this contract (Project Admin).'}
+      note={qs?.onlineApproval ? 'The email has an Approve Or Reject Online button.' : 'Client Approves Quotes Online is off for this contract (Project Settings).'}
       initial={{ to: billEmail || site?.client_email || '', words: `Hello,\n\nPlease find attached our quote for ${[job.job_number, job.address].filter(Boolean).join(' — ')}.${qs?.onlineApproval ? ' You can approve or reject it online with the button below.' : ''}\n\nKind regards,` }}
       fields={[{ k: 'to', label: 'To', kind: 'email' }, { k: 'words', label: 'Message', kind: 'multiline' }]}
       onSave={async (v) => {

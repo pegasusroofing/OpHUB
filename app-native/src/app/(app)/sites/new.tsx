@@ -1,6 +1,6 @@
-// Add a Project (180 addSite): name, address, postcode, job number (or the next
+// Add A Project (180 addSite): name, address, postcode, job number (or the next
 // automatic one), client (typing suggests Directory clients and past clients; free text is fine),
-// contact number and email, multi-site or repair contract, Active or Upcoming, and a start date.
+// contact number and email, multi-site or repair contract, Live or Upcoming, and a start date.
 // Client, address and start date are required (Andy). PMs / admins only.
 // From a won quote (?quote=, Andy 11 Nov 2026): filled in from the quote; making it makes the OneDrive folders, moves the
 // quote's folder across and marks the quote won, with a line saying what it's doing, then opens the new project.
@@ -11,11 +11,10 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
-import { FinChip } from '@/components/FinNav';
 import { DateField } from '@/components/DateField';
 import { SuggestField } from '@/components/SuggestField';
 import { showAlert } from '@/components/toast';
-import { Button, Card, Check, Field, Muted } from '@/components/ui';
+import { Button, Card, Check, Field, FilterRow, Muted } from '@/components/ui';
 import { createSite, type NewSite } from '@/data/siteList';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -48,7 +47,7 @@ export default function NewProject() {
   const qq = fromQuote?.quote ?? null;
   // Filled in from the quote once it's loaded.
   useEffect(() => { if (qq) setD((x) => ({ ...x, name: titleCase(qq.title), address: qq.address || x.address, postcode: (qq.postcode || x.postcode).toUpperCase(), client_name: qq.client_name, client_contact_name: qq.contact_name || '', client_phone: qq.contact_phone || '', client_email: qq.contact_email || '' })); }, [qq?.id, qq?.client_name]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [chosen, setChosen] = useState(false); // Active / Upcoming must be picked
+  const [chosen, setChosen] = useState(false); // Live / Upcoming must be picked
   const [busy, setBusy] = useState(false);
   // Create OneDrive folder (Andy, 8 Nov 2026): ticked unless the company or the client says no; the tick wins once touched.
   const [folderTick, setFolderTick] = useState<boolean | null>(null);
@@ -72,14 +71,14 @@ export default function NewProject() {
   const fillFor = (client: string) => { const c = contactsOf(client); return c.length === 1 && !d.client_contact_name && !d.client_phone && !d.client_email ? { client_contact_name: c[0].name, client_phone: c[0].phone, client_email: c[0].email } : {}; };
   const save = async () => {
     // What's missing in a pop-up, not a line at the foot the phone's keyboard covers (Andy, 18 Nov 2026: "on the offline
-    // I can't create a new job"; it was waiting for Active or Upcoming).
+    // I can't create a new job"; it was waiting for Live or Upcoming).
     if (!d.name.trim()) { showAlert('Enter the site name.'); return; }
     if (!d.address.trim()) { showAlert('Enter the address.'); return; }
     if (!auto && !d.job_number.trim()) { showAlert('Enter a job number.'); return; }
     const clash = auto ? null : jobNumberClash(d.job_number, sites);
     if (clash) { showAlert(`Job number ${d.job_number.trim()} is already used on ${clash}. Use another number.`); return; }
     if (!d.client_name.trim()) { showAlert('Enter the client name.'); return; }
-    if (!chosen) { showAlert('Choose whether the job is Active or Upcoming.'); return; }
+    if (!chosen) { showAlert('Choose whether the job is Live or Upcoming.'); return; }
     if (!d.start_date) { showAlert('Choose the start date.'); return; }
     if (d.client_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.client_email.trim())) { showAlert('Enter a valid client email address.'); return; }
     setBusy(true);
@@ -101,7 +100,7 @@ export default function NewProject() {
       setStep('Making the OneDrive folders…');
       const p = await setupNewJobPack(me.org_id, r.id, wantFolder);
       setStep('');
-      if (p && 'error' in p) showAlert(`The project is made, but not its OneDrive folder: ${p.error} Try again from Settings & Admin › OneDrive sync folder › Set up job pack folder.`);
+      if (p && 'error' in p) showAlert(`The project is made, but not its OneDrive folder: ${p.error} Try again from Project Settings › OneDrive sync folder › Set up job pack folder.`);
     }
     setBusy(false);
     await qc.invalidateQueries({ queryKey: ['sites'] });
@@ -110,8 +109,8 @@ export default function NewProject() {
   };
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: qq ? 'Convert To Project' : 'Add a Project' }} />
-      {!!qq && <Muted style={{ marginBottom: 10 }}>Won: {qq.title}. Filled in from the quote. Check it, choose Active or Upcoming and the start date, then Create Project.</Muted>}
+      <Stack.Screen options={{ title: qq ? 'Convert To Project' : 'Add A Project' }} />
+      {!!qq && <Muted style={{ marginBottom: 10 }}>Won: {qq.title}. Filled in from the quote. Check it, choose Live or Upcoming and the start date, then Create Project.</Muted>}
       <Card>
         <Field label="Site Name *" value={d.name} onChangeText={(v) => set({ name: titleCase(v) })} />
         <Field label="Address *" value={d.address} onChangeText={(v) => set({ address: titleCase(v) })} />
@@ -135,19 +134,19 @@ export default function NewProject() {
         </View>
         <Field label="Contact Email" value={d.client_email} onChangeText={(v) => set({ client_email: v })} keyboardType="email-address" autoCapitalize="none" />
         {contacts.length > 1 && !d.client_contact_name && !d.client_phone && <Muted style={{ marginTop: -6, marginBottom: 10 }}>{contacts.length} contacts on file for {d.client_name.trim()}: tap Contact Name to choose one, or type one in.</Muted>}
-        <Check label="Multi-site job (several addresses / plots)" value={d.multi_site} onChange={(x) => set({ multi_site: x, repair_contract: x ? false : d.repair_contract })} />
-        <Check label="Repair / maintenance contract" value={d.repair_contract} onChange={(x) => set({ repair_contract: x, multi_site: x ? false : d.multi_site })} />
-        {fd.shown && <Check label="Create OneDrive folder" value={wantFolder} onChange={setFolderTick} />}
+        <Check label="Multi-Site Job (Several Addresses / Plots)" value={d.multi_site} onChange={(x) => set({ multi_site: x, repair_contract: x ? false : d.repair_contract })} />
+        <Check label="Repair / Maintenance Contract" value={d.repair_contract} onChange={(x) => set({ repair_contract: x, multi_site: x ? false : d.multi_site })} />
+        {fd.shown && <Check label="Create OneDrive Folder" value={wantFolder} onChange={setFolderTick} />}
         {fd.shown && fd.clientOff && folderTick === null && <Muted style={{ marginTop: -4, marginBottom: 8 }}>{d.client_name.trim()} is set to no OneDrive folders in the Directory. Tick it to make one for this job only.</Muted>}
         <Text style={{ fontWeight: '600', color: base.ink, marginTop: 10, marginBottom: 6 }}>Status *</Text>
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-          <FinChip on={chosen && d.status === 'active'} label="Active" onPress={() => { setChosen(true); set({ status: 'active' }); }} />
-          <FinChip on={chosen && d.status === 'upcoming'} label="Upcoming" onPress={() => { setChosen(true); set({ status: 'upcoming' }); }} />
+        {/* Live / Upcoming, the words Project Settings uses (app review, 21 Nov 2026); saved as 'active' as before. */}
+        <View style={{ marginBottom: 10 }}>
+          <FilterRow seg options={[['active', 'Live'], ['upcoming', 'Upcoming']]} value={chosen ? d.status : ''} onChange={(k) => { if (k) { setChosen(true); set({ status: k }); } }} />
         </View>
         <DateField label="Start Date *" value={d.start_date} onChange={(v) => set({ start_date: v })} clearable={false} />
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-          <View style={{ flex: 2 }}><Button busy={busy} title={step || 'Create Project'} onPress={() => void save()} /></View>
-          <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => router.back()} /></View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 6 }}>
+          <Button small busy={busy} title={step || 'Create Project'} onPress={() => void save()} />
+          <Button small kind="ghost" title="Cancel" onPress={() => router.back()} />
         </View>
       </Card>
     </ScrollView>

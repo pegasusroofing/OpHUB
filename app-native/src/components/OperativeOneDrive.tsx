@@ -56,7 +56,7 @@ export function OperativeOneDrive({ orgId, opId }: { orgId: string; opId: string
           <View style={{ flex: 1, minWidth: 140 }}><Button kind="ghost" busy={busy === 'push'} disabled={!data?.pushable.length} title={`☁️ Upload to OneDrive (${data?.pushable.length ?? 0})`} onPress={() => void call('push')} /></View>
         </View>
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-          <View style={{ flex: 1 }}><Button kind="ghost" title="Change folder" onPress={pick} /></View>
+          <View style={{ flex: 1 }}><Button kind="ghost" title="Change Folder" onPress={pick} /></View>
           <View style={{ flex: 1 }}><Button kind="ghost" title="Unlink" onPress={async () => { if (!(await confirmAsk('Unlink this operative’s OneDrive folder? Their certificates stay here.', 'Unlink'))) return; toast((await unlinkFolder('operative', opId)) ? 'Unlinked' : 'Could not unlink — try again.'); void qc.invalidateQueries({ queryKey: ['opOneDrive', opId] }); }} /></View>
         </View>
       </> : <>

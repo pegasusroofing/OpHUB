@@ -123,7 +123,7 @@ export function FinJobTabs({ id, active, job, name, onOverview }: { id: string; 
   // Costs By Job / Plot sits under Live Jobs on a repair contract, else under the Bill (or Variations on an invoice job).
   const a0 = active === 'parts' ? (repair ? 'repairs' : 'variations') : active;
   const current = a0 === 'variations' && !invoiceJob ? 'boq' : a0;
-  const tabs: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ...(repair ? [['repairs', 'Live Jobs'] as [string, string]] : invoiceJob ? [['variations', 'Variations'] as [string, string]] : [['boq', 'Bill Of Quantities'] as [string, string]]), ['docs', 'Documents'], ['setup', 'Project Admin']];
+  const tabs: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ...(repair ? [['repairs', 'Live Jobs'] as [string, string]] : invoiceJob ? [['variations', 'Variations'] as [string, string]] : [['boq', 'Bill Of Quantities'] as [string, string]]), ['docs', 'Documents'], ['setup', 'Project Settings']];
   // Swaps the page rather than stacking another on top: a Bill left open underneath would keep saving over this one.
   const go = (k: string) => { if (k === 'boq' || k === 'variations' || k === 'repairs') router.replace(`/fin/job/${id}/${k}` as never); else if (onOverview) router.setParams({ tab: k }); else router.replace(`/fin/job/${id}?tab=${k}` as never); };
   return (
@@ -176,7 +176,14 @@ export function KeepInView({ on, items, render }: { on?: string; items: [string,
   const sv = useRef<ComponentRef<typeof ScrollView>>(null);
   const xs = useRef<Record<string, { x: number; w: number }>>({});
   const [vw, setVw] = useState(0);
-  const go = () => { const p = on ? xs.current[on] : undefined; if (p && vw) sv.current?.scrollTo({ x: Math.max(0, p.x + p.w / 2 - vw / 2), animated: false }); };
+  // Scroll just far enough to show the open tab, stopping on a tab's left edge so the first tab in view is never cut in
+  // half ("ob Numbers": app review, 21 Nov 2026).
+  const go = () => {
+    const p = on ? xs.current[on] : undefined; if (!p || !vw) return;
+    const need = p.x + p.w - vw;
+    const x = need <= 0 ? 0 : Math.min(p.x, ...Object.values(xs.current).map((q) => q.x).filter((s) => s >= need));
+    sv.current?.scrollTo({ x, animated: false });
+  };
   useEffect(go);
   return (
     <ScrollView ref={sv} horizontal showsHorizontalScrollIndicator={false} onLayout={(e) => setVw(e.nativeEvent.layout.width)} contentContainerStyle={{ gap: 2 }}>
@@ -254,7 +261,8 @@ export function FinStat({ v, label, hot, onPress, tone, onMenu, menuLabel, basis
   // The ⋯ sits over the tile's corner beside it, not inside it: a button can't hold another button (17 Nov 2026).
   return (
     <View style={{ flexGrow: 1, flexBasis: basis }}>
-      <Pressable onPress={onPress} accessibilityRole="button" style={{ flexGrow: 1, backgroundColor: c ? c[0] : base.card, borderRadius: 10, borderWidth: 1, borderColor: c ? c[1] : '#e5e7eb', paddingVertical: 16, paddingHorizontal: 18, paddingRight: onMenu ? 26 : 18, gap: 4 }}>
+      {/* Plain white tiles; only the figure keeps its colour (app review, 21 Nov 2026: no multicoloured tiles). */}
+      <Pressable onPress={onPress} accessibilityRole="button" style={{ flexGrow: 1, backgroundColor: base.card, borderRadius: 10, borderWidth: 1, borderColor: '#e5e7eb', paddingVertical: 16, paddingHorizontal: 18, paddingRight: onMenu ? 26 : 18, gap: 4 }}>
         <Text style={[{ fontWeight: '600' as const }, { fontSize: 22, color: c ? c[2] : hot ? '#C0392B' : base.ink }]}>{v}</Text>
         <Text style={{ fontSize: 12.5, color: '#6b7280', fontWeight: '500' }}>{label}</Text>
         {sub ? <Text numberOfLines={1} style={{ fontSize: 11.5, color: '#8A9099', marginTop: -2 }}>{sub}</Text> : null}

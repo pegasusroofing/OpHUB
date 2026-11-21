@@ -121,7 +121,7 @@ export function CodeLines({ i, sites, onSaved }: { i: Row; sites: { id: string; 
   const tot = round2(lines.reduce((t, l) => t + Number(l.amount || 0), 0));
   return (
     <Card>
-      <SectionTitle>Code each line</SectionTitle>
+      <SectionTitle>Code Each Line</SectionTitle>
       <Muted style={{ marginBottom: 6 }}>Pick the project and cost type for each line. One invoice can cover several jobs.</Muted>
       {lines.map((l, k) => (
         <View key={k} style={{ borderTopWidth: k ? 1 : 0, borderTopColor: base.line, paddingVertical: 6 }}>
@@ -135,7 +135,7 @@ export function CodeLines({ i, sites, onSaved }: { i: Row; sites: { id: string; 
       <FinRow title="Lines total (net)" right={money(tot)} />
       {Math.abs(tot - Number(i.net || 0)) >= 0.5 && <Text style={{ color: base.warn, marginBottom: 6 }}>The lines add up to {money(tot)}, the invoice net is {money(i.net)}. The invoice total is shared in the same proportions.</Text>}
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        <Button small title="Save coding" onPress={async () => {
+        <Button small title="Save Coding" onPress={async () => {
           const r = codePatch(i, lines); if ('error' in r) { toast(r.error); return; }
           const before = Array.from(new Set(Array.isArray(i.split) && i.split.length ? i.split.map((e: Row) => e.site_id) : [i.site_id])).sort().join(), after = Array.from(new Set(r.patch.split ? r.patch.split.map((e: Row) => e.site_id) : [i.site_id])).sort().join();
           if (before !== after && (await isInXero('purchase_invoices', i.id)) && !(await confirmAsk(`Save this coding? It moves cost between projects.\n\n${XERO_Q}`, 'I’ll change Xero too'))) return;

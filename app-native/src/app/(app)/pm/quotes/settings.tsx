@@ -48,7 +48,7 @@ function AutoPop({ start, onSave, onClose }: { start: AutoExport; onSave: (a: Au
       <QBox label="Email It To (Split With Commas)" value={a.to || ''} keyboardType="email-address" autoCapitalize="none" onChangeText={(t) => setA({ ...a, to: t })} placeholder="name@yourcompany.co.uk" />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: space.m }}>
         <Text style={{ flex: 1, fontSize: 13.5, color: base.ink }}>Save It In OneDrive Too (Open Tenders › Reports)?</Text>
-        <YesNo label="Save it in OneDrive" value={!!a.onedrive} onChange={(v) => setA({ ...a, onedrive: v })} />
+        <YesNo label="Save It In OneDrive" value={!!a.onedrive} onChange={(v) => setA({ ...a, onedrive: v })} />
       </View>
       <Muted style={{ fontSize: 12 }}>It goes as an Excel file, first thing in the morning on the days it’s due.</Muted>
     </Pop>
@@ -69,7 +69,7 @@ export default function QuoteSettingsPage() {
     if (data) setV({ first: String(data.chase_first_days), every: String(data.chase_every_days), max: String(data.chase_max), subject: data.chase_subject || SUBJECT, body: data.chase_body || BODY, cc: data.cc_email || '' });
   }, [data]);
   if (!me?.org_id) return null;
-  if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Admins only.</Muted>;
+  if (me.role !== 'admin') return <><Stack.Screen options={{ title: 'Quote Settings' }} /><Muted style={{ padding: space.l }}>Admins only.</Muted></>;
   const orgId = me.org_id;
   const set = (k: keyof typeof v) => (t: string) => setV((f) => ({ ...f, [k]: t }));
   const autos: AutoExport[] = data?.auto_exports ?? [];
@@ -104,7 +104,7 @@ export default function QuoteSettingsPage() {
         <Card>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
             <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>Send Chasers Automatically?</Text>
-            <YesNo label="Send chasers automatically" value={!!data?.chase_enabled} onChange={async (on) => {
+            <YesNo label="Send Chasers Automatically" value={!!data?.chase_enabled} onChange={async (on) => {
               if (on && !(await confirmAsk('This emails your clients by itself, each weekday morning, for quoted jobs with the chaser on. Imported quotes stay off. Switch on?', 'Yes', 'No'))) return;
               await put({ chase_enabled: on });
             }} />
@@ -144,7 +144,7 @@ export default function QuoteSettingsPage() {
           ))}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>
             <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: base.ink }}>Keep A Tender Tracker Spreadsheet Up To Date In Open Tenders?</Text>
-            <YesNo label="Keep the tender tracker up to date" value={data?.tracker_on !== false} onChange={(on) => void put({ tracker_on: on })} />
+            <YesNo label="Keep The Tender Tracker Up To Date" value={data?.tracker_on !== false} onChange={(on) => void put({ tracker_on: on })} />
           </View>
           <Muted style={{ marginBottom: 10 }}>“{data?.tracker_name || 'Tender Tracker - OpHUB.xlsx'}” is saved again whenever a quote changes. Your old Tender Tracker.xlsm isn’t touched.</Muted>
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>

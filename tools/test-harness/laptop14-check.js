@@ -1,6 +1,6 @@
 // Andy's laptop list of 14 Nov 2026, on a 1300-wide laptop with the fake database: the sign-in page with the old app's
 // header; Home with four tiles (no HR, Deliveries or Calendar), no name / role / Sign out at the bottom, a bigger Next
-// 5 Days and Today, a grey map with its count level with "Sites map"; the left-hand bar with the company colour at the
+// 5 Days and Today, a grey map with its count level with "Sites Map"; the left-hand bar with the company colour at the
 // top and Admin at the bottom above the name; Admin › Company › Home Page (PMs can be kept off the money); the yard as
 // a table with the phone's columns and buttons; Purchases opening on Purchase Invoices from the Finance tabs; and the
 // Export bar staying at the bottom of the screen. node laptop14-check.js
@@ -60,7 +60,7 @@ const VP = {viewport: {width: 1300, height: 900}};
     const fs = (t) => { const e = byText(t); return e ? parseFloat(getComputedStyle(e).fontSize) : 0; };
     const day = [...document.querySelectorAll('div')].find((d) => d.childElementCount === 0 && /^(Mon|Tue|Wed|Thu|Fri) \d+$/.test(d.innerText));
     const cv = document.querySelector('canvas');
-    const sm = byText('Sites map'), cnt = [...document.querySelectorAll('div')].find((d) => d.childElementCount === 0 && /sites? on the map/.test(d.innerText));
+    const sm = byText('Sites Map'), cnt = [...document.querySelectorAll('div')].find((d) => d.childElementCount === 0 && /sites? on the map/.test(d.innerText));
     const base = (e) => { const r = e.getBoundingClientRect(); return r.bottom - parseFloat(getComputedStyle(e).fontSize) * 0.2; };
     return {next: fs('Next 5 Days'), day: day ? parseFloat(getComputedStyle(day).fontSize) : 0, today: fs('Today'), canvas: cv ? cv.style.filter : 'none',
       mapGap: sm && cnt ? Math.round(Math.abs(base(sm) - base(cnt))) : -1};
@@ -71,7 +71,7 @@ const VP = {viewport: {width: 1300, height: 900}};
   const row = await page.evaluate(() => { const e = [...document.querySelectorAll('div')].find((d) => d.childElementCount === 0 && /^\d+ on site$|^Nobody on site yet$/.test(d.innerText)); return e ? parseFloat(getComputedStyle(e).fontSize) : 0; });
   check(row >= 15, `Today rows bigger (${row}px)`);
   check(sz.canvas === '' || sz.canvas === 'none', `the map is Positron with darker roads, no grey filter (${sz.canvas || 'none'})`);
-  check(sz.mapGap >= 0 && sz.mapGap <= 2, `"sites on the map" sits level with "Sites map" (${sz.mapGap}px apart)`);
+  check(sz.mapGap >= 0 && sz.mapGap <= 2, `"sites on the map" sits level with "Sites Map" (${sz.mapGap}px apart)`);
   // The words down the left start at the tiles' left edge; the logo and Calendar end at their right edge.
   const al = await page.evaluate(() => {
     const leaf = (re) => [...document.querySelectorAll('div')].find((d) => d.childElementCount === 0 && re.test(d.innerText) && d.getBoundingClientRect().width > 0);
@@ -123,7 +123,7 @@ const VP = {viewport: {width: 1300, height: 900}};
   // ---- Price Lists on a laptop ----
   await page.goto(B + '/fin/purchases?tab=prices'); await page.waitForTimeout(4500);
   const pl = await page.locator('body').innerText();
-  check(!/Price Book/.test(pl) && (await page.locator('[aria-label="Price lists"] >> visible=true').count() === 1 || /No prices yet/.test(pl)) && /Add A Supplier/.test(pl), 'price lists: one table of suppliers, no Price Book');
+  check(!/Price Book/.test(pl) && (await page.locator('[aria-label="Price Lists"] >> visible=true').count() === 1 || /No prices yet/.test(pl)) && /Add A Supplier/.test(pl), 'price lists: one table of suppliers, no Price Book');
   await page.screenshot({path: path.join(SHOTS, 'laptop-pricelists.png')});
 
   // ---- Purchases from the Finance tabs ----
@@ -148,7 +148,7 @@ const VP = {viewport: {width: 1300, height: 900}};
   me.role = 'pm';
   await page.goto(B + '/home'); await page.waitForTimeout(5000);
   const pt = await page.locator('body').innerText();
-  check(!/Due In/.test(pt) && !/OpHUB Finance/.test(pt) && /On site now/.test(pt), 'a PM (with Finance on) sees no money on Home once set to No');
+  check(!/Due In/.test(pt) && !/OpHUB Finance/.test(pt) && /On Site Now/.test(pt), 'a PM (with Finance on) sees no money on Home once set to No');
   check(!errs.length, `no page errors ${errs.slice(0, 2).join(' | ')}`);
   await browser.close();
 })();

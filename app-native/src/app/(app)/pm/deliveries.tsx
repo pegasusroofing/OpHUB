@@ -41,7 +41,7 @@ export default function DeliverySchedule() {
   const { data: reqs = [] } = useDeliveryRequests(me?.org_id);
   const hours = useDriverHours(me?.org_id, week, hoursOpen);
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Delivery Schedule' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   const tasks = data?.tasks ?? [];
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['scheduleDay'] }); void qc.invalidateQueries({ queryKey: ['deliveryRequests'] }); };
   const cap = Math.max(1, people.filter((p) => p.role === 'driver').length);
@@ -115,7 +115,7 @@ export default function DeliverySchedule() {
       )}
 
       <Button title="+ Add Delivery" onPress={() => add()} />
-      <View style={{ marginTop: 10 }}><Button kind="ghost" title="👁 Driver view" onPress={() => router.push(`/driver/schedule?preview=1&date=${iso}` as never)} /></View>
+      <View style={{ marginTop: 10 }}><Button kind="ghost" title="👁 Driver View" onPress={() => router.push(`/driver/schedule?preview=1&date=${iso}` as never)} /></View>
       <Text style={{ textAlign: 'center', fontSize: 10.5, fontStyle: 'italic', color: base.slateLight, marginTop: 4, marginBottom: 10 }}>Tip: tap ⇄ on a delivery to move it to another drop.</Text>
       {DELIVERY_TIME_SLOTS.map((slot) => {
         const list = tasks.filter((t) => t.time_slot === slot.key).sort(bySlotOrder);
@@ -147,7 +147,7 @@ export default function DeliverySchedule() {
                   <Text style={{ fontSize: 12.5, color: t.driver_id ? base.slate : base.warn }}>🚐 {t.driver_id ? name(t.driver_id) || 'Driver' : 'Unassigned'}</Text>
                   {t.status !== 'completed' && (
                     <Pressable disabled={busy === t.id} onPress={() => void push(t)} style={{ alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: base.line }}>
-                      <Text style={{ fontSize: 11, color: base.ink }}>{busy === t.id ? 'Moving…' : '⏭ Push to next day'}</Text>
+                      <Text style={{ fontSize: 11, color: base.ink }}>{busy === t.id ? 'Moving…' : '⏭ Push To Next Day'}</Text>
                     </Pressable>
                   )}
                 </Pressable>
@@ -215,7 +215,7 @@ export default function DeliverySchedule() {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
           {([['x', '📊 Export Excel'], ['p', '📄 Export PDF']] as const).map(([k, l]) => <Button key={k} kind="ghost" title={busy === `exp${k}` ? 'Building…' : l} onPress={async () => { setBusy(`exp${k}`); const why = await exportDeliverySchedule(k, me.org_id as string, Array.from({ length: 7 }, (_, i) => addDays(iso, i)), sites, people, org); setBusy(null); if (why) toast(why); }} />)}
         </View>
-        <Button kind="ghost" title="🚐 Vehicle health checks" onPress={() => router.push('/pm/vehicles' as never)} />
+        <Button kind="ghost" title="🚐 Vehicle Health Checks" onPress={() => router.push('/pm/vehicles' as never)} />
         {/* The yard and plant register sit under Deliveries now (Andy, 5 Nov 2026); this is the way in on a phone. */}
         <View style={{ marginTop: 10 }}><Button kind="ghost" title="🏗 Yard & Plant" onPress={() => router.push('/pm/yard' as never)} /></View>
         <Muted>Exports cover 7 days from the day shown.</Muted>

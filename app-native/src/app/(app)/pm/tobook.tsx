@@ -50,18 +50,18 @@ export default function ToBook() {
               {ex.total != null && <Text style={{ fontWeight: '600', color: base.ink }}>{money(ex.total)}</Text>}
             </View>
             {!!last && <Text style={{ marginTop: 6, color: base.ink }}><Text style={{ fontWeight: '600' }}>{last.name || 'Office'}:</Text> {last.text || ''}</Text>}
-            {!!it.file_path && <Button kind="ghost" title="View the invoice" onPress={async () => { const u = await openDocLink('finance-docs', it.file_path); if (u) viewDoc(u); else toast('Could not open the file.'); }} />}
+            {!!it.file_path && <Button kind="ghost" title="View The Invoice" onPress={async () => { const u = await openDocLink('finance-docs', it.file_path); if (u) viewDoc(u); else toast('Could not open the file.'); }} />}
             <Pressable onPress={async () => { const s = await pickJob('Which job is it for', open); if (s) setPick({ ...pick, [it.id]: s }); }} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, marginTop: 8, backgroundColor: base.card }}>
               <Text style={{ color: site ? base.ink : base.slate }}>{site ? jobTag(site) : 'Which job is it for? ▾'}</Text>
             </Pressable>
             <TextInput value={note[it.id] || ''} onChangeText={(v) => setNote({ ...note, [it.id]: v })} placeholder="Note or reply to the office (optional)" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, marginTop: 8, color: base.ink, backgroundColor: base.card }} />
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-              <View style={{ flex: 2 }}><Button busy={busy === it.id} title="Book to this job" onPress={async () => {
+              <View style={{ flex: 2 }}><Button busy={busy === it.id} title="Book To This Job" onPress={async () => {
                 if (!pick[it.id]) { toast('Choose the job.'); return; }
                 setBusy(it.id); const err = await bookToJob(it.id, pick[it.id], (note[it.id] || '').trim()); setBusy('');
                 toast(err ? `Not booked — ${err}` : `Booked to ${site?.name || 'the job'} — the office will approve it`); if (!err) refresh();
               }} /></View>
-              <View style={{ flex: 1 }}><Button kind="ghost" title="Send back" onPress={async () => {
+              <View style={{ flex: 1 }}><Button kind="ghost" title="Send Back" onPress={async () => {
                 const text = ((await promptText('Send it back to the office with a note (e.g. “Not one of mine — try Mike”)', note[it.id] || '')) || '').trim(); if (!text) return;
                 const err = await sendBack(it.id, text); toast(err ? `Not sent — ${err}` : `Sent back to the office: “${text.slice(0, 60)}”`); if (!err) refresh();
               }} /></View>

@@ -14,11 +14,11 @@ const seed = require('./fresh/seed');
   await page.goto(BASE+'/fin/newjob'); await page.waitForTimeout(6000);
   // The form as the current app: Project number first, then name; Payment Procedure is a drop-down.
   const box = (label) => page.locator(`text="${label}" >> visible=true`).first().locator('xpath=following::input[1]');
-  await box('Project name *').fill('Test Job'); await box('Project number *').fill('T100');
+  await box('Project Name *').fill('Test Job'); await box('Project Number *').fill('T100');
   await page.getByLabel('Payment Procedure *').click(); await page.waitForTimeout(400); await page.getByText('Application for payment', {exact:true}).last().click(); await page.waitForTimeout(300);
-  await page.getByPlaceholder('£0.00').first().fill('12,500'); await box('Client PO number').fill('PO-77');
+  await page.getByPlaceholder('£0.00').first().fill('12,500'); await box('Client PO Number').fill('PO-77');
   await page.getByPlaceholder('From the Directory — a new name is added').fill('Acme Homes');
-  await page.getByText('Create project', {exact:true}).last().click(); await page.waitForTimeout(5000);
+  await page.getByText('Create Project', {exact:true}).last().click(); await page.waitForTimeout(5000);
   const s = (db.sites||[]).find(x=>x.name==='Test Job');
   console.log('url', page.url().replace(BASE,''), '| errors', errs.join(' / ').slice(0,300) || 'none');
   console.log('site', JSON.stringify(s && {job_number:s.job_number, client:s.client_name, email:s.client_email, multi:s.multi_site}));

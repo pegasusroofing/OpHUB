@@ -1,4 +1,4 @@
-// Reports kept on the phone show as "waiting to send" on the Reports page; Send now sends them.
+// Reports kept on the phone show as "waiting to send" on the Reports page; Send Now sends them.
 const {chromium, makeContext, S1} = require('./harness');
 (async()=>{
   const BASE = 'http://localhost:8081';
@@ -22,8 +22,8 @@ const {chromium, makeContext, S1} = require('./harness');
   console.log('waiting card:', (await page.evaluate(()=>document.body.innerText)).includes('waiting to send'));
   await page.screenshot({path:'shots/waiting.png'});
   await page.unroute('**/rest/v1/report_submissions**', block);
-  await page.getByText('Send now', {exact:true}).click(); await page.waitForTimeout(5000);
-  console.log('server after Send now:', JSON.stringify(db.report_submissions.map(r=>[r.template_name, r.answers])), '| card gone:', !(await page.evaluate(()=>document.body.innerText)).includes('waiting to send'));
+  await page.getByText('Send Now', {exact:true}).click(); await page.waitForTimeout(5000);
+  console.log('server after Send Now:', JSON.stringify(db.report_submissions.map(r=>[r.template_name, r.answers])), '| card gone:', !(await page.evaluate(()=>document.body.innerText)).includes('waiting to send'));
   console.log('errors', errs.join(' / ').slice(0,400) || 'none');
   await browser.close(); process.exit(0);
 })();

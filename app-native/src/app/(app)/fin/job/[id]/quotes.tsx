@@ -86,11 +86,11 @@ export default function ProjectQuotes() {
 
   return (
     <ScrollView contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'Project quotes' }} />
+      <Stack.Screen options={{ title: 'Project Quotes' }} />
       {canEdit && <Card>
-        <SectionTitle>Upload a project quote</SectionTitle>
+        <SectionTitle>Upload A Project Quote</SectionTitle>
         <Muted style={{ marginBottom: 8 }}>A supplier quote or price list for this project (Excel or CSV). Add as many as you need. The team pick items from them when they request materials, and POs are priced from them.</Muted>
-        {!draft ? <Button busy={busy} title="📥 Choose the quote file" onPress={() => void read()} /> : (
+        {!draft ? <Button busy={busy} title="📥 Choose The Quote File" onPress={() => void read()} /> : (
           <View style={{ gap: 6 }}>
             <Muted>{draft.name} · {draft.lines.length} lines found. Untick anything that shouldn’t be on the list.</Muted>
             <TextInput value={draft.supplier} onChangeText={(v) => setDraft({ ...draft, supplier: v })} placeholder="Supplier name" style={box} />
@@ -109,8 +109,8 @@ export default function ProjectQuotes() {
         )}
       </Card>}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-        <SectionTitle>Project quotes</SectionTitle>
-        {canEdit && <View style={{ marginLeft: 'auto' }}><Button kind="ghost" title="+ Add an item by hand" onPress={async () => {
+        <SectionTitle>Project Quotes</SectionTitle>
+        {canEdit && <View style={{ marginLeft: 'auto' }}><Button kind="ghost" title="+ Add An Item By Hand" onPress={async () => {
           const desc = ((await promptText('Item description', '')) || '').trim(); if (!desc) return;
           const unit = ((await promptText('Unit (e.g. nr, m2, roll) — optional', '')) || '').trim();
           if ((await fdb.from('fin_shop_items').insert({ org_id: me.org_id, site_id: id, description: desc, unit: unit || null, position: 9999, active: true, created_by: me.id } as never)).error) toast('Could not save — try again.'); else refresh();
@@ -124,7 +124,7 @@ export default function ProjectQuotes() {
         ]} />
       )}
       {!!sel && sel !== 'manual' && canEdit && (
-        <Button kind="ghost" title="Hide all on this quote from the team" onPress={async () => {
+        <Button kind="ghost" title="Hide All On This Quote From The Team" onPress={async () => {
           const n = data.items.filter((i) => i.quote_id === sel).length;
           if (!(await confirmAsk(`Hide all ${n} items on this quote from the team? They stay here and you can show them again.`, 'Hide'))) return;
           toast((await fdb.from('fin_shop_items').update({ active: false } as never).eq('quote_id', sel)).error ? 'Could not hide them' : 'Hidden from the team'); refresh();

@@ -125,7 +125,7 @@ export default function Collections() {
             ) : <Pressable onPress={() => setCollectFor({ id: m.id, qty: m.qty || '' })} style={{ marginTop: 10 }}><Text style={{ color: base.ink }}>☐ Collected</Text></Pressable>)}
             {m.status !== 'closed' && assignFor !== m.id && (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-                <Button small title="Assign Operative to Collect" onPress={() => { setAssignFor(m.id); setCollectFor(null); }} />
+                <Button small title="Assign Operative To Collect" onPress={() => { setAssignFor(m.id); setCollectFor(null); }} />
                 <Button small kind="ghost" title="✓ Collected" onPress={() => void markCollected([m])} />
               </View>
             )}
@@ -163,8 +163,8 @@ export default function Collections() {
               <Muted>Who collects?</Muted>
               {ops.map((o) => <Button key={o.id} kind="ghost" title={o.name} onPress={() => void assign(picked, o.id)} />)}
             </View>
-          ) : <Button kind="ghost" title="👤 Assign selected to an operative" onPress={() => setAssignFor('bulk')} />)}
-          <Button kind="ghost" title="Clear selection" onPress={() => { setSel(new Set()); setAssignFor(null); }} />
+          ) : <Button kind="ghost" title="👤 Assign Selected To An Operative" onPress={() => setAssignFor('bulk')} />)}
+          <Button kind="ghost" title="Clear Selection" onPress={() => { setSel(new Set()); setAssignFor(null); }} />
         </Card>
       )}
       {emailing && (
@@ -255,7 +255,7 @@ function AddBox({ suppliers, addrs, onSave }: { suppliers: FullSupplier[]; addrs
   const current = (): CollDraft | null => (item.trim() ? { item: item.trim(), qty: qty.trim() || null, supplier_id: sup, supplier_branch: branch, sub_site_id: sub } : null);
   return (
     <Card style={{ marginTop: 18 }}>
-      <SectionTitle>Add item</SectionTitle>
+      <SectionTitle>Add Item</SectionTitle>
       {queue.length > 0 && (
         <Card style={{ backgroundColor: base.paper }}>
           <Muted>{queue.length} row{queue.length > 1 ? 's' : ''} queued — not saved yet:</Muted>

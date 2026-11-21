@@ -23,7 +23,7 @@ export default function TrainingMatrix() {
   const [busy, setBusy] = useState('');
   const { data, isLoading } = useQuery({ queryKey: ['trainingMatrix', me?.org_id], enabled: !!me?.org_id, queryFn: () => loadTrainingMatrix(me?.org_id as string) });
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Training Matrix' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   const run = async (k: string, fn: () => Promise<boolean>) => { if (!data?.operatives.length) { toast('No operatives to report.'); return; } setBusy(k); const ok = await fn().catch(() => false); setBusy(''); if (!ok) toast('Could not make the file — try again.'); };
   const cell = { width: 110, paddingVertical: 8, paddingHorizontal: 6, borderBottomWidth: 1, borderColor: base.line };
   return (

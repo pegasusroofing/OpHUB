@@ -85,10 +85,10 @@ export default function SubOperatives() {
             <>
               <Muted style={{ marginBottom: 8 }}>Send this link to {made.pm ? 'their Project Manager' : 'the operative'}. It works once, for the next 14 days. When they sign up they&apos;re on this job with {company}{made.pm ? ', as its Project Manager' : ''}.</Muted>
               <TextInput value={joinLink(made.id)} editable={false} selectTextOnFocus style={{ borderWidth: 1, borderColor: copied === made.id ? base.ok : base.line, backgroundColor: copied === made.id ? '#F2FBF6' : undefined, borderRadius: radius.input, padding: 8, fontSize: 11.5, color: base.ink, marginBottom: 8 }} />
-              <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center' }}>
-                <Button grow kind="ghost" title={copyTitle(made.id)} onPress={() => void share(made.id, made.pm)} />
-                {mgr && goodEmail(email.trim()) && <Button grow busy={busy === 'email'} title="Email It" onPress={async () => { setBusy('email'); toast(await emailInvite(made.id, email.trim()), { confirm: true }); setBusy(null); }} />}
-                <Button grow kind="ghost" title="Make Another" onPress={() => { setMade(null); setEmail(''); setNewPm(null); }} />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
+                <Button small kind="ghost" title={copyTitle(made.id)} onPress={() => void share(made.id, made.pm)} />
+                {mgr && goodEmail(email.trim()) && <Button small busy={busy === 'email'} title="Email It" onPress={async () => { setBusy('email'); toast(await emailInvite(made.id, email.trim()), { confirm: true }); setBusy(null); }} />}
+                <Button small kind="ghost" title="Make Another" onPress={() => { setMade(null); setEmail(''); setNewPm(null); }} />
               </View>
             </>
           ) : (
@@ -101,12 +101,12 @@ export default function SubOperatives() {
                 </View>
               )}
               <TextInput value={email} onChangeText={setEmail} placeholder="Their email (optional: only they can use it)" autoCapitalize="none" keyboardType="email-address" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 8 }} />
-              <Button busy={busy === 'make'} title="Make Join Link" onPress={async () => {
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}><Button small busy={busy === 'make'} title="Make Join Link" onPress={async () => {
                 const e = email.trim(); if (e && !goodEmail(e)) { toast('That email doesn’t look right.'); return; }
                 setBusy('make'); const inv = await createSubInvite(co, linkIsPm, e); setBusy(null);
                 if (!inv) { toast('Could not make the link — try again.'); return; }
                 setMade({ id: inv, pm: linkIsPm }); refresh();
-              }} />
+              }} /></View>
             </>
           )}
         </Card>
@@ -137,8 +137,8 @@ export default function SubOperatives() {
           )) : <Muted>No one available to allocate.</Muted>}
           <Muted style={{ fontWeight: '600', marginTop: 8, marginBottom: 4 }}>Make Them Their Project Manager?</Muted>
           <FilterRow seg options={[['yes', 'Yes'], ['no', 'No']]} value={asPm} onChange={(v) => setAsPm(v)} />
-          <View style={{ marginTop: 8 }}>
-            <Button title="Allocate" onPress={async () => {
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 8 }}>
+            <Button small title="Allocate" onPress={async () => {
               if (!pick) { toast('Choose an operative.'); return; }
               if (await allocateSubOp(me, id, co, pick, asPm === 'yes')) { setPick(null); setAsPm('no'); refresh(); } else toast('Could not save — try again.');
             }} />

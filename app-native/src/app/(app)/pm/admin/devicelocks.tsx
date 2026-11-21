@@ -19,7 +19,7 @@ export default function DeviceLocks() {
   const qc = useQueryClient();
   const { data = [], isLoading } = useDeviceLocks(me?.org_id);
   if (!me) return null;
-  if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
+  if (!isFullManager(me)) return <><Stack.Screen options={{ title: 'Device Locks' }} /><Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted></>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['deviceLocks'] }); };
   const unlock = async (id: string, deny = false) => {
     if (!(await confirmAsk('Unlock this device? Whoever next signs in on it will lock it to themselves.', 'Unlock'))) return;

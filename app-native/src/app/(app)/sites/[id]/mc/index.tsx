@@ -53,7 +53,7 @@ export default function McHome() {
         <Tile key={t.key} icon={t.icon} tint="#E7E9EE" title={t.title} sub={`${t.sub}${mgr && hidden.includes(t.key) ? ' · hidden from operatives' : ''}`}
           onPress={() => open(t.key)}
           onMenu={mgr ? async () => {
-            const k = await chooseAction(t.title, [{ key: 'hide', label: hidden.includes(t.key) ? '👁 Show to operatives' : '🙈 Hide from operatives' }]);
+            const k = await chooseAction(t.title, [{ key: 'hide', label: hidden.includes(t.key) ? '👁 Show To Operatives' : '🙈 Hide From Operatives' }]);
             if (k !== 'hide') return;
             const hide = !hidden.includes(t.key);
             if (await setMcTileHidden(id, hidden, t.key, hide)) { toast(hide ? 'Hidden from operatives' : 'Now visible to everyone'); void qc.invalidateQueries({ queryKey: ['sites'] }); }

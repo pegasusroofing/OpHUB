@@ -71,7 +71,7 @@ export function YardBookIn({ canAddItems, stockId: stock0 = null }: { canAddItem
             </View>
           )}
           <Muted>{canAddItems ? 'Not on the list? Add new items in Yard stock (Projects › Materials › 📦 Yard Stock, or Finance › Purchases).' : 'Not on the list? Book it with a note and ask the office to add it.'}</Muted>
-          <View style={{ marginTop: 8 }}><Check label="Leftovers back from a job" value={left} onChange={(v) => { setLeft(v); if (!v) setFromSite(null); }} /></View>
+          <View style={{ marginTop: 8 }}><Check label="Leftovers Back From A Job" value={left} onChange={(v) => { setLeft(v); if (!v) setFromSite(null); }} /></View>
           {left && (() => {
             const st = sites.find((x) => x.id === fromSite);
             return (
@@ -112,7 +112,7 @@ export function YardBookIn({ canAddItems, stockId: stock0 = null }: { canAddItem
               <Image source={{ uri: photo.uri }} style={{ width: 90, height: 90, borderRadius: 8 }} />
               <Muted>Tap to remove</Muted>
             </Pressable>
-          ) : <Button kind="ghost" title="📷 Photo of the delivery note (optional)" onPress={async () => { const p = await pickPhotos('camera', false); if ('error' in p) showAlert(p.error); else if (p[0]) setPhoto(p[0]); }} />}
+          ) : <Button kind="ghost" title="📷 Photo Of The Delivery Note (Optional)" onPress={async () => { const p = await pickPhotos('camera', false); if ('error' in p) showAlert(p.error); else if (p[0]) setPhoto(p[0]); }} />}
           <TextInput value={note} onChangeText={setNote} placeholder="Note (optional), e.g. 2 damaged, left in bay 3" style={box} />
           <Button busy={busy} title="Book In" onPress={async () => {
             if (!stock) { toast('Choose the item.'); return; }

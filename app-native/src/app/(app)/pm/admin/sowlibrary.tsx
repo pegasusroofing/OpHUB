@@ -46,7 +46,7 @@ export default function SowLibrary() {
     },
   });
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Schedule of Works Library' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['sowLib'] }); void qc.invalidateQueries({ queryKey: ['sowLibBody'] }); };
   const nextPos = (rows: Row[]) => (rows.length ? Math.max(...rows.map((r) => r.position || 0)) + 1 : 0);
   const rename = async (table: string, r: { id: string; name: string }, label: string) => {

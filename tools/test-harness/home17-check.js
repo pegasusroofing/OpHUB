@@ -32,7 +32,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.screenshot({path: path.join(SHOTS, 'home-phone.png'), fullPage: true});
   await page.getByLabel('Open the menu', {exact: true}).first().click(); await page.waitForTimeout(1200);
   t = await body();
-  check(/Dashboards/.test(t) && /Sign out/.test(t) && /Andy Admin/.test(t), 'the ☰ menu has Dashboards, the name and Sign out');
+  check(/Dashboards/.test(t) && /Sign Out/.test(t) && /Andy Admin/.test(t), 'the ☰ menu has Dashboards, the name and Sign out');
   await page.screenshot({path: path.join(SHOTS, 'menu-phone.png')});
 
   await page.goto(B + '/sites'); await page.waitForTimeout(4000);
@@ -42,7 +42,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.setViewportSize({width: 1300, height: 900}); await page.goto(B + '/home'); await page.waitForTimeout(4000);
   t = await body();
   check(/Company, operatives & deliveries|deliver(y|ies) to schedule/.test(t), 'laptop Home: Dashboards tile still there');
-  check(await page.getByText('Sign out', {exact: true}).filter({visible: true}).count() === 1, 'laptop: Sign out only in the bar on the left');
+  check(await page.getByText('Sign Out', {exact: true}).filter({visible: true}).count() === 1, 'laptop: Sign out only in the bar on the left');
 
   // The roles board's names.
   await page.goto(B + '/pm/admin/roles'); await page.waitForTimeout(4000);

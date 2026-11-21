@@ -14,7 +14,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { AssignChips } from '@/components/AssignChips';
 import { promptEmail } from '@/components/EmailPrompt';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
-import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
+import { Button, Card, Check, FilterRow, Muted, SectionTitle } from '@/components/ui';
 import { deleteSheet, issueSheet, loadRateCard, loadSheet, renameSheet, saveDraft, saveIssuedEdits, sheetDeleteBlock, sheetFigures, sheetWeekData, siteOperatives, unissueSheet, type Sheet } from '@/data/priceSheets';
 import { weeklyBookedIn, weeklyWages } from '@/lib/rules/priceWeeks';
 import { useSite } from '@/data/sites';
@@ -29,7 +29,7 @@ import { supabase } from '@/lib/supabase';
 import { exportTableExcel, type Table } from '@/lib/tableExcel';
 import { exportTablePdf } from '@/lib/pdfLazy';
 import type { Organization, Profile, Site } from '@/lib/types';
-import { base, page, radius, space, live } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 8, paddingVertical: 6, color: base.ink, backgroundColor: base.card };
 
@@ -127,7 +127,7 @@ function View_({ me, org, site, sheet, items, can }: { me: Profile; org: Organiz
         <View style={{ flex: 1 }}><Button title="📄 PDF" onPress={async () => { if (!(await exportTablePdf(sheetTable(sheet, items, site, fig), org).catch(() => false))) toast('Could not make the PDF — try again.'); }} /></View>
         <View style={{ flex: 1 }}><Button kind="ghost" title="📊 Excel" onPress={async () => { if (!(await exportTableExcel(sheetTable(sheet, items, site, fig), org, weekTables(sheet, site, wd)).catch(() => false))) toast('Could not make the file — try again.'); }} /></View>
       </View>
-      {sheet.pricing_element_id && <Button kind="ghost" title="Open its price tile" onPress={() => router.push(`/sites/${site.id}/price/${sheet.pricing_element_id}` as never)} />}
+      {sheet.pricing_element_id && <Button kind="ghost" title="Open Its Price Tile" onPress={() => router.push(`/sites/${site.id}/price/${sheet.pricing_element_id}` as never)} />}
     </ScrollView>
   );
 }
@@ -202,11 +202,9 @@ function Builder({ me, site, sheet, items, alloc, rateItems, options }: { me: Pr
         <TextInput value={w.title} onChangeText={(v) => up((x) => { x.title = v; })} placeholder="Title" style={[box, { fontWeight: '600', fontSize: 16, marginBottom: 8 }]} />
         <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Assign to</Muted>
         <AssignChips ops={ops} sel={w.assignedUserIds} onToggle={(u) => up((x) => { x.assignedUserIds = x.assignedUserIds.includes(u) ? x.assignedUserIds.filter((y) => y !== u) : [...x.assignedUserIds, u]; })} />
-        {!sheet.schedule_section_id && <Check label="Add these lines to the Schedule of Works when issued" value={w.populateSOW} onChange={(v) => up((x) => { x.populateSOW = v; })} />}
+        {!sheet.schedule_section_id && <Check label="Add These Lines To The Schedule of Works When Issued" value={w.populateSOW} onChange={(v) => up((x) => { x.populateSOW = v; })} />}
       </Card>
-      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
-        {(['tick', 'confirm'] as const).map((p) => <Pressable key={p} onPress={() => setPhase(p)} style={{ flex: 1, paddingVertical: 8, borderRadius: 16, borderWidth: 1, alignItems: 'center', borderColor: phase === p ? live.brand1 : base.line, backgroundColor: phase === p ? live.brand1 : base.card }}><Text style={{ fontWeight: '500', color: phase === p ? live.brand1Text : base.ink }}>{p === 'tick' ? '1. Tick items' : `2. Quantities (${Object.keys(w.items).length + w.customRows.length})`}</Text></Pressable>)}
-      </View>
+      <FilterRow options={[['tick', '1. Tick Items'], ['confirm', `2. Quantities (${Object.keys(w.items).length + w.customRows.length})`]]} value={phase} onChange={setPhase} />
 
       {phase === 'tick' ? (
         <>
@@ -222,7 +220,7 @@ function Builder({ me, site, sheet, items, alloc, rateItems, options }: { me: Pr
             </Card>
           ); })}
           {!cats.length && <Muted>The rate card is empty — add items in Admin Centre › Price Sheet Rate Card.</Muted>}
-          <Button title="Next — enter quantities" onPress={() => setPhase('confirm')} />
+          <Button title="Next — Enter Quantities" onPress={() => setPhase('confirm')} />
         </>
       ) : (
         <>
@@ -266,17 +264,17 @@ function Builder({ me, site, sheet, items, alloc, rateItems, options }: { me: Pr
               </View>
             </Card>
           ))}
-          <Button kind="ghost" title="+ Add your own line" onPress={() => up((x) => { x.customRows.push({ localId: `c${Date.now()}`, id: null, name: '', rate: '', quantity: '', unit: 'item' }); })} />
+          <Button kind="ghost" title="+ Add Your Own Line" onPress={() => up((x) => { x.customRows.push({ localId: `c${Date.now()}`, id: null, name: '', rate: '', quantity: '', unit: 'item' }); })} />
           <Card><View style={{ flexDirection: 'row' }}><Text style={{ flex: 1, fontWeight: '600', color: base.ink, fontSize: 16 }}>Total</Text><Text style={{ fontWeight: '600', fontSize: 18, color: base.ink }}>{money(total)}</Text></View></Card>
         </>
       )}
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-        {issued ? <View style={{ flex: 1 }}><Button busy={busy === 'e'} title="Save changes" onPress={() => void saveEdits()} /></View> : <>
+        {issued ? <View style={{ flex: 1 }}><Button busy={busy === 'e'} title="Save Changes" onPress={() => void saveEdits()} /></View> : <>
           <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'd'} title="Save Draft" onPress={() => void draft()} /></View>
           <View style={{ flex: 1 }}><Button busy={busy === 'i'} title="Issue" onPress={() => void issue()} /></View>
         </>}
       </View>
-      {issued ? <Button kind="ghost" title="Cancel" onPress={() => router.setParams({ edit: '' })} /> : <Button kind="ghost" title="🗑 Delete draft" onPress={() => void del(sheet, site.id, toast, refresh)} />}
+      {issued ? <Button kind="ghost" title="Cancel" onPress={() => router.setParams({ edit: '' })} /> : <Button kind="ghost" title="🗑 Delete Draft" onPress={() => void del(sheet, site.id, toast, refresh)} />}
       <Muted style={{ marginTop: 6, marginBottom: space.xl }}>A draft keeps every tick. Issuing only keeps lines with a quantity (and an option, for drop-down items).</Muted>
     </ScrollView>
   );

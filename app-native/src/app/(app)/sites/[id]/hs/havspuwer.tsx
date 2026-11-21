@@ -31,15 +31,15 @@ export default function HavsPuwer() {
       <Stack.Screen options={{ title: 'Tools, HAVS & PUWER' }} />
       <JobGrid>
       {!isManager(me) && me.role !== 'client' && (
-        <Tile icon="🔧" tint="#E8F0FE" title="My Tools" sub={`${n ? `${n} tool${n === 1 ? '' : 's'}` : 'Add your tools'} — now in My Dashboard`} badge={n ? undefined : '!'}
+        <Tile icon="🔧" tint="#E7E9EE" title="My Tools" sub={`${n ? `${n} tool${n === 1 ? '' : 's'}` : 'Add your tools'} — now in My Dashboard`} badge={n ? undefined : '!'}
           onPress={() => router.push('/dashboard' as never)} />
       )}
       {canSeeTile(site, 'hs_havs', me.role, ['site_manager']) && (
-        <Tile icon="🖐" tint="#FFF3E0" title="HAVS" sub="Vibration exposure" onPress={() => router.push(`/sites/${site.id}/hs/havs`)} {...visProps('hs_havs', 'HAVS')} />
+        <Tile icon="🖐" tint="#E7E9EE" title="HAVS" sub="Vibration exposure" onPress={() => router.push(`/sites/${site.id}/hs/havs`)} {...visProps('hs_havs', 'HAVS')} />
       )}
-      <Tile icon="🛠" tint="#E8F0FE" title="PUWER Tool Inspection" sub="Weekly tool checks" onPress={() => router.push(`/sites/${site.id}/hs/puwer`)} />
+      <Tile icon="🛠" tint="#E7E9EE" title="PUWER Tool Inspection" sub="Weekly tool checks" onPress={() => router.push(`/sites/${site.id}/hs/puwer`)} />
       {canSeeTile(site, 'hs_loler', me.role, ['site_manager']) && (
-        <Tile icon="⛓" tint="#F3EAFB" title="LOLER Inspection" sub="Lifting equipment" onPress={() => router.push(`/sites/${site.id}/hs/loler` as never)} {...visProps('hs_loler', 'LOLER Inspection')} />
+        <Tile icon="⛓" tint="#E7E9EE" title="LOLER Inspection" sub="Lifting equipment" onPress={() => router.push(`/sites/${site.id}/hs/loler` as never)} {...visProps('hs_loler', 'LOLER Inspection')} />
       )}
       </JobGrid>
     </ScrollView>

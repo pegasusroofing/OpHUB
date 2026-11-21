@@ -1,5 +1,5 @@
 // Yard decisions (4 Nov 2026), fake database:
-//  - Book In with "Leftovers back from a job" saves leftover + the job (optional) and no supplier / PO;
+//  - Book In with "Leftovers Back From A Job" saves leftover + the job (optional) and no supplier / PO;
 //  - Leftovers To Allocate shows on the job's Yard Stock page and Finance › Yard stock; Credit calls yard_allocate_leftover;
 //  - Stock Take saves an adjustment only for the items whose count changed.
 // (The database trigger and the allocate function run on the real database only; here the call is checked.)
@@ -36,7 +36,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await slatesRow.getByText('⬇ Book In', {exact: true}).first().click(); await page.waitForTimeout(800);
   await page.locator('text="New Delivery" >> visible=true').last().click(); await page.waitForTimeout(4000);
   check(await page.locator('text=/^▼ Slates/ >> visible=true').count() > 0, 'book in: the row\'s item is already chosen');
-  await page.getByText('Leftovers back from a job').click(); await page.waitForTimeout(300);
+  await page.getByText('Leftovers Back From A Job').click(); await page.waitForTimeout(300);
   check(await page.locator('input[placeholder="From (supplier)"] >> visible=true').count() === 0, 'book in: leftovers hide the supplier box');
   await page.locator('input[placeholder="Qty, e.g. 40"] >> visible=true').fill('8');
   await page.screenshot({path: out('bookin')});

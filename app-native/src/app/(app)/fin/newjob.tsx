@@ -57,9 +57,9 @@ export default function FinNewJob() {
 
   if (blocked) return (
     <ScrollView contentContainerStyle={page(700)}>
-      <Stack.Screen options={{ title: 'New project' }} />
+      <Stack.Screen options={{ title: 'New Project' }} />
       <Card><Muted>{`${FIN_TRIAL_MSG} — set new jobs up in Projects. Once a job exists there, its Finance page is ready here.`}</Muted></Card>
-      <Button title="Go to Projects" onPress={() => router.push('/sites' as never)} />
+      <Button title="Go To Projects" onPress={() => router.push('/sites' as never)} />
     </ScrollView>
   );
 
@@ -89,7 +89,7 @@ export default function FinNewJob() {
       if (r.error) { toast(jobNumberError(r.error.message) || `Could not create the project — ${r.error.message}`); return; }
       const jf = await fdb.from('job_finance').upsert({ site_id: id, org_id: me.org_id, billing_type: bt, billing_name: row.client_name, billing_email: row.client_email, billing_address: cli ? [cli.address, cli.postcode].filter(Boolean).join('\n') || null : null, vat_treatment: vatOf(cli), contract_value: cv, original_value: cv, contract_value_manual: cv, contract_value_source: cv != null ? 'manual' : null, updated_at: new Date().toISOString(), updated_by: me.id } as never, { onConflict: 'site_id' });
       // 908: the finance details are part of making the job — say so if they didn't save.
-      let warn = jf.error ? 'Project created, but its finance details (billing, contract value, VAT) didn’t save — set them in Project Admin.' : '';
+      let warn = jf.error ? 'Project created, but its finance details (billing, contract value, VAT) didn’t save — set them in Project Settings.' : '';
       if (poNo) {
         const up: { path: string; name: string }[] = [];
         for (const f of files) {
@@ -98,8 +98,8 @@ export default function FinNewJob() {
           if (!s.error) up.push({ path: s.data.path, name: f.name });
         }
         const p = await fdb.from('client_pos').insert({ org_id: me.org_id, site_id: id, created_by: me.id, po_number: poNo, is_primary: true, file_path: up[0]?.path ?? null, file_name: up[0]?.name ?? null, files: up } as never);
-        if (p.error) warn = warn || 'Project created, but the client PO didn’t save — add it in Project Admin.';
-        else if (up.length < files.length) warn = warn || 'Project created. Some PO files didn’t upload — add them from Project Admin.';
+        if (p.error) warn = warn || 'Project created, but the client PO didn’t save — add it in Project Settings.';
+        else if (up.length < files.length) warn = warn || 'Project created. Some PO files didn’t upload — add them from Project Settings.';
       }
       const made = ((await fdb.from('sites').select('job_number').eq('id', id).maybeSingle()).data as Row | null) ?? row;
       // Folders made and the job linked to them before it opens (Andy, 19 Nov 2026).
@@ -113,18 +113,18 @@ export default function FinNewJob() {
 
   return (
     <ScrollView contentContainerStyle={page(700)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'New project' }} />
+      <Stack.Screen options={{ title: 'New Project' }} />
       <Card>
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 1 }}><Field label="Project number *" value={auto ? `${nums?.job_number_prefix || ''}${nums?.next_job_number ?? ''} (automatic)` : v.no || ''} onChangeText={set('no')} editable={!auto} /></View>
-          <View style={{ flex: 1 }}><DateField label="Start date" value={v.start || ''} onChange={set('start')} /></View>
+          <View style={{ flex: 1 }}><Field label="Project Number *" value={auto ? `${nums?.job_number_prefix || ''}${nums?.next_job_number ?? ''} (automatic)` : v.no || ''} onChangeText={set('no')} editable={!auto} /></View>
+          <View style={{ flex: 1 }}><DateField label="Start Date" value={v.start || ''} onChange={set('start')} /></View>
         </View>
-        <Field label="Project name *" value={v.name || ''} onChangeText={set('name')} />
-        <Field label="Site address" value={v.addr || ''} onChangeText={set('addr')} multiline />
+        <Field label="Project Name *" value={v.name || ''} onChangeText={set('name')} />
+        <Field label="Site Address" value={v.addr || ''} onChangeText={set('addr')} multiline />
         <Field label="Postcode" value={v.pc || ''} onChangeText={set('pc')} autoCapitalize="characters" />
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <View style={{ flex: 1 }}><SelectBox label="Status" title="Status" value={v.status || 'live'} options={[['upcoming', 'Upcoming'], ['live', 'Live']]} onChange={set('status')} /></View>
-          {!finOnly && <View style={{ flex: 1 }}><SelectBox label="Project manager" title="Project manager" value={v.pm || ''} options={[['', '–'], ...pms.map((p) => [p.id, p.name] as [string, string])]} onChange={set('pm')} /></View>}
+          {!finOnly && <View style={{ flex: 1 }}><SelectBox label="Project Manager" title="Project manager" value={v.pm || ''} options={[['', '–'], ...pms.map((p) => [p.id, p.name] as [string, string])]} onChange={set('pm')} /></View>}
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <View style={{ flex: 1 }}><SelectBox label="Payment Procedure *" title="Payment Procedure" value={v.bt || ''} options={[['invoice', 'Invoice'], ['application', 'Application for payment']]} onChange={set('bt')} /></View>
@@ -134,15 +134,15 @@ export default function FinNewJob() {
         <Field label="Contract value (excl. VAT)" value={v.cv || ''} onChangeText={set('cv')} keyboardType="decimal-pad" placeholder="£0.00" />
         <Field label="Client" value={v.client || ''} onChangeText={set('client')} placeholder="From the Directory — a new name is added" />
         {matches.map((c) => <Text key={c.id} onPress={() => set('client')(c.name)} style={{ color: base.blue, paddingVertical: 4 }}>→ {c.name}</Text>)}
-        <Field label="Client PO number" value={v.po || ''} onChangeText={set('po')} />
+        <Field label="Client PO Number" value={v.po || ''} onChangeText={set('po')} />
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
-          <Button kind="ghost" title="📎 Add PO files" onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true, copyToCacheDirectory: true }); if (r.canceled) return; setFiles((o) => [...o, ...r.assets.map((a) => ({ uri: a.uri, name: a.name || 'po', mime: a.mimeType || '', size: a.size || 0 }))]); }} />
+          <Button kind="ghost" title="📎 Add PO Files" onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true, copyToCacheDirectory: true }); if (r.canceled) return; setFiles((o) => [...o, ...r.assets.map((a) => ({ uri: a.uri, name: a.name || 'po', mime: a.mimeType || '', size: a.size || 0 }))]); }} />
           {files.map((f, i) => <FinChip key={i} on label={`${f.name} ✕`} onPress={() => setFiles((o) => o.filter((_, j) => j !== i))} />)}
         </View>
-        {fd.shown && <Check label="Create OneDrive folder" value={wantFolder} onChange={setFolderTick} />}
+        {fd.shown && <Check label="Create OneDrive Folder" value={wantFolder} onChange={setFolderTick} />}
         {fd.shown && fd.clientOff && folderTick === null && <Muted style={{ marginTop: -4, marginBottom: 8 }}>{(v.client || '').trim()} is set to no OneDrive folders in the Directory. Tick it to make one for this job only.</Muted>}
       </Card>
-      <Button busy={busy} title="Create project" onPress={() => void save()} />
+      <Button busy={busy} title="Create Project" onPress={() => void save()} />
     </ScrollView>
   );
 }

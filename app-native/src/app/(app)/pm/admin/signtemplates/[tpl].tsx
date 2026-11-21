@@ -18,7 +18,7 @@ export default function TemplateBoxes() {
   const qc = useQueryClient();
   const { data: tp, isLoading } = useQuery({ queryKey: ['signTemplate', tpl], enabled: !!tpl, gcTime: 0, queryFn: () => loadTemplate(tpl) });
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Template Boxes' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   if (isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!tp) return <Muted style={{ padding: space.l }}>Template not found.</Muted>;
   if (!tp.storage_path) return <Muted style={{ padding: space.l }}>This template has no sample document to show.</Muted>;

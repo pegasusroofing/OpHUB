@@ -1,4 +1,4 @@
-// Job Settings & Admin › OneDrive sync folder: Manual Sync pulls new top-level files into Drawings (skips ones already
+// Job Project Settings › OneDrive sync folder: Manual Sync pulls new top-level files into Drawings (skips ones already
 // there) and stamps Last synced; Unlink clears the folder.
 const {chromium, makeContext, S1} = require('./harness');
 (async()=>{
@@ -21,7 +21,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.getByText(/OneDrive Sync Folder/).first().click(); await page.waitForTimeout(500);
   await page.getByText(/Manual Sync/).first().click(); await page.waitForTimeout(5000);
   console.log('drawings', db.drawing_files.map(f=>f.name).join(', '), '| last synced set', !!st.onedrive_last_synced_at);
-  await page.getByText('Unlink folder', {exact:true}).click(); await page.waitForTimeout(600);
+  await page.getByText('Unlink Folder', {exact:true}).click(); await page.waitForTimeout(600);
   await page.locator('text="Unlink" >> visible=true').last().click(); await page.waitForTimeout(2500);
   console.log('folder after unlink', st.onedrive_folder_id);
   console.log('errors', errs.join(' / ').slice(0,300) || 'none');

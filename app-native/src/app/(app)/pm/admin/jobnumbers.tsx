@@ -24,7 +24,7 @@ export default function JobNumbers() {
   const { me } = useAuth();
   const { data: o, isLoading } = useQuery({ queryKey: ['orgNums', me?.org_id], enabled: !!me?.org_id, queryFn: async () => ((await db.from('organizations').select('auto_job_numbers,job_number_prefix,next_job_number').eq('id', me?.org_id as string).maybeSingle()).data as Nums | null) });
   if (!me) return null;
-  if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Company admins only.</Muted>;
+  if (me.role !== 'admin') return <><Stack.Screen options={{ title: 'Job Numbers' }} /><Muted style={{ padding: space.l }}>Company admins only.</Muted></>;
   if (isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   return <NumbersForm o={o ?? {}} orgId={me.org_id as string} />;
 }
@@ -59,7 +59,7 @@ function NumbersForm({ o, orgId }: { o: Nums; orgId: string }) {
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 10 }}>
           <Text style={{ flex: 1, fontSize: 14, fontWeight: '500', color: base.ink }}>Number new jobs automatically?</Text>
-          <YesNo label="Number new jobs automatically" value={auto} onChange={(x) => { setAuto(x); setSaved(false); }} />
+          <YesNo label="Number New Jobs Automatically" value={auto} onChange={(x) => { setAuto(x); setSaved(false); }} />
         </View>
         {auto ? (
           <>

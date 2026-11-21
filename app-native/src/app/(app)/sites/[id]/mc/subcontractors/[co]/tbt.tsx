@@ -41,7 +41,7 @@ export default function SubTbt() {
       )) : <Empty>No toolbox talks yet.</Empty>}
       {manage && (
         <Card>
-          <SectionTitle>Issue a toolbox talk</SectionTitle>
+          <SectionTitle>Issue A Toolbox Talk</SectionTitle>
           <TextInput value={title} onChangeText={setTitle} placeholder="Title, e.g. Working at Height" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 8 }} />
           <Button kind="ghost" title={file ? `📄 ${file.name}` : 'Choose PDF'} onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setFile({ uri: r.assets[0].uri, name: r.assets[0].name || 'talk.pdf' }); }} />
           <Button busy={busy} title="Issue" onPress={async () => {

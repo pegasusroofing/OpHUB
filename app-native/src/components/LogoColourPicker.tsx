@@ -54,9 +54,9 @@ export function LogoColourPicker({ logoUri, c1, c2, set1, set2 }: { logoUri: str
   );
   const target = (n: 1 | 2, label: string, v: string) => (
     <Pressable key={n} accessibilityRole="button" accessibilityState={{ selected: which === n }} onPress={() => setWhich(n)}
-      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: radius.input, borderWidth: which === n ? 2 : 1, borderColor: which === n ? base.ink : base.line, backgroundColor: base.card }}>
+      style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: radius.input, borderWidth: which === n ? 2 : 1, borderColor: which === n ? base.ink : base.line, backgroundColor: base.card }}>
       <View style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: HEX.test(v) ? v : base.line, borderWidth: 1, borderColor: base.line }} />
-      <View><Text style={{ fontWeight: '600', color: base.ink }}>{label}</Text><Muted>{v}</Muted></View>
+      <View style={{ flex: 1, minWidth: 0 }}><Text style={{ fontWeight: '600', color: base.ink }}>{label}</Text><Muted>{v}</Muted></View>
     </Pressable>
   );
   return (

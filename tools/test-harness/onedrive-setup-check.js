@@ -1,7 +1,7 @@
 // OneDrive set-up (Andy, 8 Nov 2026), on the fake database, laptop: Admin › OneDrive — the connection, New Jobs (a folder for
 // every new job? where they go, the template, chosen by browsing OneDrive), Where Things Save (Projects / Finance / Company,
 // folder changed from the template's folders, Yes / No, + Add Something To Save); Finance › Settings › OneDrive opens the
-// same page on the Finance tab; Finance › Directory: a client set to no OneDrive folders; Add a Project: the "Create OneDrive
+// same page on the Finance tab; Finance › Directory: a client set to no OneDrive folders; Add A Project: the "Create OneDrive
 // folder" tick (unticked for that client, ticked again for one job, and the job pack runs only when ticked); the super
 // admin's Setting Up The Company steps. node onedrive-setup-check.js
 const {chromium, makeContext} = require('./harness');
@@ -87,9 +87,9 @@ const IN_RTB = [{id: 'f-live', name: 'Live Projects', driveId: 'd1'}, {id: 'f-ar
   t = await text();
   check(/Operative Certificates/.test(t) && /Exports Not For A Job/.test(t) && /Company Exports/.test(t), 'Company tab: where company-wide things go');
   // A folder for every new job? No.
-  await page.getByLabel('Create a OneDrive folder for every new job: No').click(); await page.waitForTimeout(1500);
+  await page.getByLabel('Create A OneDrive Folder For Every New Job: No').click(); await page.waitForTimeout(1500);
   check(cfg().create_new === false, 'New Jobs: No stops folders being made for every new job');
-  await page.getByLabel('Create a OneDrive folder for every new job: Yes').click(); await page.waitForTimeout(1500);
+  await page.getByLabel('Create A OneDrive Folder For Every New Job: Yes').click(); await page.waitForTimeout(1500);
 
   // ---- Finance › Settings › OneDrive ----
   await page.goto(`${BASE}/fin/onedrive`); await page.waitForTimeout(4500);
@@ -105,16 +105,16 @@ const IN_RTB = [{id: 'f-live', name: 'Live Projects', driveId: 'd1'}, {id: 'f-ar
   check(db.fin_clients.find((c) => c.id === 'c1').onedrive_folders === false, 'Directory: Sovereign Housing set to no OneDrive folders');
   check(/No OneDrive Folders/.test(await text()), 'shown on the client list');
 
-  // ---- Add a Project ----
+  // ---- Add A Project ----
   await page.goto(`${BASE}/sites/new`); await page.waitForTimeout(4500);
-  check(await page.getByText('Create OneDrive folder', {exact: true}).count() === 1, 'Add a Project: a Create OneDrive folder tick');
+  check(await page.getByText('Create OneDrive Folder', {exact: true}).count() === 1, 'Add A Project: a Create OneDrive Folder tick');
   await page.getByPlaceholder(/^Start typing/).fill('Sovereign Housing'); await page.waitForTimeout(1500);
   t = await text();
   check(/is set to no OneDrive folders in the Directory/.test(t), 'for Sovereign Housing it starts unticked, and says why');
   await page.screenshot({path: 'shots/od-newproject.png'});
   const fill = async (label, v) => { await page.locator(`text="${label}"`).first().locator('xpath=following::input[1]').fill(v); };
   await fill('Site Name *', 'Oak House'); await fill('Address *', 'Oak House, Banbury'); await fill('Job Number', 'J201');
-  await page.getByText('Active', {exact: true}).first().click();
+  await page.getByText('Live', {exact: true}).first().click();
   await page.getByText('Choose a date', {exact: true}).first().click(); await page.waitForTimeout(500); await page.locator('text="16" >> visible=true').last().click(); await page.waitForTimeout(400);
   const before = fns.filter(([n, b]) => n === 'onedrive-job-pack' && b.action === 'setup').length;
   await page.getByText('Create Project', {exact: true}).click(); await page.waitForTimeout(3500);
@@ -123,7 +123,7 @@ const IN_RTB = [{id: 'f-live', name: 'Live Projects', driveId: 'd1'}, {id: 'f-ar
   await page.goto(`${BASE}/sites/new`); await page.waitForTimeout(4000);
   await page.getByPlaceholder(/^Start typing/).fill('Bellway Homes'); await page.waitForTimeout(1200);
   await fill('Site Name *', 'Elm Court'); await fill('Address *', 'Elm Court, Oxford'); await fill('Job Number', 'J202');
-  await page.getByText('Active', {exact: true}).first().click();
+  await page.getByText('Live', {exact: true}).first().click();
   await page.getByText('Choose a date', {exact: true}).first().click(); await page.waitForTimeout(500); await page.locator('text="16" >> visible=true').last().click(); await page.waitForTimeout(400);
   await page.getByText('Create Project', {exact: true}).click(); await page.waitForTimeout(3500);
   const e2 = db.sites.find((s) => s.name === 'Elm Court');

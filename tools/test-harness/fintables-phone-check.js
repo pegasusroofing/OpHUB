@@ -1,5 +1,5 @@
 // The Finance phone tables like the laptop (Andy, 14 Nov 2026: "do this for all tables in phone view"): Sales invoices and
-// applications, Labour invoices, Directory clients and Estimating. Each: tap a heading to sort (money biggest first), a
+// applications, Labour Invoices, Directory clients and Estimating. Each: tap a heading to sort (money biggest first), a
 // search box under each heading lined up with it, the status a ▾ choice starting where the Filter did; no Filter, Sort or
 // search bar above. Touch phone, fake database. node fintables-phone-check.js   (Projects: finjobs-phone-check.js)
 const {chromium, makeContext} = require('./harness');
@@ -73,16 +73,16 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(Math.abs(am.head) <= 1 && Math.abs(am.box) <= 1 && Math.abs(am.cols) <= 1 && am.moneyRight !== null && am.moneyRight < 14, `Applications: AMOUNT and its ▾ centred, amounts still on the right (${am.head.toFixed(1)}, ${am.box.toFixed(1)}, ${am.cols.toFixed(1)}, ${am.moneyRight && am.moneyRight.toFixed(1)})`);
   await page.screenshot({path: path.join(SHOTS, 'fin-apps.png')});
 
-  // ---- Labour invoices ----
+  // ---- Labour Invoices ----
   await page.goto(B + '/fin/subs?tab=opinv'); await page.waitForTimeout(5000);
-  t = await tableText('Labour invoices');
+  t = await tableText('Labour Invoices');
   check(await noBars() && /To Pay ▾/.test(t) && /Dan Fixer/.test(t) && /Joe Lead/.test(t) && !/Sam Slate/.test(t), 'Labour: Status ▾ starts on To Pay');
   await vis('[aria-label="Sort by Net"]').click(); await page.waitForTimeout(500);
-  t = await tableText('Labour invoices');
+  t = await tableText('Labour Invoices');
   check(t.indexOf('Joe Lead') < t.indexOf('Dan Fixer'), 'Labour: Net sorts biggest first');
   await vis('[aria-label="Search Status"]').click(); await page.waitForTimeout(600);
   await page.getByText('Paid', {exact: true}).last().click(); await page.waitForTimeout(600);
-  t = await tableText('Labour invoices');
+  t = await tableText('Labour Invoices');
   check(/Sam Slate/.test(t) && !/Dan Fixer/.test(t), 'Labour: ▾ Paid shows the paid one');
   await page.screenshot({path: path.join(SHOTS, 'fin-labour.png')});
 

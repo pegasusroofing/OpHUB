@@ -47,7 +47,7 @@ export function PriceWeeks({ me, site, elementId, mgr }: { me: Profile; site: Si
   const sheetMode = !!data.sheet;
   return (
     <>
-      <SectionTitle>Booked In — week by week</SectionTitle>
+      <SectionTitle>Booked In — Week By Week</SectionTitle>
       {sheetMode && <Muted style={{ marginBottom: 6 }}>💷 Fed by the Price Sheet “{data.sheet?.title}” — book in the qty done on each line.</Muted>}
       {Array.from({ length: count }, (_, i) => i + 1).map((wk) => {
         const isOpen = open[wk] ?? wk === count;
@@ -170,7 +170,7 @@ function SheetWeek({ me, site, elementId, wk, mgr, items, itemWeeks, entries, op
           <Muted style={{ marginVertical: 6, fontStyle: 'italic' }}>Nothing is saved until you press Save — labour wages this week must match the value of work entered here.</Muted>
           <BuildUp me={me} site={site} elementId={elementId} wk={wk} entries={entries} operatives={operatives} people={people} rollUp={false} refresh={refresh} wagesMode />
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-            <View style={{ flex: 1 }}><Button kind="ghost" title="Share wages over the items" onPress={async () => { setBusy(true); toast(await allocateWages(me, elementId, site.id, items, wk)); setBusy(false); refresh(); }} /></View>
+            <View style={{ flex: 1 }}><Button kind="ghost" title="Share Wages Over The Items" onPress={async () => { setBusy(true); toast(await allocateWages(me, elementId, site.id, items, wk)); setBusy(false); refresh(); }} /></View>
             <View style={{ flex: 1 }}><Button busy={busy} title="💾 Save" onPress={() => void save()} /></View>
           </View>
         </>

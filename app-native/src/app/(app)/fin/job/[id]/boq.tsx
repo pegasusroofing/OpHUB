@@ -308,11 +308,11 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
             <>
               <Text style={{ fontWeight: '500', fontSize: 13.2, color: base.ink }}>{ticked.length} ticked</Text>
               {subs.length > 0 && <SelectBox value="" placeholder="Set plot…" title="Plot for the ticked lines" options={[['-', 'No plot'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, sub: k === '-' ? '' : k } : r)))} compact textSize={13.2} style={{ marginBottom: 0, width: 130 }} />}
-              <Button small kind="ghost" title="Set unit" onPress={async () => { const u = await promptText('Unit for the ticked lines (e.g. m², nr, item)', ''); if (u !== null) setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, unit: u.trim() } : r))); }} />
-              <Button small kind="ghost" title="Clear costs" onPress={() => setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, cost: '', cost_basis: null, cost_pct: null } : r)))} />
+              <Button small kind="ghost" title="Set Unit" onPress={async () => { const u = await promptText('Unit for the ticked lines (e.g. m², nr, item)', ''); if (u !== null) setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, unit: u.trim() } : r))); }} />
+              <Button small kind="ghost" title="Clear Costs" onPress={() => setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, cost: '', cost_basis: null, cost_pct: null } : r)))} />
               <Button small kind="ghost" title="Remove" onPress={async () => { if (await confirmAsk(`Remove ${ticked.length} ticked line${ticked.length === 1 ? '' : 's'}?`, 'Remove')) setRows((rs) => rs.filter((_, j) => !ticked.includes(j))); }} />
               {ticked.length < itemIdx.length && <Button small kind="ghost" title={`Tick all ${itemIdx.length} lines`} onPress={() => tick(itemIdx, true)} />}
-              <Button small kind="ghost" title="Untick all" onPress={() => tick(itemIdx, false)} />
+              <Button small kind="ghost" title="Untick All" onPress={() => tick(itemIdx, false)} />
             </>
           ) : selecting ? <Text style={{ fontSize: 13.2, color: base.slate }}>Tick the lines, or a heading for all its lines.</Text> : null}
         </View>
@@ -449,7 +449,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       {!ro && <>
             <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <View style={{ minWidth: desk ? 240 : 0, flexGrow: desk ? 0 : 1 }}><Button busy={busy} title="Save Bill of Quantities" onPress={() => void save()} /></View>
-        <Button kind="ghost" title="Publish to Application for Payment" onPress={async () => { await save(); if (snap(latest.current) !== saved.current) return; router.push(`/fin/job/${id}/application/new` as never); }} />
+        <Button kind="ghost" title="Publish To Application for Payment" onPress={async () => { await save(); if (snap(latest.current) !== saved.current) return; router.push(`/fin/job/${id}/application/new` as never); }} />
       </View>
       <Muted style={{ marginTop: 6, fontSize: 12 }}>Saves by itself every 2 minutes and when a line is finished, once every line has a description and a value.{autoNote ? ` ${autoNote}` : ''}</Muted>
       </>}
@@ -500,7 +500,7 @@ function ImportPreview({ imp, setImp, onUse }: { imp: Imp; setImp: (i: Imp | nul
         </Pressable>
       )) : <Muted>Nothing found. Try another sheet.</Muted>}
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-        <View style={{ flex: 1 }}><Button title="Use this breakdown" disabled={!used.length} onPress={() => onUse(imp.lines)} /></View>
+        <View style={{ flex: 1 }}><Button title="Use This Breakdown" disabled={!used.length} onPress={() => onUse(imp.lines)} /></View>
         <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => setImp(null)} /></View>
       </View>
     </Card>

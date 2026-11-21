@@ -30,12 +30,12 @@ import { base, useDesk, useTheme } from '@/theme/theme';
 const FIN_PARENT: Record<string, [string, string]> = { newapp: ['Sales', '/fin/sales?tab=apps'], po: ['Purchases', '/fin/purchases?tab=orders'], pinv: ['Purchases', '/fin/purchases?tab=invoices'], plant: ['Purchases', '/fin/purchases?tab=plant'], yardin: ['Yard stock', '/fin/yard'], sub: ['Subcontractors', '/fin/subs?tab=orders'], labour: ['Subcontractors', '/fin/subs?tab=opinv'], inbox: ['Purchases', '/fin/purchases?tab=invoices'], templates: ['Settings', '/fin/settings'] };
 const FIN_SUB: Record<string, string> = { '': 'Overview', jobs: 'Projects', sales: 'Sales', purchases: 'Purchases', subs: 'Subcontractors & Labour', reports: 'Reports', settings: 'Settings', directory: 'Directory', statements: 'Statements', yard: 'Yard stock', inbox: 'Inbox', newjob: 'New project' };
 // A project's Finance tabs and the pages inside it, for the trail.
-const FIN_JOB_TABS: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ['setup', 'Project Admin'], ['docs', 'Documents']];
+const FIN_JOB_TABS: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ['setup', 'Project Settings'], ['docs', 'Documents']];
 const FIN_JOB_PAGES: Record<string, string> = { boq: 'Bill of Quantities', budget: 'Budgets', costs: 'Costs', dayworks: 'Day Works', monthly: 'Monthly Report', quotes: 'Project Quotes', summary: 'Full Summary', variations: 'Variations', invoice: 'Invoices', application: 'Applications', repairs: 'Live Jobs', repair: 'Live Jobs', quote: 'Live Jobs', rates: 'Schedule Of Rates' };
 // Pages with no list of their own: the step back goes to the list on the project's tab (Andy, 3 Nov 2026).
 const FIN_JOB_UP: Record<string, string> = { application: '?tab=sales', invoice: '?tab=sales', repair: '/repairs', quote: '/repairs', rates: '/repairs' };
 // A job's sections, so a page further in can step back to its section from the trail.
-const SECTION: Record<string, string> = { schedule: 'Schedule Of Works', drawings: "Drawings, Spec's & Programme", materials: 'Materials', hs: 'Health & Safety', snagging: 'Snagging', checkin: 'Check In / Out', price: 'Price', repairs: 'Works Orders', om: 'O&M Manual', mc: 'Main Contractor', handover: 'Handover', todos: 'To Do List' };
+const SECTION: Record<string, string> = { schedule: 'Schedule of Works', drawings: "Drawings, Specs & Programme", materials: 'Materials', hs: 'Health & Safety', snagging: 'Snagging', checkin: 'Check In / Out', price: 'Price', repairs: 'Works Orders', om: 'O&M Manual', mc: 'Main Contractor', handover: 'Handover', todos: 'To Do List' };
 // Tapping a job's address under the title copies it (or shares it on a phone) — 130 shell.
 async function copyAddress(a: string): Promise<boolean> {
   try {
@@ -166,8 +166,9 @@ export function AppBar({ title, onBack, home, right, noHistory, routeName }: { t
         )}
         </View>
         <Pressable onPress={() => router.navigate('/fin' as never)} accessibilityRole="link" accessibilityLabel="Finance overview" style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 * K }}>
-          <Text style={[brand(800), { fontSize: (desk ? 22.5 : 18) * K, letterSpacing: -0.3, color: '#111318' }]}><Text style={{ color: '#2B73D4' }}>Op</Text>HUB</Text>
-          <Text style={{ fontSize: (desk ? 17.5 : 14) * K, color: base.slate, fontWeight: '600' }}>×</Text>
+          {/* On a phone there's only room for the company: "OpHUB ×" left it as "R…" (app review, 21 Nov 2026). */}
+          {(desk || !org?.name) && <Text style={[brand(800), { fontSize: (desk ? 22.5 : 18) * K, letterSpacing: -0.3, color: '#111318' }]}><Text style={{ color: '#2B73D4' }}>Op</Text>HUB</Text>}
+          {desk && <Text style={{ fontSize: (desk ? 17.5 : 14) * K, color: base.slate, fontWeight: '600' }}>×</Text>}
           {org?.logo_path && <StorageImage bucket="org-logos" path={org.logo_path} style={{ width: (desk ? 35 : 26) * K, height: (desk ? 35 : 26) * K, resizeMode: 'contain' }} />}
           <Text numberOfLines={1} style={[brand(700), { flexShrink: 1, fontSize: (desk ? 18 : 14) * K, color: t.brand1 }]}>{org?.name || ''}</Text>
         </Pressable>

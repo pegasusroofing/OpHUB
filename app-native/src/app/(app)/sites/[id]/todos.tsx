@@ -238,7 +238,7 @@ function AddBox({ choosePm, onAdd }: { pms: Pm[]; choosePm: (c: string | null) =
           <Text style={{ color: base.ink }}>▶ {pm ? pm.name : 'Assign to a PM (optional)'}</Text>
         </Pressable>
       </View>
-      <Button small kind="ghost" title="📎 Photos / documents (optional)" onPress={async () => setFiles([...files, ...(await pickFiles())])} />
+      <Button small kind="ghost" title="📎 Photos / Documents (Optional)" onPress={async () => setFiles([...files, ...(await pickFiles())])} />
       {files.map((f, i) => (
         <View key={`${f.uri}${i}`} style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
           <Text style={{ flex: 1, color: base.slate }} numberOfLines={1}>{f.name}</Text>

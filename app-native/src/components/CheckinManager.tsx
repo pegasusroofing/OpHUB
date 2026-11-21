@@ -175,8 +175,8 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
             {modal === 'choose' ? (
               <>
                 <Muted style={{ marginBottom: 10 }}>Choose how to set the GPS point operatives must check in near.</Muted>
-                <Button kind="ghost" title="Input GPS Co-Ordinates — type in latitude & longitude" onPress={() => setModal('manual')} />
-                <Button kind="ghost" title="Click for GPS Co-Ordinates — use this device's location" onPress={useHere} />
+                <Button kind="ghost" title="Input GPS Co-Ordinates — Type In Latitude & Longitude" onPress={() => setModal('manual')} />
+                <Button kind="ghost" title="Click For GPS Co-Ordinates — Use This Device's Location" onPress={useHere} />
               </>
             ) : (
               <>

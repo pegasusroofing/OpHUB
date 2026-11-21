@@ -310,7 +310,7 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
               </View>
             </View>
           ))}
-          <Button kind="ghost" title="📄 Upload drawing (PDF or photo)" onPress={() => void uploadDrawing(it.id)} />
+          <Button kind="ghost" title="📄 Upload Drawing (PDF Or Photo)" onPress={() => void uploadDrawing(it.id)} />
           <Muted style={{ marginBottom: 8 }}>Tick 📍 Add to drawing on any question to give it a number, then tap Mark up to place the numbers.{nKeys ? ` ${nKeys} item${nKeys === 1 ? '' : 's'} ticked so far.` : ''}</Muted>
         </>);
       }

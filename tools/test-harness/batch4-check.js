@@ -1,4 +1,4 @@
-// Small items: 🗑 on a live TBT; Add to collections with a question; Programme tile makes its folder;
+// Small items: 🗑 on a live TBT; Add To Collections with a question; Programme tile makes its folder;
 // incident date + time boxes; calendar "Also add" opens the new delivery.
 const {chromium, makeContext, S1} = require('./harness');
 (async()=>{
@@ -20,7 +20,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.getByLabel('Delete Ladders').click(); await yes('Delete');
   console.log('talks left', db.toolbox_talks.length);
   await page.goto('http://localhost:8081/sites/'+S1+'/materials/requests'); await page.waitForTimeout(5000);
-  await page.getByText('📦 Add to collections').click(); await yes('Add');
+  await page.getByText('📦 Add To Collections').click(); await yes('Add');
   console.log('collections', db.material_required_items.map(m=>m.item).join(','), '| request', db.materials[0].status, db.materials[0].order_note);
   await page.goto('http://localhost:8081/sites/'+S1+'/mc'); await page.waitForTimeout(5000);
   await page.getByText(/Programme/).first().click(); await page.waitForTimeout(3000);

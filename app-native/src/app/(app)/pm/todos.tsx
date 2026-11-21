@@ -55,7 +55,7 @@ export default function PmTodos() {
 
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'To do' }} />
+      <Stack.Screen options={{ title: 'To Do' }} />
       <Toggle title="Add a to-do" open={open} onPress={() => setOpen(!open)} />
       {open && (
         <Card>

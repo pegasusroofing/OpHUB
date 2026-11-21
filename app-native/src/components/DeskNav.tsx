@@ -42,7 +42,7 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
   const exp: Item[] = canUseExpenses(me) ? [{ k: 'expenses', ic: 'receipt', lbl: 'Expenses', go: '/expenses', sec: 'Office' }] : [];
   const items: Item[] = kind === 'finance' ? [{ k: 'fin', ic: 'pound', lbl: 'OpHUB Finance', go: '/fin' }, ...exp.map((x) => ({ ...x, sec: undefined })), ...(isManager(me) ? [{ k: 'pm/hr', ic: 'users', lbl: 'HR', go: '/pm/hr' }] : []), { k: 'account', ic: 'gear', lbl: 'Settings', go: '/account' }]
     : kind === 'superadmin' ? [{ k: 'home', ic: 'building', lbl: 'Platform Admin', go: '/home' }]
-    : me.role === 'driver' ? [{ k: 'home', ic: 'home', lbl: 'Home', go: '/home' }, { k: 'driver/schedule', ic: 'truck', lbl: 'My schedule', go: '/driver/schedule' }, ...exp.map((x) => ({ ...x, sec: undefined })), { k: 'account', ic: 'gear', lbl: 'Settings', go: '/account' }]
+    : me.role === 'driver' ? [{ k: 'home', ic: 'home', lbl: 'Home', go: '/home' }, { k: 'driver/schedule', ic: 'truck', lbl: 'My Schedule', go: '/driver/schedule' }, ...exp.map((x) => ({ ...x, sec: undefined })), { k: 'account', ic: 'gear', lbl: 'Settings', go: '/account' }]
     : mgr ? [
       ...(isFullManager(me) ? [{ k: 'home', ic: 'home', lbl: 'Home', go: '/home' }] : []),
       { k: 'sites', ic: 'projects', lbl: 'Projects', go: '/sites', sec: 'Work', kids: [
@@ -70,7 +70,7 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
     ]
     : [
       ...(me.role === 'operative' ? [{ k: 'home', ic: 'home', lbl: 'Home', go: '/home' }] : []),
-      { k: 'sites', ic: 'projects', lbl: 'My projects', go: '/sites' },
+      { k: 'sites', ic: 'projects', lbl: 'My Projects', go: '/sites' },
       ...(me.role !== 'client' ? [{ k: 'inbox', ic: 'chat', lbl: 'Inbox', go: '/inbox', badge: hubN || undefined }, { k: 'dashboard', ic: 'tools', lbl: 'My Dashboard', go: '/dashboard' }] : []),
       { k: 'account', ic: 'gear', lbl: 'Settings', go: '/account' },
     ];
@@ -172,7 +172,7 @@ export function DeskNav({ drawer }: { drawer?: boolean } = {}) {
             <Text numberOfLines={1} style={{ fontSize: 12.5, fontWeight: '600', color: '#fff' }}>{me.name}</Text>
             <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '500', color: NAV.dim }}>{nameToSettings ? 'My Settings ›' : roleLabel(me)}</Text>
           </Pressable>
-          <Pressable onPress={() => void signOut()}><Text style={{ fontSize: 12, fontWeight: '600', color: base.warn }}>Sign out</Text></Pressable>
+          <Pressable onPress={() => void signOut()}><Text style={{ fontSize: 12, fontWeight: '600', color: base.warn }}>Sign Out</Text></Pressable>
         </View>
       </ScrollView>
     </View>

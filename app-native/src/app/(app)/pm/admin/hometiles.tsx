@@ -12,7 +12,7 @@ import { base, page, space } from '@/theme/theme';
 export default function HomeTilesSettings() {
   const { me } = useAuth();
   if (!me) return null;
-  if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Company admins only.</Muted>;
+  if (me.role !== 'admin') return <><Stack.Screen options={{ title: 'Home Page' }} /><Muted style={{ padding: space.l }}>Company admins only.</Muted></>;
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Home Page' }} />

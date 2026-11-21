@@ -27,7 +27,7 @@ export default function CompanyLibrary() {
     queryFn: async () => ((await db.from('subcontractor_company_profiles').select('id,name').eq('org_id', me?.org_id as string).order('name')).data as { id: string; name: string }[] | null) ?? [],
   });
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Subcontractor Library' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['companyLib'] }); };
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
@@ -58,7 +58,7 @@ export default function CompanyLibrary() {
           </View>
         </Card>
       ) : <Button kind="ghost" title="+ Add Company" onPress={() => setAdding(true)} />}
-      <Button kind="ghost" title="📋 Inspection templates (Report Templates)" onPress={() => router.push('/pm/admin/templates' as never)} />
+      <Button kind="ghost" title="📋 Inspection Templates (Report Templates)" onPress={() => router.push('/pm/admin/templates' as never)} />
     </ScrollView>
   );
 }

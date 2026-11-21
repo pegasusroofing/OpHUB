@@ -3,11 +3,12 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 
 import { PpeManager } from '@/components/PpeManager';
 import { useToast } from '@/components/toast';
 import { useSite } from '@/data/sites';
+import { SelectBox } from '@/components/SelectBox';
 import { Button, Card, Empty, Field, Muted, SectionTitle } from '@/components/ui';
 import { DateField, todayIso } from '@/components/DateField';
 import { nameOf, usePeople } from '@/data/hs';
@@ -15,7 +16,7 @@ import { requestPpe, signPpe, useMyPpe } from '@/data/ppe';
 import { useAuth } from '@/lib/auth';
 import { cap1, currentPpe, PPE_STANDARD_ITEMS } from '@/lib/rules/ppe';
 import { isManager } from '@/lib/roles';
-import { base, page, space, live } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 const longDate = (d: string) => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -68,7 +69,7 @@ export default function Ppe() {
             <Card key={i.id}>
               <Text style={{ fontWeight: '600', color: base.ink }}>{(i.items || []).join(', ')}</Text>
               <Muted>Issued {longDate(i.issued_at)} by {nameOf(people, i.issued_by)}</Muted>
-              <Button title="I confirm receipt of this PPE — Sign" onPress={async () => {
+              <Button title="I Confirm Receipt Of This PPE — Sign" onPress={async () => {
                 const r = await signPpe(me, i.id);
                 toast(r.msg);
                 if (r.needSignature) router.push('/signature');
@@ -80,16 +81,9 @@ export default function Ppe() {
           <SectionTitle>Request PPE</SectionTitle>
           {open ? (
             <Card>
-              <Muted style={{ fontWeight: '600', marginBottom: 6 }}>Item</Muted>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-                {[...PPE_STANDARD_ITEMS, '__other'].map((x) => (
-                  <Pressable key={x} onPress={() => setItem(x)} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: item === x ? live.brand1 : base.line, backgroundColor: item === x ? live.brand1 : base.card }}>
-                    <Text style={{ fontWeight: '500', color: item === x ? live.brand1Text : base.ink }}>{x === '__other' ? 'Other…' : x}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              {item === '__other' && <Field label="Item name" value={custom} onChangeText={setCustom} />}
-              <DateField label="Date needed (optional)" value={date} onChange={setDate} min={todayIso()} />
+              <SelectBox label="Item" placeholder="Choose The Item…" value={item || null} options={[...PPE_STANDARD_ITEMS, '__other'].map((x): [string, string] => [x, x === '__other' ? 'Other…' : x])} onChange={setItem} />
+              {item === '__other' && <Field label="Item Name" value={custom} onChangeText={setCustom} />}
+              <DateField label="Date Needed (Optional)" value={date} onChange={setDate} min={todayIso()} />
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <View style={{ flex: 1 }}><Button busy={busy} title="Submit Request" onPress={submit} /></View>
                 <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => setOpen(false)} /></View>

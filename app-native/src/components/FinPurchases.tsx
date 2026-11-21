@@ -284,7 +284,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
             footLabel={(list) => `${list.length} shown`} footRight={monthPick} />
         ) : !desk && data.pos.length ? (
           // The phone table like the rest of Finance (Andy, 14 Nov 2026): tap a heading to sort, a box under each, ▾ Open.
-          <PhoneTable key="orders" label="Purchase orders" rows={data.pos} keyOf={(p) => p.id} onRow={(p) => router.push(`/fin/po/${p.id}` as never)}
+          <PhoneTable key="orders" label="Purchase Orders" rows={data.pos} keyOf={(p) => p.id} onRow={(p) => router.push(`/fin/po/${p.id}` as never)}
             cols={[
               { l: 'PO', w: 96, main: (p) => p.number || '—', sub: (p) => fdate(String(p.issue_date || p.created_at || '').slice(0, 10)), sort: (p) => String(p.issue_date || p.created_at || '') },
               { l: 'Supplier', main: (p) => p.supplier_name || '—', sub: (p) => (siteId ? '' : jobTag(site(p.site_id))), find: (p) => `${p.supplier_name || ''} ${jobTag(site(p.site_id))} ${p.number || ''}` },
@@ -389,7 +389,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               </>);
               // A phone: a table like the rest of Finance (Andy, 14 Nov 2026); tap one to file it, choose its project or send it to a PM.
               if (!desk && items.length) return (
-                <PhoneTable key={`inbox${cur}`} label="Invoices received" rows={items} keyOf={(it) => it.id} onRow={(it) => router.push(`/fin/inbox/${it.id}` as never)}
+                <PhoneTable key={`inbox${cur}`} label="Invoices Received" rows={items} keyOf={(it) => it.id} onRow={(it) => router.push(`/fin/inbox/${it.id}` as never)}
                   cols={[
                     { k: 'sup', l: 'Supplier', lines: 2, main: (it) => it.supplier_override || it.extracted?.supplier || it.from_email || it.file_name || 'Unknown', sub: (it) => [it.extracted?.invoice_no, it.site_id ? jobTag(site(it.site_id)) : ''].filter(Boolean).join(' · '), find: (it) => `${it.supplier_override || ''} ${it.extracted?.supplier || ''} ${it.from_email || ''} ${it.extracted?.invoice_no || ''} ${it.subject || ''} ${jobTag(site(it.site_id))}` },
                     { k: 'w', l: 'Status', w: 92, center: true, main: (it) => whyOf(it).replace(/\b[a-z]/g, (c) => c.toUpperCase()), tone: () => '#B35A00', sort: (it) => whyOf(it) },
@@ -502,7 +502,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               // A phone: a table like the rest of Finance, a tick at the start of each row for Approve / Mark Paid (Andy, 14 Nov 2026).
               if (list.length) return (
                 <>
-                  <PhoneTable key={`pinv${cur}`} label="Purchase invoices" rows={list} keyOf={(i) => i.id} onShown={(r) => setPhoneShown(new Set(r.map((i) => i.id)))} onRow={(i) => router.push(`/fin/pinv/${i.id}` as never)} lead={bulk ? { w: 16, cell: tick } : undefined}
+                  <PhoneTable key={`pinv${cur}`} label="Purchase Invoices" rows={list} keyOf={(i) => i.id} onShown={(r) => setPhoneShown(new Set(r.map((i) => i.id)))} onRow={(i) => router.push(`/fin/pinv/${i.id}` as never)} lead={bulk ? { w: 16, cell: tick } : undefined}
                     cols={[
                       { k: 'sup', l: 'Supplier', lines: 2, main: (i) => i.supplier_name || 'Supplier', sub: (i) => [i.invoice_no, siteId ? '' : jobTag(site(i.site_id))].filter(Boolean).join(' · '), find: (i) => `${i.supplier_name || ''} ${i.invoice_no || ''} ${jobTag(site(i.site_id))} ${posBy[i.po_id]?.number || ''}` },
                       { k: 's', l: 'Status', w: 88, center: true, lines: 2, main: (i) => piWord(i), tone: (i) => piTone(i), sub: (i) => (posBy[i.po_id] ? posBy[i.po_id].number : 'No PO'), sort: (i) => piWord(i) },
@@ -550,7 +550,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
             footLabel={(l) => `${l.length} shown`} />
         ) : !desk && all.length ? (
           // A phone: a table like the rest of Finance (Andy, 14 Nov 2026); ▾ Invoices / Orders / Plant under Net.
-          <PhoneTable key="all" label="Everything bought" rows={all} keyOf={(x) => x.id} onRow={(x) => router.push(x.go as never)}
+          <PhoneTable key="all" label="Everything Bought" rows={all} keyOf={(x) => x.id} onRow={(x) => router.push(x.go as never)}
             cols={[
               { k: 'r', l: 'Ref', w: 96, main: (x) => x.ref, sub: (x) => x.kind, find: (x) => `${x.ref} ${x.kind}` },
               { k: 'w', l: 'Supplier', lines: 2, main: (x) => x.who, sub: (x) => (x.date ? fdate(x.date) : ''), sort: (x) => x.who.toLowerCase() },
@@ -581,7 +581,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
             footLabel={(left) => `${left.length} shown`} />
         ) : !desk && data.hires.length ? (
           // A phone: a table like the rest of Finance (Andy, 14 Nov 2026); ▾ On Hire / Off Hire under On Hire.
-          <PhoneTable key="plant" label="Plant hire" rows={data.hires} keyOf={(h) => h.id} onRow={(h) => router.push(`/fin/plant/${h.id}` as never)}
+          <PhoneTable key="plant" label="Plant Hire" rows={data.hires} keyOf={(h) => h.id} onRow={(h) => router.push(`/fin/plant/${h.id}` as never)}
             cols={[
               { k: 'i', l: 'Item', lines: 2, main: (h) => h.item || '—', sub: (h) => [h.supplier_name, siteId ? '' : jobTag(site(h.site_id))].filter(Boolean).join(' · '), find: (h) => `${h.item || ''} ${h.supplier_name || ''} ${jobTag(site(h.site_id))}` },
               { k: 'on', l: 'On Hire', w: 84, center: true, main: (h) => (h.on_hire ? fdate(h.on_hire) : '—'), sub: (h) => (h.off_hire ? `Off ${fdate(h.off_hire)}` : `${plantCost(h as never).weeks} Wk`), tone: (h) => (!h.off_hire && plantCost(h as never).days > 28 ? '#C0392B' : undefined), sort: (h) => String(h.on_hire || ''),
@@ -603,7 +603,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   const list = Object.values(by).sort((a, b) => b.spend - a.spend || a.name.localeCompare(b.name)).filter((r) => hit(r.name, r.email));
   return (
     <View>
-      {canEdit && <View style={{ flexDirection: 'row', marginBottom: 10 }}><View style={{ marginLeft: 'auto' }}><Button kind="ghost" title="Edit suppliers (Directory)" onPress={() => router.push('/fin/directory?kind=supplier' as never)} /></View></View>}
+      {canEdit && <View style={{ flexDirection: 'row', marginBottom: 10 }}><View style={{ marginLeft: 'auto' }}><Button kind="ghost" title="Edit Suppliers (Directory)" onPress={() => router.push('/fin/directory?kind=supplier' as never)} /></View></View>}
       <TextInput value={q} onChangeText={setQ} placeholder="Search suppliers" style={[box, { marginBottom: 10 }]} />
       {list.length ? list.map((r) => <FinRow compact key={r.name} title={r.name} sub={[r.email, `${r.n} invoice${r.n === 1 ? '' : 's'}`, `spent ${money(r.spend, 0)} net`].filter(Boolean).join(' · ')} right={r.owed ? `${money(r.owed, 0)} to pay` : '—'} />) : <Empty>No suppliers yet.</Empty>}
     </View>

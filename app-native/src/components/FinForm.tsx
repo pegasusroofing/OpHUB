@@ -111,7 +111,6 @@ export function FinForm({ title, fields, initial, onSave, onClose, onDelete, del
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 10 }}>
             <Button small busy={busy} title={saveLabel} onPress={save} />
             {onDelete && <Button small kind="ghost" title={deleteLabel} onPress={async () => { if (!(await confirmAsk(deleteAsk, 'Yes', 'No'))) return; const e = await onDelete(); if (e) setErr(e); else onClose(); }} />}
-            <Button small kind="ghost" title="Cancel" onPress={onClose} />
           </View>
         </View>
       </View>

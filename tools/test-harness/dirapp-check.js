@@ -1,4 +1,4 @@
-// Finance › Directory › Labour: a sign-up form applicant not in the directory → "Add to directory" makes their CIS record.
+// Finance › Directory › Labour: a sign-up form applicant not in the directory → "Add To Directory" makes their CIS record.
 const {chromium, makeContext} = require('./harness');
 (async()=>{
   const browser = await chromium.launch(); const errs = [];
@@ -13,7 +13,7 @@ const {chromium, makeContext} = require('./harness');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto('http://localhost:8081/fin/directory?kind=labour'); await page.waitForTimeout(6000);
   console.log('waiting shown', await page.getByText(/1 from the sub-contractor sign-up form/).count());
-  await page.getByText('Add to directory').click(); await page.waitForTimeout(3000);
+  await page.getByText('Add To Directory').click(); await page.waitForTimeout(3000);
   console.log(JSON.stringify(db.fin_labour_rates.map(r=>({name:r.name, trading:r.trading_name, utr:r.utr, cis:r.cis_rate, reg:r.cis_reg_type, app:r.application_id, notes:r.notes}))));
   console.log('waiting after', await page.getByText(/from the sub-contractor sign-up form/).count());
   console.log('errors', errs.join(' / ').slice(0,300) || 'none');

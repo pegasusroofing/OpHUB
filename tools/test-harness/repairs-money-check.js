@@ -99,7 +99,7 @@ const setup = (db) => {
   await page.goto(`${BASE}/sites/${S1}/repairs/job/j2`); await page.waitForTimeout(5000);
   await page.getByLabel(/^Attended: /).click(); await page.waitForTimeout(800);
   check(/Jake Morris/.test(await page.getByLabel('Attended By').innerText()), 'Update Status: Attended By is the operative who uploaded the photos');
-  await page.getByText('Cancel', {exact: true}).last().click(); await page.waitForTimeout(400);
+  await (async (p) => { const c = p.getByText('Cancel', {exact: true}).filter({visible: true}); if (await c.count()) await c.last().click(); else await p.getByRole('button', {name: 'Close', exact: true}).last().click(); })(page); await page.waitForTimeout(400);
   // Costs By Job tab: Book A Cost To It
   db.fin_job_costs.push({id: 'c3', org_id: db.organizations[0].id, site_id: S1, category: 'other', cost_date: '2026-11-07', description: 'Fuel', supplier: 'Shell', net: 40, vat: 8, sub_job_id: null, split: null});
   await page.goto(`${BASE}/fin/job/${S1}/parts`); await page.waitForTimeout(6000);

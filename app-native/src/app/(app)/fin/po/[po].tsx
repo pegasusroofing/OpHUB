@@ -40,7 +40,7 @@ export default function FinPo() {
     const st = sites.find((x) => x.id === site);
     return (
       <ScrollView ref={newSv} contentContainerStyle={page(1300)} keyboardShouldPersistTaps="handled">
-        <Stack.Screen options={{ title: 'New purchase order' }} />
+        <Stack.Screen options={{ title: 'New Purchase Order' }} />
         {/* Opens straight away; the project is chosen on the form when it didn't come from one (Andy, 5 Nov 2026). */}
         {site && !st ? <Muted>Loading…</Muted> : <FinNewPo key={st?.id || 'none'} site={st || null} itemIds={itemIds ? itemIds.split(',').filter(Boolean) : []} toTop={() => newSv.current?.scrollTo({ y: 0, animated: true })} />}
       </ScrollView>

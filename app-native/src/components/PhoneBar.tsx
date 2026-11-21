@@ -36,6 +36,8 @@ export function PhoneBar({ hubCount, inboxCount, outstanding }: { hubCount?: num
       isFullManager(me) ? { k: 'hub', icon: 'bell', label: 'HUB', href: '/pm/hub', badge: hubCount } : { k: 'inbox', icon: 'chat', label: 'Inbox', href: `/sites/${id}/messages`, badge: inboxCount, on: sub.startsWith('messages') },
       { k: 'more', icon: 'gear', label: 'Settings', href: isManager(me) ? `/sites/${id}/admin` : '/account', on: sub.startsWith('admin') },
     ];
+    // A client doesn't check in or use the job's Inbox (app review, 21 Nov 2026).
+    if (me?.role === 'client') items = items.filter((x) => x.k !== 'checkin' && x.k !== 'inbox');
   } else if (isFullManager(me)) {
     items = [
       { k: 'home', icon: 'home', label: 'Home', href: '/home', on: path === '/home' },

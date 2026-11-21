@@ -25,7 +25,7 @@ export default function Templates() {
     queryFn: async () => ((await db.from('report_templates').select('*').eq('org_id', me?.org_id as string).eq('archived', false).order('name')).data as Tpl[] | null) ?? [],
   });
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Report Templates' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['reportTplAdmin'] }); void qc.invalidateQueries({ queryKey: ['templates'] }); };
   const kind = (t: Tpl) => (t.is_daily_briefing ? 'Daily Briefing' : t.is_mc_inspection ? 'Main Contractor inspection' : t.is_loler_inspection ? 'LOLER inspection' : 'Report / survey');
   return (

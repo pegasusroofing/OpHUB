@@ -23,7 +23,7 @@ export default function AdminCentre() {
   const { page, search } = useLocalSearchParams<{ page?: string; search?: string }>();
   const [q, setQ] = useState('');
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Admin Centre' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   if (!search) {
     const to = adminStart(me, org, typeof page === 'string' ? page : undefined);
     return to ? <Redirect href={to as never} /> : <Muted style={{ padding: space.l }}>Nothing here for your role.</Muted>;

@@ -47,7 +47,7 @@ export default function HsPolicyAdmin() {
   const [file, setFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [busy, setBusy] = useState(false);
   if (!me) return null;
-  if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
+  if (!isFullManager(me)) return <><Stack.Screen options={{ title: 'H&S Policy' }} /><Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted></>;
   const view = async (p: string) => { const u = await openDocLink('rams-docs', p); if (u) viewDoc(u); else toast('Could not open the file.'); };
   const doc = data?.doc;
   const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 8 };

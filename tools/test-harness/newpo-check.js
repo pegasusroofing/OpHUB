@@ -18,7 +18,7 @@ const poTab = async (page, n) => { const t = page.getByRole('tab', {name: new Re
   await page.getByPlaceholder("Supplier's orders email (optional)").fill('orders@rsl.test');
   await poTab(page, "Lines");
   await page.getByPlaceholder('Description').fill('Slates 500x250'); await page.getByPlaceholder('Qty').fill('400'); await page.getByLabel('Rate', {exact:true}).fill('1.25'); // the laptop line table (Job, Description, Qty, Unit, Rate £ …)
-  await page.getByText('+ Add line').click(); await page.waitForTimeout(300);
+  await page.getByText('+ Add Line').click(); await page.waitForTimeout(300);
   await page.getByPlaceholder('Description').nth(1).fill('Lead code 4'); await page.getByLabel('Rate', {exact:true}).nth(1).fill('85');
   await page.screenshot({path:'shots/newpo.png', fullPage:true});
   await poTab(page, "Raise|Save & Send");

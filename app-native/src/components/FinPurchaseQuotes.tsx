@@ -127,7 +127,7 @@ export function PurchaseQuotes({ siteId }: { siteId?: string }) {
       )}
       {!!filter && qBy[filter] && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-          {canEdit && <Button small kind="ghost" title="✎ Edit this list" onPress={() => setEdit(filter)} />}
+          {canEdit && <Button small kind="ghost" title="✎ Edit This List" onPress={() => setEdit(filter)} />}
           {!!qBy[filter].file_path && <Button small kind="ghost" title={`📄 View ${qBy[filter].file_name || 'the quote'}`} onPress={async () => { const u = await openDocLink('finance-docs', qBy[filter].file_path); if (u) viewDoc(u, qBy[filter].file_name || ''); else toast('Could not open the file.'); }} />}
           {canEdit && <Button small kind="ghost" title="⧉ Duplicate" onPress={async () => {
             const src = qBy[filter], nid = rid();
@@ -151,7 +151,7 @@ export function PurchaseQuotes({ siteId }: { siteId?: string }) {
       {pick && ticked.length > 0 && (
         <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 }}>
           <Text style={{ flex: 1, fontWeight: '500', color: base.ink }}>{ticked.length} item{ticked.length === 1 ? '' : 's'} ticked</Text>
-          <Button small title="Raise a PO from these" onPress={raise} />
+          <Button small title="Raise A PO From These" onPress={raise} />
           <Button small kind="ghost" title="Untick" onPress={() => setSel(new Set())} />
         </Card>
       )}
@@ -216,7 +216,7 @@ function PlForm({ q0, items0, sups, onClose, toast, me }: { q0: Row; items0: Row
   return (
     <Card style={{ borderColor: base.ink, borderWidth: 1.5 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-        <SectionTitle>Edit price list</SectionTitle>
+        <SectionTitle>Edit Price List</SectionTitle>
         <Pressable style={{ marginLeft: 'auto' }} onPress={() => onClose(false)} accessibilityLabel="Close" hitSlop={8}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '500' }}>✕</Text></Pressable>
       </View>
       <SuggestField label="Supplier" value={String(q.supplier_name || '')} onChangeText={(t) => setQ({ ...q, supplier_name: t, supplier_id: null })} items={sups.map((s) => ({ key: s.id, label: s.name }))} onPick={(s) => setQ({ ...q, supplier_name: s.label, supplier_id: s.key })} showAllOnFocus placeholder="Pick from your suppliers or type" />
@@ -235,8 +235,8 @@ function PlForm({ q0, items0, sups, onClose, toast, me }: { q0: Row; items0: Row
         </View>
       ))}
       <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
-        <Button small kind="ghost" title="+ Add line" onPress={() => setItems((xs) => [...xs, { code: '', description: '', unit: '', rate: '' }])} />
-        <Button small busy={busy} title="Save list" onPress={() => void save()} />
+        <Button small kind="ghost" title="+ Add Line" onPress={() => setItems((xs) => [...xs, { code: '', description: '', unit: '', rate: '' }])} />
+        <Button small busy={busy} title="Save List" onPress={() => void save()} />
         <Button small kind="ghost" title="Cancel" onPress={() => onClose(false)} />
       </View>
     </Card>

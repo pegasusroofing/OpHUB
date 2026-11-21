@@ -43,14 +43,14 @@ export function CoshhFolderPicker({ title, multi, onDone, onCancel }: { title: s
             {rows.map(({ f, depth }) => row(f.id, `📁 ${f.name}`, depth))}
           </ScrollView>
           <View style={{ gap: 6, marginTop: 8 }}>
-            <Button kind="ghost" title="+ New folder" onPress={async () => {
+            <Button kind="ghost" title="+ New Folder" onPress={async () => {
               const n = await promptText('New folder name (e.g. Bauder, or Flat Roofing)', ''); if (!n || !n.trim() || !me) return;
               const id = await createFolder(me, null, n.trim());
               if (!id) { toast('Could not create the folder.'); return; }
               void qc.invalidateQueries({ queryKey: ['coshhFolders'] });
               if (multi) setPicked([...picked, id]); else onDone([id]);
             }} />
-            {multi && <Button title="Save to the ticked folders" onPress={() => { if (!picked.length) { toast('Tick at least one folder'); return; } onDone(picked); }} />}
+            {multi && <Button title="Save To The Ticked Folders" onPress={() => { if (!picked.length) { toast('Tick at least one folder'); return; } onDone(picked); }} />}
             <Button kind="ghost" title="Cancel" onPress={onCancel} />
           </View>
         </Pressable>

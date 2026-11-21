@@ -105,7 +105,7 @@ export default function Inductions() {
               if (await unlinkFolder('siteinductions', id)) void qc.invalidateQueries(); else toast('Could not unlink — try again.');
             }
           }} style={{ marginTop: space.m }}><Text style={{ color: base.ok }}>📁 Signed inductions are pushed to “<Text style={{ textDecorationLine: 'underline' }}>{odFolder}</Text>”</Text></Pressable>
-        ) : <Button kind="ghost" title="☁️ Link OneDrive inductions folder" onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'siteinductions', id } } as never)} />)}
+        ) : <Button kind="ghost" title="☁️ Link OneDrive Inductions Folder" onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'siteinductions', id } } as never)} />)}
         {mgr && roster.some((u) => byOp[u]?.pdf_path) && (
           <View style={{ flexDirection: 'row', gap: 8, marginTop: space.m }}>
             {([['pdf', sel.size ? `📄 Export ${sel.size} selected` : '📄 Export all completed'], ['email', sel.size ? `✉ Email ${sel.size} selected` : '✉ Email all completed']] as const).map(([k, l]) => <View key={k} style={{ flex: 1 }}><Button kind="ghost" title={l} onPress={async () => {
@@ -137,7 +137,7 @@ export default function Inductions() {
         <Stack.Screen options={{ title: 'Site Inductions' }} />
         <Card style={{ alignItems: 'center' }}>
           <Text style={{ fontSize: 34 }}>✅</Text>
-          <SectionTitle>Induction completed</SectionTitle>
+          <SectionTitle>Induction Completed</SectionTitle>
           <Muted style={{ marginBottom: 12 }}>You completed this site&apos;s induction on {day(mine.completed_at)}.</Muted>
           <Button kind="ghost" title="View My Induction" onPress={() => void view(mine.pdf_path)} />
         </Card>

@@ -226,7 +226,7 @@ export function SignBoxEditor({ storagePath, initial, intro, saveLabel, onSave, 
         {on > 0 && minePage.length > 0 && (
           <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
             <View style={{ flex: 1 }}><Button kind={mode === 'repeat' ? 'primary' : 'ghost'} title={`Copy to Operative ${on + 1} — tap where`} onPress={() => { setMode(mode === 'repeat' ? null : 'repeat'); setSels([]); }} /></View>
-            {offset && <View style={{ flex: 1 }}><Button kind="ghost" title="Copy again, same spacing" onPress={() => doRepeat(boxes, who, offset)} /></View>}
+            {offset && <View style={{ flex: 1 }}><Button kind="ghost" title="Copy Again, Same Spacing" onPress={() => doRepeat(boxes, who, offset)} /></View>}
           </View>
         )}
         {help ? <Text style={{ marginTop: 10, fontWeight: '600', color: base.blue }}>{help}</Text> : <Muted style={{ marginTop: 10 }}>Tap a box on the page to select it, tap others to add them, or drag a box to move it.</Muted>}

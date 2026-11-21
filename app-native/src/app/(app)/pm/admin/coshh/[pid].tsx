@@ -34,7 +34,7 @@ export default function CoshhProduct() {
   const { me } = useAuth();
   const { data, isLoading } = useQuery({ queryKey: ['coshhProduct', pid], enabled: !!pid, gcTime: 0, queryFn: () => loadProduct(pid) });
   if (!me) return null;
-  if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
+  if (!isFullManager(me)) return <><Stack.Screen options={{ title: 'COSHH Product' }} /><Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted></>;
   if (isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!data) return <Muted style={{ padding: space.l }}>That product is no longer in the library.</Muted>;
   return <Editor key={data.id} initial={data} />;
@@ -113,7 +113,7 @@ function Editor({ initial }: { initial: CoshhItem }) {
           </Card>
         )}
         <Card>
-          <SectionTitle>COSHH assessment</SectionTitle>
+          <SectionTitle>COSHH Assessment</SectionTitle>
           {a ? (
             <>
               <Text style={{ fontWeight: '600', color: a.due ? '#B23B2E' : '#1E7A3C', marginBottom: 6 }}>{a.due ? '⚠ Review due — assessed' : '✅ Assessed'} {new Date(a.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} · {a.folder}</Text>
@@ -142,7 +142,7 @@ function Editor({ initial }: { initial: CoshhItem }) {
           <TextInput value={d.use} onChangeText={(v) => set({ use: v })} placeholder="e.g. Bonding insulation boards to the deck" style={box} />
         </Card>
         <Card>
-          <SectionTitle>Safety Data Sheet (optional)</SectionTitle>
+          <SectionTitle>Safety Data Sheet (Optional)</SectionTitle>
           {!!d.sdsPath && <Pressable onPress={async () => { const u = await openDocLink('coshh-library', d.sdsPath); if (u) viewDoc(u); else toast('Could not open the file.'); }} style={{ marginBottom: 8 }}><Text style={{ color: base.blue, fontWeight: '600' }}>📄 {d.sdsName || 'Safety Data Sheet'}</Text></Pressable>}
           <Button kind="ghost" busy={busy === 'sds'} title={d.sdsPath ? 'Replace data sheet (PDF)' : 'Add data sheet (PDF)'} onPress={async () => {
             const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
@@ -167,7 +167,7 @@ function Editor({ initial }: { initial: CoshhItem }) {
           <Muted style={{ marginTop: 6 }}>It&apos;s attached to the back of every COSHH assessment made from this product. On the office laptop the codes, symbols and sections are read off it for you — always check them.</Muted>
         </Card>
         <Card>
-          <SectionTitle>Hazard symbols</SectionTitle>
+          <SectionTitle>Hazard Symbols</SectionTitle>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {COSHH_PICTOS.map((p) => { const on = d.pictos.includes(p.key); return (
               <Pressable key={p.key} onPress={() => toggle('pictos', p.key)} style={{ width: 92, alignItems: 'center', padding: 6, borderRadius: 10, borderWidth: 2, borderColor: on ? base.ink : base.line, opacity: on ? 1 : 0.55 }}>
@@ -180,20 +180,20 @@ function Editor({ initial }: { initial: CoshhItem }) {
           <View style={{ flexDirection: 'row', gap: 6 }}>{['', 'Warning', 'Danger'].map((w) => <Pressable key={w || 'none'} onPress={() => set({ signal: w })} style={chipStyle(d.signal === w)}><Text style={{ color: d.signal === w ? live.brand1Text : base.ink }}>{w || 'None'}</Text></Pressable>)}</View>
         </Card>
         <Card>
-          <SectionTitle>Hazard statements (H codes)</SectionTitle>
+          <SectionTitle>Hazard Statements (H Codes)</SectionTitle>
           <TextInput value={hText} onChangeText={(v) => { setHText(v); set({ h: parseCodes(v, 'H') }); }} placeholder="Type the codes, e.g. H315 H317 H319" autoCapitalize="characters" style={box} />
           <Codes codes={d.h} />
-          {d.h.length > 0 && !d.pictos.length && <Button kind="ghost" title="Fill in the usual symbols & signal word for these codes" onPress={() => set({ pictos: suggestPictos(d.h), signal: d.signal || suggestSignal(d.h) })} />}
-          <SectionTitle>Precautionary statements (P codes)</SectionTitle>
+          {d.h.length > 0 && !d.pictos.length && <Button kind="ghost" title="Fill In The Usual Symbols & Signal Word For These Codes" onPress={() => set({ pictos: suggestPictos(d.h), signal: d.signal || suggestSignal(d.h) })} />}
+          <SectionTitle>Precautionary Statements (P Codes)</SectionTitle>
           <TextInput value={pText} onChangeText={(v) => { setPText(v); set({ p: parseCodes(v, 'P') }); }} placeholder="e.g. P280 P305+P351+P338" autoCapitalize="characters" style={box} />
           <Codes codes={d.p} />
           <Muted style={{ fontWeight: '600' }}>Workplace exposure limit (if on the data sheet)</Muted>
           <TextInput value={d.wel} onChangeText={(v) => set({ wel: v })} placeholder="e.g. Portland cement dust 10 mg/m³ inhalable (8hr TWA)" style={box} />
         </Card>
         <Card>
-          <SectionTitle>How can it harm you?</SectionTitle>
+          <SectionTitle>How Can It Harm You?</SectionTitle>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{COSHH_ROUTES.map(([k, l]) => <Pressable key={k} onPress={() => toggle('routes', k)} style={chipStyle(d.routes.includes(k))}><Text style={{ fontSize: 12, color: d.routes.includes(k) ? live.brand1Text : base.ink }}>{l}</Text></Pressable>)}</View>
-          <SectionTitle>PPE to wear</SectionTitle>
+          <SectionTitle>PPE To Wear</SectionTitle>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{RAMS_PPE.map((p) => <Pressable key={p.key} onPress={() => toggle('ppe', p.key)} style={chipStyle(d.ppe.includes(p.key))}><Text style={{ fontSize: 12, color: d.ppe.includes(p.key) ? live.brand1Text : base.ink }}>{p.icon} {p.label}</Text></Pressable>)}</View>
           <Muted style={{ fontWeight: '600', marginTop: 10 }}>Risk level</Muted>
           <View style={{ flexDirection: 'row', gap: 6 }}>{['Low', 'Medium', 'High'].map((w) => <Pressable key={w} onPress={() => set({ risk: w })} style={chipStyle(d.risk === w)}><Text style={{ color: d.risk === w ? live.brand1Text : base.ink }}>{w}</Text></Pressable>)}</View>
@@ -206,8 +206,8 @@ function Editor({ initial }: { initial: CoshhItem }) {
           {area('disposal', 'Disposal')}
           {area('fire', 'Fire')}
         </Card>
-        <Button title="Save product" onPress={async () => { if (await saveFirst()) { toast('Saved'); refresh(); router.back(); } }} />
-        <View style={{ marginTop: 8 }}><Button kind="ghost" title="Delete product" onPress={async () => {
+        <Button title="Save Product" onPress={async () => { if (await saveFirst()) { toast('Saved'); refresh(); router.back(); } }} />
+        <View style={{ marginTop: 8 }}><Button kind="ghost" title="Delete Product" onPress={async () => {
           if (!(await confirmAsk(`Delete "${it.title}"${a ? ' and its COSHH assessment' : ''}? Jobs keep any COSHH already added to them. This can't be undone.`, 'Delete'))) return;
           if (await deleteProductFull(it, a)) { toast('Deleted'); refresh(); router.back(); } else toast('Could not delete — try again.');
         }} /></View>

@@ -94,20 +94,20 @@ export function PriceFiles({ me, site, el, mgr, canPrice, canLabour }: { me: Pro
     <>
       {canPrice && (
         <>
-          <SectionTitle>Price files</SectionTitle>
+          <SectionTitle>Price Files</SectionTitle>
           <Card>
             {data.files.length ? data.files.map((f) => row('price', f)) : <Muted>No price files yet.</Muted>}
-            {mgr && <><Check label="Apply to all prices at this address" value={allPrices} onChange={setAllPrices} /><Button kind="ghost" busy={busy === 'price'} title="⬆ Upload price files" onPress={() => void upload('price')} /></>}
+            {mgr && <><Check label="Apply To All Prices At This Address" value={allPrices} onChange={setAllPrices} /><Button kind="ghost" busy={busy === 'price'} title="⬆ Upload Price Files" onPress={() => void upload('price')} /></>}
           </Card>
         </>
       )}
       {canLabour && (
         <>
-          <SectionTitle>Labour invoices</SectionTitle>
+          <SectionTitle>Labour Invoices</SectionTitle>
           <Card>
             {data.labour.length ? data.labour.map((f) => row('labour', f)) : <Muted>No labour invoices yet.</Muted>}
             {/* 390: upload and delete are for managers; others with access just view them */}
-            {mgr && <Button kind="ghost" busy={busy === 'labour'} title="⬆ Upload labour invoices" onPress={() => void upload('labour')} />}
+            {mgr && <Button kind="ghost" busy={busy === 'labour'} title="⬆ Upload Labour Invoices" onPress={() => void upload('labour')} />}
           </Card>
         </>
       )}

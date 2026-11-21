@@ -286,7 +286,7 @@ export function EmployeeRecord({ userId }: { userId: string }) {
           <QBox label="Comments" value={f.comments} onChangeText={(x) => setF({ ...f, comments: x })} multiline />
           <QBox label="Goals Agreed For Next Time" value={f.goals} onChangeText={(x) => setF({ ...f, goals: x })} multiline />
           <QBox label="Summary" value={f.summary} onChangeText={(x) => setF({ ...f, summary: x })} multiline />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}><Text style={{ flex: 1, fontSize: 14, color: base.ink }}>Sign It Off Now?</Text><YesNo label="Sign it off now?" value={f.signOff} onChange={(x) => setF({ ...f, signOff: x })} /></View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}><Text style={{ flex: 1, fontSize: 14, color: base.ink }}>Sign It Off Now?</Text><YesNo label="Sign It Off Now?" value={f.signOff} onChange={(x) => setF({ ...f, signOff: x })} /></View>
         </View>
       );
     };

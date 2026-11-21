@@ -105,10 +105,10 @@ export function SitesMapCard({ sites, fill }: { sites: Site[]; fill?: boolean })
     <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 18, padding: 12, marginBottom: 12, ...(fill ? { flex: 1, marginBottom: 0, marginTop: 0, borderRadius: 12, paddingHorizontal: 18 } : {}) }}>
       {/* On Home (fill) the title and the map start 18 in, as the words in the tiles above (Andy, 14 Nov 2026). */}
       <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10, paddingHorizontal: fill ? 0 : 4, paddingTop: fill ? 6 : 2, paddingBottom: 10 }}>
-        <Text style={[heading(700), { fontSize: 14, color: base.ink }]}>Sites map</Text>
+        <Text style={[heading(700), { fontSize: 14, color: base.ink }]}>Sites Map</Text>
         <Text style={{ fontSize: 11, color: base.slateLight, fontStyle: 'italic' }}>{count}</Text>
         <View style={{ flex: 1 }} />
-        <Pressable onPress={() => router.push('/pm/sitemap' as never)}><Text style={{ fontSize: 12.5, fontWeight: '600', color: t.brand1 }}>Open full map ›</Text></Pressable>
+        <Pressable onPress={() => router.push('/pm/sitemap' as never)}><Text style={{ fontSize: 12.5, fontWeight: '600', color: t.brand1 }}>Open Full Map ›</Text></Pressable>
       </View>
       <Pressable onPress={() => router.push('/pm/sitemap' as never)} style={{ borderRadius: 12, overflow: 'hidden', ...(fill ? { flex: 1, minHeight: 300 } : {}) }}>
         <View pointerEvents="none" style={fill ? { flex: 1 } : undefined}>

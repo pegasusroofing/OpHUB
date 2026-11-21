@@ -6,13 +6,13 @@ import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
-import { Card, Empty, Muted } from '@/components/ui';
+import { Card, Empty, FilterRow, Muted } from '@/components/ui';
 import { useTeam } from '@/data/admin';
 import { useAuth } from '@/lib/auth';
 import { dayTotals, localISODate, minsLabel } from '@/lib/rules/driver';
 import { isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, space, live } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Chk = { user_id: string; type: string; ts: string; lat: number | null; lon: number | null; accuracy_m: number | null };
@@ -36,7 +36,7 @@ export default function DriverCheckins() {
     },
   });
   if (!me) return null;
-  if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
+  if (!isFullManager(me)) return <><Stack.Screen options={{ title: 'Driver Check-In Log' }} /><Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted></>;
   const rows = data?.rows ?? [], breaks = data?.breaks ?? [];
   const dayKeys: string[] = [];
   rows.forEach((r) => { const k = localISODate(new Date(r.ts)); if (!dayKeys.includes(k)) dayKeys.push(k); });
@@ -44,13 +44,7 @@ export default function DriverCheckins() {
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Driver Check-In Log' }} />
-      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
-        {[14, 30, 90].map((n) => (
-          <Pressable key={n} onPress={() => setDays(n)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: days === n ? live.brand1 : base.line, backgroundColor: days === n ? live.brand1 : base.card }}>
-            <Text style={{ fontWeight: '500', fontSize: 12, color: days === n ? live.brand1Text : base.ink }}>Last {n} days</Text>
-          </Pressable>
-        ))}
-      </View>
+      <FilterRow options={[14, 30, 90].map((n): [string, string] => [String(n), `Last ${n} Days`])} value={String(days)} onChange={(k) => setDays(Number(k))} />
       {isLoading ? <Muted>Loading…</Muted> : dayKeys.length ? dayKeys.map((k) => {
         const dayRows = rows.filter((r) => localISODate(new Date(r.ts)) === k);
         const drivers = [...new Set(dayRows.map((r) => r.user_id))];

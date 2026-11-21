@@ -78,7 +78,7 @@ export default function Briefings() {
       {mgr && sel.size > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <Text style={{ fontWeight: '600', color: base.ink }}>{sel.size} selected</Text>
-          <Button kind="ghost" busy={busy} title="📄 Export as one PDF" onPress={async () => { setBusy(true); try { const m = await merged(); if (m && !(await deliverPdf(m.bytes, m.filename))) toast('Could not save the PDF.'); } finally { setBusy(false); } }} />
+          <Button kind="ghost" busy={busy} title="📄 Export As One PDF" onPress={async () => { setBusy(true); try { const m = await merged(); if (m && !(await deliverPdf(m.bytes, m.filename))) toast('Could not save the PDF.'); } finally { setBusy(false); } }} />
           <Button kind="ghost" busy={busy} title="✉ Email" onPress={async () => {
             if (!site) return;
             // 700 askPdfMode: several briefings go as separate attachments or one combined PDF.
@@ -118,7 +118,7 @@ export default function Briefings() {
             router.push(`/sites/${id}/hs/briefings/fill/${sid}` as never);
           }} />
           {data?.hasTemplate === false && <Muted style={{ marginBottom: 6 }}>No Daily Briefing template set up yet.</Muted>}
-          {data?.hasTemplate === false && isFullManager(me) && <View style={{ marginBottom: 10 }}><Button small title="+ Create a Daily Briefing template" onPress={async () => { const tid = await quickTemplate(me, 'briefing'); if (tid) router.push(`/pm/admin/templates/${tid}` as never); else toast('Could not create it — try again.'); }} /></View>}
+          {data?.hasTemplate === false && isFullManager(me) && <View style={{ marginBottom: 10 }}><Button small title="+ Create A Daily Briefing Template" onPress={async () => { const tid = await quickTemplate(me, 'briefing'); if (tid) router.push(`/pm/admin/templates/${tid}` as never); else toast('Could not create it — try again.'); }} /></View>}
         </>
       )}
       {isLoading ? <Muted>Loading…</Muted> : keys.length ? keys.map((k) => {

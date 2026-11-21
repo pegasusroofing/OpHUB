@@ -126,7 +126,7 @@ export function ManagerMessages({ siteId }: { siteId: string }) {
   return (
     <View>
       <Card>
-        <SectionTitle>Send a message</SectionTitle>
+        <SectionTitle>Send A Message</SectionTitle>
         <MentionBox value={draft} onChangeText={setDraft} people={people ?? []} placeholder={sendTo === 'managers' ? 'Message to the managers... type @ to mention someone' : 'Message to operatives... type @ to mention someone'} style={[box, { marginBottom: 8 }]} />
         {/* Send takes three quarters; who it goes to is a drop-down in the last quarter (Andy, 4 Nov 2026). */}
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>

@@ -64,7 +64,7 @@ export function useMcTiles(site: Site | undefined, orgId: string | null | undefi
           { key: 'site_inductions', icon: '🪪', title: 'Site Inductions', sub: roster.size ? `${[...doneIds].filter((x) => roster.has(x)).length} of ${roster.size} inducted` : `${doneIds.size} completed` },
           { key: 'subcontractors', icon: '👷', title: 'Subcontractors', sub: `${nCos} compan${nCos === 1 ? 'y' : 'ies'}` },
           { key: 'permits', icon: '🧾', title: 'Permits To Work', sub: open ? `${open} open` : 'None open' },
-          { key: 'inspections', icon: '🔍', title: 'Inspections', sub: nInsp ? `${nInsp} logged` : tplIds.length ? 'None logged yet' : 'Set up templates' },
+          { key: 'inspections', icon: '🔍', title: 'Inspections', sub: nInsp ? `${nInsp} logged` : tplIds.length ? 'None logged yet' : 'Set Up Templates' },
           { key: 'asbestos', icon: '☣️', title: MC_DOC_LABEL.asbestos, sub: n('asbestos') },
           { key: 'f10', icon: '📮', title: MC_DOC_LABEL.f10, sub: n('f10') },
           { key: 'programme', icon: '📅', title: 'Programme', sub: `${nProg} document${nProg === 1 ? '' : 's'}` },

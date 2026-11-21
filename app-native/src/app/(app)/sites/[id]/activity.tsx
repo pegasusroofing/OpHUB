@@ -64,7 +64,7 @@ export default function Activity() {
           </View>
         );
       }) : <Empty>Nothing recorded{filter !== 'all' || person ? ' for that filter' : ' on this job yet'}.</Empty>}
-      {data?.more && <Button kind="ghost" title="Show more" onPress={() => setLimit(limit + 150)} />}
+      {data?.more && <Button kind="ghost" title="Show More" onPress={() => setLimit(limit + 150)} />}
     </ScrollView>
   );
 }

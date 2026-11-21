@@ -95,7 +95,7 @@ export default function GettingStarted() {
         <Muted style={{ marginBottom: 12, fontSize: 13.5 }}>{step.body}</Muted>
         {step.phone && (
           <>
-            <Field label="Phone number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" autoComplete="tel" placeholder="e.g. 07123 456789" />
+            <Field label="Phone Number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" autoComplete="tel" placeholder="e.g. 07123 456789" />
             <Button title={step.done ? 'Update number' : 'Save number'} onPress={async () => {
               const err = await savePhone(me, phone.trim());
               if (err) { toast(err); return; }

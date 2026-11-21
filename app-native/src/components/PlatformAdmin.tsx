@@ -48,7 +48,7 @@ export function PlatformAdmin() {
         <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: base.ink }}>{me.name} (you)</Text><Muted>{me.email} · Super Admin</Muted></View>
         <View style={{ width: 170 }}><Button kind="ghost" busy={busy === me.email} title="Reset My Password" onPress={() => void reset(me.email)} /></View>
       </Card>
-      <SectionTitle>Invite a Company</SectionTitle>
+      <SectionTitle>Invite A Company</SectionTitle>
       <Card>
         {invite ? (
           <>
@@ -63,7 +63,7 @@ export function PlatformAdmin() {
           </>
         ) : (
           <>
-            <Field label="Company name" value={co.name} onChangeText={(v) => setCo({ ...co, name: v })} />
+            <Field label="Company Name" value={co.name} onChangeText={(v) => setCo({ ...co, name: v })} />
             <Field label="Their Email (We Email Them The Invite)" value={co.email} onChangeText={(v) => setCo({ ...co, email: v })} keyboardType="email-address" autoCapitalize="none" />
             <Button busy={busy === 'co'} title="Create Company & Invite" onPress={async () => {
               if (!co.name.trim()) { toast('Enter a company name.'); return; }

@@ -88,7 +88,7 @@ export default function CompanyDashboard() {
   const [show, setShow] = useState<string | null>(null);
   const desk = useDesk();
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Dashboards' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   const all = sites ?? [];
   const live = all.filter((s) => siteStatusKey(s) === 'live');
   const count = (k: string) => all.filter((s) => siteStatusKey(s) === k).length;

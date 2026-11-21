@@ -103,7 +103,7 @@ export default function AllCalendar() {
     },
   });
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Calendar' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   const byId = Object.fromEntries((sites ?? []).map((s) => [s.id, s]));
   const all: Ev[] = [
     ...(raw?.events ?? []).map((e) => ({ ...e, kind: 'event' as const, colour: e.is_private ? base.slateLight : t.brand1 })),

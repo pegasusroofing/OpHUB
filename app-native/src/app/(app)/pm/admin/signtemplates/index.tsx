@@ -25,7 +25,7 @@ export default function SignTemplates() {
   const [file, setFile] = useState<{ uri: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Signing Templates' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['signTemplates'] }); };
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
@@ -38,8 +38,8 @@ export default function SignTemplates() {
         <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 8 }}>New template</Text>
         <TextInput value={name} onChangeText={setName} maxLength={80} placeholder="Template name, e.g. Hyde RAMS form" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 8 }} />
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 1 }}><Button kind="ghost" title={file ? `✓ ${file.name}` : 'Choose sample PDF'} onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setFile({ uri: r.assets[0].uri, name: r.assets[0].name || 'sample.pdf' }); }} /></View>
-          <View style={{ flex: 1 }}><Button busy={busy} title="Upload & set boxes" onPress={async () => {
+          <View style={{ flex: 1 }}><Button kind="ghost" title={file ? `✓ ${file.name}` : 'Choose Sample PDF'} onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setFile({ uri: r.assets[0].uri, name: r.assets[0].name || 'sample.pdf' }); }} /></View>
+          <View style={{ flex: 1 }}><Button busy={busy} title="Upload & Set Boxes" onPress={async () => {
             if (!name.trim() || !file) { toast('Add a name and choose a sample PDF.'); return; }
             setBusy(true);
             try {
@@ -51,14 +51,14 @@ export default function SignTemplates() {
           }} /></View>
         </View>
       </Card>
-      <SectionTitle>Your templates</SectionTitle>
+      <SectionTitle>Your Templates</SectionTitle>
       {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((tp) => {
         const s = layoutSummary(tp.layout);
         return (
           <Card key={tp.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, marginBottom: 6 }}>
             <View style={{ flex: 1 }}>
               <Text style={{ fontWeight: '600', color: base.ink }}>{tp.name}</Text>
-              <Text style={{ color: s ? base.slate : '#B23B2E' }}>{s || 'No boxes set yet'}{tp.page_count ? ` · ${tp.page_count} pages` : ''}</Text>
+              <Text style={{ color: s ? base.slate : '#B23B2E' }}>{s || 'No boxes set yet'}{tp.page_count ? ` · ${tp.page_count} page${tp.page_count === 1 ? '' : 's'}` : ''}</Text>
             </View>
             <Pressable hitSlop={8} onPress={async () => {
               const k = await chooseAction(tp.name, [...(tp.storage_path ? [{ key: 'boxes', label: '✍ Set / edit boxes' }, { key: 'view', label: '👁 View sample' }] : []), { key: 'rename', label: '✎ Rename' }, { key: 'del', label: '🗑 Delete', danger: true }]);

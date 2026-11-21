@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
-import { Button, Card, Check, Empty, Muted, SectionTitle } from '@/components/ui';
+import { Button, Card, Check, Empty, FilterRow, Muted, SectionTitle } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { lines, moveLib, P_LABELS, RAMS_DEFAULT_PPE, RAMS_PPE, ramsSettings, renameInTemplate, riskBand, rr, S_LABELS, type LibItem, type RamsSettings } from '@/lib/rules/rams';
 import { starterRows } from '@/lib/rules/ramsStarter';
@@ -61,11 +61,7 @@ function Editor({ it, lib, onSave, onCancel }: { it: LibItem; lib: LibItem[]; on
       )}
       {it.kind === 'section' && (
         <>
-          <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
-            {[['general', 'Safe system of work'], ['method', 'Method statement (step by step)']].map(([k, l]) => (
-              <Pressable key={k} onPress={() => setPart(k)} style={{ flex: 1, padding: 8, borderRadius: radius.input, borderWidth: 1, borderColor: part === k ? live.brand1 : base.line, backgroundColor: part === k ? live.brand1 : base.card }}><Text style={{ textAlign: 'center', color: part === k ? live.brand1Text : base.ink, fontWeight: '600', fontSize: 12 }}>{l}</Text></Pressable>
-            ))}
-          </View>
+          <FilterRow options={[['general', 'Safe System Of Work'], ['method', 'Method Statement (Step By Step)']]} value={part} onChange={setPart} />
           <Muted style={{ fontWeight: '600' }}>Text</Muted>
           <TextInput value={body} onChangeText={setBody} multiline style={[box, { minHeight: 90 }]} />
           <Muted style={{ fontWeight: '600' }}>Numbered steps — one per line</Muted>
@@ -131,7 +127,7 @@ function CompanyForm({ me, data, orgName, toast }: { me: { org_id: string | null
         <View style={{ flex: 1 }}><Muted style={{ fontWeight: '600' }}>Next RA number</Muted><TextInput value={String(st.nextRa)} onChangeText={(v) => setSt({ ...st, nextRa: Number(v) || 0 })} keyboardType="number-pad" style={box} /></View>
         <View style={{ flex: 1 }}><Muted style={{ fontWeight: '600' }}>Next MS number</Muted><TextInput value={String(st.nextMs)} onChangeText={(v) => setSt({ ...st, nextMs: Number(v) || 0 })} keyboardType="number-pad" style={box} /></View>
       </View>
-      <Button title="Save company details" onPress={async () => {
+      <Button title="Save Company Details" onPress={async () => {
         // 588: the counters move on every time a RAMS is made, so read the live settings now and only
         // change a next number the person actually retyped (never write an old one back — duplicate RA / MS numbers).
         const live = ((await db.from('organizations').select('rams_settings').eq('id', me.org_id as string).maybeSingle()).data as { rams_settings: Partial<RamsSettings> | null } | null)?.rams_settings || data || {};
@@ -155,7 +151,7 @@ export default function RamsLibrary() {
   const { data: lib = [], isLoading } = useQuery({ queryKey: ['ramsLib', me?.org_id], enabled: !!me, queryFn: async () => ((await db.from('rams_library_items').select('*').eq('org_id', me?.org_id as string).order('sort_order').order('title')).data as LibItem[] | null) ?? [] });
   const { data: usage = [] } = useQuery({ queryKey: ['ramsLibUsage'], enabled: sort === 'used', queryFn: async () => ((await rpc('rams_library_usage', {})).data as { kind: string; lib_id: string | null; title: string; n: number }[] | null) ?? [] });
   if (!me) return null;
-  if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
+  if (!isFullManager(me)) return <><Stack.Screen options={{ title: 'RAMS Library' }} /><Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted></>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['ramsLib'] }); };
   const countUses = (it: LibItem) => {
     const t = it.title.trim().toLowerCase(); let jobs = 0, tpls = 0;
@@ -207,22 +203,19 @@ export default function RamsLibrary() {
     await Promise.all(next.map((x, k) => (x.sort_order === k ? null : db.from('rams_library_items').update({ sort_order: k } as never).eq('id', x.id))));
     refresh();
   };
-  const chip = (on: boolean, l: string, onPress: () => void) => <Pressable key={l} onPress={onPress} style={{ flexBasis: '48%', flexGrow: 1, padding: 8, borderRadius: 16, borderWidth: 1, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card }}><Text style={{ textAlign: 'center', fontWeight: '500', fontSize: 12, color: on ? live.brand1Text : base.ink }}>{l}</Text></Pressable>;
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'RAMS Library' }} />
       <Muted style={{ marginBottom: 10 }}>The hazards, safe systems of work and templates your team picks from in the RAMS Builder. Changing the library doesn&apos;t change RAMS already written for a job.</Muted>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-        {/* Each tab shows how many it holds, as the current app (588; cmp-fin 5 Nov 2026). */}
-        {([['hazard', 'Hazards'], ['section', 'Safe Systems Of Work & Method Statements'], ['template', 'Templates'], ['company', 'Company Details']] as [Tab, string][]).map(([k, l]) => { const n = k === 'company' ? 0 : lib.filter((i) => i.kind === k).length; return chip(tab === k, n ? `${l} ${n}` : l, () => { setTab(k); setEditId(null); }); })}
-      </View>
+      {/* Each tab shows how many it holds, as the current app (588; cmp-fin 5 Nov 2026). Underlined tabs (app review, 21 Nov 2026). */}
+      <FilterRow options={([['hazard', 'Hazards'], ['section', 'Safe Systems'], ['template', 'Templates'], ['company', 'Company Details']] as [Tab, string][]).map(([k, l]): [Tab, string] => { const n = k === 'company' ? 0 : lib.filter((i) => i.kind === k).length; return [k, n ? `${l} (${n})` : l]; })} value={tab} onChange={(k) => { setTab(k); setEditId(null); }} />
       {tab === 'company' ? <CompanyDetails me={me} orgName={org?.name || ''} /> : (
         <>
           <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
             <TextInput value={q} onChangeText={setQ} placeholder="Search…" style={[box, { flex: 1, marginBottom: 0 }]} />
             <Pressable onPress={async () => { const k = await chooseAction('Sort by', [{ key: 'order', label: 'Your order' }, { key: 'az', label: 'A–Z' }, ...(tab !== 'template' ? [{ key: 'used', label: 'Most used' }] : [])]); if (k) setSort(k as 'order'); }} style={[box, { marginBottom: 0, justifyContent: 'center' }]}><Text style={{ color: base.ink }}>⇅ {sortBy === 'az' ? 'A–Z' : sortBy === 'used' ? 'Most used' : 'Your order'}</Text></Pressable>
           </View>
-          {tab === 'section' && <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>{chip(part === 'general', 'Safe Systems of Work', () => { setPart('general'); setEditId(null); })}{chip(part === 'method', 'Method Statements', () => { setPart('method'); setEditId(null); })}</View>}
+          {tab === 'section' && <FilterRow seg options={[['general', 'Safe Systems Of Work'], ['method', 'Method Statements']]} value={part} onChange={(k) => { setPart(k); setEditId(null); }} />}
           {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((it, i) => {
             if (editId === it.id) return <Editor key={it.id} it={it} lib={lib} onSave={(t, d) => void save(it, t, d)} onCancel={() => setEditId(null)} />;
             const d = (it.data || {}) as Record<string, unknown>, u = sortBy === 'used' ? countUses(it) : null;
@@ -245,7 +238,7 @@ export default function RamsLibrary() {
               </Card>
             );
           }) : <Empty>{ofTab.length ? 'Nothing matches.' : lib.length ? 'Nothing here yet.' : 'Your library is empty. The starter library adds a ready-made set of hazards, safe systems of work, method statements and a pitched-roof template, ready to edit.'}</Empty>}
-          {!lib.length && <Button kind="ghost" title="📚 Load the starter library" onPress={async () => {
+          {!lib.length && <Button kind="ghost" title="📚 Load The Starter Library" onPress={async () => {
             const r = await supabase.from('rams_library_items').insert(starterRows().map((x) => ({ ...x, org_id: me.org_id, created_by: me.id })) as never);
             toast(r.error ? 'Could not load it — try again.' : 'Starter library loaded'); refresh();
           }} />}

@@ -44,7 +44,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(/\/fin\/pinv\/pi2/.test(page.url()), 'Purchase invoices: tapping a row opens it');
   // Received (no job yet).
   await page.goto(B + '/fin/purchases?tab=invoices&f=job'); await page.waitForTimeout(5000);
-  await table('Invoices received', ['Travis Perkins', 'Needs A Job', '£240.00'], 'fin-inbox.png');
+  await table('Invoices Received', ['Travis Perkins', 'Needs A Job', '£240.00'], 'fin-inbox.png');
   // Plant Hire.
   await page.goto(B + '/fin/purchases?tab=plant'); await page.waitForTimeout(5000);
   let t = await table('Plant hire', ['Cherry Picker 12m', 'Skip 8yd'], 'fin-plant.png');
@@ -65,7 +65,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(!errs.length, `CIS opens without errors ${errs.slice(0, 1).join('')}`);
   // People & Rates.
   await page.goto(B + '/fin/directory?kind=labour'); await page.waitForTimeout(5000);
-  await table('People and rates', ['Dan Fixer'], 'fin-people.png');
+  await table('People And Rates', ['Dan Fixer'], 'fin-people.png');
   // Cost codes.
   await page.goto(B + '/fin/directory?kind=codes'); await page.waitForTimeout(5000);
   await table('Cost codes Direct Costs', ['Materials', 'Plant Hire', '300'], 'fin-codes.png');

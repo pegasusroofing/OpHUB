@@ -75,14 +75,14 @@ export default function FinInboxItem() {
     <DocSplit name={it.file_name || 'Invoice'} load={it.file_path ? () => openDocLink('finance-docs', it.file_path) : null}>
     <ScrollView contentContainerStyle={page(800)}>
       <Stack.Screen options={{ title: ex.supplier || it.from_email || 'Purchase invoice' }} />
-      {filed && <Card><Text style={{ color: '#1E7A3C', fontWeight: '500' }}>Filed.</Text><Button kind="ghost" title="Open the purchase invoice" onPress={() => router.replace(`/fin/pinv/${it.purchase_invoice_id}` as never)} /></Card>}
+      {filed && <Card><Text style={{ color: '#1E7A3C', fontWeight: '500' }}>Filed.</Text><Button kind="ghost" title="Open The Purchase Invoice" onPress={() => router.replace(`/fin/pinv/${it.purchase_invoice_id}` as never)} /></Card>}
       <Card>
         <FinRow title="Supplier" right={`${it.supplier_override || ex.supplier || 'Choose'} ▾`} onPress={filed ? undefined : () => void chooseSupplier()} />
         <FinRow title="Emailed From" right={it.from_email || '—'} /><FinRow title="Received" right={fdate(String(it.received_at).slice(0, 10))} />{it.subject && <FinRow title="Subject" right={it.subject} />}
         {it.query_reason && <Text style={{ color: '#D98A00', marginTop: 6 }}>Why it&apos;s unallocated: {it.query_reason}</Text>}
         {(it.comments || []).map((c: Row, k: number) => <Muted key={k}>{c.name}: {c.text}</Muted>)}
       </Card>
-      {!filed && !it.extracted?.lines && !!it.file_path && <Button busy={reading} title="🤖 Read it" onPress={async () => { setReading(true); const e = await readOne(me, it); setReading(false); if (e) toast(e); void qc.invalidateQueries({ queryKey: ['finInbox', iid] }); }} />}
+      {!filed && !it.extracted?.lines && !!it.file_path && <Button busy={reading} title="🤖 Read It" onPress={async () => { setReading(true); const e = await readOne(me, it); setReading(false); if (e) toast(e); void qc.invalidateQueries({ queryKey: ['finInbox', iid] }); }} />}
       {!!lines && lines.length > 0 && <InvoiceLines lines={lines} checks={checks} sites={sites as never} read={it.extracted} readOnly={!!filed} onChange={setLines} />}
       {!filed && !!verdict?.flags.length && <Card>{verdict.flags.map((x) => <Text key={x} style={{ color: base.red, fontWeight: '500', marginBottom: 3 }}>{x}</Text>)}<Muted>It files as a query, for someone to approve.</Muted></Card>}
       {it.file_path && <Button kind="ghost" title={`📄 ${it.file_name || 'Open the invoice'}`} onPress={async () => { const u = await openDocLink('finance-docs', it.file_path); if (u) viewDoc(u); else toast('Could not open the file.'); }} />}
@@ -94,8 +94,8 @@ export default function FinInboxItem() {
           <Pressable onPress={async () => { const k = await chooseAction('PO', [{ key: '-', label: 'No PO' }, ...pos.map((p) => ({ key: p.id, label: `${p.number} · ${p.supplier_name || ''}${p.value != null ? ` · ${money(p.value)}` : ''}` }))]); if (k) setPoId(k === '-' ? '' : k); }} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9 }}><Text style={{ color: base.ink }}>{po ? pos.find((p) => p.id === po)?.number || 'PO' : 'No PO ▾'}</Text></Pressable>
         </>}
       </Card>
-      {!filed && <Button title="File to this project…" onPress={() => { if (!sid) { toast('Choose the project first.'); return; } if (lines?.some((l) => !l.site_id)) { toast('Choose the job for every line first.'); return; } setFiling(true); }} />}
-      {!filed && <Button kind="ghost" title="Not an invoice — ignore it" onPress={async () => {
+      {!filed && <Button title="File To This Project…" onPress={() => { if (!sid) { toast('Choose the project first.'); return; } if (lines?.some((l) => !l.site_id)) { toast('Choose the job for every line first.'); return; } setFiling(true); }} />}
+      {!filed && <Button kind="ghost" title="Not An Invoice — Ignore It" onPress={async () => {
         // 9219b finInboxIgnore: it leaves the inbox lists.
         if (!(await confirmAsk('Ignore this? It isn’t an invoice, so it comes off the list.', 'Ignore'))) return;
         if (!(await fdb.from('fin_inbox').update({ status: 'ignored', stage: 'ignored' } as never).eq('id', it.id).select('id')).data?.length) { toast('Could not save — try again.'); return; }

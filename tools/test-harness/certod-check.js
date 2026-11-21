@@ -12,7 +12,7 @@ const {chromium, makeContext} = require('./harness');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto('http://localhost:8081/pm/operatives/o1'); await page.waitForTimeout(6000); 
-  await page.getByText('☑ Select to export or email').click(); await page.waitForTimeout(400);
+  await page.getByText('☑ Select To Export Or Email').click(); await page.waitForTimeout(400);
   await page.getByText('☐').first().click(); await page.waitForTimeout(300);
   await page.getByText('☁ Upload 1 to OneDrive').click(); await page.waitForTimeout(3000);
   console.log('calls', JSON.stringify(calls.map(c=>c.cert_ids)));

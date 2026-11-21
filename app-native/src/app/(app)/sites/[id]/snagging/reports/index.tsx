@@ -66,7 +66,7 @@ export default function Reports() {
       {waiting.length > 0 && (
         <Card style={{ borderColor: base.warn, borderWidth: 1.5, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Text style={{ flex: 1, color: base.ink }}><Text style={{ fontWeight: '600' }}>⏳ {waiting.length} report{waiting.length === 1 ? '' : 's'} waiting to send</Text> — {waiting.map((w) => w.name).join(', ')}. They send by themselves when there’s signal.</Text>
-          <Button small busy={busy} title="Send now" onPress={async () => { setBusy(true); const n = await sendParked(me); setBusy(false); void refetchWaiting(); void qc.invalidateQueries({ queryKey: ['reports', id] }); if (!n) toast('Still no signal — they’re kept on this phone and will send later.'); }} />
+          <Button small busy={busy} title="Send Now" onPress={async () => { setBusy(true); const n = await sendParked(me); setBusy(false); void refetchWaiting(); void qc.invalidateQueries({ queryKey: ['reports', id] }); if (!n) toast('Still no signal — they’re kept on this phone and will send later.'); }} />
         </Card>
       )}
       <Button title={picker ? 'Cancel' : '+ New Report'} onPress={() => setPicker(!picker)} />

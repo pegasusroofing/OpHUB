@@ -124,7 +124,7 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
     return (
       <>
         <Card>
-          <SectionTitle>Document details</SectionTitle>
+          <SectionTitle>Document Details</SectionTitle>
           {row(field('Risk Assessment no.', 'raNumber'), field('Method Statement no.', 'msNumber'))}
           {row(field('Date', 'date', { date: true }), field('Review date', 'reviewDate', { date: true }))}
           {field('Author', 'author')}
@@ -138,7 +138,7 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
           {row(field('Emergency contact', 'emergencyName'), field('Emergency phone', 'emergencyPhone', { kb: 'phone-pad' }))}
         </Card>
         <Card>
-          <SectionTitle>Groups affected</SectionTitle>
+          <SectionTitle>Groups Affected</SectionTitle>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {groups.map((g) => { const on = d.groups.includes(g); return <Pressable key={g} onPress={() => setD('groups', on ? d.groups.filter((x) => x !== g) : [...d.groups, g])} style={chipStyle(on)}><Text style={{ fontSize: 12, color: on ? live.brand1Text : base.ink }}>{g}</Text></Pressable>; })}
           </View>
@@ -150,7 +150,7 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
             {RAMS_PPE.map((p) => { const on = b.ppe.includes(p.key); return <Pressable key={p.key} onPress={() => change((x) => ({ ...x, ppe: on ? x.ppe.filter((k) => k !== p.key) : [...x.ppe, p.key] }))} style={chipStyle(on)}><Text style={{ fontSize: 12, color: on ? live.brand1Text : base.ink }}>{p.icon} {p.label}</Text></Pressable>; })}
           </View>
         </Card>
-        <Check label="Include the Dynamic Risk Assessment page" value={d.includeDynamic !== false} onChange={(v) => setD('includeDynamic', v)} />
+        <Check label="Include The Dynamic Risk Assessment Page" value={d.includeDynamic !== false} onChange={(v) => setD('includeDynamic', v)} />
         <Muted style={{ marginTop: 8 }}><Text style={{ color: '#C0392B' }}>*</Text> Required</Muted>
         {next('details')}
       </>
@@ -297,7 +297,7 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
   const issueTab = () => (
     <>
       <Card>
-        <SectionTitle>Issue to this job</SectionTitle>
+        <SectionTitle>Issue To This Job</SectionTitle>
         <Muted style={{ marginBottom: 10 }}>Creates two documents in this job&apos;s RAMS list — Risk Assessment ({b.hazards.length} hazards) and Method Statement ({b.sections.length} sections) — each with a sign-off sheet that operatives sign in the app, exactly like an uploaded RAMS.{b.status === 'issued' ? ' Re-issuing replaces the current versions and everyone is asked to sign again.' : b.ra_doc_id || b.ms_doc_id ? ' It supersedes the RAMS you chose when you created it, and everyone is asked to sign the new one.' : ''}</Muted>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <View style={{ flex: 1 }}><Button kind="ghost" oneLine textSize={13} title="👁 Preview RA" onPress={() => void preview('ra')} /></View>
@@ -321,7 +321,7 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
         </View>
       </Card>
       <Muted style={{ marginBottom: 10 }}>Company address, phone and data protection text come from Admin Centre → RAMS Library → Company Details.</Muted>
-      <Button kind="ghost" title="Delete this RAMS draft" onPress={async () => {
+      <Button kind="ghost" title="Delete This RAMS Draft" onPress={async () => {
         if (!(await confirmAsk(`Delete "${b.title}"?${b.status === 'issued' ? '\n\nThe issued documents stay in the RAMS list — only this editable copy is deleted.' : ''}`, 'Delete'))) return;
         if (timer.current) { clearTimeout(timer.current); timer.current = null; }
         if (await deleteBuild(b.id)) { void qc.invalidateQueries({ queryKey: ['ramsBuilds', siteId] }); router.back(); } else toast('Could not delete — try again.');

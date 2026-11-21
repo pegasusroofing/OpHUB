@@ -123,8 +123,8 @@ function LinesEdit({ d, setD }: { d: Row; setD: (d: Row) => void }) {
         );
       })}
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-        <View style={{ flex: 1 }}><Button kind="ghost" title="+ Add line" onPress={() => setD({ ...d, lines: [...d.lines, { description: '', amount: '', vat: d.lines[d.lines.length - 1]?.vat, account: d.lines[d.lines.length - 1]?.account || null }] })} /></View>
-        <View style={{ flex: 1 }}><Button kind="ghost" title="VAT for all lines" onPress={async () => { const k = await chooseAction('VAT for every line', Object.entries(INV_VAT).map(([key, v]) => ({ key, label: v.l }))); if (k) setD({ ...d, lines: d.lines.map((l: Row) => ({ ...l, vat: k })) }); }} /></View>
+        <View style={{ flex: 1 }}><Button kind="ghost" title="+ Add Line" onPress={() => setD({ ...d, lines: [...d.lines, { description: '', amount: '', vat: d.lines[d.lines.length - 1]?.vat, account: d.lines[d.lines.length - 1]?.account || null }] })} /></View>
+        <View style={{ flex: 1 }}><Button kind="ghost" title="VAT For All Lines" onPress={async () => { const k = await chooseAction('VAT for every line', Object.entries(INV_VAT).map(([key, v]) => ({ key, label: v.l }))); if (k) setD({ ...d, lines: d.lines.map((l: Row) => ({ ...l, vat: k })) }); }} /></View>
       </View>
       {typing != null && (
         <FinForm title="Sales code" note="The Xero account code for this line, e.g. 200 for sales." initial={{ code: d.lines[typing]?.account || '' }} fields={[{ k: 'code', label: 'Code', ph: def }]} onClose={() => setTyping(null)}
@@ -186,7 +186,7 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
   return (
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'Draft invoice' }} />
+      <Stack.Screen options={{ title: 'Draft Invoice' }} />
       {lockIf(ro, <>
       <Card>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
@@ -196,7 +196,7 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
             const k = await chooseAction('Bill to', cs.map((c) => ({ key: c.id, label: c.name }))); const c = cs.find((x) => x.id === k); if (!c) return;
             setD({ ...d, bill_name: c.name, bill_address: [c.address, c.postcode].filter(Boolean).join('\n') || d.bill_address, bill_email: c.email || d.bill_email });
           }}>Choose from the Directory ▾</Text>
-          <TapField label="Bill to" value={d.bill_name} onChange={(v) => set('bill_name', v)} /><TapField label="Billing address" value={d.bill_address} multiline onChange={(v) => set('bill_address', v)} /><TapField label="Accounts email" value={d.bill_email} half email onChange={(v) => set('bill_email', v)} />
+          <TapField label="Bill To" value={d.bill_name} onChange={(v) => set('bill_name', v)} /><TapField label="Billing Address" value={d.bill_address} multiline onChange={(v) => set('bill_address', v)} /><TapField label="Accounts Email" value={d.bill_email} half email onChange={(v) => set('bill_email', v)} />
           {field('client_po', 'Client PO', { half: true })}{field('issue_date', 'Invoice date', { half: true, date: true })}{field('due_date', 'Due date', { half: true, date: true })}
         </View>
         <InvoicePlot inv={d} site={site} onSet={(v) => set('sub_job_id', v)} />
@@ -309,9 +309,9 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
           <SectionTitle>Payments</SectionTitle>
           <Card>
             {pays.length ? pays.map((p) => <FinRow key={p.id} title={`${fdate(p.paid_on)}${p.note ? ` · ${p.note}` : ''}`} right={money(p.amount)} onPress={!canEdit ? undefined : async () => { if (await confirmAsk('Remove this payment?', 'Remove')) { if (await deletePayment(p.id)) { toast('Payment removed'); refresh(); } } }} />) : <Muted>No payments recorded yet.</Muted>}
-            {out > 0 && canEdit && <View style={{ marginTop: 8 }}><Button kind="ghost" title="+ Record payment" onPress={() => setPay(true)} /></View>}
+            {out > 0 && canEdit && <View style={{ marginTop: 8 }}><Button kind="ghost" title="+ Record Payment" onPress={() => setPay(true)} /></View>}
           </Card>
-          {canEdit && <Button kind="ghost" title="Void this invoice" onPress={async () => { if (!(await confirmAsk('Void this invoice? This can’t be undone.', 'Void'))) return; if (await voidInvoice(inv.id)) {
+          {canEdit && <Button kind="ghost" title="Void This Invoice" onPress={async () => { if (!(await confirmAsk('Void this invoice? This can’t be undone.', 'Void'))) return; if (await voidInvoice(inv.id)) {
             // Already in Xero: void it there too (907 finXeroVoid) — during the Finance trial that's done by hand.
             if (inv.xero_id && me) { const r = await finInvoke(me, 'xero', { action: 'push_invoice', id: inv.id }); toast(r.error ? `Voided here — void it in Xero by hand (${r.error})` : 'Also voided in Xero'); }
             refresh();

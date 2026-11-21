@@ -51,7 +51,7 @@ export default function CompanyLibraryDocs() {
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: data.profile.name }} />
       <Muted style={{ marginBottom: 12 }}>{data.profile.name}&apos;s own document library — insurance, accreditations, RAMS templates and the like. Anything kept here follows this company onto every site they&apos;re added to.</Muted>
-      <Button kind="ghost" busy={busy} title="+ Add to Library" onPress={async () => {
+      <Button kind="ghost" busy={busy} title="+ Add To Library" onPress={async () => {
         const cat = await chooseAction('What is it?', CATS); if (!cat) return;
         const r = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
         const f = r.assets[0];

@@ -73,7 +73,7 @@ export function PolicyCard() {
           {mine ? (
             <Text style={{ color: base.ok, marginTop: 10 }}>✓ You signed this on {longDate(mine.signed_at)} — valid for one year, and travels with you to every site.</Text>
           ) : me.role !== 'client' && (
-            <Button title="I have read and understood this policy — Sign" onPress={async () => {
+            <Button title="I Have Read And Understood This Policy — Sign" onPress={async () => {
               const r = await signHsPolicy(me, doc.id);
               toast(r.msg);
               if (r.needSignature) router.push('/signature');

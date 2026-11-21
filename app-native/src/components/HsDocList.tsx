@@ -290,7 +290,7 @@ It stays on file, but nobody will be asked to sign it and it comes off the HUB. 
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6, paddingLeft: manager && kind !== 'layout' ? 28 : 0 }}>
               <Text numberOfLines={2} style={{ flex: 1, fontSize: 12.5, color: '#6b7280' }}>
-                {issued.length ? `Issued by ${issued.map((x) => nameOf(people, x.user_id)).join(', ')}` : `Uploaded by ${nameOf(people, r.uploaded_by)} · ${d(r.uploaded_at)}`}
+                {issued.length ? `Issued by ${issued.map((x) => nameOf(people, x.user_id)).join(', ')}` : `${nameOf(people, r.uploaded_by) === 'Unknown' ? 'Uploaded' : `Uploaded by ${nameOf(people, r.uploaded_by)}`} · ${d(r.uploaded_at)}`}
                 {r.supersedes ? ` · Replaces "${nameById[r.supersedes] || 'an earlier version'}"` : ''}
                 {due ? ` · Re-sign ${due.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}              </Text>
             </View>

@@ -38,7 +38,7 @@ export default function CompletedTbts() {
     return { talks: talks.filter((t) => n[t.id]), n, last };
   } });
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Completed TBTs' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   const siteOf = (id: string) => sites.find((s) => s.id === id) as Site | undefined;
   const talks = data?.talks ?? [];
   const t0 = q.trim().toLowerCase();
@@ -59,7 +59,7 @@ export default function CompletedTbts() {
         <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{sel.size} selected</Text>
           <Button kind="ghost" busy={busy === 'pdf'} title="Export PDF" onPress={async () => { setBusy('pdf'); toast('Building one PDF…'); const m = await merged().catch(() => null); setBusy(''); if (m && !(await deliverPdf(m.bytes, m.filename))) toast('Could not save the PDF.'); }} />
-          <Button busy={busy === 'email'} title="Email all" onPress={async () => {
+          <Button busy={busy === 'email'} title="Email All" onPress={async () => {
             const to = await ask(`the ${sel.size} ticked toolbox talk${sel.size === 1 ? '' : 's'}`); if (!to) return;
             setBusy('email'); const m = await merged().catch(() => null);
             const err = m ? await emailPdf(m.bytes, m.filename, `tbt-exports/${me.org_id}`, { general_label: 'Toolbox Talks', recipient_email: to, cc_email: to !== me.email ? me.email || undefined : undefined, doc_title: `Signed Toolbox Talks (${m.n})` }) : 'Nothing to send.';

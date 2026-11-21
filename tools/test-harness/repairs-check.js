@@ -103,7 +103,7 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   check(!/MONEY/.test(t) && !/£/.test(t), 'Projects: no money anywhere');
   await page.getByLabel(/^Booking Date: .*Change$/).click(); await page.waitForTimeout(600);
   check(/Book In/.test(await page.locator('body').innerText()) && await page.getByLabel('Operative').count() > 0, 'Booking Date: tap to change the booking');
-  await page.getByText('Cancel', {exact: true}).last().click(); await page.waitForTimeout(300);
+  await (async (p) => { const c = p.getByText('Cancel', {exact: true}).filter({visible: true}); if (await c.count()) await c.last().click(); else await p.getByRole('button', {name: 'Close', exact: true}).last().click(); })(page); await page.waitForTimeout(300);
   await page.screenshot({path: 'shots/repair-hub.png', fullPage: true});
   // One page (Andy, 9 Nov 2026): the Work Summary under the details, no tabs.
   {
@@ -195,7 +195,7 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   check(/Description Of Fault Found/.test(t) && /Description Of Repair Required/.test(t) && /Completed Repair Whilst In Attendance\?/.test(t), 'operative steps: the new wording');
   await op.getByText('No Access?', {exact: true}).click(); await op.waitForTimeout(500);
   check(/Photo Of The Card Left/.test(await op.locator('body').innerText()), 'operative: No Access? asks for a photo of the card left');
-  await op.getByText('Cancel', {exact: true}).last().click(); await op.waitForTimeout(400);
+  await (async (p) => { const c = p.getByText('Cancel', {exact: true}).filter({visible: true}); if (await c.count()) await c.last().click(); else await p.getByRole('button', {name: 'Close', exact: true}).last().click(); })(op); await op.waitForTimeout(400);
   await op.getByLabel('What’s wrong, what you found').fill('Split joint in the porch felt'); await op.getByText('Save', {exact: true}).first().click(); await op.waitForTimeout(1200);
   await op.getByLabel('What needs doing to fix it').fill('Cut out and patch, new flashing'); await op.getByText('Save', {exact: true}).first().click(); await op.waitForTimeout(1200);
   check(await op.getByRole('radio', {name: 'No — Needs A Quote', checked: true}).count() === 1, 'completed whilst in attendance: No — Needs A Quote is picked to start with');
@@ -244,7 +244,7 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   await page.getByLabel('Billed By').click(); await page.waitForTimeout(400); await page.locator('text="Application (With Retention)" >> visible=true').last().click(); await page.waitForTimeout(400);
   check(/Retention %/.test(await page.locator('body').innerText()), 'switching to Application brings retention back at once');
   await page.screenshot({path: 'shots/repair-fin-setup.png', fullPage: true});
-  await page.getByText('Cancel', {exact: true}).last().click();
+  await (async (p) => { const c = p.getByText('Cancel', {exact: true}).filter({visible: true}); if (await c.count()) await c.last().click(); else await p.getByRole('button', {name: 'Close', exact: true}).last().click(); })(page);
 
   // ---------- Client ----------
   const C = await makeContext(browser, 'client', [], {shot: true}); setup(C.db, 'o1'); await stubs(C.ctx);

@@ -252,7 +252,7 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
           <>
             {pack?.enabled === false && <Row title="The Job Pack Is Switched Off" sub="Nothing makes folders or saves by these rules"><View /></Row>}
             <Row title="Create A OneDrive Folder For Every New Job?" sub="A job can be unticked when it’s made; a client can be set to never (Finance › Directory)"
-              right={<YesNo label="Create a OneDrive folder for every new job" value={pack?.enabled !== false && cfg.create_new !== false} onChange={(v) => void save({ ...cfg, create_new: v }, v ? true : pack?.enabled ?? true)} />} />
+              right={<YesNo label="Create A OneDrive Folder For Every New Job" value={pack?.enabled !== false && cfg.create_new !== false} onChange={(v) => void save({ ...cfg, create_new: v }, v ? true : pack?.enabled ?? true)} />} />
             <Row title="New Job Folders Go In" sub="Each job gets its own folder here"><FolderLink label={`📁 ${cfg.parent_path ? cfg.parent_path.split('/').join(' › ') : 'Choose A Folder'}`} onPress={() => setPick({ kind: 'parent' })} /></Row>
             <Row title="Built From" sub="Your template folder; its folders and documents are copied in"><FolderLink label={`📁 ${cfg.template_path ? cfg.template_path.split('/').join(' › ') : 'Choose A Folder'}`} onPress={() => setPick({ kind: 'template' })} /></Row>
             {!!cfg.template_path && (
@@ -296,10 +296,10 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
         {tab === 'company' ? (
           <>
             <Muted style={{ marginBottom: 4 }}>Things that aren’t for one job, and where each one is set.</Muted>
-            <Row title="Quotes" sub="Each enquiry’s folder"><FolderLink muted label="The Estimating folder in Quote Settings" /></Row>
+            <Row title="Quotes" sub="Each enquiry’s folder"><FolderLink muted label="The Estimating Folder In Quote Settings" /></Row>
             <Row title="Won Quotes" sub="When a quote becomes a job"><FolderLink muted label="Moved into the job’s 1. Contract & Commercial › 2. Estimating" /></Row>
-            <Row title="Operative Certificates" sub="When a certificate is added"><FolderLink muted label="Each operative’s own folder (on their record)" /></Row>
-            {hasFin && <Row title="Scheduled Finance Reports" sub="When a report runs"><FolderLink muted label="The folder chosen on each report (Finance › Reports)" /></Row>}
+            <Row title="Operative Certificates" sub="When a certificate is added"><FolderLink muted label="Each Operative’s Own Folder (On Their Record)" /></Row>
+            {hasFin && <Row title="Scheduled Finance Reports" sub="When a report runs"><FolderLink muted label="The Folder Chosen On Each Report (Finance › Reports)" /></Row>}
             <Row title="Exports Not For A Job" sub="Save To OneDrive on a company-wide PDF"><FolderLink muted label="Company Exports" /></Row>
             <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
               {hasPm && <Button small kind="ghost" title="Quote Settings ›" onPress={() => router.push('/pm/quotes/settings' as never)} />}
@@ -334,7 +334,7 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
                   if (String(v).trim() && (!Number.isFinite(n) || n < 0)) { toast('Enter an amount in pounds, e.g. 500.'); return; }
                   await save({ ...cfg, po_min: String(v).trim() ? Math.round(n * 100) / 100 : 0 });
                 }} />}>
-                <FolderLink muted label="Each job’s Material PO’s folder (set on the job)" />
+                <FolderLink muted label="Each Job’s Material POs Folder (Set On The Job)" />
               </Row>
             )}
             {!groups.length && tab !== 'finance' && <Muted>Nothing saving here yet.</Muted>}
@@ -363,7 +363,7 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
       <SectionTitle>Each Job’s Folders</SectionTitle>
       <TextInput value={q} onChangeText={setQ} placeholder="Search Projects…" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 8 }} />
       {shown.length ? shown.map((s) => {
-        const links: [OdTarget, string, string | null, string | null][] = [['progress', 'Job Folder (Photos, Drawings, Exports)', s.onedrive_folder_id, s.onedrive_folder_name], ['materials', 'Material PO’s', s.material_orders_folder_id, s.material_orders_folder_name], ['siteinductions', 'Signed Site Inductions', s.site_inductions_folder_id, s.site_inductions_folder_name]];
+        const links: [OdTarget, string, string | null, string | null][] = [['progress', 'Job Folder (Photos, Drawings, Exports)', s.onedrive_folder_id, s.onedrive_folder_name], ['materials', 'Material POs', s.material_orders_folder_id, s.material_orders_folder_name], ['siteinductions', 'Signed Site Inductions', s.site_inductions_folder_id, s.site_inductions_folder_name]];
         const n = links.filter((l) => l[2]).length;
         return (
           <Card key={s.id} style={{ padding: 10 }}>
@@ -460,7 +460,7 @@ export function OneDriveSettings({ finance = false }: { finance?: boolean }) {
               <View style={{ marginBottom: 10, marginTop: 2 }}><FolderLink label={`📁 ${folderLabel(adding.folder)}`} onPress={() => setPick({ kind: 'rule', key: adding.key })} /></View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: base.ink }}>Save Automatically?</Text><Muted style={{ fontSize: 12 }}>No: it stays on the list, not saving, ready to switch on</Muted></View>
-                <YesNo label="Save automatically" value={adding.on} onChange={(v) => setAdding({ ...adding, on: v })} />
+                <YesNo label="Save Automatically" value={adding.on} onChange={(v) => setAdding({ ...adding, on: v })} />
               </View>
             </Pop>
           </>

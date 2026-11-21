@@ -1,4 +1,4 @@
-// Screenshots of today's Admin Centre › OneDrive and New job pack pages (laptop, fake database), to design from.
+// Screenshots of today's Admin Centre › OneDrive and New Job Pack pages (laptop, fake database), to design from.
 const {chromium, makeContext} = require('./harness');
 const seed = require('./fresh/seed');
 (async () => {

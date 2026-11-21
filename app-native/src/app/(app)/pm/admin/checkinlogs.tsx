@@ -70,7 +70,7 @@ export default function CheckinLogs() {
     },
   });
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Check-In Logs' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   const siteName = (id: string | null) => (id ? sites.find((s) => s.id === id)?.name || '' : '');
   const siteIds = new Set(sites.map((s) => s.id)), teamIds = new Set(team.map((p) => p.id));
   const siteRows = (data?.site ?? []).filter((c) => (c.site_id && siteIds.has(c.site_id)) || teamIds.has(c.user_id));

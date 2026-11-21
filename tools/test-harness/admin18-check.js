@@ -55,7 +55,7 @@ const setUp = async (browser, role, fin, viewport) => {
   const want = ['Sales', 'VAT & Overheads', 'Purchases', 'Cost Codes', 'Templates', 'Xero'];
   check(where(page) === '/pm/admin/finsettings?part=sales' && JSON.stringify(fsubs) === JSON.stringify(want), `Finance: six grouped sub tabs, Sales open (${where(page)}; missing ${want.filter((x) => !fsubs.includes(x)).join(', ') || 'none'})`);
   let t = await body();
-  check(/INV-120/.test(t) && /On your invoices/i.test(t) && /Defaults for new projects/i.test(t) && !/Purchase orders/i.test(t), 'Sales: invoice numbers (INV-120), what goes on invoices, defaults; nothing from Purchases');
+  check(/INV-120/.test(t) && /On Your Invoices/i.test(t) && /Defaults For New Projects/i.test(t) && !/Purchase orders/i.test(t), 'Sales: invoice numbers (INV-120), what goes on invoices, defaults; nothing from Purchases');
   await page.getByText('Edit', {exact: true}).filter({visible: true}).first().click(); await page.waitForTimeout(800);
   await page.getByLabel('Next invoice number').filter({visible: true}).first().fill('130');
   await page.getByText('Save', {exact: true}).filter({visible: true}).first().click(); await page.waitForTimeout(2000);
@@ -64,7 +64,7 @@ const setUp = async (browser, role, fin, viewport) => {
 
   await tab(page, 'VAT & Overheads').click(); await page.waitForTimeout(3000);
   t = await body();
-  check(where(page) === '/pm/admin/finsettings?part=vatohp' && /Company overheads/i.test(t) && /Default VAT On Sales/.test(t) && /\+ Add VAT rate/.test(t), 'VAT & Overheads: the VAT defaults and rates, and the overheads');
+  check(where(page) === '/pm/admin/finsettings?part=vatohp' && /Company overheads/i.test(t) && /Default VAT On Sales/.test(t) && /\+ Add VAT Rate/.test(t), 'VAT & Overheads: the VAT defaults and rates, and the overheads');
   await page.screenshot({path: path.join(SHOTS, 'vat-laptop.png'), fullPage: true});
 
   await tab(page, 'Cost Codes').click(); await page.waitForTimeout(4000);
@@ -111,7 +111,7 @@ const setUp = async (browser, role, fin, viewport) => {
   check(where(page) === '/pm/admin/jobnumbers', `an old link to Libraries opens Projects (${where(page)})`);
   await page.goto(B + '/fin/settings'); await page.waitForTimeout(4500);
   t = await body();
-  check(['Project numbers', 'Purchase orders', 'VAT rates', 'Invoice numbers', 'Xero', 'OneDrive'].every((x) => t.includes(x)), 'Finance › Settings keeps every part');
+  check(['Project Numbers', 'Purchase Orders', 'VAT Rates', 'Invoice Numbers', 'Xero', 'OneDrive'].every((x) => t.includes(x)), 'Finance › Settings keeps every part');
   await ctx.close();
 
   // ---- A phone ----

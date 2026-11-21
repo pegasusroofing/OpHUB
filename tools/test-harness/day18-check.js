@@ -74,16 +74,16 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   const o = db.organizations[0];
   check(o.auto_job_numbers === true && o.job_number_prefix === 'RTB-' && Number(o.next_job_number) === 2700, `saved on the company (${o.auto_job_numbers}, ${o.job_number_prefix}, ${o.next_job_number})`);
   await page.goto(B + '/fin/settings'); await page.waitForTimeout(4500);
-  await page.getByText('Project numbers', {exact: true}).first().click(); await page.waitForTimeout(600);
-  check(/Automatic · next RTB-2700/.test(await body()), 'Finance › Settings › Project numbers shows the same setting');
+  await page.getByText('Project Numbers', {exact: true}).first().click(); await page.waitForTimeout(600);
+  check(/Automatic · next RTB-2700/.test(await body()), 'Finance › Settings › Project Numbers shows the same setting');
   // VAT rates: a built-in rate's % is words, not a box that won't type ("trying to edit vat rates ... it wouldn't let me").
-  await page.getByText('VAT rates', {exact: true}).first().click(); await page.waitForTimeout(700);
+  await page.getByText('VAT Rates', {exact: true}).first().click(); await page.waitForTimeout(700);
   const vat = await page.evaluate(() => ({boxes: [...document.querySelectorAll('input')].filter((e) => e.getBoundingClientRect().width > 0 && /^\d+(\.\d+)?$/.test(e.value)).length, words: !!document.querySelector('[aria-label="20% VAT is 20%"]')}));
   check(vat.boxes === 0 && vat.words, `VAT rates: the built-in rates' % shown as words, no dead boxes (${JSON.stringify(vat)})`);
   await page.screenshot({path: path.join(SHOTS, 'vat-phone.png'), fullPage: true});
   // Automatic numbers: the Job Number box is blocked out, phone and laptop ("if job numbers are automatic, block out
   // manual entry in the cell ... same for laptop").
-  const jobBox = () => page.evaluate(() => { const l = [...document.querySelectorAll('div[dir="auto"]')].find((x) => /^Job Number$|^Project number \*$/.test(x.textContent.trim()) && x.getBoundingClientRect().width > 0); const i = l && l.parentElement.querySelector('input'); return i ? {value: i.value, bg: getComputedStyle(i).backgroundColor, ro: i.readOnly, blocked: getComputedStyle(i.parentElement).pointerEvents === 'none' || getComputedStyle(i).pointerEvents === 'none'} : null; });
+  const jobBox = () => page.evaluate(() => { const l = [...document.querySelectorAll('div[dir="auto"]')].find((x) => /^Job Number$|^Project Number \*$/.test(x.textContent.trim()) && x.getBoundingClientRect().width > 0); const i = l && l.parentElement.querySelector('input'); return i ? {value: i.value, bg: getComputedStyle(i).backgroundColor, ro: i.readOnly, blocked: getComputedStyle(i.parentElement).pointerEvents === 'none' || getComputedStyle(i).pointerEvents === 'none'} : null; });
   for (const vp of [{width: 375, height: 812}, {width: 1300, height: 900}]) {
     await page.setViewportSize(vp);
     await page.goto(B + '/sites/new'); await page.waitForTimeout(4500);
@@ -121,7 +121,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByText('OK', {exact: true}).filter({visible: true}).first().click().catch(() => {}); await page.waitForTimeout(500);
   await fillBy('Job Number', 'J901');
   await page.getByText('Create Project', {exact: true}).click(); await page.waitForTimeout(1200);
-  check(/Choose whether the job is Active or Upcoming/.test(await body()), 'what\'s missing (Active or Upcoming) in a pop-up');
+  check(/Choose whether the job is Live or Upcoming/.test(await body()), 'what\'s missing (Active or Upcoming) in a pop-up');
 
   // ---- A job's settings: amending to another job's number ----
   await page.goto(B + '/sites/' + S1 + '/admin'); await page.waitForTimeout(4500);

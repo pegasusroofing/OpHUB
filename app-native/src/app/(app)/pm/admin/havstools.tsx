@@ -48,7 +48,7 @@ export default function HavsTools() {
     queryFn: async () => ((await db.from('havs_tools').select('*').eq('org_id', me?.org_id as string).eq('active', true).order('sort_order').order('name')).data as Tool[] | null) ?? [],
   });
   if (!me) return null;
-  if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
+  if (!isFullManager(me)) return <><Stack.Screen options={{ title: 'HAVS Tools' }} /><Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted></>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['havsToolsAdmin'] }); void qc.invalidateQueries({ queryKey: ['havs'] }); };
   const save = async (t: Tool, field: 'name' | 'vibration_magnitude', raw: string) => {
     const back = () => { setGen((g) => g + 1); refresh(); };

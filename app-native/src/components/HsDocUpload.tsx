@@ -11,6 +11,7 @@ import { FinEmailPopup } from '@/components/FinEmailPopup';
 import { packHsPdf } from '@/components/HsDocList';
 import { Popup } from '@/components/Popup';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
+import { SelectBox } from '@/components/SelectBox';
 import { Button, Card, Check, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { DOC_LABEL, nameOf, useHsDocs, usePeople, type DocKind } from '@/data/hs';
 import { emailHsPdf, outstanding, outstandingByDoc, RAMS_DOC_TYPES, sendSignReminder, uploadHsDoc } from '@/data/hsManager';
@@ -21,7 +22,7 @@ import { deliverPdf } from '@/lib/fileOut';
 import { exportTableExcel } from '@/lib/tableExcel';
 import { exportTablePdf } from '@/lib/pdfLazy';
 import type { Site } from '@/lib/types';
-import { base, radius, live } from '@/theme/theme';
+import { base, radius } from '@/theme/theme';
 
 export function HsDocUpload({ kind, site, companyId = null, create, createLabel, options }: { kind: DocKind; site: Site; companyId?: string | null; create?: ReactNode; createLabel?: string; options?: { label: string; go: () => void }[] }) {
   const { me, org } = useAuth();
@@ -136,10 +137,7 @@ export function HsDocUpload({ kind, site, companyId = null, create, createLabel,
           <TextInput value={name} onChangeText={setName} placeholder={`${label} name`} style={box} />
           {kind === 'rams' && !companyId && (
             <>
-              <Muted style={{ fontWeight: '600' }}>Document type</Muted>
-              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-                {RAMS_DOC_TYPES.map((t) => <Chip key={t} on={type === t} label={t} onPress={() => setType(t)} />)}
-              </View>
+              <SelectBox label="Document Type" value={type} options={RAMS_DOC_TYPES.map((t): [string, string] => [t, t])} onChange={(t) => setType(t)} />
               {!!data?.docs.length && (
                 <>
                   <Muted style={{ fontWeight: '600' }}>Supersedes (optional)</Muted>
@@ -149,7 +147,7 @@ export function HsDocUpload({ kind, site, companyId = null, create, createLabel,
               )}
             </>
           )}
-          {kind === 'rams' && !companyId && <Check label="Multi-page sign required" value={multi} onChange={(v) => { setMulti(v); if (!v) setTpl(null); }} />}
+          {kind === 'rams' && !companyId && <Check label="Multi-Page Sign Required" value={multi} onChange={(v) => { setMulti(v); if (!v) setTpl(null); }} />}
           {kind === 'rams' && !companyId && multi && (
             <Pressable onPress={async () => {
               if (!tpls.length) { toast('No signing templates yet — set one up in Admin Centre → Signing Templates.'); return; }
@@ -209,10 +207,3 @@ function PickDocs({ mode, label, docs, onClose, onGo }: { mode: 'export' | 'emai
 }
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
-function Chip({ on, label, onPress }: { on: boolean; label: string; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card }}>
-      <Text style={{ fontWeight: '500', color: on ? live.brand1Text : base.ink }}>{label}</Text>
-    </Pressable>
-  );
-}

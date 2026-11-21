@@ -42,7 +42,7 @@ export default function SubInspections() {
         </Pressable>
       ))}
       {!folder && folders && <Button kind="ghost" title="📁 New Folder" onPress={async () => { const n = (await promptText('Folder name', ''))?.trim(); if (n && await addSubInspFolder(me, id, co, n)) { toast('Folder created'); refresh(); } }} />}
-      <Button busy={busy} title="📎 Upload a file (photo, PDF, etc.)" onPress={async () => {
+      <Button busy={busy} title="📎 Upload A File (Photo, PDF, Etc.)" onPress={async () => {
         const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
         if (r.canceled || !r.assets[0]) return;
         setBusy(true); const ok = await addSubInspection(me, id, sub.company, folder ?? null, { uri: r.assets[0].uri, name: r.assets[0].name || 'file', mimeType: r.assets[0].mimeType }); setBusy(false);

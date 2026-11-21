@@ -21,10 +21,10 @@ export default function SnagFolder() {
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: mgr ? 'Inspections & Reports' : 'Snagging & Variations' }} />
       <JobGrid>
-      <Tile icon="🏷" tint="#FBEEDE" title="Snagging" sub={data ? `${data.openSnags} open` : '…'} onPress={() => router.push(`/sites/${id}/snagging/list`)} />
-      <Tile icon="✎" tint="#F0E4F5" title="Variations" sub={data ? `${data.liveVariations} live` : '…'} onPress={() => router.push(`/sites/${id}/snagging/variations`)} />
-      {mgr && <Tile icon="🧾" tint="#E6F0E8" title="Day Works" sub="Record & Issue" onPress={() => router.push(`/sites/${id}/snagging/dayworks` as never)} />}
-      {mgr && <Tile icon="📊" tint="#EDE7F6" title="Reports" sub={tpls ? `${tpls.length} template${tpls.length === 1 ? '' : 's'}` : '…'} onPress={() => router.push(`/sites/${id}/snagging/reports` as never)} />}
+      <Tile icon="🏷" tint="#E7E9EE" title="Snagging" sub={data ? `${data.openSnags} open` : '…'} onPress={() => router.push(`/sites/${id}/snagging/list`)} />
+      <Tile icon="✎" tint="#E7E9EE" title="Variations" sub={data ? `${data.liveVariations} live` : '…'} onPress={() => router.push(`/sites/${id}/snagging/variations`)} />
+      {mgr && <Tile icon="🧾" tint="#E7E9EE" title="Day Works" sub="Record & Issue" onPress={() => router.push(`/sites/${id}/snagging/dayworks` as never)} />}
+      {mgr && <Tile icon="📊" tint="#E7E9EE" title="Reports" sub={tpls ? `${tpls.length} template${tpls.length === 1 ? '' : 's'}` : '…'} onPress={() => router.push(`/sites/${id}/snagging/reports` as never)} />}
       </JobGrid>
     </ScrollView>
   );

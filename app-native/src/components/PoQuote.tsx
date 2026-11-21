@@ -60,7 +60,7 @@ export function PoQuote({ me, po, onDone }: { me: Profile; po: Row; onDone: () =
     if (r.error) { toast('Could not save — try again.'); return; }
     toast(`${priced.length} of ${next.length} items priced from the quote`); setQ(null); onDone();
   };
-  if (!q) return <Button kind="ghost" busy={busy} title="💷 Price from a quote file (PDF, Excel or CSV)" onPress={() => void read()} />;
+  if (!q) return <Button kind="ghost" busy={busy} title="💷 Price From A Quote File (PDF, Excel Or CSV)" onPress={() => void read()} />;
   return (
     <Card style={{ borderColor: base.blue, borderWidth: 1.5 }}>
       <Text style={{ fontWeight: '600', color: base.ink }}>Price {po.number} from the quote</Text>
@@ -75,7 +75,7 @@ export function PoQuote({ me, po, onDone }: { me: Profile; po: Row; onDone: () =
         </Pressable>
       ); })}
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-        <View style={{ flex: 1 }}><Button busy={busy} title="Apply prices" onPress={() => void apply()} /></View>
+        <View style={{ flex: 1 }}><Button busy={busy} title="Apply Prices" onPress={() => void apply()} /></View>
         <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => setQ(null)} /></View>
       </View>
     </Card>

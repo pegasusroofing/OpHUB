@@ -14,7 +14,7 @@ const fs = require('fs');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/fin/labour/sp1'); await page.waitForTimeout(6000);
   await page.screenshot({path:'shots/native_cis-1300.png'});
-  for(const [label, out] of [['CIS payment statement','shots/cis-test.pdf']]){
+  for(const [label, out] of [['CIS Payment Statement','shots/cis-test.pdf']]){
     const dl = page.waitForEvent('download', {timeout:20000});
     await page.getByText(label, {exact:true}).click(); await page.waitForTimeout(1200);
     // A PDF now asks how to save it when there's a choice (📄 PDF / OneDrive).

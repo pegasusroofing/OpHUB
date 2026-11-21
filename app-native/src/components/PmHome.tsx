@@ -131,9 +131,9 @@ export function PmHome() {
         </Pressable>
       )}
       <View style={{ flexDirection: 'row', gap: 10, marginBottom: space.m }}>
-        <Stat n={live.length} label="Live projects" onPress={go('/sites')} />
-        {showMoney ? <Stat n={finOv ? kMoney(finOv.owed) : '…'} label="Due In" onPress={go('/fin/sales?tab=invoices')} /> : <Stat n={onSite.length} label="On site now" onPress={go('/onsite')} />}
-        {showQuotes ? <Stat n={toPrice} label="Quotes To Price" onPress={go('/pm/quotes')} /> : <Stat n={todos.length} label="To do" onPress={go('/pm/todos')} />}
+        <Stat n={live.length} label="Live Projects" onPress={go('/sites')} />
+        {showMoney ? <Stat n={finOv ? kMoney(finOv.owed) : '…'} label="Due In" onPress={go('/fin/sales?tab=invoices')} /> : <Stat n={onSite.length} label="On Site Now" onPress={go('/onsite')} />}
+        {showQuotes ? <Stat n={toPrice} label="Quotes To Price" onPress={go('/pm/quotes')} /> : <Stat n={todos.length} label="To Do" onPress={go('/pm/todos')} />}
         <Stat n={hubN} label="Notifications" hot={hubN > 0} onPress={go('/pm/hub')} />
       </View>
       {/* The red Live projects card below the four numbers, phone and laptop, as before (Andy, 6 Nov 2026). */}
@@ -143,7 +143,7 @@ export function PmHome() {
           <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}><OphIcon name="projects" size={22} color={t.brand1Text} /></View>
           <OphIcon name="chevron" size={22} color={t.brand1Text} stroke={2.4} />
         </View>
-        <Text style={[heading(800), { color: t.brand1Text, fontSize: 20, letterSpacing: -0.2 }]}>Live projects</Text>
+        <Text style={[heading(800), { color: t.brand1Text, fontSize: 20, letterSpacing: -0.2 }]}>Live Projects</Text>
         <Text style={{ color: t.brand1Text, opacity: 0.92, marginTop: 4, fontSize: 13, fontWeight: '500' }}>{live.length} live{upcoming.length ? ` · ${upcoming.length} upcoming` : ''}</Text>
       </Pressable>
       {/* Option 1 (Andy, 6 Nov 2026): the map with a Today panel beside it on a laptop; on a phone, Today then the map. */}
@@ -177,7 +177,7 @@ export function PmHome() {
         <>
           {/* Lined up with the tiles above (Andy, 5 Nov 2026): same corners and padding, the words start where
               the tile words start, and "In Progress" sits on the right instead of a dot in front. */}
-          <View style={{ marginTop: 14 }}><SectionTitle>Pick up where you left off</SectionTitle></View>
+          <View style={{ marginTop: 14 }}><SectionTitle>Pick Up Where You Left Off</SectionTitle></View>
           {mine.map((r) => (
             <Pressable key={r.id} onPress={go(r.site_id ? `/sites/${r.site_id}/snagging/reports/fill/${r.id}` : `/pm/survey/${r.id}?mode=fill`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 10, padding: 13.5, marginBottom: 10 }}>
               <View style={{ flex: 1 }}>

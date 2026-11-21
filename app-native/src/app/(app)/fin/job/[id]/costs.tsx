@@ -98,9 +98,9 @@ export default function FinCosts() {
   return (
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(1000)}>
-      <Stack.Screen options={{ title: 'Costs ledger' }} />
+      <Stack.Screen options={{ title: 'Costs Ledger' }} />
       {!!sub && <View style={{ flexDirection: 'row', marginBottom: 8 }}><FinChip on label={`${sub === 'none' ? 'Not allocated to a plot' : 'One plot / repair job'} ✕`} onPress={() => router.setParams({ sub: '' })} /></View>}
-      {canEdit && <View style={{ alignSelf: 'flex-end', marginBottom: 10 }}><Button title="+ Add cost" onPress={() => setEdit('new')} /></View>}
+      {canEdit && <View style={{ alignSelf: 'flex-end', marginBottom: 10 }}><Button title="+ Add Cost" onPress={() => setEdit('new')} /></View>}
       {desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search description, supplier or ref' }} sel={sel} onChange={setSel} onClear={() => setSel({ type: [] })}
         parts={[{ key: 'type', label: 'Type', items: [...Object.entries(COST_CATS).map(([v, l]) => ({ v, l: `${l} ${money(tot(v), 0)}`, n: fc.lines.filter((x) => x.cat === v).length })), { v: 'committed', l: `Ordered, not invoiced ${money(fc.committedTotal, 0)}`, n: fc.lines.filter((x) => x.cat === 'committed').length }] }]}
         sorts={[['new', 'Newest'], ['old', 'Oldest'], ['big', 'Biggest'], ['az', 'A–Z']]} sort={sort} onSort={(k) => setSort(k as typeof sort)} />}

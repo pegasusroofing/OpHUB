@@ -67,7 +67,7 @@ export default function FinMonthly() {
   return (
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(1200)}>
-      <Stack.Screen options={{ title: 'Monthly report' }} />
+      <Stack.Screen options={{ title: 'Monthly Report' }} />
       <FinTabs items={[['month', 'In The Month'], ['cum', 'Running Total']]} value={view} onChange={(k) => setView(k as typeof view)} />
       <ScrollView horizontal>
         <View>

@@ -426,7 +426,7 @@ export function CppEditor(props: JobProps | TemplateProps) {
   const bottomCard = (
     <Card>
       {centre(
-        <Button key="def" small kind="ghost" busy={busy === 'def'} title="Save Wording To Company Template" onPress={async () => {
+        <Button key="def" small kind="ghost" busy={busy === 'def'} title="Save As Company Template" onPress={async () => {
           if (!(await confirmAsk('Use this plan\'s wording, safety advisor, waste licence, site hours, emergency numbers and contacts as your company\'s CPP template (Admin › H&S) for every new plan?', 'Yes', 'No'))) return;
           setBusy('def'); const ok = await saveCppDefaults(me.org_id as string, latest.current); setBusy('');
           setSaveState(ok ? 'Wording saved to the company template' : 'Could not save the wording - try again');

@@ -88,7 +88,7 @@ export default function Branding() {
             if (!ok) { toast('Could not save theme — try again.'); return; }
             await refresh(); toast('Company theme saved.');
           }} /></View>
-          <View style={{ flex: 1 }}><Button kind="ghost" title="Reset to default" onPress={async () => {
+          <View style={{ flex: 1 }}><Button kind="ghost" title="Reset To Default" onPress={async () => {
             if (!(await confirmAsk('Reset the company colours to the OpHUB defaults?', 'Reset'))) return;
             setBusy('theme');
             const ok = !!(await db.from('organizations').update({ color_primary: null, color_secondary: null } as never).eq('id', org.id).select('id')).data?.length;

@@ -60,7 +60,7 @@ export default function SiteMapPage() {
   );
   return (
     <View style={[page(1200), { flex: 1 }]}>
-      <Stack.Screen options={{ title: 'Sites map' }} />
+      <Stack.Screen options={{ title: 'Sites Map' }} />
       {desk ? <View style={{ flex: 1, flexDirection: 'row', gap: 16, minHeight: 480 }}>{side}{mapBox}</View> : <ScrollView>{side}{mapBox}</ScrollView>}
     </View>
   );

@@ -23,7 +23,7 @@ const B = 'http://localhost:8081';
   await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
   await page.goto(`${B}/sites/${S1}/mc/subcontractors/co1/briefings`); await page.waitForTimeout(5000);
   let t = await text();
-  check(/Who Must Sign/.test(t) && /Dan Price/.test(t) && /Jake Morris/.test(t), 'Log a briefing: Who Must Sign lists their operatives, ticked');
+  check(/Who Must Sign/.test(t) && /Dan Price/.test(t) && /Jake Morris/.test(t), 'Log A Briefing: Who Must Sign lists their operatives, ticked');
   await page.getByPlaceholder('e.g. Monday morning briefing').fill('Monday briefing — scaffold changes');
   await page.getByText('Jake Morris', {exact: true}).last().click(); await page.waitForTimeout(300);
   await page.getByText('Log Briefing', {exact: true}).click(); await page.waitForTimeout(3000);

@@ -146,16 +146,16 @@ export default function MaterialRequests() {
       {m.status === 'cancelled' && <Text style={{ color: base.warn, marginTop: 6 }}>Cancelled by {nameOf(people, m.cancelled_by ?? null)}{m.cancel_reason ? ` — ${cancelReasonText(m.cancel_reason, mgr)}` : ''}</Text>}
       {m.status === 'pending' && !mgr && <Muted style={{ marginTop: 6 }}>Awaiting action from project manager</Muted>}
       {!mgr && m.status === 'pending' && m.requested_by === me.id && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-          <Button small kind="ghost" title="✎ Edit request" onPress={() => void edit(m)} />
-          <Button small kind="ghost" title="Cancel request" onPress={() => void cancel(m)} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 8 }}>
+          <Button small kind="ghost" title="✎ Edit Request" onPress={() => void edit(m)} />
+          <Button small kind="ghost" title="Cancel Request" onPress={() => void cancel(m)} />
         </View>
       )}
       {mgr && m.status === 'pending' && !sel.has(m.id) && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-          {canOrder && <Button small title="🚚 Order from Merchant" onPress={() => void startOrder([m], false)} />}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 8 }}>
+          {canOrder && <Button small title="🚚 Order From Merchant" onPress={() => void startOrder([m], false)} />}
           {yardCanEdit(me, fin) && <Button small kind="ghost" title="🏗 Yard Stock" onPress={() => router.push(`/sites/${id}/materials/yard?mat=${m.id}` as never)} />}
-          <Button small kind="ghost" title="📦 Add to collections" onPress={async () => {
+          <Button small kind="ghost" title="📦 Add To Collections" onPress={async () => {
             if (await locked([m])) return;
             if (!(await confirmAsk('Add this to Collections?\n\nYou can then choose who collects it.', 'Add'))) return;
             void act(async () => ((await toCollections(me, id, [m])) ? null : 'Could not add to Collections'), 'Added to Collections');
@@ -164,16 +164,16 @@ export default function MaterialRequests() {
         </View>
       )}
       {mgr && m.status === 'sent' && !sel.has(m.id) && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-          <Button small kind="ghost" title="✎ Edit order" onPress={() => void edit(m)} />
-          {canOrder && <Button small kind="ghost" title="↻ Resend order" onPress={() => void startOrder([m], true)} />}
-          <Button small kind="ghost" title="✓ Received — close" onPress={() => void close([m])} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 8 }}>
+          <Button small kind="ghost" title="✎ Edit Order" onPress={() => void edit(m)} />
+          {canOrder && <Button small kind="ghost" title="↻ Resend Order" onPress={() => void startOrder([m], true)} />}
+          <Button small kind="ghost" title="✓ Received — Close" onPress={() => void close([m])} />
         </View>
       )}
       {mgr && m.status === 'closed' && !sel.has(m.id) && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-          {wasOrdered(m) && m.merchant !== 'Yard stock' && <Button small kind="ghost" title="✎ Edit order" onPress={() => void edit(m)} />}
-          {wasOrdered(m) && m.merchant !== 'Yard stock' && !!m.merchant && !!m.supplier_id && canOrder && <Button small kind="ghost" title="↻ Resend order" onPress={() => void reemail(m)} />}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 8 }}>
+          {wasOrdered(m) && m.merchant !== 'Yard stock' && <Button small kind="ghost" title="✎ Edit Order" onPress={() => void edit(m)} />}
+          {wasOrdered(m) && m.merchant !== 'Yard stock' && !!m.merchant && !!m.supplier_id && canOrder && <Button small kind="ghost" title="↻ Resend Order" onPress={() => void reemail(m)} />}
           {canOrder && <Button small kind="ghost" title={wasOrdered(m) && m.merchant !== 'Yard stock' ? 'Send to another supplier' : 'Order it'} onPress={() => void startOrder([m], true)} />}
           <Button small kind="ghost" title="Reopen" onPress={() => void act(() => reopenMaterials([m]), 'Material request reopened')} />
         </View>
@@ -237,15 +237,15 @@ export default function MaterialRequests() {
       {mgr && picked.length > 0 && (
         <Card style={{ borderColor: base.ink, borderWidth: 1.5 }}>
           <SectionTitle>{done ? `${picked.length} completed order${picked.length > 1 ? 's' : ''} selected` : `${picked.length} request${picked.length > 1 ? 's' : ''} selected for a grouped order`}</SectionTitle>
-          {!done && picked.length > 1 && <Button kind="ghost" title="🔗 Group into one request" onPress={() => void act(() => groupMaterials(picked), `${picked.length} requests grouped into one`)} />}
+          {!done && picked.length > 1 && <Button kind="ghost" title="🔗 Group Into One Request" onPress={() => void act(() => groupMaterials(picked), `${picked.length} requests grouped into one`)} />}
           {canOrder && <Button title={done ? `Send Again (${picked.length})` : picked.length > 1 ? `Send as one grouped order (${picked.length} items)` : 'Send Order (1 item)'} onPress={() => void startOrder(picked, done)} />}
           {done && (
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <View style={{ flex: 1 }}><Button kind="ghost" title="Reopen selected" onPress={async () => { if (await confirmAsk(`Reopen ${picked.length} closed order${picked.length === 1 ? '' : 's'}? They go back to the Live/Pending tab.`, 'Reopen')) void act(() => reopenMaterials(picked), 'Reopened'); }} /></View>
-              <View style={{ flex: 1 }}><Button kind="ghost" title="Delete selected" onPress={() => void del(picked)} /></View>
+              <View style={{ flex: 1 }}><Button kind="ghost" title="Reopen Selected" onPress={async () => { if (await confirmAsk(`Reopen ${picked.length} closed order${picked.length === 1 ? '' : 's'}? They go back to the Live/Pending tab.`, 'Reopen')) void act(() => reopenMaterials(picked), 'Reopened'); }} /></View>
+              <View style={{ flex: 1 }}><Button kind="ghost" title="Delete Selected" onPress={() => void del(picked)} /></View>
             </View>
           )}
-          <Button kind="ghost" title="Clear selection" onPress={() => setSel(new Set())} />
+          <Button kind="ghost" title="Clear Selection" onPress={() => setSel(new Set())} />
         </Card>
       )}
 
@@ -283,7 +283,7 @@ export default function MaterialRequests() {
             </View>
             {e.items.map((x) => <Text key={x.id} style={{ color: base.ink, marginTop: 6, fontSize: 15.5 }}>• <Text style={{ fontWeight: '600' }}>{x.item}</Text> · Qty {x.qty || '1'}{x.order_note ? ` · 📝 ${x.order_note}` : ''}{x.sub_site_label ? ` · 📍 ${x.sub_site_label}` : ''}</Text>)}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-              {canOrder && <Button small title="🚚 Order from Merchant" onPress={() => void startOrder(e.items, false)} />}
+              {canOrder && <Button small title="🚚 Order From Merchant" onPress={() => void startOrder(e.items, false)} />}
               <Button small kind="ghost" title="Ungroup" onPress={() => void act(() => ungroupMaterials(e.items), 'Ungrouped')} />
               <Button small kind="ghost" title="Close Request" onPress={async () => {
                 if (await confirmAsk(`Close this grouped request (${e.items.length} items) without ordering?`, 'Close')) void close(e.items);
@@ -295,7 +295,7 @@ export default function MaterialRequests() {
 
       {mgr && tab === 'done' && !!yardIssues?.length && (
         <View style={{ marginTop: space.m }}>
-          <SectionTitle>From the yard (internal — no PO)</SectionTitle>
+          <SectionTitle>From The Yard (Internal — No PO)</SectionTitle>
           {yardIssues.map((y) => (
             <View key={y.id} style={rowStyle}>
               <Text style={{ flex: 1, color: base.ink, fontWeight: '600', fontSize: 15.5 }}>{y.kind === 'return' ? '↩ ' : '🏗 '}{y.item}<Text style={{ color: base.slate, fontWeight: '600' }}> × {y.qty}{y.unit ? ` ${y.unit}` : ''}</Text></Text>
@@ -421,7 +421,7 @@ function EditBox({ m, unitBox, busy, onSave, onCancel }: { m: Mat; unitBox: bool
   const sent = m.status === 'sent' || (m.status === 'closed' && !!m.merchant);
   return (
     <Card style={{ marginTop: 18, borderColor: base.ink, borderWidth: 1.5 }}>
-      <SectionTitle>Edit material request</SectionTitle>
+      <SectionTitle>Edit Material Request</SectionTitle>
       {sent && <Text style={{ color: base.warn, marginBottom: 8 }}>This order has already been sent. Changing it here does not tell the supplier — use Send again if they need the new details.</Text>}
       <Muted style={{ fontWeight: '600' }}>Item</Muted>
       <TextInput value={item} onChangeText={setItem} style={box} />
@@ -430,7 +430,7 @@ function EditBox({ m, unitBox, busy, onSave, onCancel }: { m: Mat; unitBox: bool
       {unitBox ? <><Muted style={{ fontWeight: '600' }}>Unit</Muted><UnitField value={unit} onChangeText={setUnit} units={DEFAULT_UNITS} style={box} /></> : null}
       <Muted style={{ fontWeight: '600' }}>Required by (optional)</Muted>
       <DateBox value={by} onChange={setBy} title="Required by" style={{ marginBottom: 8 }} />
-      <Button busy={busy} title="Save changes" onPress={() => {
+      <Button busy={busy} title="Save Changes" onPress={() => {
         if (!item.trim()) { toast('Enter the item.'); return; }
         const u = (unitBox ? unit : q0 ? q0[2] : '').trim();
         onSave({ item: item.trim(), qty: u && qty.trim() ? `${qty.trim()} ${u}` : qty.trim(), requiredBy: by || null });

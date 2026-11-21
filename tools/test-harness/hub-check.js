@@ -79,7 +79,7 @@ const ago = (mins) => new Date(Date.now() - mins * 60000).toISOString();
   await page.goto('http://localhost:8081/pm/piquery/pi9'); await page.waitForTimeout(4000);
   await page.screenshot({path: 'shots/hub-piquery.png'});
   await page.getByPlaceholder(/2 packs came short/).fill('Yes, ours — the driver has the note');
-  await page.getByText('Send reply', {exact: true}).click(); await page.waitForTimeout(3000);
+  await page.getByText('Send Reply', {exact: true}).click(); await page.waitForTimeout(3000);
   check(db.message_reads.some((r) => r.message_id === 'mq1'), 'replying to the invoice query clears it');
   db.fin_inbox[0].status = 'filed'; // the PM booked it to a job (fin_inbox_pm_book)
   db.wage_pushes[0].status = 'booked'; // booked against a price

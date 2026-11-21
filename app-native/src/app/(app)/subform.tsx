@@ -51,7 +51,7 @@ export default function SubForm() {
   const set = (k: string, v: unknown) => update({ ...d, data: { ...d.data, [k]: v } });
   if (me.role === 'operative' && need && !need.needed) return (
     <ScrollView contentContainerStyle={page(720)}>
-      <Stack.Screen options={{ title: 'Subcontractor form' }} />
+      <Stack.Screen options={{ title: 'Subcontractor Form' }} />
       <Card><Text style={{ color: base.ink }}>{need.off ? 'You don’t need to fill this in — we already have your details.' : 'Thanks — your form has been sent.'}</Text></Card>
     </ScrollView>
   );
@@ -114,7 +114,7 @@ export default function SubForm() {
   };
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'Subcontractor form' }} />
+      <Stack.Screen options={{ title: 'Subcontractor Form' }} />
       {need?.returned != null && (
         <Card style={{ backgroundColor: base.warnBg, borderColor: base.warn }}>
           <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 4 }}>Sent Back For More Information</Text>
@@ -123,7 +123,7 @@ export default function SubForm() {
         </Card>
       )}
       <Card style={{ borderTopWidth: 6, borderTopColor: base.blue }}>
-        <Text style={{ fontSize: 20, fontWeight: '600', color: base.ink }}>Subcontractor form</Text>
+        <Text style={{ fontSize: 20, fontWeight: '600', color: base.ink }}>Subcontractor Form</Text>
         <Muted>Please fill this in for {org?.name || 'us'} — your company details, insurance, cards and health &amp; safety. It saves as you go, so you can come back to it.</Muted>
         <Text style={{ color: base.red, marginTop: 4 }}>* Required</Text>
       </Card>

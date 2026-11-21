@@ -9,6 +9,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { CalTools, MonthGrid, type GridItem } from '@/components/MonthGrid';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
+import { SelectBox } from '@/components/SelectBox';
 import { Button, Card, Check, Muted } from '@/components/ui';
 import { DateBox } from '@/components/DateField';
 import { TagLine, tellTagged } from '@/components/TagPeople';
@@ -23,7 +24,7 @@ import { readIsoDate } from '@/lib/rules/materials';
 import { buildIcs } from '@/lib/rules/ics';
 import { isFinanceUser, isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, space, useTheme, live } from '@/theme/theme';
+import { base, page, radius, space, useTheme } from '@/theme/theme';
 
 type View_ = 'week' | 'twoweek' | 'month';
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
@@ -84,10 +85,7 @@ export default function SiteCalendar() {
       {mgr && <TagLine people={(recipients ?? []).map((p) => ({ id: p.id, name: p.name, role: p.role }))} value={form.d.tagged ?? []} onChange={(ids) => setForm({ ...form, d: { ...form.d, tagged: ids } })} />}
       {mgr && !form.editId && (
         <>
-          <Muted style={{ fontWeight: '600' }}>Repeats</Muted>
-          <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-            {(Object.keys(REPEAT_LABEL) as Repeat[]).map((r) => <Chip key={r} on={form.d.repeat === r} label={REPEAT_LABEL[r]} onPress={() => setForm({ ...form, d: { ...form.d, repeat: r } })} />)}
-          </View>
+          <SelectBox label="Repeats" value={form.d.repeat} options={(Object.keys(REPEAT_LABEL) as Repeat[]).map((r): [Repeat, string] => [r, REPEAT_LABEL[r]])} onChange={(r) => setForm({ ...form, d: { ...form.d, repeat: r } })} />
           {form.d.repeat !== 'none' && <Muted style={{ marginBottom: 8 }}>Creates this key date on a repeating basis (up to a year ahead) and stops automatically once the site is closed.</Muted>}
         </>
       )}
@@ -116,13 +114,10 @@ export default function SiteCalendar() {
         : <Muted style={{ marginBottom: 8 }}>A PM/admin can open it afterwards to make it private, repeat it or add a reminder.</Muted>}
       {mgr && !!recipients?.length && (
         <>
-          <Check label="Email a reminder" value={form.d.remind} onChange={(v) => setForm({ ...form, d: { ...form.d, remind: v } })} />
+          <Check label="Email A Reminder" value={form.d.remind} onChange={(v) => setForm({ ...form, d: { ...form.d, remind: v } })} />
           {form.d.remind && (
             <View>
-              <Muted style={{ fontWeight: '600' }}>Send the reminder</Muted>
-              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
-                {([['day_before', 'Day before'], ['day_of', 'Day of'], ['custom', 'Custom date']] as const).map(([k, l]) => <Chip key={k} on={form.d.timing === k} label={l} onPress={() => setForm({ ...form, d: { ...form.d, timing: k } })} />)}
-              </View>
+              <SelectBox label="Send The Reminder" value={form.d.timing} options={[['day_before', 'Day Before'], ['day_of', 'Day Of'], ['custom', 'Custom Date']]} onChange={(k) => setForm({ ...form, d: { ...form.d, timing: k } })} />
               {form.d.timing === 'custom' && <DateBox value={form.d.custom} onChange={(t) => setForm({ ...form, d: { ...form.d, custom: t } })} placeholder="Reminder date" title="Reminder date" style={{ marginBottom: 8 }} />}
               <Muted style={{ fontWeight: '600' }}>Send it to</Muted>
               {recipients.map((p) => {
@@ -140,7 +135,7 @@ export default function SiteCalendar() {
       )}
       <Button busy={busy} title={form.editId ? 'Save' : 'Add Key Date'} onPress={() => void submit()} />
       <Button kind="ghost" title="Cancel" onPress={() => setForm(null)} />
-      {mgr && !form.editId && <Button kind="ghost" title="🚚 Also Add to Delivery Schedule" onPress={async () => {
+      {mgr && !form.editId && <Button kind="ghost" title="🚚 Also Add To Delivery Schedule" onPress={async () => {
         const date = readIsoDate(form.d.date);
         if (!form.d.title.trim()) { toast('Enter what this date is for first.'); return; }
         if (!date || date === 'bad') { toast('Pick a date first.'); return; }
@@ -234,10 +229,3 @@ export default function SiteCalendar() {
   );
 }
 
-function Chip({ on, label, onPress }: { on: boolean; label: string; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card }}>
-      <Text style={{ fontWeight: '500', color: on ? live.brand1Text : base.ink }}>{label}</Text>
-    </Pressable>
-  );
-}

@@ -21,7 +21,7 @@ export const HOWTO: Record<string, { title: string; pm?: string[]; op?: string[]
   snagging: { title: "Snagging", pm: ["Add a snag with a photo.","Main contractor job? Give To ▾ hands a snag to a subcontractor.","It moves to Closed when it is fixed, with a photo of the fix."], op: ["Open a snag to see what needs fixing.","Fixed it? Tap Close Snag and add a photo of the fix."] },
   delivery: { title: "Delivery Schedule", pm: ["Each day is split into drops — use ‹ › to change day.","+ Add Delivery books one; + on a drop books into that drop.","Press and hold a delivery to drag it to another drop.","Driver hours are at the bottom."] },
   calendar: { title: "Calendar", pm: ["Every job’s key dates in one place.","Filter by PM or site, or switch on the driver diary.","Tap an item for the details."] },
-  reports: { title: "Reports & surveys", pm: ["Start a report and pick the job it is for.","Tick reports to export or email several together."] },
+  reports: { title: "Reports & Surveys", pm: ["Start a report and pick the job it is for.","Tick reports to export or email several together."] },
   hr: { title: "HR", pm: ["Book time off from the holiday calendar.","Read and sign the company policies and handbook."] },
   hub: { title: "HUB", pm: ["Everything that needs your attention.","Tap a row to go straight to it.","Main contractor jobs add RAMS To Approve and Subcontractor O&M."] },
 };

@@ -105,11 +105,11 @@ export default function Yard() {
 
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: '📦 Yard stock' }} />
+      <Stack.Screen options={{ title: '📦 Yard Stock' }} />
       {!request && isManager(me) && <MatTabs siteId={id} on="yard" yard />}
       {request && (
         <Card style={{ borderColor: base.ink, borderWidth: 1.5 }}>
-          <SectionTitle>Fill from yard stock</SectionTitle>
+          <SectionTitle>Fill From Yard Stock</SectionTitle>
           <Muted>For the request: <Text style={{ fontWeight: '600', color: base.ink }}>{request.item}</Text> × {request.qty || '1'}</Muted>
           {(() => {
             const s = list.find((x) => x.id === guess);
@@ -120,7 +120,7 @@ export default function Yard() {
                 <Muted>Not the right item? Tap Use on another one below.</Muted>
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 6 }}>
                   <TextInput value={qty[`req:${s.id}`] ?? (n0 != null ? String(n0) : '')} onChangeText={(t) => setQty({ ...qty, [`req:${s.id}`]: t })} keyboardType="decimal-pad" style={qbox} />
-                  <View style={{ flex: 1 }}><Button busy={busy === s.id} title="Issue to job" onPress={() => void move(s, 'issue', yardNum(qty[`req:${s.id}`] ?? (n0 != null ? String(n0) : '')) ?? 0, request.id)} /></View>
+                  <View style={{ flex: 1 }}><Button busy={busy === s.id} title="Issue To Job" onPress={() => void move(s, 'issue', yardNum(qty[`req:${s.id}`] ?? (n0 != null ? String(n0) : '')) ?? 0, request.id)} /></View>
                 </View>
               </View>
             ) : <Muted style={{ marginTop: 8 }}>Pick the yard item below.</Muted>;

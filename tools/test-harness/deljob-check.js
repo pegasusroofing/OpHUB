@@ -15,6 +15,6 @@ const seed = require('./fresh/seed');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto('http://localhost:8081/fin/job/'+S1+'?tab=setup'); await page.waitForTimeout(5000);
   const st = ()=>JSON.stringify(db.materials.filter(m=>['m1','m2','m3'].includes(m.id)).map(m=>m.status));
-  await page.getByText("🗑 Delete this project").click(); await page.waitForTimeout(4000); console.log("still there", db.sites.some(s=>s.id===S1));
+  await page.getByText("🗑 Delete This Project").click(); await page.waitForTimeout(4000); console.log("still there", db.sites.some(s=>s.id===S1));
   console.log('errors', errs.join(' | ')||'none'); await browser.close(); process.exit(0);
 })();

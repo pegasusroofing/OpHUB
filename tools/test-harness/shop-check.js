@@ -13,7 +13,7 @@ const seed = require('./fresh/seed'); const ExcelJS = require('exceljs');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto('http://localhost:8081/fin/job/'+S1+'/quotes'); await page.waitForTimeout(5000);
-  const fc = page.waitForEvent('filechooser'); await page.getByText('📥 Choose the quote file').click(); await (await fc).setFiles('shots/quote-test.xlsx'); await page.waitForTimeout(3000);
+  const fc = page.waitForEvent('filechooser'); await page.getByText('📥 Choose The Quote File').click(); await (await fc).setFiles('shots/quote-test.xlsx'); await page.waitForTimeout(3000);
   await page.fill('input[placeholder="Supplier name"]', 'SIG Roofing');
   await page.getByText(/^Add \d+ items as a project quote/).click(); await page.waitForTimeout(3000);
   console.log('items', JSON.stringify((db.fin_shop_items||[]).map(i=>[i.description,i.unit,i.quote_label])), 'prices', JSON.stringify((db.fin_shop_prices||[]).map(p=>p.rate)));

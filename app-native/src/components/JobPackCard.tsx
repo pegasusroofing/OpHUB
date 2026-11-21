@@ -13,7 +13,7 @@ export function JobPackCard() {
   const cfg = data?.config;
   return (
     <Card>
-      <SectionTitle>New job pack</SectionTitle>
+      <SectionTitle>New Job Pack</SectionTitle>
       <Muted style={{ marginBottom: 8 }}>A new job gets its own OneDrive folder from your rules, and the app files things where the rules say.</Muted>
       {cfg ? <Text style={{ color: base.ink, marginBottom: 8 }}>{cfg.folders.length} folders, {cfg.files.length} documents, {Object.values(cfg.rules).filter((x) => x.on).length} rules on. {data?.enabled ? 'Switched on.' : 'Switched off.'}</Text> : <Text style={{ color: base.ink, marginBottom: 8 }}>Not set up yet.</Text>}
       <Button kind="ghost" title={cfg ? 'Change the rules' : 'Set it up'} onPress={() => router.push('/pm/admin/jobpack' as never)} />

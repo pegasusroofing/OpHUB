@@ -31,7 +31,7 @@ export function PolicyGate({ doc }: { doc: PolicyDoc }) {
           <Text style={{ color: base.blue, marginTop: 6 }}>View document ↗</Text>
         </Pressable>
         {me.signature_path ? (
-          <Button title="I have read and understood this policy — Sign" onPress={async () => {
+          <Button title="I Have Read And Understood This Policy — Sign" onPress={async () => {
             const r = await signHsPolicy(me, doc.id);
             toast(r.msg);
             if (r.ok) { await qc.invalidateQueries({ queryKey: ['hsPolicy'] }); refreshToSign(qc); }

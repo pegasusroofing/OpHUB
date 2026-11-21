@@ -16,6 +16,7 @@ import { FinForm } from '@/components/FinForm';
 import { SowTaskRow } from '@/components/SowTaskRow';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { SowExport } from '@/components/SowExport';
+import { SelectBox } from '@/components/SelectBox';
 import { Button, Card, Empty, FilterRow, Muted, SectionTitle } from '@/components/ui';
 import { heading } from '@/lib/fonts';
 import {
@@ -43,7 +44,7 @@ import { HowTo } from '@/components/HowTo';
 import { viewDoc } from '@/components/DocViewer';
 import { openDocLink } from '@/data/hs';
 import { onQueueChange, onUploadsSent, pendingJobs, type PatchJob, type UploadJob } from '@/lib/uploadQueue';
-import { base, page, radius, space, useTheme, live } from '@/theme/theme';
+import { base, page, radius, space, useTheme } from '@/theme/theme';
 
 export default function Schedule() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -357,13 +358,7 @@ function AddTaskBox({ addresses, onAdd, onCancel, fixed, onChangeFixed }: { addr
       {fixedAddr ? (
         <Text style={{ fontSize: 12.5, color: base.slate, marginTop: 6 }}>📍 Tagged to {fixedAddr.name} — same address as the last task added here. <Text accessibilityRole="button" onPress={() => { setSub(fixedAddr.id); onChangeFixed?.(); }} style={{ color: base.blue, fontWeight: '600' }}>Change</Text></Text>
       ) : addresses.length > 0 && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-          {[{ id: '', name: 'Not on the list' }, ...addresses].map((a) => (
-            <Pressable key={a.id} onPress={() => setSub(a.id || null)} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, borderWidth: 1, borderColor: (sub || '') === a.id ? live.brand1 : base.line, backgroundColor: (sub || '') === a.id ? live.brand1 : base.card }}>
-              <Text style={{ fontSize: 12, fontWeight: '500', color: (sub || '') === a.id ? live.brand1Text : base.ink }}>{a.name}</Text>
-            </Pressable>
-          ))}
-        </View>
+        <SelectBox label="Address" style={{ marginTop: 6 }} value={sub || ''} options={[['', 'Not On The List'] as [string, string], ...addresses.map((a): [string, string] => [a.id, a.name])]} onChange={(k) => setSub(k || null)} />
       )}
     </View>
   );

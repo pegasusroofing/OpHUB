@@ -76,7 +76,7 @@ export function FinFilterBar({ search, parts, sel, onChange, onClear, sorts, sor
           })}
           {more ? <View style={{ padding: 8, borderTopWidth: 1, borderTopColor: base.cardLine }}>{more}</View> : null}
           <View style={{ flexDirection: 'row', gap: 8, padding: 8, borderTopWidth: 1, borderTopColor: base.cardLine }}>
-            <View style={{ flex: 1 }}><Button small kind="ghost" title="Show everything" onPress={onClear} /></View>
+            <View style={{ flex: 1 }}><Button small kind="ghost" title="Show Everything" onPress={onClear} /></View>
             <View style={{ flex: 1 }}><Button small title="Done" onPress={() => setMenu('')} /></View>
           </View>
         </View>

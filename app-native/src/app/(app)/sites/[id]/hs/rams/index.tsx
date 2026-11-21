@@ -34,7 +34,7 @@ function BuilderCard({ siteId }: { siteId: string }) {
           <Text style={{ color: base.slate }}>›</Text>
         </Pressable>
       ))}
-      <View style={{ marginTop: 8 }}><Button title="+ Start new RAMS" onPress={() => router.push(`/sites/${siteId}/hs/rams/new` as never)} /></View>
+      <View style={{ marginTop: 8 }}><Button title="+ Start New RAMS" onPress={() => router.push(`/sites/${siteId}/hs/rams/new` as never)} /></View>
     </View>
   );
 }

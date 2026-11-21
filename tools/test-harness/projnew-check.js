@@ -1,4 +1,4 @@
-// Projects › Add a Project: client suggestions from the Directory, contact on one row, calendar start date, required fields.
+// Projects › Add A Project: client suggestions from the Directory, contact on one row, calendar start date, required fields.
 const {chromium, makeContext} = require('./harness');
 (async()=>{
   const BASE = 'http://localhost:8081';
@@ -21,7 +21,7 @@ const {chromium, makeContext} = require('./harness');
   await page.getByPlaceholder(/^Start typing/).fill('ac'); await page.waitForTimeout(600);
   await page.screenshot({path:'shots/pn-2-suggest.png'});
   await page.getByText('Acme Homes', {exact:true}).click(); await page.waitForTimeout(400);
-  await page.getByText('Active', {exact:true}).click();
+  await page.getByText('Live', {exact:true}).click();
   await page.getByText('Choose a date', {exact:true}).click(); await page.waitForTimeout(600);
   await page.screenshot({path:'shots/pn-3-cal.png'});
   await page.getByText('Today', {exact:true}).click(); await page.waitForTimeout(400);

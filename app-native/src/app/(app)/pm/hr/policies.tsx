@@ -26,7 +26,7 @@ export default function Policies() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Policies & Handbook' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   const isAdmin = me.role === 'admin';
   const pols = data?.pols ?? [], sigs = data?.sigs ?? [];
   const people = hr?.people ?? [];
@@ -59,7 +59,7 @@ export default function Policies() {
             <Muted>{/\.pdf$/i.test(p.file_name || '') ? 'PDF' : 'Word'} · tap to view</Muted>
           </Pressable>
           {mine ? <Text style={{ color: base.ok, fontWeight: '600', fontSize: 12 }}>Signed {fmt(mine.signed_at)}</Text>
-            : isHb ? <View style={{ width: 120 }}><Button title="Read & sign" onPress={async () => {
+            : isHb ? <View style={{ width: 120 }}><Button title="Read & Sign" onPress={async () => {
               if (!(await needSig())) return;
               if (!(await confirmAsk('I confirm I have read and understood the company handbook.', 'Sign'))) return;
               toast((await signPolicies(me, [p.id])) ? 'Handbook signed' : 'Could not sign — try again.'); refresh();
@@ -91,7 +91,7 @@ export default function Policies() {
                 } catch { toast('Could not send the email.'); }
               }} /></View>
             </View>
-            <Button kind="ghost" title="Remove document" onPress={async () => {
+            <Button kind="ghost" title="Remove Document" onPress={async () => {
               if (!(await confirmAsk('Remove this document? Signatures already collected are kept on record.', 'Remove'))) return;
               toast((await archivePolicy(p.id)) ? 'Removed' : 'Could not save — try again.'); refresh();
             }} />
@@ -102,8 +102,8 @@ export default function Policies() {
   };
   return (
     <ScrollView contentContainerStyle={page(720)}>
-      <Stack.Screen options={{ title: 'Policies & handbook' }} />
-      <SectionTitle>Company policies</SectionTitle>
+      <Stack.Screen options={{ title: 'Policies & Handbook' }} />
+      <SectionTitle>Company Policies</SectionTitle>
       {isLoading ? <Muted>Loading…</Muted> : (
         <>
           {toSign.length ? <Button title={`✍ Sign all ${toSign.length} polic${toSign.length === 1 ? 'y' : 'ies'}`} onPress={async () => {
@@ -113,7 +113,7 @@ export default function Policies() {
           }} /> : policies.length ? <Text style={{ color: base.ok, fontWeight: '600', marginBottom: 10 }}>✓ You&apos;ve signed every policy.</Text> : null}
           {policies.length ? policies.map((p) => row(p, false)) : <Empty>No policies uploaded yet.</Empty>}
           {isAdmin && <View style={{ marginBottom: 22 }}><Button kind="ghost" busy={busy} title="+ Upload Policies (PDF Or Word, Several At Once)" onPress={() => void upload('policy')} /></View>}
-          <SectionTitle>Company handbook</SectionTitle>
+          <SectionTitle>Company Handbook</SectionTitle>
           <Muted style={{ marginBottom: 8 }}>Read it, then sign it on its own — it isn&apos;t part of &quot;Sign all&quot;.</Muted>
           {handbooks.length ? handbooks.map((p) => row(p, true)) : <Empty>No handbook uploaded yet.</Empty>}
           {isAdmin && <View style={{ marginBottom: 22 }}><Button kind="ghost" busy={busy} title="+ Upload Handbook (PDF Or Word)" onPress={() => void upload('handbook')} /></View>}

@@ -312,7 +312,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
             {field('Allocate To PO', choice('Allocate To PO', poId ? pos.find((p) => p.id === poId)?.number || 'PO' : 'No PO', () => { if (!siteId) { toast('Choose the project first.'); return; } void choosePo(); }), 150)}
             {field('Due Date', <DateBox disabled={shut2} style={shut2 ? { backgroundColor: '#F6F7F9' } : undefined} value={due} onChange={setDue} title="Due date" placeholder={date ? fdate(addDays(date, 30)) : 'Choose'} />, 150)}
           </View>
-          {!inbox && !shut2 && <View style={{ marginTop: 8 }}><Check label="This is a receipt (no invoice number)" value={receipt} onChange={setReceipt} /></View>}
+          {!inbox && !shut2 && <View style={{ marginTop: 8 }}><Check label="This Is A Receipt (No Invoice Number)" value={receipt} onChange={setReceipt} /></View>}
         </Card>
         <InvoiceLines readOnly={shut2} lines={lines} checks={vsPo ? [] : checks} sites={sites as never} read={inbox && !unread ? { net: ex.net, vat: ex.vat, total: ex.total } : null} onChange={setLines} defaultSite={siteId} />
         {!!vsPo && vsPo.perLine.some((c) => c.state !== 'none') && (

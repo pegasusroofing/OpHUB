@@ -179,7 +179,7 @@ export default function DeliveryForm() {
           <Text style={{ fontWeight: '600', color: base.ok }}>✓ Completed{task.completed_at ? ` ${new Date(task.completed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</Text>
           {!!task.completed_by && <Muted>By {people.find((p) => p.id === task.completed_by)?.name || ''}</Muted>}
           {completionPhotos(task).length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>{completionPhotos(task).map((p) => <StorageImage zoom key={p} bucket="site-photos" path={p} style={{ width: 90, height: 90, borderRadius: 8 }} />)}</View> : <Muted>No completion photo on file.</Muted>}
-          <Button kind="ghost" title="↩ Re-open delivery" onPress={async () => {
+          <Button kind="ghost" title="↩ Re-Open Delivery" onPress={async () => {
             if (!(await confirmAsk('Re-open this delivery on the same day and drop?', 'Re-open'))) return;
             const r = await reopenDelivery(me, task, { date: task.scheduled_date, slot: task.time_slot }, sites);
             toast(r.msg); if (r.ok) { void qc.invalidateQueries({ queryKey: ['scheduleDay'] }); router.back(); }

@@ -85,7 +85,7 @@ export default function Roles() {
   // when it's first saved, and a role just added is only known by its name until it's read back.
   const [pick, setPick] = useState<{ id: string; name: string } | null>(null);
   if (!me) return null;
-  if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Company admins only.</Muted>;
+  if (me.role !== 'admin') return <><Stack.Screen options={{ title: 'Roles' }} /><Muted style={{ padding: space.l }}>Company admins only.</Muted></>;
   const org = me.org_id as string;
   const reread = () => ['orgRoles', 'team', 'people'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
   const done = () => { setPop(null); reread(); };

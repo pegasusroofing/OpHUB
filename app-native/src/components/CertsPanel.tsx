@@ -10,6 +10,7 @@ import { Pressable, Text, View } from 'react-native';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { pickRecipient } from '@/components/pickRecipient';
 import { useTeam } from '@/data/admin';
+import { SelectBox } from '@/components/SelectBox';
 import { Button, Card, Field, Muted } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { askDate, DateField } from '@/components/DateField';
@@ -22,7 +23,7 @@ import { buildCertBundlePdf } from '@/lib/pdfLazy';
 import { deliverPdf, emailPdf } from '@/lib/fileOut';
 import { CERT_CATEGORIES_AZ, certCategoryLabel, certDisplayName, certStats, type Cert } from '@/lib/rules/certs';
 import { readIsoDate } from '@/lib/rules/materials';
-import { base, live } from '@/theme/theme';
+import { base } from '@/theme/theme';
 
 // manual = 'operative': an operative added by hand (userId = their manual_operatives id); their
 // certificates work the same as a signed-up operative's, OneDrive included.
@@ -107,16 +108,9 @@ export function CertsPanel({ userId, manual = false }: { userId: string; manual?
       <View style={{ marginBottom: 8 }}><Button kind={adding ? 'ghost' : 'primary'} title={adding ? '✕ Close' : '+ Add Certificate'} onPress={() => setAdding(!adding)} /></View>
       {adding && (
         <Card>
-          <Muted style={{ fontWeight: '600', marginBottom: 6 }}>Type</Muted>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-            {CERT_CATEGORIES_AZ.map((c) => (
-              <Pressable key={c.key} onPress={() => setCat(c.key)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: cat === c.key ? live.brand1 : base.line, backgroundColor: cat === c.key ? live.brand1 : base.card }}>
-                <Text style={{ fontSize: 12, fontWeight: '500', color: cat === c.key ? live.brand1Text : base.ink }}>{c.label}</Text>
-              </Pressable>
-            ))}
-          </View>
-          {cat === 'other' && <Field label="Describe the certificate type" value={other} onChangeText={setOther} />}
-          <DateField label="Expiry date (optional)" value={expiry} onChange={setExpiry} />
+          <SelectBox label="Type" title="Certificate Type" value={cat} options={CERT_CATEGORIES_AZ.map((c): [string, string] => [c.key, c.label])} onChange={setCat} />
+          {cat === 'other' && <Field label="Describe The Certificate Type" value={other} onChangeText={setOther} />}
+          <DateField label="Expiry Date (Optional)" value={expiry} onChange={setExpiry} />
           <Button kind="ghost" title={file ? `📎 ${file.name}` : 'Choose file…'} onPress={async () => {
             const r = await DocumentPicker.getDocumentAsync({ type: ['image/*', 'application/pdf'], copyToCacheDirectory: true });
             if (!r.canceled && r.assets[0]) setFile(r.assets[0]);
@@ -141,7 +135,7 @@ export function CertsPanel({ userId, manual = false }: { userId: string; manual?
           }} /></View>}
           <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => setSel(null)} /></View>
         </View>
-      ) : <Button kind="ghost" title="☑ Select to export or email" onPress={() => setSel(new Set())} />)}
+      ) : <Button kind="ghost" title="☑ Select To Export Or Email" onPress={() => setSel(new Set())} />)}
       {isLoading ? <Muted>Loading…</Muted> : !certs.length ? <Muted>No certificates yet.</Muted> : CERT_CATEGORIES_AZ.map((c) => {
         const list = certs.filter((x) => x.category === c.key);
         if (!list.length) return null;

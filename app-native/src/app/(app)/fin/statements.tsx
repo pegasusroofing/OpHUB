@@ -232,9 +232,9 @@ function Statement({ id }: { id: string }) {
     <DocSplit name={s.file_name || 'Statement'} load={s.file_path ? () => openDocLink('finance-docs', s.file_path) : null}>
     <FinPage title={s.supplier_name} section="purchases">
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-        <FinStat v={s.statement_date ? fdate(s.statement_date) : '—'} label="Statement date" /><FinStat v={s.closing_balance != null ? money(s.closing_balance) : '—'} label="Balance" />
+        <FinStat v={s.statement_date ? fdate(s.statement_date) : '—'} label="Statement Date" /><FinStat v={s.closing_balance != null ? money(s.closing_balance) : '—'} label="Balance" />
         <FinStat v={money(tot)} label={s.closing_balance != null && Math.abs(off) >= 0.01 ? `Lines add up to (${off > 0 ? '+' : '−'}${money(Math.abs(off))} vs balance)` : 'Lines add up to'} hot={s.closing_balance != null && Math.abs(off) >= 0.01} />
-        <FinStat v={String(counts.ok || 0)} label="Matched" /><FinStat v={String(counts.missing || 0)} label="Not in OpHUB" hot={!!counts.missing} />
+        <FinStat v={String(counts.ok || 0)} label="Matched" /><FinStat v={String(counts.missing || 0)} label="Not In OpHUB" hot={!!counts.missing} />
       </View>
       {/* Reconciled (Andy, 7 Nov 2026): said plainly at the top, and nothing to change until it's reopened. */}
       {done && (
@@ -282,7 +282,7 @@ function Statement({ id }: { id: string }) {
       {!lines.length && <Empty>No lines read from this statement.</Empty>}
       {notOnStmt.length > 0 && (
         <Card>
-          <SectionTitle>In OpHUB but not on this statement</SectionTitle>
+          <SectionTitle>In OpHUB But Not On This Statement</SectionTitle>
           {notOnStmt.map((c) => (
             <View key={c.id}>
               <FinRow title={`${c.invoice_no || 'No number'}${c.kind === 'inbox' ? ' (unallocated)' : ''}`} sub={`${fdate(c.date)} · ${c.status}`} right={money(c.total)} onPress={c.kind === 'pi' ? () => router.push(`/fin/pinv/${c.id}` as never) : () => router.push(`/fin/inbox/${c.id.slice(3)}` as never)} />

@@ -42,7 +42,7 @@ export default function FinDayworks() {
   const sum = (s: string) => round2(data.filter((d) => d.status === s).reduce((t, d) => t + Number(d.value || 0), 0));
   return (
     <ScrollView contentContainerStyle={page(900)}>
-      <Stack.Screen options={{ title: 'Day works' }} />
+      <Stack.Screen options={{ title: 'Day Works' }} />
       <BoqTabs id={id} on="variations" />
       <VarDayChips id={id} on="dayworks" right={canEdit ? <Button small title="+ Day Work" onPress={() => setEdit({ status: 'issued', work_date: today() })} /> : undefined} />
       {/* Phone: Approved across the top, Issued and Rejected side by side below. Laptop: three even tiles on one row (Andy, 7 Nov 2026). */}

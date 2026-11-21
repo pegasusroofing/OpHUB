@@ -16,7 +16,7 @@ export default function NotFound() {
       <Card>
         <Title>Page not found</Title>
         <Muted style={{ marginBottom: 12 }}>That page doesn&apos;t exist in the app yet.</Muted>
-        <Button title="Go home" onPress={() => router.replace('/')} />
+        <Button title="Go Home" onPress={() => router.replace('/')} />
       </Card>
     </Screen>
   );

@@ -21,7 +21,7 @@ import { base, page, radius, space } from '@/theme/theme';
 
 const DONE: Record<OdTarget, string> = {
   quote: 'Folder linked to this quote', estimating: 'Estimating folder linked to the job',
-  progress: 'Folder linked — photos for this site will sync there from now on', materials: "Folder linked — Material PO's will sync from there daily",
+  progress: 'Folder linked — photos for this site will sync there from now on', materials: "Folder linked — Material POs will sync from there daily",
   siteinductions: 'Folder linked — signed inductions will be pushed there from now on', repairjob: 'Folder linked — sending what’s already on the job', operative: 'Folder linked', quicklink: 'Added Quick Link', hr: 'HR folder chosen',
 };
 
@@ -89,7 +89,7 @@ export default function OneDrivePick() {
       {est && <Muted style={{ marginBottom: 8 }}>{estRoot ? 'Open the enquiry’s folder and press Use. It moves into this job’s Contract & Commercial › Estimating folder.' : estLoading ? 'Finding the Estimating folder…' : 'No Estimating folder is set in Quote settings, so this starts at the top of OneDrive.'}</Muted>}
       <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 8 }}>{['OneDrive', ...stack.map((s) => s.name)].join(' › ')}</Text>
       {isHr && <Muted style={{ marginBottom: 8 }}>This is the HR folder. It can&apos;t be linked to anything else or pinned as a Quick Link.</Muted>}
-      {stack.length > 0 && <View style={{ marginBottom: 8 }}><Button kind="ghost" title="‹ Up one level" onPress={() => setStack(stack.slice(0, -1))} /></View>}
+      {stack.length > 0 && <View style={{ marginBottom: 8 }}><Button kind="ghost" title="‹ Up One Level" onPress={() => setStack(stack.slice(0, -1))} /></View>}
       {canUse && <View style={{ marginBottom: 10 }}><Button busy={busy} title={target === 'quicklink' ? `⭐ Pin "${cur.name}" as a Quick Link` : est ? `Use "${cur.name}" For This Job` : `Use "${cur.name}"`} onPress={() => void use(cur)} /></View>}
       {canUse && target !== 'quicklink' && target !== 'hr' && (
         <View style={{ marginBottom: 10 }}><Button kind="ghost" title={quick.some((q) => q.id === cur.id) ? '⭐ Unpin this Quick Link' : '☆ Pin as a Quick Link'} onPress={async () => {
@@ -103,7 +103,7 @@ export default function OneDrivePick() {
         <>
           <SectionTitle>⭐ Quick Links</SectionTitle>
           {quick.map((q) => row({ id: q.id, name: q.name, driveId: q.driveId }, () => setStack([{ id: q.id, name: q.name, driveId: q.driveId }])))}
-          <SectionTitle>All folders</SectionTitle>
+          <SectionTitle>All Folders</SectionTitle>
         </>
       )}
       {isLoading ? <Muted>Loading…</Muted> : data?.error ? <Muted>{/HR folder/.test(data.error) ? data.error : `${data.error} Check OneDrive is connected in Admin Centre → OneDrive.`}</Muted>

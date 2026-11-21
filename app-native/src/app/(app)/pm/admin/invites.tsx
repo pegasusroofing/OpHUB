@@ -37,7 +37,7 @@ export default function Invites() {
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Invites' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['invites'] }); };
   const share = async (link: string, which: string) => {
     const text = `${org?.name || 'Company'} x OpHUB Invite Link\n${link}`;

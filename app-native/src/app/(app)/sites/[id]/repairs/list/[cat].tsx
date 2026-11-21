@@ -77,7 +77,7 @@ export default function RepairList() {
       {selecting && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
           <View style={{ flexGrow: 1, flexBasis: 140 }}><Button title="Approve" onPress={() => void bulk('approve')} /></View>
-          <View style={{ flexGrow: 1, flexBasis: 140 }}><Button kind="ghost" title="Scaffold erected" onPress={() => void bulk('scaffold')} /></View>
+          <View style={{ flexGrow: 1, flexBasis: 140 }}><Button kind="ghost" title="Scaffold Erected" onPress={() => void bulk('scaffold')} /></View>
           <View style={{ flexGrow: 1, flexBasis: 140 }}><Button kind="ghost" title="Completed" onPress={() => void bulk('complete')} /></View>
           <View style={{ flexGrow: 1, flexBasis: 140 }}><Button kind="ghost" title="Invoiced" onPress={() => void bulk('invoiced')} /></View>
           <View style={{ flexGrow: 1, flexBasis: 140 }}><Button kind="ghost" title="Close" onPress={() => void bulk('close')} /></View>

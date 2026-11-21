@@ -51,9 +51,9 @@ export function MyToolsList({ userId, name: who }: { userId?: string; name?: str
       )) : <Empty>No tools added yet.</Empty>}
       {adding ? (
         <Card style={{ marginTop: 10 }}>
-          <SectionTitle>Add a Tool</SectionTitle>
-          <Field label="Tool name" value={name} onChangeText={setName} placeholder="e.g. Impact Driver" />
-          <Field label="Serial / item number" value={serial} onChangeText={setSerial} />
+          <SectionTitle>Add A Tool</SectionTitle>
+          <Field label="Tool Name" value={name} onChangeText={setName} placeholder="e.g. Impact Driver" />
+          <Field label="Serial / Item Number" value={serial} onChangeText={setSerial} />
           {photo && <Image source={{ uri: photo.uri }} style={{ width: 72, height: 72, borderRadius: 8, marginBottom: 8 }} />}
           <Button kind="ghost" title={photo ? 'Retake photo' : 'Take photo'} onPress={async () => { const p = await take(); if (p) setPhoto(p); }} />
           <View style={{ flexDirection: 'row', gap: 8 }}>

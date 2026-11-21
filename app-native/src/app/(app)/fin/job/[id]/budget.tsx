@@ -55,7 +55,7 @@ export default function FinBudget() {
   const over = budgetNow !== null ? round2(finalCost - budgetNow) : 0;
   return (
     <ScrollView contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'Budget & forecast' }} />
+      <Stack.Screen options={{ title: 'Budget & Forecast' }} />
       <Muted style={{ marginBottom: 10 }}>Budget per heading, and (optional) what&apos;s left to spend. Blank &quot;to complete&quot; = budget less spent and ordered. Expected final cost = spent + ordered + to complete.</Muted>
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
@@ -103,7 +103,7 @@ export default function FinBudget() {
                   <View key={k}><Muted>{COST_CATS[k]}</Muted><TextInput value={split[k] ?? '0'} onChangeText={(x) => setSplit({ ...split, [k]: x })} keyboardType="decimal-pad" style={[box, { width: 70 }]} /></View>
                 ))}
               </View>
-              <Button title="Fill the budgets below" onPress={() => {
+              <Button title="Fill The Budgets Below" onPress={() => {
                 if (t === null || isNaN(t) || t < 0 || t >= 100) { toast('Type a target margin between 0 and 99%.'); return; }
                 if (!fc.ffa) { toast('Set the contract value (or the Bill of Quantities) first.'); return; }
                 if (!avail || avail <= 0) { toast('That margin leaves nothing to spend.'); return; }
@@ -195,7 +195,7 @@ export default function FinBudget() {
             toast(r.error ? 'Could not save — try again.' : 'Original set'); void qc.invalidateQueries({ queryKey: ['finBook'] });
           }} />}
         </View></Card>
-      {canEdit && <Button busy={busy} title="Save budget & forecast" onPress={async () => {
+      {canEdit && <Button busy={busy} title="Save Budget & Forecast" onPress={async () => {
         const rows = [];
         for (const k of fc.cats) {
           const b = num(vals[k].budget), t = num(vals[k].tc);

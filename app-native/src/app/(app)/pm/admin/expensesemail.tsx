@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ScrollView, Text, TextInput, View } from 'react-native';
 
 import { SelectBox } from '@/components/SelectBox';
 import { showAlert, useToast } from '@/components/toast';
@@ -13,7 +13,7 @@ import { isFinanceUser } from '@/lib/roles';
 import { Button, Card, Muted } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, space, live } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -32,7 +32,7 @@ export default function ExpensesEmail() {
   const reset = () => { if (data) { setEmail(data.expenses_email || ''); setMonths(data.expenses_retention_months || 3); } };
   useEffect(() => { if (data) { setEmail(data.expenses_email || ''); setMonths(data.expenses_retention_months || 3); } }, [data]);
   if (!me) return null;
-  if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Company admins only.</Muted>;
+  if (me.role !== 'admin') return <><Stack.Screen options={{ title: 'Expenses' }} /><Muted style={{ padding: space.l }}>Company admins only.</Muted></>;
   const fin = !!me.org_id && isFinanceUser(me, org);
   if (data?.expenses_email && !editing) {
     const line = (l: string, v: ReactNode) => (
@@ -60,14 +60,7 @@ export default function ExpensesEmail() {
         <Muted style={{ marginBottom: 10 }}>Receipts sent from the Expenses tile on any job are emailed to this address.</Muted>
         <Muted style={{ fontWeight: '600' }}>Send Expenses To</Muted>
         <TextInput value={email} onChangeText={setEmail} placeholder="e.g. info@yourcompany.co.uk" autoCapitalize="none" keyboardType="email-address" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 10 }} />
-        <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Keep Receipts In The App For</Muted>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
-          {[3, 6, 9, 12].map((m) => (
-            <Pressable key={m} onPress={() => setMonths(m)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: months === m ? live.brand1 : base.line, backgroundColor: months === m ? live.brand1 : base.card }}>
-              <Text style={{ fontWeight: '500', color: months === m ? live.brand1Text : base.ink }}>{m} Months</Text>
-            </Pressable>
-          ))}
-        </View>
+        <SelectBox label="Keep Receipts In The App For" value={String(months)} options={[3, 6, 9, 12].map((m): [string, string] => [String(m), `${m} Months`])} onChange={(k) => setMonths(Number(k))} />
         <Muted style={{ marginBottom: 10 }}>After this, receipts are deleted from the app automatically. Emails already sent to the office are not affected.</Muted>
         {fin && <FinanceBooker orgId={me.org_id as string} meId={me.id} />}
         {!data?.expenses_email && <Text style={{ color: base.warn, marginTop: 8 }}>Not set yet — receipts can&apos;t be sent until an address is saved.</Text>}

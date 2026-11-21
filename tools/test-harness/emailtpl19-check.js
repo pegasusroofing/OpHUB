@@ -56,7 +56,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByText('RAMS / COSHH Documents (H&S)', {exact: true}).last().click(); await page.waitForTimeout(600);
   t = await text();
   check(/\+ Document Type \(RAMS \/ COSHH\)/.test(t) && !/\+ Document /.test(t.replace('+ Document Type', '')), 'RAMS / COSHH templates have a Document Type button');
-  await page.getByText('Cancel', {exact: true}).last().click(); await page.waitForTimeout(600);
+  await (async (p) => { const c = p.getByText('Cancel', {exact: true}).filter({visible: true}); if (await c.count()) await c.last().click(); else await p.getByRole('button', {name: 'Close', exact: true}).last().click(); })(page); await page.waitForTimeout(600);
 
   // The quote chaser wording.
   await page.goto(B + '/pm/quotes/settings'); await page.waitForTimeout(4000);

@@ -1,5 +1,5 @@
 // PM home (Andy, 5 Nov 2026): the sites map opens on where most jobs are (a London group, not the whole
-// country). (Its "Pick up where you left off" card went in the Home redesign.) Fake database, real map tiles and postcodes.
+// country). (Its "Pick Up Where You Left Off" card went in the Home redesign.) Fake database, real map tiles and postcodes.
 // node mapfocus-check.js
 const {chromium, makeContext} = require('./harness');
 const path = require('path');
@@ -19,7 +19,7 @@ const PCS = ['EC1A 1BB', 'SW1A 1AA', 'E14 5AB', 'N1 9GU', 'CM1 1HT', 'M1 1AE', '
     await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
     await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
     await page.goto(B + '/home'); await page.waitForTimeout(10000);
-    // The "Pick up where you left off" card went in the Home redesign; the map is on a computer only.
+    // The "Pick Up Where You Left Off" card went in the Home redesign; the map is on a computer only.
     const canvas = page.locator('canvas').first();
     if (W >= 1000) {
       check(await canvas.count() > 0, `${W}: the sites map is on Home`);

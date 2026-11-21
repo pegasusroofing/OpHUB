@@ -212,11 +212,10 @@ function Overview({ id, fc, settings, invs, apps, book, askFinancials }: { id: s
           </View>
         ))}
       </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 14 }}>
         {ghost('Full Summary', `/fin/job/${id}/summary`)}
         {/* A repair contract opens its Works Orders (each job's stage, quote and costs; invoicing) — Andy, 7 Nov 2026. */}
         {!!subKind(site) && (subKind(site) === 'repair' ? ghost('Live Jobs', `/fin/job/${id}/repairs`) : ghost('Costs by plot', `/fin/job/${id}/parts`))}
-        <View style={{ flex: 1 }} />
         {ghost('Monthly Report', `/fin/job/${id}/monthly`)}
       </View>
       {fc.ffaFromInvoiced && <Text style={{ color: '#D98A00', fontWeight: '500', marginBottom: 8 }}>Invoiced to date is more than the contract and variations, so the forecast uses the invoiced total.</Text>}
@@ -277,7 +276,7 @@ function RetentionPanel({ id, fc, settings, invs, apps }: { id: string; fc: Retu
       </Card>
       {retInvoices.length > 0 && (
         <>
-          <SectionTitle>Retention invoices</SectionTitle>
+          <SectionTitle>Retention Invoices</SectionTitle>
           {retInvoices.map((i) => <FinRow compact key={i.id} left={i.number || 'Draft'} title={i.id === fc.jf.ret1_invoice_id ? 'First half release' : 'Final release'} sub={[i.issue_date ? fdate(i.issue_date) : 'Not issued', invOutstanding(i) > 0 ? `${money(invOutstanding(i))} owed` : i.status === 'paid' ? 'Paid' : ''].filter(Boolean).join(' · ')} right={money(i.total)} onPress={() => router.push(`/fin/job/${id}/invoice/${i.id}` as never)} />)}
         </>
       )}
@@ -450,7 +449,7 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone, appsN = 0, boqN
   if (formOnly) return <>{jobForm}{datesForm}</>;
   return (
     <View>
-      <SectionTitle>Project details</SectionTitle>
+      <SectionTitle>Project Details</SectionTitle>
       <Card>
         {kv('Project Number', site?.job_number || '—')}
         {kv('Contract Value', jf.contract_value != null ? money(jf.contract_value) : 'Not Set')}
@@ -469,7 +468,7 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone, appsN = 0, boqN
         {canOhp && kv('Company Overheads', jf.ohp_pct != null ? `${jf.ohp_pct}%` : `${settings.ohp_pct ?? 0}% (company)`)}
         {canEdit && <View style={{ marginTop: 12, flexDirection: 'row', justifyContent: 'center' }}><Button title="Edit ▾" onPress={() => void editMenu()} /></View>}
       </Card>
-      {isFullManager(me) && canEdit && <View style={{ marginBottom: 8 }}><Button kind="danger" title="🗑 Delete this project" onPress={() => void delJob()} /></View>}
+      {isFullManager(me) && canEdit && <View style={{ marginBottom: 8 }}><Button kind="danger" title="🗑 Delete This Project" onPress={() => void delJob()} /></View>}
       {edit === 'site' && site && canEdit && (
         <FinForm title="Project" note="The same details as on the project itself — change them here or there and both update." initial={{ name: site.name || '', status: site.status === 'closed' ? 'closed' : site.status === 'upcoming' ? 'upcoming' : 'live', start_date: site.start_date || '', client_name: site.client_name || '', address: site.address || '', postcode: site.postcode || '', pm: (site as { responsible_pm_id?: string | null }).responsible_pm_id || '' }} onClose={() => setEdit(null)}
           fields={[{ k: 'name', label: 'Project name' }, { k: 'status', label: 'Status', kind: 'choice', options: [['upcoming', 'Upcoming'], ['live', 'Live'], ['closed', 'Closed']], half: true }, { k: 'start_date', label: 'Start date', kind: 'date', half: true }, ...(!people?.length ? [] : [{ k: 'pm', label: 'Project manager', kind: 'choice' as const, options: [['', 'None yet'], ...(people ?? []).filter((x) => ['pm', 'admin'].includes(x.role) && !(x as { finance_only?: boolean }).finance_only).sort((a, b) => a.name.localeCompare(b.name)).map((x) => [x.id, x.name])] as [string, string][] }]), { k: 'client_name', label: 'Client' }, { k: 'address', label: 'Site address' }, { k: 'postcode', label: 'Postcode', half: true }]}
@@ -543,7 +542,7 @@ function NeedsAttention({ id, site, fc, settings, invs, apps, book }: { id: stri
   const longHire = at(book.hires).filter((h) => !h.off_hire && h.on_hire && plantCost(h as never).days > 28);
   if (longHire.length) items.push({ tone: 'warn', t: 'Plant on hire over 4 weeks', s: longHire.map((h) => h.item).join(', '), n: longHire.length, go: `/fin/job/${id}?tab=purchases` });
   if (!at(book.cpos).length && isLive) items.push({ tone: 'grey', t: 'No client PO', s: 'It goes on every invoice and application', n: 1, go: `/fin/job/${id}?tab=setup` });
-  if (!Number(fc.jf?.contract_value) && isLive) items.push({ tone: 'grey', t: 'No contract value', s: fc.isInvoiceJob ? 'Add it in Project Admin' : 'Set up the Bill of Quantities', n: 1, go: fc.isInvoiceJob ? `/fin/job/${id}?tab=setup` : `/fin/job/${id}/boq` });
+  if (!Number(fc.jf?.contract_value) && isLive) items.push({ tone: 'grey', t: 'No contract value', s: fc.isInvoiceJob ? 'Add it in Project Settings' : 'Set up the Bill of Quantities', n: 1, go: fc.isInvoiceJob ? `/fin/job/${id}?tab=setup` : `/fin/job/${id}/boq` });
   const c = site.client_name ? clients.find((x) => String(x.name || '').trim().toLowerCase() === String(site.client_name).trim().toLowerCase()) : null;
   if (site.client_name && !c) items.push({ tone: 'grey', t: 'Client not in the Directory', s: site.client_name, n: 1, go: '/fin/directory?kind=client' });
   else if (c && !c.email) items.push({ tone: 'grey', t: 'No accounts email for the client', s: `${c.name} — invoices need somewhere to go`, n: 1, go: '/fin/directory?kind=client' });
@@ -570,6 +569,6 @@ function NeedsAttention({ id, site, fc, settings, invs, apps, book }: { id: stri
 function FinDocs({ site }: { site: Record<string, unknown> | undefined }) {
   const folder = site?.onedrive_folder_id as string | null | undefined;
   if (!site) return <Muted>Loading…</Muted>;
-  if (!folder) return <Muted>This job has no OneDrive folder yet. Set one up or link one in Project Admin.</Muted>;
+  if (!folder) return <Muted>This job has no OneDrive folder yet. Set one up or link one in Project Settings.</Muted>;
   return <OneDriveBrowser root={{ id: folder, driveId: site.onedrive_drive_id as string | null | undefined, name: (site.onedrive_folder_name as string | null | undefined) || 'Job folder' }} />;
 }

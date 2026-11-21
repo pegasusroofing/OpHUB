@@ -49,12 +49,12 @@ export function XeroSettings({ s }: { s: Row }) {
       <Muted style={{ fontSize: 12, marginBottom: 6 }}>Account codes are the numbers in your Xero chart of accounts. Projects go into Xero under the tracking category (default “Project”) — create it once in Xero.</Muted>
       <Check label="Send to Xero automatically — invoices when issued, purchase invoices when approved" value={v.auto} onChange={(x) => { if (canEdit) setV({ ...v, auto: x }); }} />
       {canEdit && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
-        <Button small busy={busy === 'save'} title="Save Xero settings" onPress={async () => {
+        <Button small busy={busy === 'save'} title="Save Xero Settings" onPress={async () => {
           setBusy('save');
           const r = await fdb.from('fin_settings').upsert({ org_id: me.org_id, xero_sales_account: v.sales.trim() || '200', xero_purchase_account: v.purch.trim() || '310', xero_labour_account: v.labour.trim() || '320', xero_tracking_name: v.track.trim() || 'Project', xero_auto: v.auto, updated_at: new Date().toISOString(), updated_by: me.id } as never, { onConflict: 'org_id' });
           setBusy(''); if (r.error) toast('Could not save the Xero settings.'); else void qc.invalidateQueries({ queryKey: ['finSettings'] });
         }} />
-        <Button small kind="ghost" busy={busy === 'pay'} title="Check Xero for payments" onPress={async () => {
+        <Button small kind="ghost" busy={busy === 'pay'} title="Check Xero For Payments" onPress={async () => {
           setBusy('pay'); const r = await finInvoke<Row>(me, 'xero', { action: 'pull_payments' }); setBusy('');
           const n = Number(r.data?.added || 0);
           toast(r.error ? `Xero: ${r.error}` : n ? `${n} payment${n === 1 ? '' : 's'} brought in from Xero${r.data?.amount ? ` · ${money(Number(r.data.amount))}` : ''}` : `No new payments in Xero${r.data?.checked ? ` (${r.data.checked} checked)` : ''}`);
@@ -82,7 +82,7 @@ export function XeroRow({ kind, rec, onDone }: { kind: 'invoice' | 'bill' | 'sub
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginVertical: 6 }}>
       <Text style={{ color: rec.xero_id ? '#1E7A3C' : base.slate, fontWeight: '500' }}>{rec.xero_id ? `✓ Posted to Xero${rec.xero_synced_at ? ` · ${fdate(String(rec.xero_synced_at).slice(0, 10))}` : ''}` : rec.xero_post === false ? 'Set not to post to Xero' : 'Not posted to Xero yet'}</Text>
-      {can && !rec.xero_id && canEditFinance(me) && <Button small kind="ghost" busy={busy} title="Post to Xero" onPress={async () => {
+      {can && !rec.xero_id && canEditFinance(me) && <Button small kind="ghost" busy={busy} title="Post To Xero" onPress={async () => {
         setBusy(true);
         const r = await finInvoke<Row>(me, 'xero', { action: KIND[kind], id: rec.id });
         if (!r.error) await fdb.from(TABLE[kind]).update({ xero_post: true } as never).eq('id', rec.id);

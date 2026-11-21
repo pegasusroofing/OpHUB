@@ -126,12 +126,13 @@ export default function AppLayout() {
       <Tabs.Screen name="onsite" options={{ ...hidden, title: 'On Site Now' }} />
       <Tabs.Screen name="dashboard" options={{ ...(extra && !desk ? { tabBarIcon: icon('reports') } : hidden), title: 'My Dashboard' }} />
       <Tabs.Screen name="driver" options={{ ...hidden, title: 'Driver', headerShown: false }} />
-      <Tabs.Screen name="inbox" options={{ ...(extra && !desk ? { tabBarIcon: icon('chat'), tabBarLabel: 'Inbox', tabBarBadge: inboxN || undefined } : hidden), title: 'Messages & tasks' }} />
+      {/* A site manager's messages are in the HUB, so no separate Inbox button (six buttons didn't fit: app review, 21 Nov 2026). */}
+      <Tabs.Screen name="inbox" options={{ ...(extra && !desk && !siteMgr ? { tabBarIcon: icon('chat'), tabBarLabel: 'Inbox', tabBarBadge: inboxN || undefined } : hidden), title: 'Messages & Tasks' }} />
       <Tabs.Screen name="getting-started" options={{ ...hidden, title: 'Getting Started' }} />
       <Tabs.Screen name="signature" options={{ ...hidden, title: 'My Signature' }} />
       <Tabs.Screen name="myrecord" options={{ ...hidden, title: 'My Employee Record' }} />
       <Tabs.Screen name="search" options={{ ...hidden, title: 'Search' }} />
-      <Tabs.Screen name="subform" options={{ ...hidden, title: 'Subcontractor form' }} />
+      <Tabs.Screen name="subform" options={{ ...hidden, title: 'Subcontractor Form' }} />
       <Tabs.Screen name="yardcount" options={{ ...hidden, title: 'Yard Stock Take' }} />
       <Tabs.Screen name="pm" options={{ ...(siteMgr && !desk ? { tabBarIcon: icon('bell'), tabBarLabel: 'HUB', href: '/pm/hub' as never, tabBarBadge: inboxN || undefined } : hidden), title: 'Manager', headerShown: false }} />
       <Tabs.Screen name="fin" options={{ ...hidden, title: 'Finance', headerShown: false }} />
@@ -151,7 +152,7 @@ function FinNoAccess() {
         <Text style={{ fontSize: 34 }}>🔒</Text>
         <Text style={{ fontWeight: '600', fontSize: 16, color: base.ink, marginTop: 10, marginBottom: 4, textAlign: 'center' }}>You don’t have OpHUB Finance yet</Text>
         <Text style={{ color: base.slate, textAlign: 'center', marginBottom: 16 }}>Ask your company admin to switch Finance on for you in Finance › Team.</Text>
-        <Pressable onPress={() => void signOut()} style={{ borderWidth: 1, borderColor: base.line, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 18 }}><Text style={{ fontWeight: '600', color: base.ink }}>Sign out</Text></Pressable>
+        <Pressable onPress={() => void signOut()} style={{ borderWidth: 1, borderColor: base.line, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 18 }}><Text style={{ fontWeight: '600', color: base.ink }}>Sign Out</Text></Pressable>
       </View>
     </View>
   );

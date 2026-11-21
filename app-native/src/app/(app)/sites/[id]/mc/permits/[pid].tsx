@@ -1,5 +1,5 @@
 // One Permit To Work (520 renderPermitView): details and issuer's signature, who
-// must sign (and who has), Sign this permit, and Close it down — hot works needs
+// must sign (and who has), Sign This Permit, and Close it down — hot works needs
 // two fire-extinguisher photos; a manager can close with signatures missing after
 // confirming, which is recorded on the permit and in the job's history.
 import { useQueryClient } from '@tanstack/react-query';
@@ -71,7 +71,7 @@ export default function PermitView() {
         {!!permit.issuer_signature_path && <StorageImage bucket="signatures" path={permit.issuer_signature_path} style={{ height: 40, width: 180, resizeMode: 'contain' }} />}
       </Card>
 
-      <SectionTitle>Sign-off required</SectionTitle>
+      <SectionTitle>Sign-Off Required</SectionTitle>
       {assigned.length ? assigned.map((u) => (
         <View key={u} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
           <View style={{ flex: 1 }}>
@@ -82,13 +82,13 @@ export default function PermitView() {
         </View>
       )) : <Empty>No employees selected.</Empty>}
       {mine && !signed[me.id] && permit.status === 'open' && (
-        sig ? <Button busy={busy} title="Sign this permit" onPress={async () => { setBusy(true); const ok = await signPermit(me, permit.id); setBusy(false); toast(ok ? 'Signed' : 'Could not save — try again.'); refresh(); }} />
+        sig ? <Button busy={busy} title="Sign This Permit" onPress={async () => { setBusy(true); const ok = await signPermit(me, permit.id); setBusy(false); toast(ok ? 'Signed' : 'Could not save — try again.'); refresh(); }} />
           : <Pressable onPress={() => router.push('/signature')}><Text style={{ color: base.warn }}>You haven't adopted a signature yet — tap to set one up before signing.</Text></Pressable>
       )}
 
       {permit.status === 'closed' && (
         <>
-          <SectionTitle>Closed down</SectionTitle>
+          <SectionTitle>Closed Down</SectionTitle>
           <Card>
             <Muted><Text style={{ fontWeight: '600' }}>Closed by</Text> {nameOf(people, permit.closed_by)} on {d(permit.closed_at)}</Muted>
             {!!permit.closed_notes && <Text style={{ color: base.ink, marginVertical: 6 }}>{permit.closed_notes}</Text>}
@@ -104,7 +104,7 @@ export default function PermitView() {
 
       {canClose && (
         <>
-          <SectionTitle>Close this permit down</SectionTitle>
+          <SectionTitle>Close This Permit Down</SectionTitle>
           <Card>
             {hot && (
               <>

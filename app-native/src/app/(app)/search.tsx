@@ -54,7 +54,7 @@ export default function Search() {
   const actions: Hit[] = (mgr ? [
     { g: 'Go to', ic: '➕', t: 'New project', s: 'Set up a new job', go: '/sites/new' }, { g: 'Go to', ic: '🏗', t: 'Projects', s: 'All your projects', go: '/sites' },
     { g: 'Go to', ic: '🚚', t: 'Deliveries', s: 'Delivery schedule', go: '/pm/deliveries' }, { g: 'Go to', ic: '📅', t: 'Calendar', go: '/pm/calendar' },
-    { g: 'Go to', ic: '🔔', t: 'HUB', s: 'Messages and alerts', go: '/pm/hub' }, { g: 'Go to', ic: '📋', t: 'Reports & surveys', go: '/pm/reports' },
+    { g: 'Go to', ic: '🔔', t: 'HUB', s: 'Messages and alerts', go: '/pm/hub' }, { g: 'Go to', ic: '📋', t: 'Reports & Surveys', go: '/pm/reports' },
     { g: 'Go to', ic: '👷', t: 'Operatives', go: '/pm/operatives' }, { g: 'Go to', ic: '⚙️', t: 'Admin Centre', go: '/pm/admin' },
   ] : [{ g: 'Go to', ic: '🏗', t: 'Projects', s: 'All your projects', go: '/sites' }, { g: 'Go to', ic: '⚙️', t: 'Settings', go: '/account' }]).filter((a) => !query || has(a.t, query)).slice(0, query ? 4 : 8);
   const local: Hit[] = [];
