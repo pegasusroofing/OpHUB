@@ -14,6 +14,7 @@ import { chooseAction } from '@/components/toast';
 import { JobRows, type JobRow } from '@/components/JobRows';
 import { Button, Muted } from '@/components/ui';
 import { useSubcoMoney } from '@/data/closeout';
+import { useCoOrders, useSubVariations } from '@/data/subVariations';
 import { nameOf, usePeople } from '@/data/hs';
 import { useInductions } from '@/data/inductions';
 import { useSite } from '@/data/sites';
@@ -35,6 +36,9 @@ export default function SubcoHub() {
   const mine = !!me && !isManager(me) && list?.myCompany === co;
   const { data: ind } = useInductions(mine ? id : undefined);
   const { data: people } = usePeople();
+  // Their subcontract orders and variations (21 Nov 2026).
+  const { data: ords = [] } = useCoOrders(id, co, !!me && isManager(me));
+  const { data: vars = [] } = useSubVariations(co, !!me && (isManager(me) || mine));
   const allowed = !!me && (isManager(me) || me.role === 'client' || list?.myCompany === co);
   if (me && !allowed) return <><Stack.Screen options={{ title: 'Subcontractor' }} /><Muted style={{ padding: space.l }}>{list ? "You don't have access to this subcontractor." : 'Loading…'}</Muted></>;
   if (isLoading || !data) return <><Stack.Screen options={{ title: 'Subcontractor' }} /><Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Subcontractor not found.'}</Muted></>;
@@ -58,6 +62,9 @@ export default function SubcoHub() {
       { key: 'sow', ic: 'clipboard', title: 'Schedule of Works', sub: `${n.done} of ${n.tasks} complete`, onPress: go('schedule') },
       { key: 'snags', ic: 'wrench', title: 'Snags', sub: n.snags ? `${n.snags} open` : 'None open', badge: n.snags || undefined, onPress: go('snags') },
       { key: 'permits', ic: 'pen', title: 'Permits To Work', sub: n.permits ? `${n.permits} open` : 'None open', onPress: () => router.push(`/sites/${id}/mc/permits?co=${co}` as never) },
+      // Their subcontract orders (ours to tick or raise) and variations (asked for by them or us; approved adds to the order).
+      ...(isManager(me) ? [{ key: 'orders', ic: 'pound', title: 'Subcontract Orders', sub: (() => { const k = ords.filter((o) => o.tracked).length; return k ? `${k} tracked here` : 'Tick or raise their order'; })(), onPress: go('orders') }] : []),
+      ...(isManager(me) || (mine && data.isAdmin) ? [{ key: 'vars', ic: 'receipt', title: 'Variations', sub: (() => { const w = vars.filter((v) => v.status === 'requested').length, a = vars.filter((v) => v.status === 'approved').length; return w ? `${w} waiting for approval${a ? ` · ${a} approved` : ''}` : a ? `${a} approved` : mine ? 'Request a variation' : 'None yet'; })(), badge: isManager(me) ? vars.filter((v) => v.status === 'requested').length || undefined : undefined, onPress: go('variations') }] : []),
     ],
     people: [
       { key: 'ops', ic: 'users', title: 'Operatives', sub: data.isAdmin && mine ? 'Add your operatives' : `${n.operatives} on this job`, onPress: go('operatives') },
@@ -96,7 +103,7 @@ export default function SubcoHub() {
         const basis = desk ? 150 : 140;
         return (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
-            <FinStat basis={basis} v={money(m.order, 0)} label="Order Value" tone="blue" sub={m.subs.length > 1 ? `${m.subs.length} orders` : m.subs[0].number || undefined} onPress={() => void open()} />
+            <FinStat basis={basis} v={money(m.order, 0)} label="Order Value" tone="blue" sub={[m.subs.length > 1 ? `${m.subs.length} orders` : m.subs[0].number || '', (() => { const a = vars.filter((v) => v.status === 'approved').reduce((t, v) => t + Number(v.added_to_order ?? v.value), 0); return a ? `incl. ${money(a, 0)} variations` : ''; })()].filter(Boolean).join(' · ') || undefined} onPress={() => void open()} />
             <FinStat basis={basis} v={money(m.applied, 0)} label="Applied To Date" tone="amber" onPress={() => void open()} />
             <FinStat basis={basis} v={money(m.certified, 0)} label="Certified To Date" tone="green" sub={m.toPay ? `${money(m.toPay, 0)} to pay` : undefined} onPress={() => void open()} />
             <FinStat basis={basis} v={money(m.paid, 0)} label="Paid To Date (Net)" tone="green" onPress={() => void open()} />
@@ -107,7 +114,7 @@ export default function SubcoHub() {
       })() : (
         <View style={{ alignItems: 'center', marginBottom: 12 }}>
           <Muted style={{ textAlign: 'center', marginBottom: 6 }}>No subcontract order with {data.company.name} on this job yet.</Muted>
-          <Button small kind="ghost" title="Subcontract Orders ›" onPress={job('materials/subcontracts')} />
+          <Button small kind="ghost" title="Subcontract Orders ›" onPress={go('orders')} />
         </View>
       ))}
       <FinTabs even value={tab} onChange={(k) => router.setParams({ tab: k })} items={tabs} />

@@ -17,6 +17,7 @@ import { useToast } from '@/components/toast';
 import { Button, Muted } from '@/components/ui';
 import { MC_DOC_LABEL, MC_SETUP, useMcHome, useMcSetup, useMcToday } from '@/data/mc';
 import { signOutVisitor, useSiteVisitors, visitLink } from '@/data/visitors';
+import { money } from '@/lib/rules/finance';
 import type { Profile, Site } from '@/lib/types';
 import { base } from '@/theme/theme';
 
@@ -97,6 +98,7 @@ export function McHome({ site, me, desk, top, ownRows }: { site: Site; me: Profi
       : tick('ind', true, 'Everyone On The Job Is Inducted', `${t.inducted} inducted`, go('mc/inductions')),
     ...closingToday.map((p) => tick(`p${p.id}`, false, `Close ${p.type} Permit`, [p.location, p.workDate ? `For ${new Date(`${p.workDate}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''].filter(Boolean).join(' · '), go(`mc/permits/${p.id}`))),
     ...t.rams.map((r) => tick(`r${r.id}`, false, `Approve ${r.name}`, r.company, go('hs/rams'))),
+    ...t.variations.map((v) => tick(`v${v.id}`, false, `Approve Variation: ${v.title}`, `${v.company} · ${money(v.value)}`, go(`mc/subcontractors/${v.coId}/variations`))),
     ...(setupLeft > 0 ? [tick('setup', false, `Finish Setting Up: ${plural(setupLeft, 'Thing')} To Do`, MC_SETUP.filter((x) => !setup?.done[x.k]).map((x) => x.label).join(' · '), go('mc'))] : []),
   ] : [];
   const onSiteCard = (

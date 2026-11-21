@@ -98,6 +98,7 @@ export type McToday = {
   briefing: { at: string } | null;
   arriving: { what: string; when: string }[];
   companies: { id: string; name: string; people: number; toInduct: number; ramsPending: number; onSite: number }[];
+  variations: { id: string; title: string; value: number; coId: string; company: string }[];
 };
 const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 /** Who's on site and with whom, who still needs inducting, open permits, RAMS waiting for approval, today's briefing and
@@ -121,6 +122,7 @@ export function useMcToday(site: Site | undefined, me: Profile | null, on = true
         db.from('delivery_tasks').select('description,time_slot,status').eq('site_id', s.id).eq('scheduled_date', today),
         db.from('site_calendar_events').select('title').eq('site_id', s.id).eq('event_date', today),
       ]);
+      const subVars = rowsOf<{ id: string; title: string; value: number; subcontractor_company_id: string }>(await db.from('fin_sub_variations').select('id,title,value,subcontractor_company_id').eq('site_id', s.id).eq('status', 'requested').order('requested_at'));
       const names: Record<string, { name: string; role: string }> = {};
       rowsOf<{ id: string; name: string | null; role: string }>(profiles).forEach((p) => { names[p.id] = { name: p.name || 'Someone', role: p.role }; });
       const coName: Record<string, string> = {}; rowsOf<{ id: string; name: string }>(cos).forEach((c) => { coName[c.id] = c.name; });
@@ -152,6 +154,7 @@ export function useMcToday(site: Site | undefined, me: Profile | null, on = true
           ...rowsOf<{ description: string | null; time_slot: string | null; status: string | null }>(deliveries).filter((d) => d.status !== 'cancelled').map((d) => ({ what: d.description || 'Delivery', when: d.time_slot || 'Today' })),
           ...rowsOf<{ title: string }>(events).map((e) => ({ what: e.title, when: 'Today' })),
         ],
+        variations: subVars.map((v) => ({ id: v.id, title: v.title, value: Number(v.value || 0), coId: v.subcontractor_company_id, company: coName[v.subcontractor_company_id] || 'Subcontractor' })),
         companies: rowsOf<{ id: string; name: string }>(cos).map((c) => {
           const ppl = Object.keys(coOf).filter((u) => coOf[u] === c.id);
           return { id: c.id, name: c.name, people: ppl.length, toInduct: ppl.filter((u) => !doneSet.has(u)).length, ramsPending: ramsList.filter((r) => r.company === c.name).length, onSite: ppl.filter((u) => latest[u] === 'in').length };
