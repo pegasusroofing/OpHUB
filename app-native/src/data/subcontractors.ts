@@ -90,6 +90,8 @@ export function useSubco(companyId: string | undefined, me: Profile | null) {
       const tasks = (sched.data as { status: string }[] | null) ?? [];
       return {
         company: c, isAdmin: n(admin) > 0, hasPm: ((ops.data as { is_admin: boolean | null }[] | null) ?? []).some((x) => x.is_admin),
+        // Their Project Manager(s), by name on the People tab (21 Nov 2026).
+        pmIds: ((ops.data as { user_id: string | null; is_admin: boolean | null }[] | null) ?? []).filter((x) => x.is_admin && x.user_id).map((x) => x.user_id as string),
         counts: { rams: n(rams), coshh: n(coshh), tbt: n(tbt), briefings: n(brief), operatives: n(ops), tasks: tasks.length, done: tasks.filter((t) => t.status === 'done').length, permits: n(permits), inspections: n(insp), snags: n(snags), closedOut: !!((closeout.data as { signed_at: string | null }[] | null) ?? [])[0]?.signed_at, om: n(om), omSubmitted: ((om.data as { submitted_at: string | null }[] | null) ?? []).filter((x) => x.submitted_at).length },
       };
     },

@@ -7,6 +7,7 @@ import { stackHeader } from '@/components/AppBar';
 import { useToast } from '@/components/toast';
 import { useMyPlantHere } from '@/data/plant';
 import { useSite } from '@/data/sites';
+import { MC_GUARDED, mcOpSees } from '@/data/mc';
 import { useAuth } from '@/lib/auth';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { canSeeTile } from '@/lib/rules/hs';
@@ -26,7 +27,7 @@ const HS_KEY: Record<string, string> = { rams: 'hs_rams', coshh: 'hs_coshh', tbt
 function useJobGuard(): { to: string; why?: string } | null {
   const { me } = useAuth();
   const seg = useSegments() as string[];
-  const { id } = useGlobalSearchParams<{ id?: string }>();
+  const { id, cat } = useGlobalSearchParams<{ id?: string; cat?: string }>();
   const at = seg.indexOf('[id]'), onJob = at >= 0 && !!id && id !== 'new';
   const page = onJob ? seg[at + 1] || '' : '';
   const sq = useSite(onJob ? id : undefined);
@@ -41,7 +42,7 @@ function useJobGuard(): { to: string; why?: string } | null {
     return () => { alive = false; };
   }, [onJob, me, site, isSuccess, missing, id, refetch]);
   const op = !!me && !isManager(me) && me.role !== 'client';
-  const { data: subCo } = useQuery({
+  const { data: subCo, isLoading: subCoLoading } = useQuery({
     queryKey: ['mySubCo', id, me?.id], enabled: onJob && op,
     queryFn: async () => (((await supabase.from('subcontractor_operatives').select('subcontractor_company_id').eq('site_id', id as string).eq('user_id', me!.id).limit(1)).data as { subcontractor_company_id: string }[] | null) ?? [])[0]?.subcontractor_company_id ?? null,
   });
@@ -69,8 +70,14 @@ function useJobGuard(): { to: string; why?: string } | null {
   // 890 mc: everything but Site Rules & Layout needs the job switched on as Main Contractor, and a tile hidden
   // from operatives can't be opened by link (a subcontractor operative still reaches their own company's folder).
   if (page === 'mc' && sub && sub !== 'index' && sub !== 'layout' && site && !site.acting_as_main_contractor) return { to: `/sites/${id}` };
-  const mcKey = page === 'mc' ? (sub === 'docs' ? seg[at + 3] || '' : ({ layout: 'site_layout', inductions: 'site_inductions' } as Record<string, string>)[sub] || sub) : '';
-  if (mcKey && mcKey !== 'index' && !isManager(me) && site && (site.mc_hidden_tiles ?? []).includes(mcKey) && !(mcKey === 'subcontractors' && subCo)) return { to: `/sites/${id}`, why: 'That page isn’t available on this job.' };
+  // The segments are the route's pattern ([cat]), so the document folder comes from the address (21 Nov 2026: links to
+  // the plan, F10 and Asbestos Register weren't checked before).
+  const mcKey = page === 'mc' ? (sub === 'docs' ? String(cat || '') : ({ layout: 'site_layout', inductions: 'site_inductions' } as Record<string, string>)[sub] || sub) : '';
+  // Operatives see My Induction and Permits To Sign unless a manager shows them more (app review, 21 Nov 2026).
+  // A subcontractor's own people reach their company's pages: wait until we know their company (21 Nov 2026: Subcontractors
+  // is hidden from operatives by default now, so deciding early sent them back to their company page).
+  if (mcKey === 'subcontractors' && subCoLoading) return null;
+  if (mcKey && MC_GUARDED.includes(mcKey) && !isManager(me) && site && !mcOpSees(site, mcKey) && !(mcKey === 'subcontractors' && subCo)) return { to: `/sites/${id}`, why: 'That page isn’t available on this job.' };
   const hsKey = page === 'ppe' ? 'hs_ppe' : page === 'hs' ? HS_KEY[seg[at + 2] || ''] : undefined;
   // 629 TILE_VIS_DEFAULTS: HAVS and LOLER start as site managers only.
   if (hsKey && site && !canSeeTile(site, hsKey, me.role, hsKey === 'hs_havs' || hsKey === 'hs_loler' ? ['site_manager'] : undefined)) return { to: `/sites/${id}/hs`, why: 'That isn’t available to you on this job.' };

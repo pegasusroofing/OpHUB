@@ -92,8 +92,11 @@ const text = (page) => page.evaluate(() => document.body.innerText);
   const tog = op.getByText(/^Certifications \(/).first();
   if (!(await op.getByText('Add a certificate', {exact: true}).count()) && await tog.count()) { await tog.click(); await op.waitForTimeout(600); }
   await op.getByText('Add a certificate', {exact: true}).first().click(); await op.waitForTimeout(600);
-  const chip = op.getByText(/Asbestos/).first();
-  if (await chip.count()) await chip.click(); else await op.getByText('Other', {exact: true}).first().click();
+  // The type is a ▾ drop-down since 21 Nov 2026.
+  await op.getByLabel('Type', {exact: true}).first().click(); await op.waitForTimeout(600);
+  const chip = op.getByText(/Asbestos/).last();
+  if (await chip.count()) await chip.click(); else await op.getByText('Other', {exact: true}).last().click();
+  await op.waitForTimeout(400);
   const [chooser] = await Promise.all([op.waitForEvent('filechooser', {timeout: 8000}).catch(() => null), op.getByText('Choose file…', {exact: true}).first().click()]);
   if (chooser) { await chooser.setFiles({name: 'asbestos.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 test')}); await op.waitForTimeout(1000); }
   await op.getByText('Upload', {exact: true}).last().click(); await op.waitForTimeout(4000);

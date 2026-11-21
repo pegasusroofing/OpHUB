@@ -46,8 +46,10 @@ const SHOTS = path.join(__dirname, 'shots', 'subom20'); require('fs').mkdirSync(
   // ---- The subcontractor's admin ----
   await page.goto(`${B}/sites/${S1}/mc/subcontractors/co1`); await page.waitForTimeout(5000);
   let t = await text();
-  check(/Handover/.test(t) && /O&M manual/.test(t), 'their company page has the Handover tile (O&M manual)');
-  await vis('Handover').first().click(); await page.waitForTimeout(4000);
+  check(/Handover/.test(t), 'their company page has a Handover tab');
+  await vis('Handover').first().click(); await page.waitForTimeout(1200);
+  check(/O&M Manual/.test(await page.locator('body').innerText()), 'Handover has their O&M Manual');
+  await vis('O&M Manual').first().click(); await page.waitForTimeout(4000);
   t = await text();
   check(/goes in the back of/.test(t) && /Upload Our O&M \(PDF\)/.test(t) && /\+ Build One Here/.test(t), 'O&M page: upload their own, or build one here; says it goes in the back of the main contractor’s');
   await page.screenshot({path: path.join(SHOTS, 'sub-list.png'), fullPage: true});

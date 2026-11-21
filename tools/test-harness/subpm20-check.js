@@ -69,7 +69,13 @@ function seed(db, meIsPm) {
     await page.goto(`${B}/sites/${S1}/mc/subcontractors/co1`); await page.waitForTimeout(5000);
     let t = await text();
     check(/You.re Pro Finish Decorators Ltd.s Project Manager on this job/.test(t), 'their PM: the company page says they are its Project Manager');
-    check(/Snags 1 open/.test(t) && /Add your operatives/.test(t) && /Handover/.test(t) && /RAMS/.test(t) && /COSHH/.test(t) && /TBT/.test(t), 'their PM: RAMS, COSHH, TBT, Snags (1 open), Operatives and Handover tiles');
+    // Four tabs since 21 Nov 2026: Documents / Work / People / Handover.
+    check(/Documents/.test(t) && /Work/.test(t) && /People/.test(t) && /Handover/.test(t) && /RAMS/.test(t) && /COSHH/.test(t) && /Toolbox Talks/.test(t), 'their PM: Documents (RAMS, COSHH, Toolbox Talks), Work, People and Handover tabs');
+    await page.getByText('Work', {exact: true}).filter({visible: true}).first().click(); await page.waitForTimeout(1200);
+    check(/Snags 1 open/.test(await text()), 'their PM: Work has Snags (1 open)');
+    await page.getByText('People', {exact: true}).filter({visible: true}).first().click(); await page.waitForTimeout(1200);
+    check(/Add your operatives/.test(await text()), 'their PM: People has Add your operatives');
+    await page.getByText('Documents', {exact: true}).filter({visible: true}).first().click(); await page.waitForTimeout(800);
     await shot(page, '1-their-pm-company-page-phone.png');
 
     // Upload only: no builders or signing templates.
@@ -115,7 +121,9 @@ function seed(db, meIsPm) {
     await signIn(page);
     await page.goto(`${B}/sites/${S1}/mc/subcontractors/co1`); await page.waitForTimeout(5000);
     let t = await text();
-    check(!/Project Manager on this job/.test(t) && !/Handover/.test(t) && /Check In \/ Out/.test(t) && /Snags 1 open/.test(t), 'their operative: Check In, Snags and the rest; no Handover; not told they are the PM');
+    check(!/Project Manager on this job/.test(t) && !/Handover/.test(t) && /Check In \/ Out/.test(t), 'their operative: Check In and the rest; no Handover tab; not told they are the PM');
+    await page.getByText('Work', {exact: true}).filter({visible: true}).first().click(); await page.waitForTimeout(1200);
+    check(/Snags 1 open/.test(await text()), 'their operative: Work has their Snags (1 open)');
     await shot(page, '4-their-operative-company-page-phone.png');
     await page.goto(`${B}/sites/${S1}/mc/subcontractors/co1/operatives`); await page.waitForTimeout(4500);
     t = await text();

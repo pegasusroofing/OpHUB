@@ -89,6 +89,7 @@ export type Site = {
   multi_site: boolean;
   acting_as_main_contractor?: boolean;
   mc_hidden_tiles?: string[] | null;
+  mc_shown_tiles?: string[] | null;
   repair_contract: boolean;
   price_enabled: boolean;
   client_name: string | null;

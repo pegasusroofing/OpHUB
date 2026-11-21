@@ -40,8 +40,8 @@ export default function Branding() {
   if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Company admins only.</Muted>;
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: org && !org.logo_path ? 'Set Up Your Company' : 'Company Logo & Theme' }} />
-      {!!org && !org.logo_path && <Card style={{ backgroundColor: base.warnBg, borderColor: base.warn }}><Text style={{ color: base.ink }}>Before you get started, set up <Text style={{ fontWeight: '600' }}>{org.name}</Text>&apos;s branding — your logo and colours are shown throughout the app and on your team&apos;s invite link. Add your logo to carry on.</Text></Card>}
+      <Stack.Screen options={{ title: 'Company Logo & Theme' }} />
+      {!!org && !org.logo_path && <Muted style={{ marginBottom: 10 }}>Add {org.name}&apos;s logo and colours whenever you&apos;re ready: they show throughout the app, on PDFs and on your team&apos;s invite link. Until then the app uses the OpHUB colours.</Muted>}
       <SectionTitle>Company Logo</SectionTitle>
       <Card>
         <Muted style={{ marginBottom: 10 }}>Shown throughout the app and on your team&apos;s invite/join screen.</Muted>
@@ -60,7 +60,7 @@ export default function Branding() {
         </Pressable>
         {logo ? (
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-            <View style={{ flex: 1 }}><Button busy={busy === 'logo'} title={(org as { logo_path?: string | null }).logo_path ? 'Save New Logo' : 'Save & Continue'} onPress={async () => {
+            <View style={{ flex: 1 }}><Button busy={busy === 'logo'} title={(org as { logo_path?: string | null }).logo_path ? 'Save New Logo' : 'Save Logo'} onPress={async () => {
               setBusy('logo');
               try {
                 const up = await supabase.storage.from('org-logos').upload(`${me.org_id}/logo-${Date.now()}.jpg`, await (await fetch(logo)).arrayBuffer(), { contentType: 'image/jpeg' });

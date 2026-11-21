@@ -1,7 +1,7 @@
 // The public subcontractor sign-up form, in the new app (Andy, 18 Nov 2026: "The sign up link in the beta is still a
 // html, can we change that for beta but keep the html link live for old original app?"). The same questions, files and
 // declaration as subcontractor.html, sent to the same server function (subcontractor-apply: org, upload, submit), so
-// applications land in Admin › People › Subcontractor Sign-Up either way. No sign-in: /subcontractor?org=<company id>.
+// applications land in Admin › Main Contractor › Subcontractor Library › Sign-Up Form & Applications either way. No sign-in: /subcontractor?org=<company id>.
 // subcontractor.html stays for the current app's links.
 import * as DocumentPicker from 'expo-document-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';

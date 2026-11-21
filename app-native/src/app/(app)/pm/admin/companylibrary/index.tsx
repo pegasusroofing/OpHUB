@@ -58,7 +58,8 @@ export default function CompanyLibrary() {
           </View>
         </Card>
       ) : <Button kind="ghost" title="+ Add Company" onPress={() => setAdding(true)} />}
-      <Button kind="ghost" title="📋 Inspection Templates (Report Templates)" onPress={() => router.push('/pm/admin/templates' as never)} />
+      {/* Sign-ups live here now (Admin › Main Contractor, 21 Nov 2026). */}
+      <View style={{ alignItems: 'center', marginTop: 4 }}><Button small kind="ghost" title="Sign-Up Form & Applications ›" onPress={() => router.push('/pm/admin/subapps' as never)} /></View>
     </ScrollView>
   );
 }

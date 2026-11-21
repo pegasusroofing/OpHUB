@@ -1,5 +1,5 @@
-// Main Contractor area (510 / 520 / 530): the MC home tiles with their counts
-// (and the per-job "hide from operatives" list), the document folders (CPP,
+// Main Contractor area (510 / 520 / 530): the Main Contractor page's parts with their counts
+// (and what operatives see), the document folders (CPP,
 // Asbestos Register, F10), and Permits To Work — issue → sign-off → close down
 // (hot works needs two fire-extinguisher photos to close).
 import { packDoc } from '@/data/jobPack';
@@ -19,64 +19,133 @@ export const MC_DOC_LABEL: Record<string, string> = { cpp: 'Construction Phase P
 export const PERMIT_LABEL: Record<string, string> = { hot_works: 'Hot Works', height: 'Working at Height', acm: 'Working with ACM (Asbestos)', hazardous: 'Hazardous Areas' };
 export const PERMIT_ICON: Record<string, string> = { hot_works: '🔥', height: '🪜', acm: '☣️', hazardous: '⚠️' };
 
-export function useMcTiles(site: Site | undefined, orgId: string | null | undefined) {
+/* ---------- Main Contractor made simple (app review, 21 Nov 2026; Andy: "Yes build the 2 plans please") ---------- */
+// Three tabs (Before Work · People · On Site) with a set-up line at the top, in place of nine tiles. The Programme tile
+// went (it's the job's Drawings › Programme folder) and Site Rules sits under Before Work for managers (operatives read
+// and sign it in their induction).
+
+/** The parts, as rows. */
+export type McPart = 'cpp' | 'f10' | 'asbestos' | 'site_layout' | 'subcontractors' | 'site_inductions' | 'permits' | 'inspections';
+export const MC_PART_TITLE: Record<McPart, string> = {
+  cpp: MC_DOC_LABEL.cpp, f10: MC_DOC_LABEL.f10, asbestos: MC_DOC_LABEL.asbestos, site_layout: 'Site Rules & Layout',
+  subcontractors: 'Subcontractors', site_inductions: 'Site Inductions', permits: 'Permits To Work', inspections: 'Inspections',
+};
+/** What operatives see unless a manager hides it: My Induction and Permits To Sign. Anything else only once a manager
+ *  shows it to them (the row's ⋮). MC_GUARDED: the parts a link is checked against (Site Rules pages stay open for signing). */
+export const MC_OP_DEFAULT: McPart[] = ['site_inductions', 'permits'];
+export const MC_GUARDED = ['cpp', 'f10', 'asbestos', 'subcontractors', 'site_inductions', 'permits', 'inspections'];
+type McVis = Pick<Site, 'mc_hidden_tiles' | 'mc_shown_tiles'>;
+export const mcOpSees = (site: McVis, key: string) =>
+  MC_OP_DEFAULT.includes(key as McPart) ? !(site.mc_hidden_tiles ?? []).includes(key) : (site.mc_shown_tiles ?? []).includes(key);
+/** Shows a part to operatives on this job, or hides it again. */
+export async function setMcOpSees(siteId: string, site: McVis, key: McPart, show: boolean) {
+  const flip = (list: string[] | null | undefined, add: boolean) => (add ? [...new Set([...(list ?? []), key])] : (list ?? []).filter((k) => k !== key));
+  const patch = MC_OP_DEFAULT.includes(key) ? { mc_hidden_tiles: flip(site.mc_hidden_tiles, !show) } : { mc_shown_tiles: flip(site.mc_shown_tiles, show) };
+  return !!(await db.from('sites').update(patch as never).eq('id', siteId).select('id')).data?.length;
+}
+
+/** The five things a Main Contractor job needs before work starts ("Set Up: 3 Of 5 Done"). Each ticks itself: an F10 and
+ *  an Asbestos Register uploaded, the Construction Phase Plan issued (or one uploaded), a Site Rules sheet or document on
+ *  the job, and the company's own Induction Form saved. go: a page in the job, or an address. */
+export type McSetupKey = 'f10' | 'asbestos' | 'cpp' | 'rules' | 'form';
+export const MC_SETUP: { k: McSetupKey; label: string; go: string }[] = [
+  { k: 'f10', label: MC_DOC_LABEL.f10, go: 'mc/docs/f10' },
+  { k: 'asbestos', label: MC_DOC_LABEL.asbestos, go: 'mc/docs/asbestos' },
+  { k: 'cpp', label: MC_DOC_LABEL.cpp, go: 'mc/docs/cpp' },
+  { k: 'rules', label: 'Site Rules', go: 'mc/layout' },
+  { k: 'form', label: 'Induction Form', go: '/pm/admin/inductionform' },
+];
+export function useMcSetup(siteId: string | undefined, orgId: string | null | undefined, on = true) {
   return useQuery({
-    queryKey: ['mcTiles', site?.id],
-    enabled: !!site && !!orgId,
+    queryKey: ['mcTiles', siteId, 'setup'],
+    enabled: !!siteId && !!orgId && on,
     queryFn: async () => {
-      const s = site as Site;
-      const [docs, prog, cos, assigned, done, permits, tpls, layout, people, plan] = await Promise.all([
+      const [docs, plan, rules, form] = await Promise.all([
+        db.from('mc_documents').select('category').eq('site_id', siteId as string).in('category', ['f10', 'asbestos', 'cpp']),
+        db.from('cpp_plans').select('status').eq('site_id', siteId as string).eq('status', 'issued').limit(1),
+        db.from('site_layout_docs').select('id').eq('site_id', siteId as string).limit(1),
+        db.from('induction_templates').select('org_id').eq('org_id', orgId as string).limit(1),
+      ]);
+      const cats = new Set(((docs.data as { category: string }[] | null) ?? []).map((d) => d.category));
+      const has = (r: { data: unknown }) => ((r.data as unknown[] | null) ?? []).length > 0;
+      const done: Record<McSetupKey, boolean> = { f10: cats.has('f10'), asbestos: cats.has('asbestos'), cpp: cats.has('cpp') || has(plan), rules: has(rules), form: has(form) };
+      return { done, n: Object.values(done).filter(Boolean).length };
+    },
+  });
+}
+
+const rowsOf = <T,>(r: { data: unknown }) => (r.data as T[] | null) ?? [];
+
+/** The Main Contractor page's counts; for an operative, whether they're inducted and how many permits wait for them. */
+export function useMcHome(site: Site | undefined, me: Profile | null) {
+  return useQuery({
+    queryKey: ['mcTiles', site?.id, me?.id],
+    enabled: !!site && !!me?.org_id,
+    queryFn: async () => {
+      const s = site as Site, uid = (me as Profile).id;
+      const [docs, cos, assigned, done, permits, tpls, layout, people, plan, mine] = await Promise.all([
         db.from('mc_documents').select('category').eq('site_id', s.id).neq('category', 'site_inductions'),
-        db.from('drawing_folders').select('id').eq('site_id', s.id).is('parent_id', null).eq('name', 'Main Contractor Programme'),
         db.from('subcontractor_companies').select('id').eq('site_id', s.id),
         db.from('site_assignments').select('user_id').eq('site_id', s.id),
         db.from('site_induction_completions').select('operative_id').eq('site_id', s.id),
-        db.from('permits').select('id').eq('site_id', s.id).eq('status', 'open'),
-        db.from('report_templates').select('id').eq('org_id', orgId as string).eq('is_mc_inspection', true).eq('archived', false),
+        db.from('permits').select('id,assigned_user_ids').eq('site_id', s.id).eq('status', 'open'),
+        db.from('report_templates').select('id').eq('org_id', (me as Profile).org_id as string).eq('is_mc_inspection', true).eq('archived', false),
         db.from('site_layout_docs').select('id').eq('site_id', s.id),
         db.from('profiles').select('id,role'),
-        // The job's Construction Phase Plan as it's being written (overnight review, 21 Nov 2026).
         db.from('cpp_plans').select('status,version').eq('site_id', s.id).order('updated_at', { ascending: false }).limit(1),
+        db.from('permit_signoffs').select('permit_id').eq('user_id', uid),
       ]);
-      const cppRow = ((plan.data as { status: string; version: number }[] | null) ?? [])[0];
       const count: Record<string, number> = {};
-      ((docs.data as { category: string }[] | null) ?? []).forEach((d) => { count[d.category] = (count[d.category] || 0) + 1; });
-      const roles = Object.fromEntries(((people.data as { id: string; role: string }[] | null) ?? []).map((p) => [p.id, p.role]));
-      const roster = new Set(((assigned.data as { user_id: string }[] | null) ?? []).map((a) => a.user_id).filter((u) => !roles[u] || roles[u] === 'operative'));
-      const doneIds = new Set(((done.data as { operative_id: string }[] | null) ?? []).map((c) => c.operative_id));
-      const tplIds = ((tpls.data as { id: string }[] | null) ?? []).map((t) => t.id);
-      const progId = ((prog.data as { id: string }[] | null) ?? [])[0]?.id ?? null;
-      const [insp, progFiles] = await Promise.all([
-        tplIds.length ? db.from('report_submissions').select('id').eq('site_id', s.id).in('template_id', tplIds) : Promise.resolve({ data: [] }),
-        progId ? db.from('drawing_files').select('id').eq('site_id', s.id).eq('folder_id', progId).eq('status', 'current') : Promise.resolve({ data: [] }),
-      ]);
-      const n = (k: string) => `${count[k] || 0} document${(count[k] || 0) === 1 ? '' : 's'}`;
-      const open = ((permits.data as unknown[] | null) ?? []).length;
-      const nInsp = ((insp.data as unknown[] | null) ?? []).length;
-      const nProg = ((progFiles.data as unknown[] | null) ?? []).length;
-      const nLayout = ((layout.data as unknown[] | null) ?? []).length;
-      const nCos = ((cos.data as unknown[] | null) ?? []).length;
+      rowsOf<{ category: string }>(docs).forEach((d) => { count[d.category] = (count[d.category] || 0) + 1; });
+      const roles = Object.fromEntries(rowsOf<{ id: string; role: string }>(people).map((p) => [p.id, p.role]));
+      const roster = new Set(rowsOf<{ user_id: string }>(assigned).map((a) => a.user_id).filter((u) => !roles[u] || roles[u] === 'operative'));
+      const doneIds = new Set(rowsOf<{ operative_id: string }>(done).map((c) => c.operative_id));
+      const tplIds = rowsOf<{ id: string }>(tpls).map((t) => t.id);
+      const insp = tplIds.length ? await db.from('report_submissions').select('id').eq('site_id', s.id).in('template_id', tplIds) : { data: [] };
+      const signed = new Set(rowsOf<{ permit_id: string }>(mine).map((x) => x.permit_id));
+      const open = rowsOf<{ id: string; assigned_user_ids: string[] | null }>(permits);
       return {
-        progFolderId: progId,
-        tiles: [
-          { key: 'cpp', icon: '📘', title: MC_DOC_LABEL.cpp, sub: cppRow ? (cppRow.status === 'issued' ? `Issued · version ${cppRow.version}` : 'Draft · being written') : n('cpp') },
-          { key: 'site_layout', icon: '🗺', title: 'Site Rules & Layout', sub: `${nLayout} document${nLayout === 1 ? '' : 's'}` },
-          { key: 'site_inductions', icon: '🪪', title: 'Site Inductions', sub: roster.size ? `${[...doneIds].filter((x) => roster.has(x)).length} of ${roster.size} inducted` : `${doneIds.size} completed` },
-          { key: 'subcontractors', icon: '👷', title: 'Subcontractors', sub: `${nCos} compan${nCos === 1 ? 'y' : 'ies'}` },
-          { key: 'permits', icon: '🧾', title: 'Permits To Work', sub: open ? `${open} open` : 'None open' },
-          { key: 'inspections', icon: '🔍', title: 'Inspections', sub: nInsp ? `${nInsp} logged` : tplIds.length ? 'None logged yet' : 'Set Up Templates' },
-          { key: 'asbestos', icon: '☣️', title: MC_DOC_LABEL.asbestos, sub: n('asbestos') },
-          { key: 'f10', icon: '📮', title: MC_DOC_LABEL.f10, sub: n('f10') },
-          { key: 'programme', icon: '📅', title: 'Programme', sub: `${nProg} document${nProg === 1 ? '' : 's'}` },
-        ],
+        docs: count,
+        cpp: rowsOf<{ status: string; version: number }>(plan)[0] ?? null,
+        companies: rowsOf(cos).length,
+        rosterSize: roster.size, inducted: [...doneIds].filter((x) => roster.has(x)).length, completions: doneIds.size,
+        openPermits: open.length, templates: tplIds.length, inspections: rowsOf(insp).length, layout: rowsOf(layout).length,
+        meInducted: doneIds.has(uid),
+        toSign: open.filter((p) => (p.assigned_user_ids ?? []).includes(uid) && !signed.has(p.id)).length,
       };
     },
   });
 }
 
-export async function setMcTileHidden(siteId: string, current: string[], key: string, hide: boolean) {
-  const next = hide ? [...new Set([...current, key])] : current.filter((k) => k !== key);
-  return !!(await db.from('sites').update({ mc_hidden_tiles: next } as never).eq('id', siteId).select('id')).data?.length;
+/** Everyone on a Main Contractor job, ours and the subcontractors' operatives, each with Inducted and Signed Site Rules. */
+export type McPerson = { id: string; company: string | null; inducted: boolean; rules: boolean };
+export function useMcPeople(siteId: string | undefined, on: boolean) {
+  return useQuery({
+    queryKey: ['mcTiles', siteId, 'people'],
+    enabled: !!siteId && on,
+    queryFn: async () => {
+      const [assigned, subOps, cos, done, docs, people] = await Promise.all([
+        db.from('site_assignments').select('user_id').eq('site_id', siteId as string),
+        db.from('subcontractor_operatives').select('user_id,subcontractor_company_id').eq('site_id', siteId as string),
+        db.from('subcontractor_companies').select('id,name').eq('site_id', siteId as string),
+        db.from('site_induction_completions').select('operative_id').eq('site_id', siteId as string),
+        db.from('site_layout_docs').select('id').eq('site_id', siteId as string),
+        db.from('profiles').select('id,role'),
+      ]);
+      const roles = Object.fromEntries(rowsOf<{ id: string; role: string }>(people).map((p) => [p.id, p.role]));
+      const coName = Object.fromEntries(rowsOf<{ id: string; name: string }>(cos).map((c) => [c.id, c.name]));
+      const companyOf: Record<string, string> = {};
+      rowsOf<{ user_id: string | null; subcontractor_company_id: string }>(subOps).forEach((o) => { if (o.user_id) companyOf[o.user_id] = coName[o.subcontractor_company_id] || ''; });
+      const ids = [...new Set([...rowsOf<{ user_id: string }>(assigned).map((a) => a.user_id).filter((u) => !roles[u] || roles[u] === 'operative'), ...Object.keys(companyOf)])];
+      const doneIds = new Set(rowsOf<{ operative_id: string }>(done).map((c) => c.operative_id));
+      const ruleIds = rowsOf<{ id: string }>(docs).map((d) => d.id);
+      const sigs = ruleIds.length && ids.length ? rowsOf<{ layout_id: string; user_id: string }>(await db.from('site_layout_signatures').select('layout_id,user_id').in('layout_id', ruleIds)) : [];
+      const signedBy: Record<string, Set<string>> = {};
+      sigs.forEach((x) => { (signedBy[x.user_id] ??= new Set()).add(x.layout_id); });
+      const out: McPerson[] = ids.map((id) => ({ id, company: companyOf[id] || null, inducted: doneIds.has(id), rules: !!ruleIds.length && ruleIds.every((r) => signedBy[id]?.has(r)) }));
+      return { people: out, hasRules: ruleIds.length > 0 };
+    },
+  });
 }
 
 /* ---------- document folders (CPP / Asbestos / F10) ---------- */

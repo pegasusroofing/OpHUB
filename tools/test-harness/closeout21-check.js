@@ -34,7 +34,8 @@ const seed = (db, me, O) => {
     await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
     await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
     await page.goto(`${B}/sites/${S1}/mc/subcontractors/co1`); await page.waitForTimeout(5000);
-    check(/Close-Out Checks and sign-off/.test(await text()), 'the company page has a Close-Out tile');
+    await page.getByText('Handover', {exact: true}).filter({visible: true}).first().click(); await page.waitForTimeout(1200);
+    check(/Close-Out Checks and sign-off/.test(await text()), 'the company page has Close-Out under Handover');
     await page.getByText('Close-Out', {exact: true}).first().click(); await page.waitForTimeout(5000);
     let t = await text();
     check(/Schedule Of Works Complete 1 of 2 tasks/.test(t) && /O&M Manual Submitted Submitted/.test(t) && /RAMS Approved 1 approved/.test(t) && /Their Snags Closed 1 still open/.test(t), 'the checks fill themselves in from the job');

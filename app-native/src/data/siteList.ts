@@ -11,7 +11,7 @@ const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supab
 const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
 const uuid = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = (Math.random() * 16) | 0; return (c === 'x' ? r : (r & 3) | 8).toString(16); }));
 
-export type NewSite = { name: string; address: string; postcode: string; job_number: string; client_name: string; client_contact_name?: string; client_phone: string; client_email: string; multi_site: boolean; repair_contract: boolean; status: 'active' | 'upcoming'; start_date: string };
+export type NewSite = { name: string; address: string; postcode: string; job_number: string; client_name: string; client_contact_name?: string; client_phone: string; client_email: string; multi_site: boolean; repair_contract: boolean; status: 'active' | 'upcoming'; start_date: string; acting_as_main_contractor?: boolean };
 
 /** Creates the project; returns its id, or an error message. */
 export async function createSite(me: Profile, d: NewSite, autoNumbers: boolean): Promise<{ id: string } | { error: string }> {
@@ -19,7 +19,7 @@ export async function createSite(me: Profile, d: NewSite, autoNumbers: boolean):
   // Plain insert (asking for the row back can be refused by the sites policy).
   const r = await db.from('sites').insert({
     id, name: d.name, address: d.address || null, postcode: d.postcode || null, job_number: autoNumbers ? null : d.job_number || null, status: d.status,
-    start_date: d.start_date || null, multi_site: d.multi_site, repair_contract: d.repair_contract,
+    start_date: d.start_date || null, multi_site: d.multi_site, repair_contract: d.repair_contract, acting_as_main_contractor: !!d.acting_as_main_contractor,
     client_name: d.client_name || null, client_contact_name: d.client_contact_name || null, client_phone: d.client_phone || null, client_email: d.client_email || null, org_id: me.org_id, created_by: me.id,
   } as never);
   if (r.error) return { error: `Save failed — ${r.error.message}` };

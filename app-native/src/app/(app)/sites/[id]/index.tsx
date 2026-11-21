@@ -8,12 +8,14 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { AssignList } from '@/components/AssignList';
 import { HowTo } from '@/components/HowTo';
+import { JobRows, type JobRow } from '@/components/JobRows';
 import { JobSignPrompt } from '@/components/JobSignPrompt';
 import { MoneyStrip } from '@/components/MoneyStrip';
 import { OphIcon } from '@/components/OphIcon';
 import { useToast } from '@/components/toast';
 import { Card, Muted } from '@/components/ui';
 import { WeatherLink } from '@/components/WeatherSwap';
+import { MC_SETUP, useMcSetup } from '@/data/mc';
 import { useRepairJobs } from '@/data/repairs';
 import { assignToSite, removeFromSite, useTeamData } from '@/data/siteAdmin';
 import { useSiteHome } from '@/data/siteHome';
@@ -30,39 +32,11 @@ import { can } from '@/lib/rules/rolePerms';
 import { base, page, space, useDesk, useTheme } from '@/theme/theme';
 import { useQueryClient } from '@tanstack/react-query';
 
-type R = { key: string; ic: string; title: string; sub: string; badge?: number | string; onPress: () => void };
+type R = JobRow;
 
 // Flat, as Finance (Andy, 3 Nov 2026).
 const cardBox = { backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, shadowOpacity: 0, elevation: 0 } as const;
 const rule = '#EEF0F2';
-
-/** The job's areas as rows in one box (Andy, 9 Nov 2026): a plain icon, the name, its count or note, ›. On a laptop the
- *  note sits on the right; on a phone it goes under the name. cols 2 = two columns of rows. */
-function JobRows({ rows, cols, desk }: { rows: R[]; cols: number; desk: boolean }) {
-  // A phone's rows are 1.1 × bigger (Andy, 13 Nov 2026).
-  const k = desk ? 1 : 1.1;
-  return (
-    <View style={[cardBox, { borderRadius: 10, flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: cols > 1 ? 4 : 0 }]}>
-      {rows.map((x, i) => (
-        <Pressable key={x.key} onPress={x.onPress} accessibilityRole="button" accessibilityLabel={`${x.title}, ${x.sub}`}
-          style={({ pressed }) => [{ width: `${100 / cols}%`, flexDirection: 'row', alignItems: 'center', gap: 12 * k, paddingVertical: 11 * k, paddingHorizontal: 14, borderTopWidth: i >= cols ? 1 : 0, borderTopColor: rule }, pressed && { backgroundColor: '#F7F8FA' }]}>
-          <View style={{ width: 32 * k, height: 32 * k, borderRadius: 8 * k, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: base.cardLine }}>
-            <OphIcon name={x.ic} size={17 * k} color={base.ink} />
-          </View>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text numberOfLines={1} style={[heading(600), { fontSize: 13.5 * k, color: base.ink }]}>{x.title}</Text>
-            {!desk && !!x.sub && <Text numberOfLines={1} style={{ fontSize: 11.5 * k, color: base.slateLight, marginTop: 1 }}>{x.sub}</Text>}
-          </View>
-          {desk && !!x.sub && <Text numberOfLines={1} style={{ flexShrink: 1, maxWidth: '45%', fontSize: 12, color: base.slateLight }}>{x.sub}</Text>}
-          {x.badge != null && x.badge !== 0 && (
-            <Text style={{ backgroundColor: base.red, color: '#fff', fontSize: 11, fontWeight: '600', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 5, overflow: 'hidden' }}>{x.badge}</Text>
-          )}
-          <OphIcon name="chevron" size={14} color={base.slateLight} />
-        </Pressable>
-      ))}
-    </View>
-  );
-}
 
 /** A repair contract's Works Orders, as the red Live Projects card on the home page (Andy, 9 Nov 2026). */
 function WorksOrdersCard({ sub, onPress }: { sub: string; onPress: () => void }) {
@@ -109,6 +83,7 @@ export default function SiteHome() {
   const { data: rjobs = [], refetch: refetchJobs } = useRepairJobs(site?.repair_contract ? site.id : undefined);
   // Subcontract Orders shows when the job is on a price or already has orders (Andy, 13 Nov 2026).
   const { data: subOrders } = useSubOrders(me && isManager(me) ? id : undefined);
+  const { data: mcSetup } = useMcSetup(site?.id, me?.org_id, !!site?.acting_as_main_contractor && !!me && isManager(me));
   useFocusEffect(useCallback(() => { void refetch(); void refetchJobs(); }, [refetch, refetchJobs]));
   // No check-in point yet: find one from the postcode for a manager to confirm (20 Nov 2026).
   const qc = useQueryClient();
@@ -155,8 +130,9 @@ export default function SiteHome() {
   const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
   const snags = h?.openSnags ?? 0;
 
-  // 510 getMcTiles: nine areas; operatives don't count the ones hidden from them.
-  const mcAreas = 9 - (mgr ? 0 : new Set(((site as { mc_hidden_tiles?: string[] | null }).mc_hidden_tiles) ?? []).size);
+  // Main Contractor: a manager sees what's left to set up, an operative their induction and permits (app review, 21 Nov 2026:
+  // "Drop 'areas' from the job row. Show what's missing instead").
+  const mcSub = mgr ? (mcSetup ? (mcSetup.n < MC_SETUP.length ? `${MC_SETUP.length - mcSetup.n} to set up` : 'All set up') : '…') : 'My induction · permits to sign';
   const rows: R[] = client ? [
     { key: 'sow', ic: 'clipboard', title: 'Schedule of Works', sub: sowSub, onPress: go('schedule') },
     { key: 'hs', ic: 'shield', title: 'Health & Safety', sub: 'RAMS · COSHH · TBT', onPress: go('hs') },
@@ -166,7 +142,7 @@ export default function SiteHome() {
     // The check-in point found from the postcode, waiting to be confirmed: first, with a 1 (Andy, 20 Nov 2026).
     ...(mgr && !site.multi_site && needsFenceConfirm(site) ? [{ key: 'geo', ic: 'pin', title: 'Confirm The Check-In Location', sub: `Found from ${site.postcode || 'the postcode'} · tap to check it`, badge: 1, onPress: go('checkin') }] : []),
     ...(!mgr || can(me, 'sow') ? [{ key: 'sow', ic: 'clipboard', title: 'Schedule of Works', sub: sowSub, onPress: go('schedule') }] : []),
-    ...(site.acting_as_main_contractor ? [{ key: 'mc', ic: 'building', title: 'Main Contractor', sub: `${mcAreas} area${mcAreas === 1 ? '' : 's'}`, onPress: go('mc') }] : []),
+    ...(site.acting_as_main_contractor ? [{ key: 'mc', ic: 'building', title: 'Main Contractor', sub: mcSub, onPress: go('mc') }] : []),
     { key: 'hs', ic: 'shield', title: 'Health & Safety', sub: h ? `${h.pendingRams} to sign` : '…', badge: mgr ? (h?.hsGap ? '!' : undefined) : h?.pendingRams || undefined, onPress: go('hs') },
     // Operatives only view drawings: no Upload in the line under it (Andy, 19 Nov 2026).
     ...(!mgr || can(me, 'docs') ? [{ key: 'dwg', ic: 'layers', title: "Drawings, Specs & Programme", sub: mgr ? 'View & upload' : 'View drawings & specs', onPress: go('drawings') }] : []),

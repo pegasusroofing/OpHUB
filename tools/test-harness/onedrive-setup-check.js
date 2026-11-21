@@ -114,6 +114,7 @@ const IN_RTB = [{id: 'f-live', name: 'Live Projects', driveId: 'd1'}, {id: 'f-ar
   await page.screenshot({path: 'shots/od-newproject.png'});
   const fill = async (label, v) => { await page.locator(`text="${label}"`).first().locator('xpath=following::input[1]').fill(v); };
   await fill('Site Name *', 'Oak House'); await fill('Address *', 'Oak House, Banbury'); await fill('Job Number', 'J201');
+  await page.getByText('No', {exact: true}).filter({visible: true}).first().click(); 
   await page.getByText('Live', {exact: true}).first().click();
   await page.getByText('Choose a date', {exact: true}).first().click(); await page.waitForTimeout(500); await page.locator('text="16" >> visible=true').last().click(); await page.waitForTimeout(400);
   const before = fns.filter(([n, b]) => n === 'onedrive-job-pack' && b.action === 'setup').length;
@@ -123,6 +124,7 @@ const IN_RTB = [{id: 'f-live', name: 'Live Projects', driveId: 'd1'}, {id: 'f-ar
   await page.goto(`${BASE}/sites/new`); await page.waitForTimeout(4000);
   await page.getByPlaceholder(/^Start typing/).fill('Bellway Homes'); await page.waitForTimeout(1200);
   await fill('Site Name *', 'Elm Court'); await fill('Address *', 'Elm Court, Oxford'); await fill('Job Number', 'J202');
+  await page.getByText('No', {exact: true}).filter({visible: true}).first().click(); 
   await page.getByText('Live', {exact: true}).first().click();
   await page.getByText('Choose a date', {exact: true}).first().click(); await page.waitForTimeout(500); await page.locator('text="16" >> visible=true').last().click(); await page.waitForTimeout(400);
   await page.getByText('Create Project', {exact: true}).click(); await page.waitForTimeout(3500);

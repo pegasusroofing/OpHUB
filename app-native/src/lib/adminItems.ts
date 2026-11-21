@@ -12,12 +12,15 @@ import { isFinanceUser, isFullManager, isManager } from '@/lib/roles';
 import { can } from '@/lib/rules/rolePerms';
 import type { Organization, Profile } from '@/lib/types';
 
-export type AdminPage = 'people' | 'projects' | 'finance' | 'hs' | 'company';
+// Main Contractor is its own tab (app review, 21 Nov 2026): CPP Template, Site Rules Template, Induction Form, Subcontractor
+// Library (sign-ups inside it) and Inspection Templates, in one place instead of five.
+export type AdminPage = 'people' | 'projects' | 'finance' | 'hs' | 'mc' | 'company';
 export const ADMIN_PAGES: Record<AdminPage, { label: string; sub: string; icon: string; show: (me: Profile, org: Organization | null) => boolean }> = {
   people: { label: 'People', sub: 'Users · Roles · Phones · Check-in logs', icon: '👥', show: (me) => isManager(me) },
   projects: { label: 'Projects', sub: 'Job numbers · Works & pricing · Reports', icon: '🏗', show: (me) => isManager(me) },
   finance: { label: 'Finance', sub: 'Invoices · VAT · Purchases · Xero', icon: '💷', show: (me, org) => isManager(me) && isFinanceUser(me, org) },
   hs: { label: 'H&S', sub: 'Policy · RAMS · COSHH · Toolbox talks', icon: '🦺', show: (me) => isManager(me) },
+  mc: { label: 'Main Contractor', sub: 'CPP · Site rules · Induction form · Subcontractors · Inspections', icon: '🏢', show: (me) => isManager(me) },
   company: { label: 'Company', sub: 'Logo · Theme · Integrations', icon: '🎨', show: (me) => me.role === 'admin' },
 };
 /** Old links to a tab that has moved. */
@@ -40,7 +43,8 @@ export const ADMIN_ITEMS: AdminItem[] = [
   { key: 'devicelocks', page: 'people', group: 'Team', icon: '📱', label: 'Device Locks', sub: 'One phone = one person', kw: 'device phone lock approve', route: '/pm/admin/devicelocks', show: (u) => isFullManager(u) && can(u, 'people') },
   { key: 'checkinlogs', page: 'people', group: 'Logs', icon: '📍', label: 'Check-In Logs', sub: 'Everyone’s check-ins, drivers too, by dates', kw: 'check in out log site attendance driver shift break hours', route: '/pm/admin/checkinlogs', show: isManager },
   { key: 'drivercheckins', page: 'people', group: 'Logs', icon: '🚚', label: 'Driver Check-In Log', sub: 'Shifts, breaks, hours', kw: 'driver check in shift break hours', route: '/pm/admin/drivercheckins', show: () => false }, // in Check-In Logs now (Andy, 18 Nov 2026)
-  { key: 'subapplications', page: 'people', group: 'Subcontractors', icon: '🏗', label: 'Subcontractor Sign-Up', sub: 'Sign-up form link and applications', kw: 'subcontractor sign up form application apply', route: '/pm/admin/subapps', show: isManager },
+  // In the Subcontractor Library now (Main Contractor tab, 21 Nov 2026); its page opens from there.
+  { key: 'subapplications', page: 'mc', group: 'Subcontractors', icon: '🏗', label: 'Subcontractor Sign-Up', sub: 'Sign-up form link and applications', kw: 'subcontractor sign up form application apply', route: '/pm/admin/subapps', show: () => false },
 
   // Projects.
   // Job numbers, from the Projects side too (Andy, 18 Nov 2026: 'There is no simple way of setting up job numbers ... when setting up in projects it links to finance and vice versa'): the same company setting Finance › Settings › Project Numbers uses.
@@ -48,7 +52,6 @@ export const ADMIN_ITEMS: AdminItem[] = [
   { key: 'sowlibrary', page: 'projects', group: 'Works & Pricing', icon: '🧱', label: 'Schedule of Works Library', sub: 'Standard sections and tasks', kw: 'sow schedule works library', route: '/pm/admin/sowlibrary', show: isManager },
   { key: 'ratecard', page: 'projects', group: 'Works & Pricing', icon: '💷', label: 'Price Sheet Rate Card', sub: 'Rates, dropdown options and Terms', kw: 'price sheet rate card terms conditions builder', route: '/pm/admin/ratecard', show: admin },
   { key: 'suppliers', page: 'projects', group: 'Works & Pricing', icon: '🏪', label: 'Suppliers', sub: 'Suppliers, order emails and branches', kw: 'supplier merchant branch address materials', route: '/pm/admin/suppliers', show: isFullManager },
-  { key: 'maincontractor', page: 'projects', group: 'Works & Pricing', icon: '🏢', label: 'Main Contractor', sub: 'Subcontractor Library and inspection templates', kw: 'main contractor mc inspection subcontractor library', route: '/pm/admin/companylibrary', show: isManager },
   { key: 'reporttemplates', page: 'projects', group: 'Reports & Documents', icon: '📝', label: 'Report Templates', sub: 'Inspections, surveys, briefings', kw: 'inspection survey report template briefing', route: '/pm/admin/templates', show: isManager },
   { key: 'signtemplates', page: 'projects', group: 'Reports & Documents', icon: '✍️', label: 'Signing Templates', sub: 'RAMS signature boxes', kw: 'rams signature sign template docusign', route: '/pm/admin/signtemplates', show: isManager },
 
@@ -70,10 +73,13 @@ export const ADMIN_ITEMS: AdminItem[] = [
   { key: 'ramslibrary', page: 'hs', group: 'Libraries', icon: '🦺', label: 'RAMS Library', sub: 'Hazards, method statements, templates', kw: 'rams risk assessment method statement hazard template', route: '/pm/admin/ramslibrary', show: isFullManager },
   { key: 'coshhbuilder', page: 'hs', group: 'Libraries', icon: '🧪', label: 'COSHH Library', sub: 'Data sheets → products → assessments in folders', kw: 'coshh substance product data sheet', route: '/pm/admin/coshh', show: isFullManager },
   // The Construction Phase Plan template (Andy, 19 Nov 2026), on the website (beta link and app.operativehub.co.uk) like the builder.
-  { key: 'cpptemplate', page: 'hs', group: 'Libraries', icon: '📘', label: 'CPP Template', sub: 'Construction Phase Plan wording for new plans', kw: 'cpp construction phase plan template main contractor', route: '/pm/admin/cpptemplate', show: (me) => isFullManager(me) && isBetaSite() },
+  { key: 'cpptemplate', page: 'mc', group: 'Main Contractor', icon: '📘', label: 'CPP Template', sub: 'Construction Phase Plan wording for new plans', kw: 'cpp construction phase plan template main contractor', route: '/pm/admin/cpptemplate', show: (me) => isFullManager(me) && isBetaSite() },
   // The Site Rules template and the induction form (Andy, 20 Nov 2026).
-  { key: 'siterules', page: 'hs', group: 'Libraries', icon: '📏', label: 'Site Rules Template', sub: 'The numbered rules every job’s Site Rules sheet starts from', kw: 'site rules layout template numbered main contractor', route: '/pm/admin/siterules', show: isFullManager },
-  { key: 'inductionform', page: 'hs', group: 'Libraries', icon: '🦺', label: 'Induction Form', sub: 'The questions operatives answer at a site induction', kw: 'induction form questions next of kin emergency health site induction main contractor', route: '/pm/admin/inductionform', show: isFullManager },
+  { key: 'siterules', page: 'mc', group: 'Main Contractor', icon: '📏', label: 'Site Rules Template', sub: 'The numbered rules every job’s Site Rules sheet starts from', kw: 'site rules layout template numbered main contractor', route: '/pm/admin/siterules', show: isFullManager },
+  { key: 'inductionform', page: 'mc', group: 'Main Contractor', icon: '🦺', label: 'Induction Form', sub: 'The questions operatives answer at a site induction', kw: 'induction form questions next of kin emergency health site induction main contractor', route: '/pm/admin/inductionform', show: isFullManager },
+  { key: 'maincontractor', page: 'mc', group: 'Main Contractor', icon: '🏢', label: 'Subcontractor Library', sub: 'Every subcontractor company’s documents, and sign-ups', kw: 'main contractor mc subcontractor library company insurance accreditation sign up form application apply', route: '/pm/admin/companylibrary', show: isManager },
+  { key: 'mcinsp', page: 'mc', group: 'Main Contractor', icon: '📋', label: 'Inspection Templates', sub: 'Main Contractor inspections', kw: 'main contractor mc inspection inspections template templates', route: '/pm/admin/templates?kind=mc', show: isManager },
+
   // One tab since 19 Nov 2026 (Andy: "move the toolbox talks required into the toolbox talks templates and have the tab
   // header as toolbox talks"): how often each live project needs a talk (14 Nov), the templates, and Create A Toolbox Talk.
   { key: 'tbt', page: 'hs', group: 'Toolbox Talks', icon: '🗣️', label: 'Toolbox Talks', sub: 'How often, templates and making talks', kw: 'toolbox talk tbt template create builder how often monthly frequency rule required', route: '/pm/admin/tbt', show: (me) => isFullManager(me) && admin(me) },

@@ -30,9 +30,11 @@ const SHOTS = path.join(__dirname, 'shots', 'subho20'); require('fs').mkdirSync(
   // ---- Their admin, Schedule of Works not finished ----
   await page.goto(`${B}/sites/${S1}/mc/subcontractors/co1`); await page.waitForTimeout(5000);
   let t = await text();
-  check(/Handover/.test(t) && /O&M manual/.test(t) && /Check In \/ Out/.test(t) && /Site Induction/.test(t) && /Site Rules & Layout/.test(t) && /Calendar/.test(t), 'their company page: Handover tile, plus Check In, Site Induction, Site Rules and Calendar');
+  // Four tabs since 21 Nov 2026; their own people keep Check In, My Induction and Calendar at the top (Site Rules are signed in the induction).
+  check(/Handover/.test(t) && /Check In \/ Out/.test(t) && /My Induction/.test(t) && /Calendar/.test(t) && !/Site Rules & Layout/.test(t), 'their company page: a Handover tab, plus Check In, My Induction and Calendar');
   await page.screenshot({path: path.join(SHOTS, 'company-page.png'), fullPage: true});
-  await vis('Handover').first().click(); await page.waitForTimeout(4000);
+  await vis('Handover').first().click(); await page.waitForTimeout(1200);
+  await vis('O&M Manual').first().click(); await page.waitForTimeout(4000);
   t = await text();
   check(/Schedule Of Works: 0 of 1 Tasks Complete/.test(t) && /submitted once every task/.test(t), 'Handover: says their Schedule of Works isn’t complete (0 of 1)');
   const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout: 15000}), vis('⬆️ Upload Our O&M (PDF)').first().click()]);

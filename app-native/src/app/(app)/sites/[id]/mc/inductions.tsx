@@ -1,7 +1,7 @@
 // Site Inductions (550). Operatives fill in the company's own induction form (Andy, 20 Nov 2026: "a bit more of a
 // customisable form ... adding info missing, ie next of kin etc"): a tab per section, then Sign; next of kin and the
 // like come from their last induction. A manager deletes one if it needs redoing. Managers: Outstanding / Completed,
-// view a signed PDF, delete one; the form itself is edited in Admin › H&S › Induction Form.
+// view a signed PDF, delete one; the form itself is edited in Admin › Main Contractor › Induction Form.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -65,7 +65,7 @@ export default function Inductions() {
         <Stack.Screen options={{ title: 'Site Inductions' }} />
         {/* The Finance-style tabs, not red pill buttons (Andy, 20 Nov 2026). */}
         <FinTabs even value={tab} onChange={(k) => setTab(k as 'outstanding' | 'completed')} items={[['outstanding', 'Outstanding'], ['completed', 'Completed Inductions']]} />
-        {/* The form operatives fill in is the company's own (Admin › H&S › Induction Form, 20 Nov 2026). */}
+        {/* The form operatives fill in is the company's own (Admin › Main Contractor › Induction Form; 20 Nov 2026). */}
         {mgr && tab === 'outstanding' && isFullManager(me) && <View style={{ alignItems: 'center', marginBottom: 8 }}><Button small kind="ghost" title="✎ Edit The Induction Form" onPress={() => router.push('/pm/admin/inductionform' as never)} /></View>}
         <Muted style={{ marginBottom: 8 }}>{roster.length} on the roster · {data?.total ?? 0} completed</Muted>
         {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((u) => {

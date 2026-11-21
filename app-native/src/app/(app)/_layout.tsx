@@ -90,16 +90,14 @@ export default function AppLayout() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [me, org]);
-  // A new company's admin sets up the logo first (160): kept on the branding page until there is one.
-  const needsSetup = me?.role === 'admin' && !me._support && !!org && !org.logo_path;
-  useEffect(() => { if (needsSetup && path !== '/pm/admin/branding') router.replace('/pm/admin/branding' as never); }, [needsSetup, path]);
+  // A new company's logo is a reminder on Home's Get Going list, not a lock (app review, 21 Nov 2026: "locked on the logo
+  // page until they upload a logo"). The OpHUB colours are used until it's added.
   if (policy.data?.pending && policy.data.doc && path !== '/signature' && !me?._support) return <PolicyGate doc={policy.data.doc} />;
   // A Finance-only company (908 finOnlyRoute) or a Finance Controller: just the Finance app; someone without Finance is told who switches it on.
   if (me && org && financeOnlyPerson(me, org) && me.role !== 'superadmin') {
     if (!isFinanceUser(me, org)) return <FinNoAccess />;
-    // 160 company setup (logo) comes first, else the two redirects bounce off each other.
-    // Expenses too: it's on their menu (19 Nov 2026).
-    if (!(needsSetup && path === '/pm/admin/branding') && !/^\/(fin|account|signature|home|expenses)(\/|$)/.test(path)) return <Redirect href={'/fin' as never} />;
+    // Expenses too: it's on their menu (19 Nov 2026). An admin can still add the logo.
+    if (!(me.role === 'admin' && path === '/pm/admin/branding') && !/^\/(fin|account|signature|home|expenses)(\/|$)/.test(path)) return <Redirect href={'/fin' as never} />;
   }
   return (
     <View style={{ flex: 1 }}>

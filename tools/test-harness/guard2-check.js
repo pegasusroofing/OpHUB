@@ -26,7 +26,7 @@ const at = (page) => page.url().replace('http://localhost:8081','');
   }
   {
     const {ctx, db} = await makeContext(browser, 'operative', [], {viewport:{width:390, height:800}});
-    const st = db.sites.find(s=>s.id===S1); st.acting_as_main_contractor = true; st.mc_hidden_tiles = ['permits'];
+    const st = db.sites.find(s=>s.id===S1); st.acting_as_main_contractor = true; st.mc_hidden_tiles = ['permits']; st.mc_shown_tiles = ['inspections']; // operatives see inspections only once shown (21 Nov 2026)
     db.site_assignments.push({id:'sa9', site_id:S1, user_id:'me'});
     const page = await ctx.newPage(); page.on('pageerror', e=>errs.push(e.message)); await login(page);
     await page.goto('http://localhost:8081/sites/'+S1+'/mc/permits'); await page.waitForTimeout(5000);

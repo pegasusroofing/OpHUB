@@ -115,7 +115,7 @@ export default function SiteAdmin() {
             <View>
               <Card>
                 <TypeRow first label="Main Contractor" on={mc} edit={full} onPress={() => void flag({ acting_as_main_contractor: !mc }, '')}
-                  desc='A "Main Contractor" tile on the job: Construction Phase Plan, Site Rules & Layout, Inductions, Subcontractors, Permits, Inspections, Asbestos Register and F10.' />
+                  desc='A Main Contractor page on the job: Before Work (Construction Phase Plan, F10, Asbestos Register, Site Rules), People (subcontractors and inductions) and On Site (permits and inspections).' />
                 {/* 380: every subcontractor company's own library (insurance, accreditations, RAMS templates), shared across jobs. */}
                 <View style={{ alignItems: 'center', marginBottom: 6 }}><Button small kind="ghost" title="📚 Company Library" onPress={() => router.push('/pm/admin/companylibrary' as never)} /></View>
                 <TypeRow label="Multi-Site" on={!!site.multi_site} edit={full} onPress={() => void setType('multi')}

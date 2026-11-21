@@ -1,4 +1,5 @@
-// A new company's admin (no logo yet) is kept on Set Up Your Company until a logo is added.
+// A new company's admin (no logo yet) is no longer kept on the logo page (Get Going, 21 Nov 2026): they land on Home, and the
+// logo is a reminder under Later. (mcsimple21-check.js checks it; this prints where they land.)
 const {chromium, makeContext} = require('./harness');
 (async()=>{
   const BASE = 'http://localhost:8081';

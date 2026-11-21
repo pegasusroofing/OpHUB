@@ -140,7 +140,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
       await tab(/^Issue/);
       check(/You.re editing version 1/.test(await text()) && /Issue Revision 2/.test(await text()), 'laptop: the Issue tab says to issue revision 2');
       await page.screenshot({path: path.join(SHOTS, 'laptop-issued-v1.png'), fullPage: true});
-      await page.getByText('Issue Revision 2', {exact: true}).click(); await page.waitForTimeout(800);
+      await page.getByRole('button', {name: 'Issue Revision 2', exact: true}).click(); await page.waitForTimeout(800);
       // Typing boxes that pop up are ready to type in (Andy, 19 Nov 2026: the mark-up's Text box "doesnt automatically
       // take me into the box"): it's the same pop-up everywhere, so type without clicking into it.
       await page.keyboard.type('Scaffold moved');

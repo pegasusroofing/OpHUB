@@ -1,5 +1,5 @@
 // The Admin Centre's two rows of tabs (Andy, 18 Nov 2026: "can we make the admin centre more tab style please and sub
-// tabs"), as Finance: People · Projects · Finance · H&S · Company, then that tab's pages as sub tabs, and the page
+// tabs"), as Finance: People · Projects · Finance · H&S · Main Contractor · Company, then that tab's pages as sub tabs, and the page
 // chosen straight under them. The top bar draws them on every Admin Centre page, so choosing a tab swaps the page under
 // it (no list to step back to). 🔍 at the end of the sub tabs finds any page. The pages themselves are as before.
 import { router, useGlobalSearchParams, usePathname } from 'expo-router';
@@ -64,12 +64,12 @@ export function AdminTabs({ at }: { at: NonNullable<ReturnType<typeof useAdminTa
   const line = { borderBottomWidth: 1, borderBottomColor: '#e5e7eb' } as const;
   return (
     <View style={{ backgroundColor: base.paper, paddingHorizontal: desk ? 40 : 16, paddingTop: desk ? 10 : 6 }}>
-      {desk ? (
+      {desk || tabs.length > 5 ? (
         <View style={line}>
           <KeepInView on={tab} items={tabs.map((k) => [k, ADMIN_PAGES[k].label] as [string, string])} render={(k, l) => <TabItem on={k === tab} label={l} onPress={() => goTab(k as AdminPage)} />} />
         </View>
       ) : (
-        // A phone has the five tabs across the whole width.
+        // A phone has up to five tabs across the whole width; more scroll, as on a laptop.
         <View style={[line, { flexDirection: 'row', justifyContent: 'space-between' }]}>
           {tabs.map((k) => <TabItem key={k} pad={tabs.length > 4 ? 5 : 10} on={k === tab} label={ADMIN_PAGES[k].label} onPress={() => goTab(k)} />)}
         </View>

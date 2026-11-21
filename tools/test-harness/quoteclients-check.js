@@ -46,6 +46,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.locator('input >> visible=true').nth(1).fill('1 High Street, Hove');
   await page.locator('input >> visible=true').nth(3).fill('J778');
   check(await page.locator('input >> visible=true').nth(4).inputValue() === 'Persimmon', 'Create Project is filled in for the client it was won from');
+  await page.getByText('No', {exact: true}).filter({visible: true}).first().click(); 
   await page.locator('text="Upcoming" >> visible=true').last().click();
   // The form's Start Date (the quote behind also has a Next Chase "Choose a date").
   await page.locator('text="Choose a date" >> visible=true').first().click({force: true}); await page.waitForTimeout(600); await page.getByText('Today', {exact: true}).last().click(); await page.waitForTimeout(400);

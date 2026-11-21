@@ -2,6 +2,8 @@
 // automatic one), client (typing suggests Directory clients and past clients; free text is fine),
 // contact number and email, multi-site or repair contract, Live or Upcoming, and a start date.
 // Client, address and start date are required (Andy). PMs / admins only.
+// "Are We The Main Contractor On This Job?" Yes / No, asked once up front (app review, 21 Nov 2026); Project Settings ›
+// Site Type changes it later. Not asked for a repair contract.
 // From a won quote (?quote=, Andy 11 Nov 2026): filled in from the quote; making it makes the OneDrive folders, moves the
 // quote's folder across and marks the quote won, with a line saying what it's doing, then opens the new project.
 import { setupJobPack, setupNewJobPack, useNewJobFolderDefault } from '@/data/jobPack';
@@ -48,6 +50,7 @@ export default function NewProject() {
   // Filled in from the quote once it's loaded.
   useEffect(() => { if (qq) setD((x) => ({ ...x, name: titleCase(qq.title), address: qq.address || x.address, postcode: (qq.postcode || x.postcode).toUpperCase(), client_name: qq.client_name, client_contact_name: qq.contact_name || '', client_phone: qq.contact_phone || '', client_email: qq.contact_email || '' })); }, [qq?.id, qq?.client_name]); // eslint-disable-line react-hooks/exhaustive-deps
   const [chosen, setChosen] = useState(false); // Live / Upcoming must be picked
+  const [mcAns, setMcAns] = useState<'' | 'yes' | 'no'>(''); // Main Contractor: Yes / No must be picked
   const [busy, setBusy] = useState(false);
   // Create OneDrive folder (Andy, 8 Nov 2026): ticked unless the company or the client says no; the tick wins once touched.
   const [folderTick, setFolderTick] = useState<boolean | null>(null);
@@ -78,11 +81,12 @@ export default function NewProject() {
     const clash = auto ? null : jobNumberClash(d.job_number, sites);
     if (clash) { showAlert(`Job number ${d.job_number.trim()} is already used on ${clash}. Use another number.`); return; }
     if (!d.client_name.trim()) { showAlert('Enter the client name.'); return; }
+    if (!d.repair_contract && !mcAns) { showAlert('Are you the main contractor on this job? Choose Yes or No.'); return; }
     if (!chosen) { showAlert('Choose whether the job is Live or Upcoming.'); return; }
     if (!d.start_date) { showAlert('Choose the start date.'); return; }
     if (d.client_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.client_email.trim())) { showAlert('Enter a valid client email address.'); return; }
     setBusy(true);
-    const r = await createSite(me, { ...d, name: d.name.trim(), address: d.address.trim(), postcode: d.postcode.trim(), job_number: d.job_number.trim(), client_name: d.client_name.trim(), client_contact_name: (d.client_contact_name || '').trim(), client_phone: d.client_phone.trim(), client_email: d.client_email.trim(), start_date: d.start_date }, auto);
+    const r = await createSite(me, { ...d, acting_as_main_contractor: !d.repair_contract && mcAns === 'yes', name: d.name.trim(), address: d.address.trim(), postcode: d.postcode.trim(), job_number: d.job_number.trim(), client_name: d.client_name.trim(), client_contact_name: (d.client_contact_name || '').trim(), client_phone: d.client_phone.trim(), client_email: d.client_email.trim(), start_date: d.start_date }, auto);
     if ('error' in r) { setBusy(false); showAlert(jobNumberError(r.error) || r.error); return; }
     if (qq) {
       // A won quote: the folders first, then the quote's folder moves into them and the quote is marked won.
@@ -110,7 +114,7 @@ export default function NewProject() {
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: qq ? 'Convert To Project' : 'Add A Project' }} />
-      {!!qq && <Muted style={{ marginBottom: 10 }}>Won: {qq.title}. Filled in from the quote. Check it, choose Live or Upcoming and the start date, then Create Project.</Muted>}
+      {!!qq && <Muted style={{ marginBottom: 10 }}>Won: {qq.title}. Filled in from the quote. Check it, answer the Main Contractor question, choose Live or Upcoming and the start date, then Create Project.</Muted>}
       <Card>
         <Field label="Site Name *" value={d.name} onChangeText={(v) => set({ name: titleCase(v) })} />
         <Field label="Address *" value={d.address} onChangeText={(v) => set({ address: titleCase(v) })} />
@@ -138,6 +142,13 @@ export default function NewProject() {
         <Check label="Repair / Maintenance Contract" value={d.repair_contract} onChange={(x) => set({ repair_contract: x, multi_site: x ? false : d.multi_site })} />
         {fd.shown && <Check label="Create OneDrive Folder" value={wantFolder} onChange={setFolderTick} />}
         {fd.shown && fd.clientOff && folderTick === null && <Muted style={{ marginTop: -4, marginBottom: 8 }}>{d.client_name.trim()} is set to no OneDrive folders in the Directory. Tick it to make one for this job only.</Muted>}
+        {!d.repair_contract && <>
+          <Text style={{ fontWeight: '600', color: base.ink, marginTop: 10, marginBottom: 6 }}>Are We The Main Contractor On This Job? *</Text>
+          <View style={{ marginBottom: 4 }}>
+            <FilterRow seg options={[['yes', 'Yes'], ['no', 'No']]} value={mcAns} onChange={(k) => { if (k) setMcAns(k); }} />
+          </View>
+          {mcAns === 'yes' && <Muted style={{ marginBottom: 6 }}>The job gets a Main Contractor page: the Construction Phase Plan, F10, Asbestos Register, Site Rules, inductions, subcontractors, permits and inspections.</Muted>}
+        </>}
         <Text style={{ fontWeight: '600', color: base.ink, marginTop: 10, marginBottom: 6 }}>Status *</Text>
         {/* Live / Upcoming, the words Project Settings uses (app review, 21 Nov 2026); saved as 'active' as before. */}
         <View style={{ marginBottom: 10 }}>

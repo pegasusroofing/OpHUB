@@ -121,6 +121,10 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByText('OK', {exact: true}).filter({visible: true}).first().click().catch(() => {}); await page.waitForTimeout(500);
   await fillBy('Job Number', 'J901');
   await page.getByText('Create Project', {exact: true}).click(); await page.waitForTimeout(1200);
+  check(/Are you the main contractor on this job\? Choose Yes or No/.test(await body()), 'the Main Contractor question must be answered (a pop-up)');
+  await page.getByText('OK', {exact: true}).filter({visible: true}).first().click().catch(() => {}); await page.waitForTimeout(500);
+  await page.getByText('No', {exact: true}).filter({visible: true}).first().click(); 
+  await page.getByText('Create Project', {exact: true}).click(); await page.waitForTimeout(1200);
   check(/Choose whether the job is Live or Upcoming/.test(await body()), 'what\'s missing (Active or Upcoming) in a pop-up');
 
   // ---- A job's settings: amending to another job's number ----

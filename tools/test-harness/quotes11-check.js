@@ -89,6 +89,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await vis('Won, Convert To Project').last().click(); await page.waitForTimeout(4000);
   check(/\/sites\/new/.test(page.url()) && (await page.locator('input').first().inputValue()) === 'Ashford School', `Create Project, filled in from the quote (${page.url().replace(B, '')})`);
   await page.locator('input').nth(3).fill('J777');
+  await page.getByText('No', {exact: true}).filter({visible: true}).first().click(); 
   await page.getByText('Upcoming', {exact: true}).click();
   await page.getByText('Choose a date', {exact: true}).last().click(); await page.waitForTimeout(600); await page.getByText('Today', {exact: true}).last().click(); await page.waitForTimeout(400);
   await page.screenshot({path: path.join(__dirname, 'shots', 'andy11', 'q11-convert.png')});

@@ -2,7 +2,7 @@
 // inspection / report / briefing templates — new, edit, duplicate, delete.
 // Editing a template never changes reports already started from it.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
@@ -18,6 +18,9 @@ type Tpl = { id: string; name: string; description: string | null; sections: unk
 
 export default function Templates() {
   const { me } = useAuth();
+  // ?kind=mc: Admin › Main Contractor › Inspection Templates (21 Nov 2026), just those; a new one is one already.
+  const mc = useLocalSearchParams<{ kind?: string }>().kind === 'mc';
+  const title = mc ? 'Inspection Templates' : 'Report Templates';
   const toast = useToast();
   const qc = useQueryClient();
   const { data: list = [], isLoading } = useQuery({
@@ -25,14 +28,15 @@ export default function Templates() {
     queryFn: async () => ((await db.from('report_templates').select('*').eq('org_id', me?.org_id as string).eq('archived', false).order('name')).data as Tpl[] | null) ?? [],
   });
   if (!me) return null;
-  if (!isManager(me)) return <><Stack.Screen options={{ title: 'Report Templates' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
+  if (!isManager(me)) return <><Stack.Screen options={{ title }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['reportTplAdmin'] }); void qc.invalidateQueries({ queryKey: ['templates'] }); };
+  const shown = mc ? list.filter((t) => t.is_mc_inspection) : list;
   const kind = (t: Tpl) => (t.is_daily_briefing ? 'Daily Briefing' : t.is_mc_inspection ? 'Main Contractor inspection' : t.is_loler_inspection ? 'LOLER inspection' : 'Report / survey');
   return (
     <ScrollView contentContainerStyle={page(720)}>
-      <Stack.Screen options={{ title: 'Report Templates' }} />
-      <Muted style={{ marginBottom: 10 }}>Build reusable inspection / report templates here. Project Managers can fill these in on site and submit them as a report. Editing a template never changes inspections already started from it.</Muted>
-      {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((t) => (
+      <Stack.Screen options={{ title }} />
+      <Muted style={{ marginBottom: 10 }}>{mc ? 'The inspections on a Main Contractor job (Main Contractor › On Site › Inspections). ' : ''}Build reusable inspection / report templates here. Project Managers can fill these in on site and submit them as a report. Editing a template never changes inspections already started from it.</Muted>
+      {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((t) => (
         <Pressable key={t.id} onPress={() => router.push(`/pm/admin/templates/${t.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
           <Text style={{ fontSize: 20 }}>📋</Text>
           <View style={{ flex: 1 }}>
@@ -51,7 +55,7 @@ export default function Templates() {
         </Pressable>
       )) : <Empty>No templates yet — create your first one below.</Empty>}
       <Button title="+ New Template" onPress={async () => {
-        const r = await db.from('report_templates').insert({ org_id: me.org_id, name: 'Untitled Template', created_by: me.id, sections: [{ id: uid(), title: 'Section 1', items: [] }] } as never).select('id').single();
+        const r = await db.from('report_templates').insert({ org_id: me.org_id, name: 'Untitled Template', created_by: me.id, ...(mc ? { is_mc_inspection: true } : {}), sections: [{ id: uid(), title: 'Section 1', items: [] }] } as never).select('id').single();
         if (r.error || !r.data) { toast('Could not create — try again.'); return; }
         refresh(); router.push(`/pm/admin/templates/${(r.data as { id: string }).id}` as never);
       }} />

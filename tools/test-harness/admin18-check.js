@@ -12,7 +12,9 @@ const B = 'http://localhost:8081';
 const SHOTS = path.join(__dirname, 'shots', 'admin18');
 fs.mkdirSync(SHOTS, {recursive: true});
 const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) process.exitCode = 1; };
-const MAIN = ['People', 'Projects', 'Finance', 'H&S', 'Company'];
+// Main Contractor is its own tab since 21 Nov 2026.
+const MAIN = ['People', 'Projects', 'Finance', 'H&S', 'Main Contractor', 'Company'];
+const N = MAIN.length;
 const signIn = async (page) => {
   await page.goto(B + '/login'); await page.waitForTimeout(5000);
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
@@ -42,8 +44,8 @@ const setUp = async (browser, role, fin, viewport) => {
   await page.getByText('Admin', {exact: true}).filter({visible: true}).last().click(); await page.waitForTimeout(4000);
   let ts = await tabsOf(page);
   check(where(page) === '/pm/admin/invites', `Admin opens straight on People › Invites (${where(page)})`);
-  check(JSON.stringify(ts.slice(0, 5).map((x) => x.t)) === JSON.stringify(MAIN) && ts[0].on, `tabs: ${MAIN.join(', ')}, People chosen (${ts.slice(0, 5).map((x) => x.t).join(', ')})`);
-  const subs = ts.slice(5).map((x) => x.t);
+  check(JSON.stringify(ts.slice(0, N).map((x) => x.t)) === JSON.stringify(MAIN) && ts[0].on, `tabs: ${MAIN.join(', ')}, People chosen (${ts.slice(0, N).map((x) => x.t).join(', ')})`);
+  const subs = ts.slice(N).map((x) => x.t);
   check(['Invites', 'Users', 'Roles', 'Device Locks', 'Check-In Logs'].every((x) => subs.includes(x)) && !subs.includes('Material Costs For Operatives') && !!ts.find((x) => x.t === 'Invites')?.on, `sub tabs: People's pages, Invites chosen (${subs.join(', ')})`);
   check(/Admin Centre/.test(await body()), 'the bar says Admin Centre');
   await page.screenshot({path: path.join(SHOTS, 'people-laptop.png')});
@@ -51,7 +53,7 @@ const setUp = async (browser, role, fin, viewport) => {
   // Finance: its first page opens under the tabs; the sub tabs are the parts of Finance's settings.
   await tab(page, 'Finance').click(); await page.waitForTimeout(3500);
   ts = await tabsOf(page);
-  const fsubs = ts.slice(5).map((x) => x.t);
+  const fsubs = ts.slice(N).map((x) => x.t);
   const want = ['Sales', 'VAT & Overheads', 'Purchases', 'Cost Codes', 'Templates', 'Xero'];
   check(where(page) === '/pm/admin/finsettings?part=sales' && JSON.stringify(fsubs) === JSON.stringify(want), `Finance: six grouped sub tabs, Sales open (${where(page)}; missing ${want.filter((x) => !fsubs.includes(x)).join(', ') || 'none'})`);
   let t = await body();
@@ -88,11 +90,14 @@ const setUp = async (browser, role, fin, viewport) => {
   check(where(page) === '/pm/admin/fintemplates', `Finance opens on the page you left (${where(page)})`);
 
   await tab(page, 'H&S').click(); await page.waitForTimeout(3500);
-  const hs = (await tabsOf(page)).slice(5).map((x) => x.t);
+  const hs = (await tabsOf(page)).slice(N).map((x) => x.t);
   // Toolbox Talks is one tab since 20 Nov 2026 (How Often and the templates together).
   check(['H&S Policy', 'RAMS Library', 'COSHH Library', 'Toolbox Talks', 'PPE Log'].every((x) => hs.includes(x)) && !hs.includes('Toolbox Talks Required'), `H&S sub tabs (${hs.join(', ')})`);
+  await tab(page, 'Main Contractor').click(); await page.waitForTimeout(3500);
+  const mc = (await tabsOf(page)).slice(N).map((x) => x.t);
+  check(['CPP Template', 'Site Rules Template', 'Induction Form', 'Subcontractor Library', 'Inspection Templates'].every((x) => mc.includes(x)) && !hs.includes('CPP Template') && !hs.includes('Induction Form'), `Main Contractor sub tabs, out of H&S (${mc.join(', ')})`);
   await tab(page, 'Company').click(); await page.waitForTimeout(3500);
-  const co = (await tabsOf(page)).slice(5).map((x) => x.t);
+  const co = (await tabsOf(page)).slice(N).map((x) => x.t);
   check(['Company Logo & Theme', 'Expenses', 'OneDrive', 'Set-Up Guide'].every((x) => co.includes(x)) && !co.includes('OpHUB Finance'), `Company sub tabs (${co.join(', ')})`);
 
   // Back leaves the Admin Centre (the tabs don't pile up behind it).
@@ -119,8 +124,9 @@ const setUp = async (browser, role, fin, viewport) => {
   const pg = await p.ctx.newPage(); pg.on('pageerror', (e) => errs.push(e.message));
   await signIn(pg);
   await pg.goto(B + '/pm/admin'); await pg.waitForTimeout(4500);
-  const fit = await pg.evaluate(() => [...document.querySelectorAll('[role="tab"]')].slice(0, 5).map((e) => [Math.round(e.getBoundingClientRect().left), Math.round(e.getBoundingClientRect().right), ((x) => x.scrollWidth <= x.clientWidth + 1)(e.querySelector('[dir="auto"]') || e)]));
-  check(fit.length === 5 && fit[0][0] >= 0 && fit[4][1] <= 390 && fit.every((f) => f[2]), `phone: the five tabs across the screen, none cut (${JSON.stringify(fit)})`);
+  const fit = await pg.evaluate(() => [...document.querySelectorAll('[role="tab"]')].slice(0, 6).map((e) => [Math.round(e.getBoundingClientRect().left), Math.round(e.getBoundingClientRect().right), ((x) => x.scrollWidth <= x.clientWidth + 1)(e.querySelector('[dir="auto"]') || e)]));
+  // Six tabs since 21 Nov 2026: they scroll sideways, the first starts on screen and none has its words cut.
+  check(fit.length === 6 && fit[0][0] >= 0 && fit.every((f) => f[2]), `phone: the six tabs scroll, the first on screen, no words cut (${JSON.stringify(fit)})`);
   await pg.screenshot({path: path.join(SHOTS, 'people-phone.png')});
   await tab(pg, 'Finance').click(); await pg.waitForTimeout(3000);
   await tab(pg, 'VAT & Overheads').click(); await pg.waitForTimeout(3000);

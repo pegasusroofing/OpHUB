@@ -1,56 +1,86 @@
-// One subcontractor company's hub (550 renderSubcontractorHub). Their Project Manager (is_admin) runs it like our PMs. Like the current
-// app's router, only managers, clients and that company's own people get in.
+// One subcontractor company's page (550 renderSubcontractorHub). Their Project Manager (is_admin) runs it like our PMs. Like
+// the current app's router, only managers, clients and that company's own people get in.
+// Four tabs, not 14 tiles (app review, 21 Nov 2026; Andy: "Yes build the 2 plans please"): Documents (RAMS, COSHH, Toolbox
+// Talks, Daily Briefings, their inspection files), Work (their Schedule of Works, Snags, Permits), People (operatives and
+// their Project Manager) and Handover (close-out and O&M, for managers and their Project Manager). Their own people keep
+// Check In, My Induction and the Calendar at the top, as their home on the job (the Site Rules are signed in the induction).
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { ScrollView } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
-import { JobGrid, Muted, Tile } from '@/components/ui';
+import { FinTabs } from '@/components/FinNav';
+import { JobRows, type JobRow } from '@/components/JobRows';
+import { Muted } from '@/components/ui';
+import { nameOf, usePeople } from '@/data/hs';
+import { useInductions } from '@/data/inductions';
 import { useSite } from '@/data/sites';
 import { useSubco, useSubcos } from '@/data/subcontractors';
 import { isManager } from '@/lib/roles';
 import { useAuth } from '@/lib/auth';
-import { page, space } from '@/theme/theme';
+import { page, space, useDesk } from '@/theme/theme';
 
 export default function SubcoHub() {
-  const { id, co } = useLocalSearchParams<{ id: string; co: string }>();
+  const { id, co, tab: asked } = useLocalSearchParams<{ id: string; co: string; tab?: string }>();
   const { me } = useAuth();
+  const desk = useDesk();
   const { data, isLoading } = useSubco(co, me);
   const { data: site } = useSite(id);
   const { data: list } = useSubcos(site, me);
+  const mine = !!me && !isManager(me) && list?.myCompany === co;
+  const { data: ind } = useInductions(mine ? id : undefined);
+  const { data: people } = usePeople();
   const allowed = !!me && (isManager(me) || me.role === 'client' || list?.myCompany === co);
   if (me && !allowed) return <><Stack.Screen options={{ title: 'Subcontractor' }} /><Muted style={{ padding: space.l }}>{list ? "You don't have access to this subcontractor." : 'Loading…'}</Muted></>;
-  if (isLoading || !data) return <Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Subcontractor not found.'}</Muted>;
+  if (isLoading || !data) return <><Stack.Screen options={{ title: 'Subcontractor' }} /><Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Subcontractor not found.'}</Muted></>;
   const n = data.counts;
-  const mine = !!me && !isManager(me) && list?.myCompany === co;
   const go = (p: string) => () => router.push(`/sites/${id}/mc/subcontractors/${co}/${p}` as never);
+  const job = (p: string) => () => router.push(`/sites/${id}/${p}` as never);
   const docs = (k: number) => `${k} document${k === 1 ? '' : 's'}`;
+  const handover = isManager(me) || data.isAdmin;
+  const tabs: [string, string][] = [['docs', 'Documents'], ['work', 'Work'], ['people', 'People'], ...(handover ? [['handover', 'Handover'] as [string, string]] : [])];
+  const tab = tabs.some(([k]) => k === asked) ? (asked as string) : 'docs';
+  const pms = (data.pmIds ?? []).map((u) => nameOf(people, u)).join(', ');
+  const rows: Record<string, JobRow[]> = {
+    docs: [
+      { key: 'rams', ic: 'shield', title: 'RAMS', sub: docs(n.rams), onPress: go('docs?kind=rams') },
+      { key: 'coshh', ic: 'flask', title: 'COSHH', sub: docs(n.coshh), onPress: go('docs?kind=coshh') },
+      { key: 'tbt', ic: 'chat', title: 'Toolbox Talks', sub: `${n.tbt} live`, onPress: go('tbt') },
+      { key: 'brief', ic: 'list', title: 'Daily Briefings', sub: `${n.briefings} logged`, onPress: go('briefings') },
+      { key: 'insp', ic: 'eye', title: 'Inspections', sub: `${n.inspections} file${n.inspections === 1 ? '' : 's'}`, onPress: go('inspections') },
+    ],
+    work: [
+      { key: 'sow', ic: 'clipboard', title: 'Schedule of Works', sub: `${n.done} of ${n.tasks} complete`, onPress: go('schedule') },
+      { key: 'snags', ic: 'wrench', title: 'Snags', sub: n.snags ? `${n.snags} open` : 'None open', badge: n.snags || undefined, onPress: go('snags') },
+      { key: 'permits', ic: 'pen', title: 'Permits To Work', sub: n.permits ? `${n.permits} open` : 'None open', onPress: () => router.push(`/sites/${id}/mc/permits?co=${co}` as never) },
+    ],
+    people: [
+      { key: 'ops', ic: 'users', title: 'Operatives', sub: data.isAdmin && mine ? 'Add your operatives' : `${n.operatives} on this job`, onPress: go('operatives') },
+      { key: 'pm', ic: 'admin', title: 'Project Manager', sub: pms || 'None yet · invite one from Operatives', onPress: go('operatives') },
+    ],
+    // Their close-out (21 Nov 2026): our managers sign it off; their Project Manager sees it. Their O&M manual for ours (20 Nov 2026).
+    handover: [
+      { key: 'close', ic: 'check', title: 'Close-Out', sub: n.closedOut ? 'Signed off' : 'Checks and sign-off', onPress: go('closeout') },
+      { key: 'om', ic: 'book', title: 'O&M Manual', sub: n.om ? `${n.omSubmitted} of ${n.om} submitted` : 'Their O&M manual', onPress: go('om') },
+    ],
+  };
+  const mineDone = !!(me && ind?.byOp[me.id]);
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: data.company.name }} />
       {/* Their Project Manager runs their company on the job like our PMs (Andy, 20 Nov 2026): uploads only, no builders. */}
       {mine && data.isAdmin && <Muted style={{ textAlign: 'center', marginBottom: 10 }}>You&apos;re {data.company.name}&apos;s Project Manager on this job. Upload your RAMS, COSHH and Toolbox Talks, log Daily Briefings, add your operatives and close your snags.</Muted>}
-      {isManager(me) && !data.hasPm && <Muted style={{ textAlign: 'center', marginBottom: 10 }}>No Project Manager for {data.company.name} yet: invite one from Operatives. They set up their company and upload their documents.</Muted>}
-      {/* 550: a tile grid like the Main Contractor page, not a list. */}
-      <JobGrid>
-      {/* Their own people (20 Nov 2026): this page is their home on the job, so Check In, the induction, the site rules
-          and the calendar are here too. */}
-      {mine && <Tile icon="📍" tint="#E7E9EE" title="Check In / Out" sub="On site today" onPress={() => router.push(`/sites/${id}/checkin` as never)} />}
-      {mine && <Tile icon="🦺" tint="#E7E9EE" title="Site Induction" sub="Before you start" onPress={() => router.push(`/sites/${id}/mc/inductions` as never)} />}
-      {mine && <Tile icon="📏" tint="#E7E9EE" title="Site Rules & Layout" sub="Read and sign" onPress={() => router.push(`/sites/${id}/mc/layout` as never)} />}
-      {mine && <Tile icon="📅" tint="#E7E9EE" title="Calendar" sub="What's on" onPress={() => router.push(`/sites/${id}/calendar` as never)} />}
-      <Tile icon="📄" tint="#E7E9EE" title="RAMS" sub={docs(n.rams)} onPress={go('docs?kind=rams')} />
-      <Tile icon="🧪" tint="#E7E9EE" title="COSHH" sub={docs(n.coshh)} onPress={go('docs?kind=coshh')} />
-      <Tile icon="📢" tint="#E7E9EE" title="TBT" sub={`${n.tbt} live`} onPress={go('tbt')} />
-      <Tile icon="📋" tint="#E7E9EE" title="Schedule of Works" sub={`${n.done} of ${n.tasks} complete`} onPress={go('schedule')} />
-      <Tile icon="🧾" tint="#E7E9EE" title="Permits To Work" sub={n.permits ? `${n.permits} open` : 'None open'} onPress={() => router.push(`/sites/${id}/mc/permits?co=${co}` as never)} />
-      <Tile icon="🔍" tint="#E7E9EE" title="Inspections" sub={`${n.inspections} file${n.inspections === 1 ? '' : 's'}`} onPress={go('inspections')} />
-      <Tile icon="📝" tint="#E7E9EE" title="Daily Briefings" sub={`${n.briefings} logged`} onPress={go('briefings')} />
-      <Tile icon="🔧" tint="#E7E9EE" title="Snags" sub={n.snags ? `${n.snags} open` : 'None open'} onPress={go('snags')} />
-      <Tile icon="👷" tint="#E7E9EE" title="Operatives" sub={data.isAdmin && mine ? 'Add your operatives' : `${n.operatives} on this job`} onPress={go('operatives')} />
-      {/* Their Handover: their O&M manual for the main contractor's (Andy, 20 Nov 2026): managers and the company's admin. */}
-      {/* Their close-out (21 Nov 2026): our managers sign it off; their Project Manager sees it. */}
-      {(isManager(me) || data.isAdmin) && <Tile icon="🏁" tint="#E7E9EE" title="Close-Out" sub={n.closedOut ? 'Signed off' : 'Checks and sign-off'} onPress={go('closeout')} />}
-      {(isManager(me) || data.isAdmin) && <Tile icon="📘" tint="#E7E9EE" title="Handover" sub={n.om ? `O&M · ${n.omSubmitted} of ${n.om} submitted` : 'O&M manual'} onPress={go('om')} />}
-      </JobGrid>
+      {isManager(me) && !data.hasPm && <Muted style={{ textAlign: 'center', marginBottom: 10 }}>No Project Manager for {data.company.name} yet: invite one from People › Operatives. They set up their company and upload their documents.</Muted>}
+      {/* Their own people: this page is their home on the job (20 Nov 2026), so Check In, the induction and the calendar stay here. */}
+      {mine && (
+        <View style={{ marginBottom: 12 }}>
+          <JobRows desk={desk} rows={[
+            { key: 'in', ic: 'pin', title: 'Check In / Out', sub: 'On site today', onPress: job('checkin') },
+            { key: 'ind', ic: 'check', title: 'My Induction', sub: mineDone ? 'Done ✓' : 'To do · before you start', badge: ind && !mineDone ? '!' : undefined, onPress: job('mc/inductions') },
+            { key: 'cal', ic: 'calendar', title: 'Calendar', sub: "What's on", onPress: job('calendar') },
+          ]} />
+        </View>
+      )}
+      <FinTabs even value={tab} onChange={(k) => router.setParams({ tab: k })} items={tabs} />
+      <JobRows desk={desk} rows={rows[tab]} />
     </ScrollView>
   );
 }
