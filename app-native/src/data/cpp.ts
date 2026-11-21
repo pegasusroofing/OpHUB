@@ -4,11 +4,11 @@
 // (cpp_defaults). Issuing makes the PDF and files it in the job's Construction Phase Plan folder (mc_documents 'cpp').
 import { useQuery } from '@tanstack/react-query';
 
-import { packPdfBytes } from '@/data/jobPack';
+import { packPdfSaved, type PackSaved } from '@/data/jobPack';
 import { loadSettings } from '@/data/ramsBuilder';
 import { buildCppPdf } from '@/lib/pdfLazy';
 import { fullSiteAddress } from '@/lib/rules/checkin';
-import { blankCpp, normaliseCpp, outlineFromSow, pickHospital, pullThroughCpp, type CppHospital, type CppPlan, type CppSection } from '@/lib/rules/cpp';
+import { blankCpp, cppHasRules, normaliseCpp, outlineFromSow, pickHospital, pullThroughCpp, withSiteRules, type CppHospital, type CppPlan, type CppSection } from '@/lib/rules/cpp';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile, Site } from '@/lib/types';
 
@@ -223,7 +223,7 @@ export async function previewCpp(org: Org, siteId: string, p: CppPlan) {
 /** Issues the plan: the PDF goes into the job's Construction Phase Plan folder. Issuing again is a revision (Andy, 19 Nov
  *  2026: "allow revisions to be made"): the next version, with what changed in the revision history, and the earlier
  *  PDF stays in the folder, named as superseded. */
-export async function issueCpp(me: Me, org: Org, row: CppRow, p: CppPlan, note: string): Promise<{ plan: CppPlan; docId: string } | string> {
+export async function issueCpp(me: Me, org: Org, row: CppRow, p: CppPlan, note: string): Promise<{ plan: CppPlan; docId: string; onedrive: Promise<PackSaved> } | string> {
   const plan: CppPlan = { ...p, version: row.status === 'issued' ? p.version + 1 : p.version };
   const today = new Date().toISOString().slice(0, 10);
   plan.revisions = [...plan.revisions.filter((r) => r.version !== plan.version), { version: plan.version, date: today, by: me.name || '', note: note.trim() || (plan.version === 1 ? 'First issue' : ''), docId: null, path: null }];
@@ -233,8 +233,9 @@ export async function issueCpp(me: Me, org: Org, row: CppRow, p: CppPlan, note: 
   const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
   const up = await supabase.storage.from('mc-documents').upload(`${row.site_id}/cpp/${rid}-Construction_Phase_Plan_v${plan.version}.pdf`, out.bytes, { contentType: 'application/pdf' });
   if (up.error) return 'Upload failed - check signal and try again.';
-  // Into the job's OneDrive folder when the company has added it (Where Things Save, 19 Nov 2026).
-  packPdfBytes(row.site_id, 'cpp_issued', `Construction Phase Plan v${plan.version} - ${plan.siteName || 'Job'}.pdf`, out.bytes);
+  // Into the job's OneDrive folder when the company has added it (Where Things Save, 19 Nov 2026). Not waited for; the
+  // Site Rules sheet waits for it to say whether it went in (21 Nov 2026).
+  const onedrive = packPdfSaved(row.site_id, 'cpp_issued', `Construction Phase Plan v${plan.version} - ${plan.siteName || 'Job'}.pdf`, out.bytes);
   const doc = await db.from('mc_documents').insert({ org_id: me.org_id, site_id: row.site_id, category: 'cpp', name: `Construction Phase Plan v${plan.version} - ${plan.siteName || 'Job'}`, storage_path: up.data.path, uploaded_by: me.id } as never).select('id').single();
   const docId = (doc.data as { id: string } | null)?.id;
   if (!docId) return 'Could not file the plan - try again.';
@@ -247,5 +248,36 @@ export async function issueCpp(me: Me, org: Org, row: CppRow, p: CppPlan, note: 
     if (old && !/superseded/i.test(old.name)) await db.from('mc_documents').update({ name: `${old.name} (Superseded by v${plan.version})` } as never).eq('id', prevDoc);
   }
   const ok = !!(await db.from('cpp_plans').update({ data: plan, version: plan.version, status: 'issued', mc_document_id: docId, updated_at: new Date().toISOString() } as never).eq('id', row.id).select('id')).data?.length;
-  return ok ? { plan, docId } : 'The PDF is filed, but the plan could not be updated - try again.';
+  return ok ? { plan, docId, onedrive } : 'The PDF is filed, but the plan could not be updated - try again.';
+}
+
+/** The job's Construction Phase Plan for the Site Rules sheet to go into: the latest issued one, else the latest draft. */
+export async function cppForRules(siteId: string): Promise<{ row: CppRow; plan: CppPlan } | null> {
+  const rows = ((await db.from('cpp_plans').select('*').eq('site_id', siteId).order('updated_at', { ascending: false })).data as CppRow[] | null) ?? [];
+  const row = rows.find((r) => r.status === 'issued') || rows[0];
+  return row ? { row, plan: normaliseCpp(row.data) } : null;
+}
+export type RulesIntoCpp = { version: number; issued: boolean; layout: boolean; onedrive: PackSaved | null };
+/** Puts the Site Rules sheet's rules into the job's plan (Andy, 21 Nov 2026). An issued plan is issued again as the next
+ *  revision, filed and saved to the job's OneDrive folder; a draft just takes the rules and goes out when it's issued.
+ *  The sheet's layout plan goes in too when the plan has no site plan of its own. */
+export async function addRulesToCpp(me: Me, org: Org, siteId: string, rules: string[], layout: { path: string | null; marks: { base: string | null; ops: unknown[] } }, sheetVersion: number): Promise<RulesIntoCpp | string> {
+  const c = await cppForRules(siteId);
+  if (!c) return 'This job has no Construction Phase Plan yet.';
+  let plan = withSiteRules(c.plan, rules);
+  const addLayout = !plan.sitePlan && !!layout.path;
+  if (addLayout) plan = { ...plan, sitePlan: layout.path, sitePlanMarks: layout.marks };
+  if (c.row.status !== 'issued') {
+    if (!(await saveCpp(c.row.id, plan))) return 'Could not update the plan - try again.';
+    return { version: plan.version, issued: false, layout: addLayout, onedrive: null };
+  }
+  const r = await issueCpp(me, org, c.row, plan, `Site rules updated from the Site Rules sheet (version ${sheetVersion})${addLayout ? ', with its site layout plan' : ''}`);
+  if (typeof r === 'string') return r;
+  return { version: r.plan.version, issued: true, layout: addLayout, onedrive: await r.onedrive };
+}
+/** Does the job have a plan whose rules aren't these? (Asked after issuing a Site Rules sheet.) */
+export async function cppNeedsRules(siteId: string, rules: string[]): Promise<{ version: number; issued: boolean } | null> {
+  const c = await cppForRules(siteId);
+  if (!c || cppHasRules(c.plan, rules)) return null;
+  return { version: c.plan.version, issued: c.row.status === 'issued' };
 }

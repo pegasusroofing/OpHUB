@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { blankCpp, CPP_OLD_SITE_HOURS, cppMissing, durationDays, f10Needed, fillCpp, isCppHeading, isOurCompany, normaliseCpp, outlineFromSow, pickHospital, pullThroughCpp } from './cpp.ts';
+import { blankCpp, CPP_OLD_SITE_HOURS, cppHasRules, cppMissing, cppSiteRules, durationDays, f10Needed, fillCpp, isCppHeading, isOurCompany, normaliseCpp, outlineFromSow, pickHospital, pullThroughCpp, withSiteRules } from './cpp.ts';
 
 test('CPP wording: names fill in, a line with nothing to fill is left out', () => {
   const p = blankCpp();
@@ -82,4 +82,30 @@ test('CPP pull-through (20 Nov 2026): the last plan, our address, 8 - 5, and our
   assert.equal(pullThroughCpp(other, { prev: null, address: '', phone: '', ours: ['RTB Roofing'] }).client.name, 'Stack London');
   assert.equal(isOurCompany('RTB Roofing Limited', ['RTB Roofing Ltd']), true);
   assert.equal(isOurCompany('', ['RTB Roofing Ltd']), false);
+});
+
+test('Site Rules sheet into the plan: the numbered list under 2.1 is replaced, the wording around it stays', () => {
+  const p = blankCpp();
+  assert.equal(cppSiteRules(p).length, 21);
+  const out = withSiteRules(p, ['Hard hats at all times', '', 'No smoking\nexcept in the smoking area']);
+  assert.deepEqual(cppSiteRules(out), ['Hard hats at all times', 'No smoking except in the smoking area']);
+  const body = out.sections.find((x) => x.num === '2')?.body || '';
+  assert.match(body, /Prohibition Notice/);
+  assert.match(body, /2\.1 Site Rules\nThese site rules will be made known[^\n]*\n1\. Hard hats at all times\n2\. No smoking except/);
+  assert.equal(cppHasRules(out, ['Hard hats at all times', 'No smoking except in the smoking area']), true);
+  assert.equal(cppHasRules(p, ['Hard hats at all times']), false);
+  // The other sections are untouched; doing it twice gives the same plan.
+  assert.deepEqual(out.sections.filter((x) => x.num !== '2'), p.sections.filter((x) => x.num !== '2'));
+  assert.deepEqual(withSiteRules(out, ['Hard hats at all times', 'No smoking except in the smoking area']).sections, out.sections);
+  // Text after the list (a 2.2 heading) stays after it.
+  const q = { ...p, sections: p.sections.map((x) => (x.num === '2' ? { ...x, body: `${x.body}\n2.2 Visitors\nVisitors sign in at the office.` } : x)) };
+  assert.match(withSiteRules(q, ['One rule']).sections.find((x) => x.num === '2')?.body || '', /1\. One rule\n2\.2 Visitors\nVisitors sign in/);
+  // A plan with no site rules: added to section 2, or a section of their own.
+  const none = { ...p, sections: p.sections.map((x) => (x.num === '2' ? { ...x, body: 'Policy only.' } : x)) };
+  assert.deepEqual(cppSiteRules(withSiteRules(none, ['A', 'B'])), ['A', 'B']);
+  const noTwo = { ...p, sections: p.sections.filter((x) => x.num !== '2') };
+  const added = withSiteRules(noTwo, ['A']);
+  assert.equal(added.sections.length, noTwo.sections.length + 1);
+  assert.deepEqual(cppSiteRules(added), ['A']);
+  assert.equal(withSiteRules(added, ['A', 'B']).sections.length, added.sections.length);
 });

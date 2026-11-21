@@ -89,5 +89,18 @@ export const packPdfBytes = (siteId: string | null | undefined, rule: string, na
   if (!siteId || filedOnce.has(k)) return;
   filedOnce.add(k); void packPut(siteId, rule, pdfName(name), { bytes }).catch(() => undefined);
 };
+/** Like packPdfBytes, but says what happened, so a pop-up can tell the person (Andy, 21 Nov 2026: "auto exported (if
+ *  one drive is linked)"). Never throws. */
+export type PackSaved = { saved: true; folder: string } | { saved: false; why: 'no_pack' | 'off' | 'failed' };
+export async function packPdfSaved(siteId: string, rule: string, name: string, bytes: Uint8Array): Promise<PackSaved> {
+  try {
+    if (!(await hasJobPack(siteId))) return { saved: false, why: 'no_pack' };
+    filedOnce.add(`${siteId}|${rule}|${name}|${bytes.length}`);
+    const r = await invokeAsUser<{ ok?: boolean; folder?: string; skipped?: string }>('onedrive-job-pack', { action: 'put', site_id: siteId, rule, filename: pdfName(name), content_base64: b64(bytes) });
+    if (r.error === 'no_pack') return { saved: false, why: 'no_pack' };
+    if (r.data?.skipped) return { saved: false, why: 'off' };
+    return !r.error && r.data?.ok ? { saved: true, folder: String(r.data.folder || '') } : { saved: false, why: 'failed' };
+  } catch { return { saved: false, why: 'failed' }; }
+}
 /** For the rules that fire and forget: never stops or slows what the person is doing. */
 export const packDoc = (siteId: string, rule: string, name: string, bucket: string, path: string) => { void packPut(siteId, rule, pdfName(name), { file: { bucket, path } }).catch(() => undefined); };

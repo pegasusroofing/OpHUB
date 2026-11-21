@@ -333,3 +333,50 @@ export function pullThroughCpp(p: CppPlan, src: { prev: CppPlan | null; address:
   if (isOurCompany(x.client.name, [...src.ours, x.pc.name])) x.client = { ...x.client, name: '', contact: '', phone: '', email: '', address: '' };
   return x;
 }
+
+// ----- The job's Site Rules sheet, put into the plan (Andy, 21 Nov 2026: "if a cpp has been completed to include within
+// cpp. This then automatically updates the cpp with revision and issues and saves to one drive"). The rules go in as
+// the numbered list under "2.1 Site Rules"; the wording around them stays as the company wrote it.
+const RULES_HEAD = /^\d+(\.\d+)?\s+Site Rules\b/i;
+const NUMBERED = /^\d+\.\s+\S/;
+const oneLine = (r: string) => String(r || '').replace(/\s*\n\s*/g, ' ').trim();
+/** Where the site rules are in the plan: the section, the heading line, and the numbered lines under it. */
+function findRules(p: CppPlan): { si: number; lines: string[]; head: number; from: number; to: number } | null {
+  for (let si = 0; si < p.sections.length; si++) {
+    const lines = String(p.sections[si].body || '').split('\n');
+    const head = lines.findIndex((l) => RULES_HEAD.test(l.trim()));
+    if (head < 0) continue;
+    // The heading's own lines (the "made known to all persons" wording) come before the first numbered rule.
+    let from = head + 1;
+    while (from < lines.length && !NUMBERED.test(lines[from].trim()) && !isCppHeading(lines[from])) from++;
+    let to = from;
+    while (to < lines.length && NUMBERED.test(lines[to].trim())) to++;
+    return { si, lines, head, from, to };
+  }
+  return null;
+}
+/** The rules the plan has now (empty if it has none). */
+export function cppSiteRules(p: CppPlan): string[] {
+  const f = findRules(p);
+  return f ? f.lines.slice(f.from, f.to).map((l) => l.trim().replace(/^\d+\.\s+/, '')) : [];
+}
+/** Are the sheet's rules already the plan's rules? */
+export function cppHasRules(p: CppPlan, rules: string[]): boolean {
+  const want = rules.map(oneLine).filter(Boolean), have = cppSiteRules(p);
+  return want.length === have.length && want.every((r, i) => r === have[i]);
+}
+/** The plan with the sheet's rules as its site rules: in place of the old list, or added to section 2 (or a section of
+ *  their own) when the plan has none. */
+export function withSiteRules(p: CppPlan, rules: string[]): CppPlan {
+  const list = rules.map(oneLine).filter(Boolean).map((r, i) => `${i + 1}. ${r}`);
+  const f = findRules(p);
+  if (f) {
+    const lines = [...f.lines.slice(0, f.from), ...list, ...f.lines.slice(f.to)];
+    return { ...p, sections: p.sections.map((s, k) => (k === f.si ? { ...s, body: lines.join('\n') } : s)) };
+  }
+  const block = ['2.1 Site Rules', 'These site rules will be made known to all persons on site by the display of the rules in the Site Office, Canteen and through induction. Any person found having disregard for these rules will be requested to leave site immediately.', ...list];
+  const two = p.sections.findIndex((s) => String(s.num).trim() === '2');
+  if (two >= 0) return { ...p, sections: p.sections.map((s, k) => (k === two ? { ...s, body: [String(s.body || '').trimEnd(), ...block].filter(Boolean).join('\n') } : s)) };
+  const last = p.sections.reduce((n, s) => Math.max(n, parseInt(String(s.num), 10) || 0), 1);
+  return { ...p, sections: [...p.sections, { id: cppUid(), num: String(last + 1), title: 'Site Rules', body: [`${last + 1}.1 Site Rules`, ...block.slice(1)].join('\n') }] };
+}

@@ -2,7 +2,9 @@
 // numbered items and it creates a pdf with the site rules etc. ... a bit like the rams build"), for a job's sheet and for
 // the company's template (Admin › H&S). A job's sheet: Details / Rules / Layout / Issue; the template: Details / Rules.
 // Saves by itself, Next at the bottom of every tab. Once issued it closes: View / Edit, like the Construction Phase Plan.
-import { useQueryClient } from '@tanstack/react-query';
+// Once issued, its rules can go into the job's Construction Phase Plan (Andy, 21 Nov 2026): asked straight after issuing,
+// or Add To CPP on the issued sheet. An issued plan is issued again as the next revision and saved to OneDrive.
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Image, Pressable, Text, TextInput, View } from 'react-native';
@@ -13,7 +15,7 @@ import { MapSnapshot } from '@/components/MapSnapshot';
 import { MarkupEditor } from '@/components/MarkupEditor';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
-import { pointFor, uploadCppImage } from '@/data/cpp';
+import { addRulesToCpp, cppNeedsRules, pointFor, uploadCppImage, type RulesIntoCpp } from '@/data/cpp';
 import { openDocLink } from '@/data/hs';
 import { deleteSiteRules, issueSiteRules, previewSiteRules, saveSiteRules, saveSiteRulesTemplate, type SiteRulesRow } from '@/data/siteRules';
 import { useSite } from '@/data/sites';
@@ -49,6 +51,8 @@ export function SiteRulesEditor(props: JobProps | TemplateProps) {
   const [snap, setSnap] = useState<{ at: { lat: number; lon: number } | null } | null>(null);
   const [mark, setMark] = useState<{ src: string; base: string; ops: MarkOp[] } | null>(null);
   const issued = row?.status === 'issued';
+  // The job's Construction Phase Plan, when its site rules aren't this sheet's (null when there's none or they match).
+  const { data: cppGap = null } = useQuery({ queryKey: ['siteRulesCpp', siteId, row?.version], enabled: job && issued && !editing, queryFn: () => cppNeedsRules(siteId, latest.current.rules) });
   const stateText = () => (!job ? 'Your company\'s starting point for every job\'s site rules · saves by itself' : issued ? (editing ? `Editing · issue version ${(row?.version || 1) + 1} from the Issue tab · saves by itself` : `Issued v${row?.version} · in Site Rules & Layout for signing`) : 'Draft · saves by itself');
   const [saveState, setSaveState] = useState(stateText());
   const latest = useRef(d), timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -147,6 +151,24 @@ export function SiteRulesEditor(props: JobProps | TemplateProps) {
     </Card>
   );
 
+  // ----- Into the Construction Phase Plan -----
+  const intoCpp = async () => {
+    setBusy('cpp');
+    const r = await addRulesToCpp(me, org as never, siteId, latest.current.rules, { path: latest.current.layout, marks: latest.current.layoutMarks }, row?.version || 1);
+    setBusy('');
+    if (typeof r === 'string') { showAlert(r); return; }
+    for (const k of [['cppPlans', siteId], ['mcDocs', siteId, 'cpp'], ['mcTiles', siteId], ['siteRulesCpp', siteId]]) void qc.invalidateQueries({ queryKey: k });
+    showAlert(cppDoneText(r), 'Construction Phase Plan Updated');
+  };
+  const askCpp = async (known?: { version: number; issued: boolean } | null) => {
+    const gap = known || (await cppNeedsRules(siteId, latest.current.rules));
+    if (!gap) return;
+    const q = gap.issued
+      ? `Add these site rules to the Construction Phase Plan?\n\nThis issues version ${gap.version + 1} of the plan and saves it to the job's OneDrive folder (if it has one).`
+      : 'Add these site rules to the draft Construction Phase Plan?\n\nThey go out with the plan when it is issued.';
+    if (await confirmAsk(q, 'Yes', 'No')) await intoCpp();
+  };
+
   // ----- Issue -----
   const missing = siteRulesMissing(d);
   const cur = issued ? d.revisions.find((r) => r.version === row?.version && r.path) ?? null : null;
@@ -163,7 +185,9 @@ export function SiteRulesEditor(props: JobProps | TemplateProps) {
       <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
         <Button small grow oneLine kind="ghost" title="✎ Edit" onPress={() => { setEditing(true); setTab('details'); }} />
         {cur?.path ? <Button small grow oneLine title="👁 View" onPress={() => void view(cur.path as string)} /> : null}
+        {cppGap ? <Button small grow oneLine kind="ghost" busy={busy === 'cpp'} title="Add To CPP" onPress={() => void askCpp(cppGap)} /> : null}
       </View>
+      {cppGap ? <Muted style={{ marginTop: 8, fontSize: 12 }}>{`The job's Construction Phase Plan${cppGap.issued ? ` (version ${cppGap.version})` : ' (draft)'} doesn't have these rules yet.`}</Muted> : null}
       {d.revisions.filter((r) => r.version !== row?.version && r.path).sort((a, b) => b.version - a.version).map((r) => (
         <View key={r.version} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, borderTopWidth: 1, borderTopColor: base.line, marginTop: 6 }}>
           <View style={{ flex: 1 }}><Text style={{ color: base.ink }}>Version {r.version} (Superseded)</Text><Muted style={{ fontSize: 12 }}>{r.note}</Muted></View>
@@ -195,6 +219,7 @@ export function SiteRulesEditor(props: JobProps | TemplateProps) {
             latest.current = r.doc; setD(r.doc); setRow({ ...(row as SiteRulesRow), status: 'issued', version: r.version, layout_doc_id: r.docId });
             setEditing(false); setTab('details'); setSaveState(`Issued v${r.version} · in Site Rules & Layout for signing`);
             for (const k of [['siteRulesBuilds', siteId], ['hsDocs', 'layout', siteId], ['mcTiles', siteId], ['siteRules', siteId]]) void qc.invalidateQueries({ queryKey: k });
+            await askCpp();
           }} />,
           issued ? <Button key="stop" kind="ghost" title="Stop Editing" onPress={() => setEditing(false)} /> : null,
         )}
@@ -239,4 +264,19 @@ export function SiteRulesEditor(props: JobProps | TemplateProps) {
       }} />}
     </>
   );
+}
+
+/** What the pop-up says once the rules are in the plan (Andy, 21 Nov 2026: "it has updated, issued revision and auto
+ *  exported (if one drive is linked)"). */
+export function cppDoneText(r: RulesIntoCpp): string {
+  const lines = ['✓ The site rules are in the plan’s Site Rules section.'];
+  if (r.layout) lines.push('✓ The site layout plan is in as the plan’s site plan.');
+  if (!r.issued) { lines.push('The plan is still a draft: they go out when it is issued.'); return lines.join('\n'); }
+  lines.push(`✓ Version ${r.version} is issued and filed in the Construction Phase Plan folder. The earlier version stays, marked superseded.`);
+  const o = r.onedrive;
+  if (o?.saved) lines.push(`✓ Saved to OneDrive${o.folder ? ` (${o.folder})` : ''}.`);
+  else if (o?.why === 'no_pack') lines.push('Not saved to OneDrive: this job has no OneDrive folder.');
+  else if (o?.why === 'off') lines.push('Not saved to OneDrive: saving the plan there is switched off (Admin › OneDrive › Where Things Save).');
+  else lines.push('Could not save it to OneDrive. The plan is issued; download it from the plan and add it by hand.');
+  return lines.join('\n');
 }
