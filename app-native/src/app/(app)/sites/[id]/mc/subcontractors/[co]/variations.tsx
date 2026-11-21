@@ -11,10 +11,11 @@ import { chooseAction, confirmAsk, promptText, showAlert } from '@/components/to
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { useSubco, useSubcos } from '@/data/subcontractors';
+import { sendSubOrder } from '@/data/subOrderDoc';
 import { decideVariation, requestVariation, useCoOrders, useSubVariations } from '@/data/subVariations';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { isManager } from '@/lib/roles';
+import { isFinanceUser, isManager } from '@/lib/roles';
 import { money } from '@/lib/rules/finance';
 import { base, page, radius, space } from '@/theme/theme';
 
@@ -22,7 +23,7 @@ const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input
 
 export default function SubcoVariations() {
   const { id, co } = useLocalSearchParams<{ id: string; co: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const qc = useQueryClient();
   const { data: sub } = useSubco(co, me);
   const { data: site } = useSite(id);
@@ -60,7 +61,14 @@ export default function SubcoVariations() {
     const o = orders.find((x) => x.id === order);
     if (!(await confirmAsk(`Approve "${v.title}" for ${money(v.value)}? It is added to ${o ? [o.number, o.name].filter(Boolean).join(' · ') : 'the order'}.`, 'Yes', 'No'))) return;
     setBusy(v.id); const err = await decideVariation(v.id, true, order); setBusy('');
-    if (err) showAlert(err); refresh();
+    refresh();
+    if (err) { showAlert(err); return; }
+    // It's a VO on that order now: offer to send the updated order (Andy, 21 Nov 2026: "Once the po is approved it should
+    // give the option to resend the po"). Finance people only: the order and its values are Finance's.
+    if (isFinanceUser(me, org) && org?.has_finance !== false && (await confirmAsk(`Approved: "${v.title}" is now a VO on ${o ? [o.number, o.name].filter(Boolean).join(' · ') : 'the order'}. Send the updated order to ${name}?`, 'Yes', 'No'))) {
+      setBusy(v.id); const m = await sendSubOrder(me, org, order); setBusy('');
+      showAlert(m);
+    }
   };
   const decline = async (v: (typeof vars)[number]) => {
     const reason = await promptText(`Why is "${v.title}" declined?`, '', { ok: 'Decline' });

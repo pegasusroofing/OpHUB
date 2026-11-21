@@ -12,7 +12,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { FinRow, FinStat } from '@/components/FinNav';
-import { confirmAsk, useToast } from '@/components/toast';
+import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { SelectBox } from '@/components/SelectBox';
 import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
@@ -21,6 +21,7 @@ import { fdb, insertNumbered, loadSettings } from '@/data/finance';
 import { subNoun, useSubJobs } from '@/data/finSubJobs';
 import { openDocLink } from '@/data/hs';
 import { packPdfBytes } from '@/data/jobPack';
+import { sendSubOrder, useOrderVos } from '@/data/subOrderDoc';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { canEditFinance, canRaiseOrders } from '@/lib/roles';
@@ -56,6 +57,9 @@ export default function FinSubcontract() {
   const home = sites.find((x) => x.id === (data?.sc?.site_id || site));
   const { data: subJobs = [] } = useSubJobs(home as never);
   const { data: sheet } = useQuery({ queryKey: ['finSubSheet', data?.sc?.price_sheet_id], enabled: !!data?.sc?.price_sheet_id, queryFn: async () => (await fdb.from('price_builder_sheets').select('id,title,status,total,site_id,pricing_element_id').eq('id', data?.sc?.price_sheet_id).maybeSingle()).data as Record<string, any> | null });
+  // Its variations, as VOs on this order (Andy, 21 Nov 2026), and sending it.
+  const { data: vos = [] } = useOrderVos(sid !== 'new' ? sid : undefined);
+  const [sending, setSending] = useState('');
   if (!me) return null;
   // Finance – Edit to change an order or its applications; a new order also needs Raise Orders (Admin › People › Invites & Roles).
   const canEdit = canEditFinance(me);
@@ -95,7 +99,7 @@ export default function FinSubcontract() {
       {sc && (
         <>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-            <FinStat v={sc.order_value != null ? money(sc.order_value) : '—'} label="Order Value" />{!!sc.sub_job_id && <FinStat v={subJobs.find((j) => j.id === sc.sub_job_id)?.short || '—'} label={subNoun(home as never)} />}<FinStat v={money(lastCert?.certified_gross || 0)} label="Certified To Date" />
+            <FinStat v={sc.order_value != null ? money(sc.order_value) : '—'} label={vos.length ? 'Revised Order Value' : 'Order Value'} sub={vos.length ? `Original ${money(Number(sc.order_value || 0) - vos.reduce((t, v) => t + v.value, 0))} · ${vos.length} VO${vos.length === 1 ? '' : 's'}` : undefined} />{!!sc.sub_job_id && <FinStat v={subJobs.find((j) => j.id === sc.sub_job_id)?.short || '—'} label={subNoun(home as never)} />}<FinStat v={money(lastCert?.certified_gross || 0)} label="Certified To Date" />
             <FinStat v={money(apps.filter((a) => a.status === 'certified').reduce((t, a) => t + Number(a.pay_amount || 0), 0))} label="Certified, To Pay" /><FinStat v={sc.status === 'complete' ? 'Complete' : 'Active'} label="Status" />
           </View>
           <Card>
@@ -103,6 +107,25 @@ export default function FinSubcontract() {
             <FinRow title="Work" right={sc.description || '—'} /><FinRow title="Retention" right={`${sc.retention_pct ?? 0}%`} /><FinRow title="CIS" right={`${sc.cis_rate ?? 20}%${sc.utr ? ` · UTR ${sc.utr}` : ''}`} />
             {sc.email && <FinRow title="Email" right={sc.email} />}
             {canEdit && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Edit Order" onPress={() => setEdit(true)} /></View>}
+          </Card>
+          {/* Variations as VOs on this same order (no new order), and the order sent with them. */}
+          <Card>
+            <SectionTitle>{`Variations (VOs) · ${vos.length}`}</SectionTitle>
+            {vos.length ? (
+              <>
+                <FinRow title="Original Order" right={money(Number(sc.order_value || 0) - vos.reduce((t, v) => t + v.value, 0))} />
+                {vos.map((v) => <FinRow key={v.id} left={`VO${v.no}`} title={v.title} sub={v.date ? `Approved ${fdate(v.date.slice(0, 10))}` : 'Approved'} right={money(v.value)} />)}
+                <FinRow title="Revised Order" right={money(Number(sc.order_value || 0))} />
+                <Muted style={{ fontSize: 12, marginTop: 4 }}>The order value includes the VOs. They&apos;re added from the subcontractor&apos;s page on the job (Work › Variations) when approved.</Muted>
+              </>
+            ) : <Muted>No variations yet. Approved ones are added here as VO1, VO2… from the subcontractor&apos;s page on the job (Work › Variations).</Muted>}
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 10 }}>
+              <Button small kind="ghost" busy={sending === 'pdf'} title="📄 Order PDF" onPress={async () => { setSending('pdf'); const m = await sendSubOrder(me, org, sc.id as string, false); setSending(''); if (!/ready/.test(m)) showAlert(m); }} />
+              {canEdit && <Button small busy={sending === 'send'} title={vos.length ? '✉ Resend Order' : '✉ Send Order'} onPress={async () => {
+                if (!(await confirmAsk(`Send ${sc.number || 'the order'}${vos.length ? ` (with VO${vos.length})` : ''} to ${sc.email || sc.name}?`, 'Yes', 'No'))) return;
+                setSending('send'); const m = await sendSubOrder(me, org, sc.id as string, true); setSending(''); showAlert(m);
+              }} />}
+            </View>
           </Card>
           <SectionTitle>Applications</SectionTitle>
           {apps.length ? apps.slice().reverse().map((a) => <FinRow key={a.id} left={`No. ${a.number}`} title={fdate(a.app_date)} sub={[`applied ${money(a.applied_gross)}`, a.certified_gross != null ? `certified ${money(a.certified_gross)}` : '', a.final_date ? `pay by ${fdate(a.final_date)}` : '', a.status === 'paid' ? 'Paid' : a.status === 'certified' ? 'Certified' : 'To certify', a.payless ? 'Pay less' : ''].filter(Boolean).join(' · ')} right={a.certified_gross != null ? money(a.pay_amount) : '—'} tone={a.status !== 'paid' && a.final_date && a.final_date < today() ? '#C0392B' : undefined} onPress={() => setAppEdit(a)} />) : <Muted>No applications yet.</Muted>}

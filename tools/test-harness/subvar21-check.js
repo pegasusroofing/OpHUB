@@ -73,6 +73,19 @@ const fakeRpc = (db, O, calls) => (n, b) => {
     const v1 = db.fin_sub_variations[0];
     check(v1.status === 'approved' && v1.subcontract_id === 'fs1' && db.fin_subcontracts.find((x) => x.id === 'fs1').order_value === 20750, 'approved: £750 added to SC-001 (now £20,750)');
     await page.screenshot({path: path.join(SHOTS, 'variations-laptop.png'), fullPage: true});
+    // The updated order: offered straight after approving; while Finance is on trial it's downloaded, not emailed.
+    let tt = await text();
+    check(/is now a VO on SC-001/.test(tt) && /Send the updated order to Slate & Tile Co\?/.test(tt), 'after approving it offers to send the updated order');
+    // On a laptop the PDF opens in the app's viewer (download / OneDrive from there); on trial nothing is emailed.
+    await page.getByText('Yes', {exact: true}).last().click(); await page.waitForTimeout(3000);
+    tt = await text();
+    check(/Subcontract Order SC-001 Rev 1 - Slate & Tile Co/.test(tt), `the updated order is made as Revision 1, to send yourself while Finance is on trial (${tt.slice(-200)})`);
+    await page.screenshot({path: path.join(SHOTS, 'order-pdf-laptop.png')});
+    await page.keyboard.press('Escape'); await page.waitForTimeout(500);
+    await page.goto(`${B}/fin/sub/fs1`); await page.waitForTimeout(6000);
+    tt = await text();
+    check(/Revised Order Value/.test(tt) && /Original £20,000/.test(tt) && /VO1/.test(tt) && /Extra Flashing To Dormers/.test(tt) && /Revised Order/.test(tt) && /Resend Order/.test(tt), `Finance's order: Revised Order Value, the original, VO1 listed, Resend Order (${page.url().replace(B, '')}: ${tt.slice(0, 400)})`);
+    await page.screenshot({path: path.join(SHOTS, 'order-vos-laptop.png'), fullPage: true});
     await page.goto(`${B}/sites/${S1}/mc/subcontractors/sc1`); await page.waitForTimeout(6000);
     check(/incl\. £750 variations/.test(await text()), 'the money tiles\' Order Value says it includes £750 of variations');
     // Main Contractor mode's Today: a new request shows to approve.
