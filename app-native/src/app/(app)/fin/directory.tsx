@@ -4,7 +4,7 @@
 // HMRC check, CIS rate, day rate, bank details) and cost codes.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinForm, type Field } from '@/components/FinForm';
@@ -16,7 +16,7 @@ import { XeroWorkersButton } from '@/components/FinXeroWorkers';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { PhoneTable } from '@/components/PhoneTable';
 import { bankOk, sortCode } from '@/components/FinSubs';
-import { useToast } from '@/components/toast';
+import { chooseAction, useToast } from '@/components/toast';
 import { Button, Empty, Muted, SectionTitle } from '@/components/ui';
 import { fdb, finInvoke, finStatus, selectAll, useFinSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
@@ -43,7 +43,7 @@ export function termsText(r: Row) {
 const CIS_REG: [string, string][] = [['', 'Choose…'], ['sole_trader', 'Sole trader'], ['company', 'Company'], ['partnership', 'Partnership'], ['trust', 'Trust']];
 
 export default function FinDirectory() {
-  const { kind: kindIn = 'client', from } = useLocalSearchParams<{ kind?: Kind; from?: string }>();
+  const { kind: kindIn = 'client', from, add } = useLocalSearchParams<{ kind?: Kind; from?: string; add?: string }>();
   // The Estimating tab is gone (21 Nov 2026): an old link opens Clients, where each client's estimating details are.
   const kind: Kind = kindIn === 'estimating' ? 'client' : kindIn;
   // Cost codes live under Settings; People & rates keeps the Subcontractors tabs when opened from there.
@@ -63,6 +63,14 @@ export default function FinDirectory() {
   const [pplSel, setPplSel] = useState<Record<string, string[]>>({ show: ['subs'] });
   const [pplSort, setPplSort] = useState('az');
   const [busy, setBusy] = useState(false);
+  // + New Contact (Andy, 21 Nov 2026): a client, a supplier or a subcontractor, each with what Xero asks for.
+  const openNew = (k: Kind) => setEdit(k === 'labour' ? { key: '', name: '', r: { pay_type: 'subcontractor', cis_rate: 20 }, app: false } : { toX: true });
+  const newContact = async () => {
+    const k = await chooseAction('What Is This Contact?', [{ key: 'client', label: 'Client · We Invoice Them' }, { key: 'supplier', label: 'Supplier · We Buy From Them' }, { key: 'labour', label: 'Subcontractor · They Work For Us (CIS)' }]);
+    if (!k) return;
+    if (k === kind) openNew(k as Kind); else router.setParams({ kind: k, add: '1' } as never);
+  };
+  useEffect(() => { if (add === '1') { openNew(kind); router.setParams({ add: undefined } as never); } }, [add, kind]); // eslint-disable-line react-hooks/exhaustive-deps
   const desk = useDesk();
   const { data: xst } = useXeroStatus();
   const xeroOn = !!(xst?.data as Row | null | undefined)?.connected;
@@ -171,7 +179,7 @@ export default function FinDirectory() {
             ))}
           </View>
         )}
-        {canEdit && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: desk ? 'flex-end' : 'center', marginBottom: 10 }}>{xeroOn && <XeroWorkersButton />}<Button title="+ Add A Person" onPress={() => setEdit({ key: '', name: '', r: { pay_type: 'subcontractor', cis_rate: 20 }, app: false })} /></View>}
+        {canEdit && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: desk ? 'flex-end' : 'center', marginBottom: 10 }}>{xeroOn && <XeroWorkersButton />}<Button title="+ New Contact" onPress={() => void newContact()} /></View>}
         {desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search name or UTR' }} sel={pplSel} onChange={setPplSel} onClear={() => setPplSel({ show: [] })} sorts={[['az', 'Name A to Z'], ['za', 'Name Z to A']]} sort={pplSort} onSort={setPplSort}
           parts={[{ key: 'show', label: 'Show', items: [['subs', 'CIS subcontractors'], ['unver', 'Not verified'], ['paye', 'PAYE staff'], ['left', 'No longer working for us']].map(([v, l]) => ({ v, l, n: rows.filter(F[v]).length })) }]} />}
         {/* A laptop gets the current app's table: Name, CIS, UTR, HMRC Check, Day Rate, Bank and a day-rate total (9219j; cmp-fin 5 Nov 2026). */}
@@ -203,18 +211,31 @@ export default function FinDirectory() {
           <FinRow compact key={x.key} title={x.name} sub={[x.app ? 'Has the app' : '', x.r.pay_type === 'paye' ? 'PAYE' : CIS.find(([k]) => Number(k) === Number(x.r.cis_rate ?? 20))?.[1], x.r.pay_type === 'paye' ? '' : x.r.utr ? `UTR ${x.r.utr}` : 'UTR missing', x.r.pay_type === 'paye' ? '' : x.r.cis_verified_at ? `verified ${fdate(x.r.cis_verified_at)}` : 'unverified', bankOk(x.r) ? `${sortCode(x.r.bank_sort_code)} · ••${String(x.r.bank_account_no).replace(/\D/g, '').slice(-4)}` : x.r.pay_type === 'paye' ? 'payroll' : 'bank not saved'].filter(Boolean).join(' · ')} right={x.r.day_rate != null ? `${money(x.r.day_rate)}/day` : ''} onPress={canEdit ? () => setEdit(x) : undefined} />
         )) : <Empty>No one here yet.</Empty>}
         {cur && (
-          <FinForm title={cur.key ? cur.name : 'Add a person'} initial={{ ...cur.r, name: cur.r.name || (cur.app ? cur.name : ''), cis_rate: String(cur.r.cis_rate ?? 20), pay_type: cur.r.pay_type || 'subcontractor', active: cur.r.active !== false }} onClose={() => setEdit(null)}
-            note={cur.app ? `Has the app (${cur.email || ''}). Their name comes from their app account.` : undefined}
-            fields={[
-              ...(cur.app ? [] : [{ k: 'name', label: 'Name' }, { k: 'email', label: 'Email (for CIS statements)', kind: 'email', half: true }, { k: 'phone', label: 'Phone', half: true }] as Field[]),
-              { k: 'trading_name', label: 'Trading / company name' }, { k: 'pay_type', label: 'How they’re paid', kind: 'choice', options: [['subcontractor', 'They invoice us (CIS)'], ['paye', 'PAYE (payroll)']] },
-              { k: 'day_rate', label: 'Day rate £', kind: 'money', half: true }, { k: 'postcode', label: 'Postcode', half: true }, { k: 'address', label: 'Address', kind: 'multiline' },
-              { k: 'cis_rate', label: 'CIS rate', kind: 'choice', options: CIS, half: true }, { k: 'utr', label: 'UTR (10 digits)', half: true },
-              { k: 'cis_reg_type', label: 'Registration type', kind: 'choice', options: CIS_REG, half: true }, { k: 'cis_sub_type', label: 'Subcontractor type', kind: 'choice', options: CIS_REG, half: true },
-              { k: 'company_number', label: 'Company number', half: true }, { k: 'vat_number', label: 'VAT number', half: true }, { k: 'vat_registered', label: 'VAT registered (reverse charge)', kind: 'check' },
-              { k: 'cis_verification_no', label: 'HMRC verification number', half: true }, { k: 'cis_verified_at', label: 'Verified date', kind: 'date', half: true },
-              { k: 'bank_account_name', label: 'Bank account name' }, { k: 'bank_sort_code', label: 'Sort code', half: true }, { k: 'bank_account_no', label: 'Account number', half: true },
-              { k: 'notes', label: 'Notes', kind: 'multiline' }, ...(cur.key && !cur.app ? [{ k: 'active', label: 'Still working for us', kind: 'check' }] as Field[] : []),
+          <FinForm title={cur.key ? cur.name : 'New Subcontractor'} initial={{ ...cur.r, name: cur.r.name || (cur.app ? cur.name : ''), cis_rate: String(cur.r.cis_rate ?? 20), pay_type: cur.r.pay_type || 'subcontractor', active: cur.r.active !== false, country: cur.r.country || 'United Kingdom', toX: true }} onClose={() => setEdit(null)}
+            note={[cur.app ? `Has the app (${cur.email || ''}). Their name comes from their app account.` : '', cur.r.xero_contact_id ? 'Linked to Xero: saving sends what you change to Xero too.' : ''].filter(Boolean).join(' ') || undefined}
+            // What Xero holds for a contact, plus CIS (Andy, 21 Nov 2026: "see what xero asks for and copy it"). Xero's CIS
+            // settings can't be set from outside Xero, so the CIS rate and UTR are kept here.
+            fields={(v) => [
+              { k: 'h_contact', label: 'Contact', kind: 'heading' },
+              ...(cur.app ? [] : [{ k: 'name', label: 'Name' }] as Field[]),
+              { k: 'trading_name', label: 'Trading / Company Name' }, { k: 'pay_type', label: 'How They’re Paid', kind: 'choice', options: [['subcontractor', 'They Invoice Us (CIS)'], ['paye', 'PAYE (Payroll)']] },
+              { k: 'first_name', label: 'Main Contact First Name', half: true }, { k: 'last_name', label: 'Main Contact Last Name', half: true },
+              ...(cur.app ? [] : [{ k: 'email', label: 'Email (For CIS Statements)', kind: 'email' }, { k: 'phone', label: 'Phone', half: true }] as Field[]),
+              { k: 'mobile', label: 'Mobile', half: true }, { k: 'website', label: 'Website', half: true }, { k: 'account_number', label: 'Account Number (Your Reference)', half: true },
+              { k: 'h_address', label: 'Address', kind: 'heading' },
+              { k: 'address', label: 'Address', kind: 'multiline', note: 'One line each: street, area, town.' }, { k: 'postcode', label: 'Postcode', half: true }, { k: 'country', label: 'Country', half: true },
+              ...(v.pay_type === 'paye' ? [] : [
+                { k: 'h_cis', label: 'CIS And Tax', kind: 'heading' },
+                { k: 'cis_rate', label: 'CIS Rate', kind: 'choice', options: CIS, half: true }, { k: 'utr', label: 'UTR (10 Numbers)', half: true },
+                { k: 'cis_reg_type', label: 'Registration Type', kind: 'choice', options: CIS_REG, half: true }, { k: 'cis_sub_type', label: 'Subcontractor Type', kind: 'choice', options: CIS_REG, half: true },
+                { k: 'cis_verification_no', label: 'HMRC Verification Number', half: true }, { k: 'cis_verified_at', label: 'Verified Date', kind: 'date', half: true },
+                { k: 'vat_registered', label: 'VAT Registered (Reverse Charge)', kind: 'check' }, { k: 'vat_number', label: 'VAT Number', half: true }, { k: 'company_number', label: 'Company Number', half: true },
+              ] as Field[]),
+              { k: 'h_bank', label: 'Bank Details And Rate', kind: 'heading' },
+              { k: 'bank_account_name', label: 'Bank Account Name' }, { k: 'bank_sort_code', label: 'Sort Code', half: true }, { k: 'bank_account_no', label: 'Bank Account Number', half: true },
+              { k: 'day_rate', label: 'Day Rate £', kind: 'money', half: true },
+              { k: 'notes', label: 'Notes', kind: 'multiline' }, ...(cur.key && !cur.app ? [{ k: 'active', label: 'Still Working For Us', kind: 'check' }] as Field[] : []),
+              ...(v.pay_type === 'paye' ? [] : [{ k: 'toX', label: cur.r.xero_contact_id ? 'Update Xero As Well' : 'Add To Xero As Well', kind: 'check' }] as Field[]),
             ]}
             onSave={async (v) => {
               const rate = num(v.day_rate); if (rate !== null && isNaN(rate)) return 'Day rate must be a number.';
@@ -224,19 +245,41 @@ export default function FinDirectory() {
               if (utr && !/^\d{10}$/.test(utr)) return 'A UTR is 10 numbers.';
               const n = (x: unknown) => String(x ?? '').trim() || null;
               const pay = String(v.pay_type || 'subcontractor');
-              const row: Row = { pay_type: pay, day_rate: rate, trading_name: n(v.trading_name), address: n(v.address), postcode: n(v.postcode)?.toUpperCase() || null, notes: n(v.notes), updated_at: new Date().toISOString() };
-              if (pay !== 'paye') Object.assign(row, { cis_reg_type: v.cis_reg_type || null, cis_sub_type: v.cis_sub_type || null, cis_rate: Number(v.cis_rate || 20), utr: utr || null, vat_registered: !!v.vat_registered, vat_number: n(v.vat_number), company_number: n(v.company_number), cis_verification_no: n(v.cis_verification_no), cis_verified_at: n(v.cis_verified_at), bank_account_name: n(v.bank_account_name), bank_sort_code: sc || null, bank_account_no: an || null });
+              const row: Row = { pay_type: pay, day_rate: rate, trading_name: n(v.trading_name), address: n(v.address), postcode: n(v.postcode)?.toUpperCase() || null, notes: n(v.notes), updated_at: new Date().toISOString(),
+                first_name: n(v.first_name), last_name: n(v.last_name), mobile: n(v.mobile), website: n(v.website), account_number: n(v.account_number), country: n(v.country),
+                bank_account_name: n(v.bank_account_name), bank_sort_code: sc ? `${sc.slice(0, 2)}-${sc.slice(2, 4)}-${sc.slice(4)}` : null, bank_account_no: an || null };
+              if (pay !== 'paye') Object.assign(row, { cis_reg_type: v.cis_reg_type || null, cis_sub_type: v.cis_sub_type || null, cis_rate: Number(v.cis_rate || 20), utr: utr || null, vat_registered: !!v.vat_registered, vat_number: n(v.vat_number), company_number: n(v.company_number), cis_verification_no: n(v.cis_verification_no), cis_verified_at: n(v.cis_verified_at) });
               if (!cur.app) {
                 const nm = n(v.name); if (!nm) return 'Enter their name.';
                 const em = n(v.email); if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return 'Check the email address.';
                 Object.assign(row, { name: nm, email: em, phone: n(v.phone) });
                 if (cur.key) row.active = !!v.active;
               }
-              const r = !cur.key ? await fdb.from('fin_labour_rates').insert({ ...row, org_id: me.org_id, user_id: null, active: true } as never)
-                : cur.app ? await fdb.from('fin_labour_rates').upsert({ ...row, org_id: me.org_id, user_id: cur.key } as never, { onConflict: 'org_id,user_id' })
-                  : await fdb.from('fin_labour_rates').update(row as never).eq('id', cur.key.slice(2));
+              const r = !cur.key ? await fdb.from('fin_labour_rates').insert({ ...row, org_id: me.org_id, user_id: null, active: true } as never).select('*').single()
+                : cur.app ? await fdb.from('fin_labour_rates').upsert({ ...row, org_id: me.org_id, user_id: cur.key } as never, { onConflict: 'org_id,user_id' }).select('*').single()
+                  : await fdb.from('fin_labour_rates').update(row as never).eq('id', cur.key.slice(2)).select('*').single();
               if (r.error) return `Save failed — ${r.error.message}`;
-              toast(cur.key ? 'Saved' : 'Added'); refresh(); return null;
+              const rec = r.data as Row;
+              let msg = cur.key ? 'Saved' : 'Added';
+              // Xero: a subcontractor is a supplier contact there, with their bank details (not for PAYE staff).
+              if (v.toX && pay !== 'paye' && rec?.id) {
+                const fields = { name: rec.trading_name || rec.name || cur.name, email: rec.email || cur.email || '', phone: rec.phone || '', mobile: rec.mobile || '', first_name: rec.first_name || '', last_name: rec.last_name || '',
+                  account_number: rec.account_number || '', company_number: rec.company_number || '', vat_number: rec.vat_registered ? rec.vat_number || '' : '', address: rec.address || '', postcode: rec.postcode || '', country: rec.country || '',
+                  bank_sort_code: rec.bank_sort_code || '', bank_account_number: rec.bank_account_no || '', supplier: true };
+                let xid = rec.xero_contact_id as string | null, existed = false;
+                const wasLinked = !!xid;
+                if (!xid) {
+                  const x = await finInvoke<{ contact: { id: string }; existed?: boolean }>(me, 'xero', { action: 'create_contact', ...fields });
+                  if (x.error) msg += `. Xero: ${x.error.slice(0, 100)}`;
+                  else if (x.data?.contact?.id) { xid = x.data.contact.id; existed = !!x.data.existed; await fdb.from('fin_labour_rates').update({ xero_contact_id: xid, xero_synced_at: new Date().toISOString() } as never).eq('id', rec.id); msg += existed ? ' — already in Xero, linked and updated' : ' and added to Xero'; }
+                }
+                if (xid && (wasLinked || existed)) {
+                  const u = await finInvoke<{ ok: boolean }>(me, 'xero', { action: 'update_contact', id: xid, ...fields });
+                  if (u.error) msg += `. Xero: ${u.error.slice(0, 100)}`;
+                  else { await fdb.from('fin_labour_rates').update({ xero_synced_at: new Date().toISOString() } as never).eq('id', rec.id); if (wasLinked) msg += ' and Xero updated'; }
+                }
+              }
+              toast(msg); refresh(); return null;
             }} />
         )}
       </FinPage>
@@ -306,7 +349,7 @@ export default function FinDirectory() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <Text style={{ flex: 1, minWidth: 200, fontSize: 12, color: '#6b7280' }}>{list.length} {sup ? 'supplier' : 'client'}{list.length === 1 ? '' : 's'} · {list.filter((c) => c.xero_contact_id).length} in Xero.{!canEdit ? '' : sup ? ' Tap one to set VAT, payment terms and a default cost code.' : ' New clients you add here go into Xero too.'}</Text>
         {canEdit && <Pressable disabled={busy} onPress={() => void pull()} style={{ borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12 }}><Text style={{ fontSize: 12, fontWeight: '500', color: base.ink }}>{busy ? 'Pulling…' : '⟳ Pull from Xero'}</Text></Pressable>}
-        {canEdit && <Pressable onPress={() => setEdit({ toX: true })} style={{ backgroundColor: th.brand1, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12 }}><Text style={{ fontSize: 12, fontWeight: '600', color: th.brand1Text }}>+ New {sup ? 'supplier' : 'client'}</Text></Pressable>}
+        {canEdit && <Pressable onPress={() => void newContact()} style={{ backgroundColor: th.brand1, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12 }}><Text style={{ fontSize: 12, fontWeight: '600', color: th.brand1Text }}>+ New Contact</Text></Pressable>}
       </View>
       {/* A phone's table has a search box under each heading (Andy, 14 Nov 2026); a laptop keeps the search bar. */}
       {desk && <TextInput value={q} onChangeText={setQ} placeholder={`Search ${sup ? 'suppliers' : 'clients'}`} style={box} />}

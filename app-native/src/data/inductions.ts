@@ -123,6 +123,25 @@ export async function saveInductionForm(orgId: string, form: IndForm): Promise<b
   if (ok && ticks.length) await setInductionQuestions(orgId, ticks);
   return ok;
 }
+/** Their company induction (a subcontractor company's operatives, 21 Nov 2026): what they gave, and when they finished it. */
+export type CompanyInduction = { data: IndAnswers; completed_at: string | null };
+export function useMyCompanyInduction(meId: string | undefined) {
+  return useQuery({
+    queryKey: ['companyInduction', meId], enabled: !!meId,
+    queryFn: async () => ((await db.from('company_inductions').select('data,completed_at').eq('user_id', meId as string).maybeSingle()).data as CompanyInduction | null) ?? null,
+  });
+}
+export async function saveCompanyInduction(me: Profile, data: IndAnswers, finished: boolean): Promise<boolean> {
+  const row = { user_id: me.id, org_id: me.org_id, data, updated_at: new Date().toISOString(), ...(finished ? { completed_at: new Date().toISOString() } : {}) };
+  return !(await db.from('company_inductions').upsert(row as never, { onConflict: 'user_id' })).error;
+}
+/** The job's current Construction Phase Plan, read and signed with the site induction (21 Nov 2026). */
+export function useJobCpp(siteId: string | undefined) {
+  return useQuery({
+    queryKey: ['jobCpp', siteId], enabled: !!siteId,
+    queryFn: async () => ((((await db.from('mc_documents').select('id,name,storage_path').eq('site_id', siteId as string).eq('category', 'cpp').order('uploaded_at', { ascending: false })).data as SiteRule[] | null) ?? []).find((d) => !/superseded/i.test(d.name)) ?? null),
+  });
+}
 /** Their sign-up form's answers (their latest Subcontractor Form), to fill in the induction (21 Nov 2026). */
 export function useMySignUp(meId: string | undefined) {
   return useQuery({

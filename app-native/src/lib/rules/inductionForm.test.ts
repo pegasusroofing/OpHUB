@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { carryOver, fromSignUp, standardInductionForm } from './inductionForm.ts';
+import { carryOver, COMPANY_INDUCTION, fromCompanyInduction, fromSignUp, standardInductionForm } from './inductionForm.ts';
 
 test('Induction: next of kin and About You come from the sign-up form (21 Nov 2026)', () => {
   const form = standardInductionForm();
@@ -26,4 +26,13 @@ test('Induction: next of kin and About You come from the sign-up form (21 Nov 20
   const merged = { ...fromSignUp(form, { kin_name: 'Sue', kin_phone: '1', company_name: 'X' }, 'J'), ...carryOver(form, { kin_name: 'Sam', kin_phone: '2' }) };
   assert.equal(merged.kin_name, 'Sam');
   assert.equal(merged.about_employer, 'X');
+});
+
+test('Induction: a subcontractor operative\'s company induction fills the site induction, not the ticks or health (21 Nov 2026)', () => {
+  const form = standardInductionForm();
+  const a = fromCompanyInduction(form, { you_name: 'Jack', kin_name: 'Sue', kin_phone: '0770', about_trade: 'Roofer', about_firstaid: 'yes', med_any: 'no', health_0: 'yes', item_0: true });
+  assert.deepEqual(a, { kin_name: 'Sue', kin_phone: '0770', about_trade: 'Roofer', about_firstaid: 'yes' });
+  assert.deepEqual(fromCompanyInduction(form, null), {});
+  // Nothing financial is asked.
+  assert.equal(COMPANY_INDUCTION.sections.flatMap((s) => s.items).some((i) => /utr|vat|bank|cis|insurance/i.test(`${i.id} ${i.label}`)), false);
 });

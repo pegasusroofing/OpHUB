@@ -1,7 +1,8 @@
 // Admin Centre › Invites (260 invites, 320 generateInvite / createPermanentInvite):
 // the one permanent link for the whole team, one-time links (operative, driver
-// or client) that can be emailed, and pending invites to revoke.
-import { useQueryClient } from '@tanstack/react-query';
+// or client) that can be emailed, and pending invites to revoke. A subcontractor's operative too (Andy, 21 Nov 2026),
+// offered only once a subcontractor is set up on a job: the link puts them into that company on that job.
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { Platform, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
@@ -11,6 +12,9 @@ import { RolesPanel } from '@/components/RolesPanel';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { createInvite, createPermanentInvite, emailInvite, joinLink, revokeInvite, useInvites } from '@/data/admin';
 import { useOrgRoles } from '@/data/orgRoles';
+import { useSites } from '@/data/sites';
+import { createSubInvite } from '@/data/subcontractors';
+import { supabase } from '@/lib/supabase';
 import { inviteChoices } from '@/lib/rules/orgRoles';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
@@ -27,7 +31,13 @@ export default function Invites() {
   // Who it's for: one of the company's own roles (Andy, 19 Nov 2026: "i cant invite as a project manager or qs"). Admins
   // can invite Project Managers, Quantity Surveyors and the rest at that level; everyone else operatives, drivers, clients.
   const { data: orgRoles = [] } = useOrgRoles(me?.org_id);
-  const choices = me ? inviteChoices(orgRoles, me.role === 'admin') : [];
+  // The subcontractors set up on jobs (Main Contractor › Subcontractors): only then can a subcontractor's operative be invited.
+  const { data: subcos = [] } = useQuery({ queryKey: ['inviteSubcos', me?.org_id], enabled: !!me?.org_id,
+    queryFn: async () => (((await (supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }).from('subcontractor_companies').select('id,name,site_id').eq('org_id', me?.org_id as string).order('name')).data as { id: string; name: string; site_id: string }[] | null) ?? []) });
+  const { data: sites = [] } = useSites();
+  const [subco, setSubco] = useState<string | null>(null);
+  const roleChoices = me ? inviteChoices(orgRoles, me.role === 'admin') : [];
+  const choices = [...roleChoices, ...(subcos.length ? [{ key: 'subop', label: 'Subcontractor Operative', role: 'operative', is_estimator: false, org_role_id: null }] : [])];
   const [choiceKey, setChoiceKey] = useState<string | null>(null);
   const choice = choices.find((c) => c.key === choiceKey) ?? choices.find((c) => c.role === 'operative') ?? null;
   const role = choice?.role ?? 'operative';
@@ -89,7 +99,18 @@ export default function Invites() {
             <Pressable onPress={async () => { const k = await chooseAction('Invite As', choices.length ? choices.map((c) => ({ key: c.key, label: c.label })) : ROLES.slice(0, 3)); if (k) setChoiceKey(k); }} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 12, marginBottom: 8 }}>
               <Text style={{ color: base.ink }}>Invite As: {choice?.label ?? 'Operative'} ▾</Text>
             </Pressable>
-            <Button kind="ghost" busy={busy === 'one'} title="Generate One-Time Invite Link" onPress={async () => { setBusy('one'); const id = await createInvite(me, role, { is_estimator: choice?.is_estimator, org_role_id: choice?.org_role_id }); setBusy(null); if (id) { setNewId(id); toast('Invite link created'); refresh(); } else toast('Could not create — try again.'); }} />
+            {choice?.key === 'subop' && (
+              <Pressable accessibilityRole="button" accessibilityLabel="Which Subcontractor" onPress={async () => {
+                const k = await chooseAction('Which Subcontractor', subcos.map((c) => ({ key: c.id, label: `${c.name} · ${sites.find((s) => s.id === c.site_id)?.name || 'Job'}` })));
+                if (k) setSubco(k);
+              }} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 12, marginBottom: 8 }}>
+                <Text style={{ color: base.ink }}>Subcontractor: {(() => { const c = subcos.find((x) => x.id === subco); return c ? `${c.name} · ${sites.find((s) => s.id === c.site_id)?.name || 'Job'}` : 'Choose'; })()} ▾</Text>
+              </Pressable>
+            )}
+            {!subcos.length && <Muted style={{ marginBottom: 8, fontSize: 12 }}>To invite a subcontractor&apos;s operative, add the subcontractor to a job first (the job&apos;s Main Contractor › Subcontractors).</Muted>}
+            <Button kind="ghost" busy={busy === 'one'} title="Generate One-Time Invite Link" onPress={async () => {
+              if (choice?.key === 'subop' && !subco) { toast('Choose which subcontractor they work for.'); return; }
+              setBusy('one'); const id = choice?.key === 'subop' ? await createSubInvite(subco as string) : await createInvite(me, role, { is_estimator: choice?.is_estimator, org_role_id: choice?.org_role_id }); setBusy(null); if (id) { setNewId(id); toast('Invite link created'); refresh(); } else toast('Could not create — try again.'); }} />
             <Muted style={{ marginTop: 8 }}>A Client invite gives read-only access (RAMS, COSHH, Toolbox Talks, Schedule of Works, completed inspections, snagging and the operative dashboard) once a PM assigns them to a site — they can view and export, but never sign or edit anything. {me.role === 'admin' ? 'They join with the role chosen here. Site Managers and Finance Controllers: invite them as anything, then change their role in People once they’ve joined.' : 'Only a company admin can invite a Project Manager.'}</Muted>
           </>
         )}

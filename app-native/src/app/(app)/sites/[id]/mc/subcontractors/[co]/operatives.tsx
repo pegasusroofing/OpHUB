@@ -6,7 +6,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Platform, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
 
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, FilterRow, Muted, SectionTitle } from '@/components/ui';
@@ -88,6 +88,8 @@ export default function SubOperatives() {
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
                 <Button small kind="ghost" title={copyTitle(made.id)} onPress={() => void share(made.id, made.pm)} />
                 {mgr && goodEmail(email.trim()) && <Button small busy={busy === 'email'} title="Email It" onPress={async () => { setBusy('email'); toast(await emailInvite(made.id, email.trim()), { confirm: true }); setBusy(null); }} />}
+                {/* Their own admin sends it from their own email (Andy, 21 Nov 2026: "the subcontractor admin also should be able to send an invite"). */}
+                {!mgr && theirPm && goodEmail(email.trim()) && <Button small title="Email It" onPress={() => void Linking.openURL(`mailto:${email.trim()}?subject=${encodeURIComponent(`Join ${company} on OpHUB`)}&body=${encodeURIComponent(`${company} on OpHUB: join our team for this job\n${joinLink(made.id)}`)}`)} />}
                 <Button small kind="ghost" title="Make Another" onPress={() => { setMade(null); setEmail(''); setNewPm(null); }} />
               </View>
             </>

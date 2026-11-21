@@ -135,6 +135,48 @@ export function fromSignUp(form: IndForm, d: Record<string, unknown> | null | un
   Object.entries(v).forEach(([k, x]) => { if (x && ids.has(k)) a[k] = x; });
   return a;
 }
+/** The company induction a subcontractor company's operative fills in once (21 Nov 2026): their details, next of kin,
+ *  their work and cards, and anything first aiders should know. Nothing financial. The ids match the site induction's, so
+ *  each site induction is filled in from it. */
+export const COMPANY_INDUCTION: IndForm = {
+  sections: [
+    { id: 'you', title: 'Your Details', items: [
+      { id: 'you_name', label: 'Full Name', type: 'text', required: true },
+      { id: 'you_phone', label: 'Mobile', type: 'phone', required: true },
+      { id: 'you_dob', label: 'Date Of Birth', type: 'date', required: false },
+      { id: 'you_address', label: 'Home Address', type: 'long', required: false },
+    ] },
+    { id: 'kin', title: 'Next Of Kin', note: 'Who we contact in an emergency.', items: [
+      { id: 'kin_name', label: 'Name', type: 'text', required: true },
+      { id: 'kin_relationship', label: 'Relationship To You', type: 'text', required: false },
+      { id: 'kin_phone', label: 'Phone Number', type: 'phone', required: true },
+      { id: 'kin_address', label: 'Address', type: 'long', required: false },
+    ] },
+    { id: 'work', title: 'Your Work', items: [
+      { id: 'about_employer', label: 'Employer / Company', type: 'text', required: true },
+      { id: 'about_trade', label: 'Trade', type: 'text', required: true },
+      { id: 'about_cscs', label: 'CSCS Card Number', type: 'text', required: false },
+      { id: 'about_cscs_expiry', label: 'CSCS Card Expiry', type: 'date', required: false },
+      { id: 'about_cards', label: 'Other Cards And Tickets (IPAF, PASMA, Asbestos Awareness…)', type: 'long', required: false },
+      { id: 'about_firstaid', label: 'Do you hold an in-date first aid certificate?', type: 'yesno', required: false },
+    ] },
+    { id: 'health', title: 'Health', note: 'So first aiders can keep you safe. Kept private to the office.', items: [
+      { id: 'med_any', label: 'Do you have a medical condition or allergy first aiders should know about?', type: 'yesno', required: true, detailsIfYes: true },
+    ] },
+  ],
+};
+/** What a site induction takes from their company induction: every answer whose question the site form also asks, except
+ *  the ticks and the health questions, which are answered fresh on each site. */
+export function fromCompanyInduction(form: IndForm, d: IndAnswers | null | undefined): IndAnswers {
+  if (!d) return {};
+  const a: IndAnswers = {};
+  form.sections.forEach((s) => s.items.forEach((it) => {
+    if (it.type === 'tick' || /^(health_|item_)/.test(it.id)) return;
+    const v = d[it.id];
+    if ((typeof v === 'string' && v.trim()) || typeof v === 'boolean') a[it.id] = v;
+  }));
+  return a;
+}
 /** How an answer reads on the PDF. */
 export function answerText(it: IndItem, a: IndAnswers): string {
   const v = a[it.id];

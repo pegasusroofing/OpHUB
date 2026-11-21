@@ -35,22 +35,22 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
 
   // Purchase Invoices: Needs Checking, with a tick on each row.
   await page.goto(B + '/fin/purchases?tab=invoices&f=approve'); await page.waitForTimeout(5000);
-  await table('Purchase invoices', ['SIG Roofing', 'Jewson'], 'fin-pinv.png');
-  const ticks = await vis('[aria-label="Purchase invoices"]').locator('[role="checkbox"]').count();
+  await table('Purchase Invoices', ['SIG Roofing', 'Jewson'], 'fin-pinv.png');
+  const ticks = await vis('[aria-label="Purchase Invoices"]').locator('[role="checkbox"]').count();
   check(ticks === 2, `Purchase invoices: a tick on each row (${ticks})`);
-  await vis('[aria-label="Purchase invoices"]').locator('[role="checkbox"]').first().click(); await page.waitForTimeout(500);
+  await vis('[aria-label="Purchase Invoices"]').locator('[role="checkbox"]').first().click(); await page.waitForTimeout(500);
   check(/1 Selected/.test(await page.locator('body').innerText()) && /Approve 1/.test(await page.locator('body').innerText()), 'Purchase invoices: ticking one shows the Approve bar');
-  await vis('[aria-label="Purchase invoices"]').getByRole('button').filter({hasText: 'Jewson'}).first().click(); await page.waitForTimeout(2500);
+  await vis('[aria-label="Purchase Invoices"]').getByRole('button').filter({hasText: 'Jewson'}).first().click(); await page.waitForTimeout(2500);
   check(/\/fin\/pinv\/pi2/.test(page.url()), 'Purchase invoices: tapping a row opens it');
   // Received (no job yet).
   await page.goto(B + '/fin/purchases?tab=invoices&f=job'); await page.waitForTimeout(5000);
   await table('Invoices Received', ['Travis Perkins', 'Needs A Job', '£240.00'], 'fin-inbox.png');
   // Plant Hire.
   await page.goto(B + '/fin/purchases?tab=plant'); await page.waitForTimeout(5000);
-  let t = await table('Plant hire', ['Cherry Picker 12m', 'Skip 8yd'], 'fin-plant.png');
+  let t = await table('Plant Hire', ['Cherry Picker 12m', 'Skip 8yd'], 'fin-plant.png');
   await vis('[aria-label="Search On Hire"]').click(); await page.waitForTimeout(500);
   await page.getByText('On Hire', {exact: true}).last().click(); await page.waitForTimeout(500);
-  t = await vis('[aria-label="Plant hire"]').innerText();
+  t = await vis('[aria-label="Plant Hire"]').innerText();
   check(/Cherry Picker/.test(t) && !/Skip 8yd/.test(t), 'Plant hire: ▾ On Hire hides the one off hire');
   // Statements.
   await page.goto(B + '/fin/statements'); await page.waitForTimeout(5000);
@@ -60,7 +60,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.goto(B + '/fin/subs?tab=orders'); await page.waitForTimeout(5000);
   await table('Subcontractor POs', ['Lead Co', 'Active'], 'fin-subpos.png');
   await page.goto(B + '/fin/subs?tab=apps'); await page.waitForTimeout(5000);
-  await table('Subcontractor applications', ['Lead Co', 'To Certify'], 'fin-subapps.png');
+  await table('Subcontractor Applications', ['Lead Co', 'To Certify'], 'fin-subapps.png');
   await page.goto(B + '/fin/subs?tab=cis'); await page.waitForTimeout(5000);
   check(!errs.length, `CIS opens without errors ${errs.slice(0, 1).join('')}`);
   // People & Rates.

@@ -10,9 +10,9 @@ import { FinTabs } from '@/components/FinNav';
 import { StorageImage } from '@/components/StorageImage';
 import { useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
-import { submitInductionForm, useMyLastInduction, useMySignUp, type SiteRule } from '@/data/inductions';
+import { submitInductionForm, useJobCpp, useMyCompanyInduction, useMyLastInduction, useMySignUp, type SiteRule } from '@/data/inductions';
 import { useAuth } from '@/lib/auth';
-import { carryOver, fromSignUp, inductionMissing, type IndAnswers, type IndForm, type IndItem } from '@/lib/rules/inductionForm';
+import { carryOver, fromCompanyInduction, fromSignUp, inductionMissing, type IndAnswers, type IndForm, type IndItem } from '@/lib/rules/inductionForm';
 import type { Site } from '@/lib/types';
 import { base, live, radius } from '@/theme/theme';
 
@@ -23,14 +23,17 @@ export function InductionFill({ site, form, rules, onView, onDone }: { site: Sit
   const toast = useToast();
   const { data: last, isFetched } = useMyLastInduction(me?.id);
   const { data: signUp, isFetched: signUpFetched } = useMySignUp(me?.id);
+  const { data: compInd, isFetched: compFetched } = useMyCompanyInduction(me?.id);
+  const { data: cpp } = useJobCpp(site.id);
   // What they type, over what carries over from last time.
   const [own, setOwn] = useState<IndAnswers>({});
   const [rulesRead, setRulesRead] = useState(false);
   const [tab, setTab] = useState(form.sections[0]?.id || 'sign');
   const [busy, setBusy] = useState<string | null>(null);
   if (!me) return null;
-  if (!isFetched || !signUpFetched) return <Muted>Loading…</Muted>;
-  const signed = fromSignUp(form, signUp, me.name);
+  if (!isFetched || !signUpFetched || !compFetched) return <Muted>Loading…</Muted>;
+  // Their company induction first, then their sign-up form (21 Nov 2026); their last induction and what they type over both.
+  const signed = { ...fromSignUp(form, signUp, me.name), ...fromCompanyInduction(form, compInd?.data) };
   const a: IndAnswers = { ...signed, ...carryOver(form, last?.answers, last ? { name: last.name, number: last.number } : undefined), ...own };
   const set = (k: string, v: string | boolean) => setOwn((x) => ({ ...x, [k]: v }));
   const tabs: [string, string][] = [...form.sections.map((s) => [s.id, s.title] as [string, string]), ['sign', 'Sign']];
@@ -78,16 +81,16 @@ export function InductionFill({ site, form, rules, onView, onDone }: { site: Sit
   const sec = form.sections.find((s) => s.id === tab);
   const submit = async () => {
     if (missing.length) { setTab(missing[0].section); toast(`Still to answer: ${missing[0].label}`); return; }
-    if (rules.length && !rulesRead) { toast('Read the site rules and layout, then tick to say you have.'); return; }
+    if ((rules.length || cpp) && !rulesRead) { toast(`Read the site rules and layout${cpp ? ', and the Construction Phase Plan' : ''}, then tick to say you have.`); return; }
     setBusy('Saving…');
-    const err = await submitInductionForm(me, org, site, form, a, setBusy, rules);
+    const err = await submitInductionForm(me, org, site, form, cpp ? { ...a, cpp_read: cpp.name } : a, setBusy, rules);
     setBusy(null);
     if (err) { toast(err); return; }
     onDone();
   };
   return (
     <>
-      <Muted style={{ marginBottom: 8 }}>Site induction for {site.name}. Answer each tab, then sign.{carried ? ' Your next of kin and details are filled in from your last induction: check them.' : fromForm ? ' Your next of kin and details are filled in from your sign-up form: check them.' : ''}</Muted>
+      <Muted style={{ marginBottom: 8 }}>Site induction for {site.name}. Answer each tab, then sign.{carried ? ' Your next of kin and details are filled in from your last induction: check them.' : fromForm ? ` Your next of kin and details are filled in from your ${compInd?.data ? 'company induction' : 'sign-up form'}: check them.` : ''}</Muted>
       <FinTabs even value={tab} onChange={setTab} items={tabs.map(([k, l]) => [k, missing.some((m) => m.section === k) ? `${l} ⚠` : l] as [string, string])} />
       <View style={{ height: 10 }} />
       {sec ? (
@@ -97,11 +100,11 @@ export function InductionFill({ site, form, rules, onView, onDone }: { site: Sit
         </>
       ) : (
         <>
-          {rules.length > 0 && (
+          {(rules.length > 0 || !!cpp) && (
             <Card>
-              <SectionTitle>Site Rules & Layout *</SectionTitle>
+              <SectionTitle>{cpp ? 'Site Rules, Layout And Construction Phase Plan *' : 'Site Rules & Layout *'}</SectionTitle>
               <Muted style={{ marginBottom: 6 }}>Read each one. Signing this induction signs these too.</Muted>
-              {rules.map((r) => (
+              {[...rules, ...(cpp ? [cpp] : [])].map((r) => (
                 <Pressable key={r.id} accessibilityRole="button" onPress={() => onView(r.storage_path)} style={{ paddingVertical: 7, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Text style={{ flex: 1, color: base.ink }}>📄 {r.name}</Text>
                   <Text style={{ color: base.blue, fontWeight: '600' }}>View</Text>
@@ -109,7 +112,7 @@ export function InductionFill({ site, form, rules, onView, onDone }: { site: Sit
               ))}
               <Pressable onPress={() => setRulesRead(!rulesRead)} style={{ flexDirection: 'row', gap: 8, padding: 12, marginTop: 6, borderWidth: 1, borderColor: rulesRead ? base.ok : base.line, backgroundColor: rulesRead ? base.okBg : base.card, borderRadius: radius.row }}>
                 <Text style={{ fontSize: 18 }}>{rulesRead ? '☑' : '☐'}</Text>
-                <Text style={{ flex: 1, color: base.ink }}>I have read and understood the site rules and layout</Text>
+                <Text style={{ flex: 1, color: base.ink }}>{cpp ? (rules.length ? 'I have read and understood the site rules, the layout and the Construction Phase Plan' : 'I have read and understood the Construction Phase Plan') : 'I have read and understood the site rules and layout'}</Text>
               </Pressable>
             </Card>
           )}

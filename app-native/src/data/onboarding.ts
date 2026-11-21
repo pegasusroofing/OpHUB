@@ -28,12 +28,13 @@ export function useOnboarding(sites: Site[] | undefined) {
       const live = (sites ?? []).filter((s) => mine.has(s.id) && siteStatusKey(s) === 'live');
       const op = p.role === 'operative';
       // Their Subcontractor Form (unless switched off for them) and certificates: operatives, from day one.
-      const [prof, sent, certs, subStaff] = op ? await Promise.all([
+      const [prof, sent, certs, subStaff, compInd] = op ? await Promise.all([
         db.from('profiles').select('subform_required').eq('id', p.id).maybeSingle(),
         db.from('subcontractor_applications').select('id,status').eq('user_id', p.id).order('created_at', { ascending: false }).limit(1),
         db.from('operative_certifications').select('id').eq('operative_id', p.id).limit(1),
         db.from('subcontractor_operatives').select('is_admin').eq('user_id', p.id),
-      ]) : [null, null, null, null];
+        db.from('company_inductions').select('completed_at').eq('user_id', p.id).maybeSingle(),
+      ]) : [null, null, null, null, null];
       // A subcontractor's operatives join as normal, without the Subcontractor Form: their company signs up, not them
       // (Andy, 20 Nov 2026). Their company's admin still fills it in.
       const subRows = (subStaff?.data as { is_admin: boolean | null }[] | null) ?? [];
@@ -45,6 +46,8 @@ export function useOnboarding(sites: Site[] | undefined) {
         { key: 'phone', label: 'Add your phone number', desc: 'So the office, your PM and delivery drivers can reach you on site.', done: !!(p.phone && String(p.phone).trim()), href: '' },
         { key: 'signature', label: 'Create your signature', desc: "Draw your signature once — it's reused everywhere you need to sign (RAMS, COSHH, sign-offs) so you never have to redraw it.", done: !!p.signature_path, href: '' },
         ...(op && !formOff ? [{ key: 'subform', label: 'Fill in your Subcontractor Form', desc: lastForm?.status === 'rejected' ? 'Your form was sent back for more information — open it, see what’s needed, and send it again.' : 'Your company details, insurance and cards — the office needs this before you start.', done: !!lastForm && lastForm.status !== 'rejected', href: '/subform' }] : []),
+        // A subcontractor company's people: their company induction instead (Andy, 21 Nov 2026), once; site inductions fill in from it.
+        ...(op && subRows.length ? [{ key: 'compind', label: 'Fill in your company induction', desc: 'Your details, next of kin, trade and cards, once. Every site induction is filled in from it.', done: !!(compInd?.data as { completed_at?: string | null } | null)?.completed_at, href: '/company-induction' }] : []),
         ...(op ? [{ key: 'certs', label: 'Upload your certificates', desc: 'Photos or scans of your CSCS card and any training certificates (asbestos awareness, working at height…). They go in your folder for the office.', done: ((certs?.data as unknown[] | null) ?? []).length > 0, href: '/dashboard' }] : []),
       ];
       if (!live.length) return { items: first0, allDone: first0.every((i) => i.done) };

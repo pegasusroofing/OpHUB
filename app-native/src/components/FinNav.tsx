@@ -27,7 +27,7 @@ export const FIN_SUBS: Record<string, [string, string][]> = {
   subs: [['opinv', 'Operative Invoices'], ['wages', 'Wages To Book'], ['payrun', 'Pay Run'], ['orders', 'Subcontractor POs'], ['apps', 'Applications & Certificates'], ['cis', 'CIS'], ['rates', 'People & Rates']],
   settings: [['general', 'Settings'], ['codes', 'Cost Codes'], ['templates', 'Templates'], ['team', 'Team']],
   // No Estimating tab (Andy, 21 Nov 2026: "a duplicate of the clients"): a client's estimator and mark-up are on the client.
-  directory: [['client', 'Clients'], ['supplier', 'Suppliers'], ['labour', 'Labour (CIS)']],
+  directory: [['client', 'Clients'], ['supplier', 'Suppliers'], ['labour', 'Subcontractors']],
 };
 const Chip = ({ on, label, onPress, n }: { on: boolean; label: string; onPress: () => void; n?: number }) => {
   const t = useTheme();

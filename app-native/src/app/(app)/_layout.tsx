@@ -131,6 +131,7 @@ export default function AppLayout() {
       <Tabs.Screen name="myrecord" options={{ ...hidden, title: 'My Employee Record' }} />
       <Tabs.Screen name="search" options={{ ...hidden, title: 'Search' }} />
       <Tabs.Screen name="subform" options={{ ...hidden, title: 'Subcontractor Form' }} />
+      <Tabs.Screen name="company-induction" options={{ ...hidden, title: 'Company Induction' }} />
       <Tabs.Screen name="yardcount" options={{ ...hidden, title: 'Yard Stock Take' }} />
       <Tabs.Screen name="pm" options={{ ...(siteMgr && !desk ? { tabBarIcon: icon('bell'), tabBarLabel: 'HUB', href: '/pm/hub' as never, tabBarBadge: inboxN || undefined } : hidden), title: 'Manager', headerShown: false }} />
       <Tabs.Screen name="fin" options={{ ...hidden, title: 'Finance', headerShown: false }} />
