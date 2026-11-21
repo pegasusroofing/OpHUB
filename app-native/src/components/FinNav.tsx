@@ -261,8 +261,8 @@ export function FinStat({ v, label, hot, onPress, tone, onMenu, menuLabel, basis
   // The ⋯ sits over the tile's corner beside it, not inside it: a button can't hold another button (17 Nov 2026).
   return (
     <View style={{ flexGrow: 1, flexBasis: basis }}>
-      {/* Plain white tiles; only the figure keeps its colour (app review, 21 Nov 2026: no multicoloured tiles). */}
-      <Pressable onPress={onPress} accessibilityRole="button" style={{ flexGrow: 1, backgroundColor: base.card, borderRadius: 10, borderWidth: 1, borderColor: '#e5e7eb', paddingVertical: 16, paddingHorizontal: 18, paddingRight: onMenu ? 26 : 18, gap: 4 }}>
+      {/* Coloured tiles kept (Andy, 21 Nov 2026: 'Put the colours back in the tiles in finance, I liked that please exactly how it was'). */}
+      <Pressable onPress={onPress} accessibilityRole="button" style={{ flexGrow: 1, backgroundColor: c ? c[0] : base.card, borderRadius: 10, borderWidth: 1, borderColor: c ? c[1] : '#e5e7eb', paddingVertical: 16, paddingHorizontal: 18, paddingRight: onMenu ? 26 : 18, gap: 4 }}>
         <Text style={[{ fontWeight: '600' as const }, { fontSize: 22, color: c ? c[2] : hot ? '#C0392B' : base.ink }]}>{v}</Text>
         <Text style={{ fontSize: 12.5, color: '#6b7280', fontWeight: '500' }}>{label}</Text>
         {sub ? <Text numberOfLines={1} style={{ fontSize: 11.5, color: '#8A9099', marginTop: -2 }}>{sub}</Text> : null}
