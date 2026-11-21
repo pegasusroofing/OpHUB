@@ -21,14 +21,15 @@ const {PDFDocument, StandardFonts} = require('pdf-lib'); const fs = require('fs'
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto('http://localhost:8081/fin/job/'+S1+'/application/'+ap.id); await page.waitForTimeout(6000);
-  // The application opens on Overview; Certify opens Line By Line with the fill-in buttons (3 Nov).
-  await page.getByText('Certify', {exact:true}).first().click(); await page.waitForTimeout(1500);
+  // The application opens on Overview; Enter The Certificate opens the Certificate tab with the fill-in buttons (21 Nov 2026).
+  await page.getByText('Enter The Certificate ›', {exact:true}).first().click(); await page.waitForTimeout(1500);
+  console.log((await page.getByRole('tab', {name: 'Certificate', exact: true}).count() ? 'PASS' : 'FAIL') + ' the application has a Certificate tab');
   const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout:15000}), page.getByText(/Fill in from the client.s PDF/i).click()]);
   await fc.setFiles('shots/cert-client.pdf'); await page.waitForTimeout(6000);
   const vals = await page.locator('input >> visible=true').evaluateAll((els) => els.map((e) => e.value));
   console.log('35 filled in', vals.includes('35'));
   console.log('text', (await page.evaluate(() => document.body.innerText)).match(/Read \d+ line[^\n]*|Couldn.t read[^\n]*/)?.[0] || 'no message');
-  await page.getByRole('tab', {name: 'Overview', exact: true}).last().click().catch(() => undefined); // the application's own tabs (the job's Finance tabs come first), since 20 Nov 2026 await page.waitForTimeout(1500);
+  // Everything about the certificate is on its own tab now (21 Nov 2026): the sums and Save Certificate are at its foot.
   await page.screenshot({path: 'shots/certpdf-overview.png', fullPage: true});
   // Reading the client's PDF attaches it as the certificate copy too (📎 cert-client.pdf).
   console.log((/cert-client.pdf/.test(await page.locator('body').innerText()) ? 'PASS' : 'FAIL') + ' the client’s PDF is attached as the certificate copy');

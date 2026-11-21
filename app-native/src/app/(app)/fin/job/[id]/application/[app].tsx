@@ -4,7 +4,9 @@
 // Applied: locked. Then enter the client's certificate (or pay-less notice)
 // and raise the invoice from it. Emailing it is off during the Finance trial.
 // Overview / Line By Line are the standard tabs, with Next at the bottom of Overview (Andy, 20 Nov 2026: "change the 7 items
-// into tab style").
+// into tab style"). Once it's applied for, a Certificate tab holds everything about the client's certificate: import it or
+// type it, line by line or as one total, pay-less notice, the sums, Save Certificate and Raise Invoice (Andy, 21 Nov 2026).
+// Overview and Line By Line stay as the application that was sent.
 import * as DocumentPicker from 'expo-document-picker';
 import { pdfLines } from '@/lib/pdfjs';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -19,7 +21,7 @@ import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toas
 import { FinEmailPopup } from '@/components/FinEmailPopup';
 import { FinForm } from '@/components/FinForm';
 import { FinTabs } from '@/components/FinNav';
-import { Button, Card, Check, Muted } from '@/components/ui';
+import { Button, Card, Check, FilterRow, Muted } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { askAppSow } from '@/components/FinRowMenu';
 import { DateBox } from '@/components/DateField';
@@ -53,7 +55,7 @@ const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input
 const STAGE: Record<string, string> = { draft: 'Draft', applied: 'Applied — Waiting For Certificate', certified: 'Certified', invoiced: 'Invoiced', void: 'Void' };
 
 // Which view each application was last on, so marking one as applied from Line by line stays there.
-const lastView = new Map<string, 'overview' | 'lines'>();
+const lastView = new Map<string, 'overview' | 'lines' | 'cert'>();
 
 export default function FinApplication() {
   const { id, app } = useLocalSearchParams<{ id: string; app: string }>();
@@ -76,16 +78,15 @@ export default function FinApplication() {
 function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, varProgress }: { a0: Row; jf: Row; prior: Row | null; previousLive: number; prevPct: Record<string, number>; prevVar: Record<string, number>; siteProgress: Record<string, number>; varProgress: Record<string, number> }) {
   const desk = useDesk(), t = useTheme();
   // Overview first, then line by line (Andy, 2 Nov 2026).
-  const [view, setViewNow] = useState<'overview' | 'lines'>(lastView.get(a0.id) || 'overview');
+  const [view, setViewNow] = useState<'overview' | 'lines' | 'cert'>(lastView.get(a0.id) || 'overview');
   const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
-  const setView = (x: 'overview' | 'lines') => { lastView.set(a0.id, x); setViewNow(x); scroller.current?.scrollTo({ y: 0, animated: false }); };
+  const setView = (x: 'overview' | 'lines' | 'cert') => { lastView.set(a0.id, x); setViewNow(x); scroller.current?.scrollTo({ y: 0, animated: false }); };
   const [mailing, setMailing] = useState(false);
   // Hide the qty column on the phone rows (Andy, 3 Nov 2026): kept with the application, so its certificate looks the same.
   const [hideQty, setHideQtyNow] = useState(!!a0.hide_qty);
   // The request only goes when awaited, so it's awaited here.
   const setHideQty = async (x: boolean) => { setHideQtyNow(x); if (ro) return; const r = await fdb.from('fin_applications').update({ hide_qty: x } as never).eq('id', a0.id); if (r.error) toast('Not saved — try again.'); };
-  // An applied application stays as an application until Certify is pressed.
-  const [certifying, setCertifying] = useState(false);
+  // An applied application stays as an application; the client's certificate is entered on the Certificate tab.
   const [over, setOver] = useState<Record<string, Entry>>({}); // single lines switched away from the page's choice
   const { me, org } = useAuth();
   // Without Finance – Edit (Admin › Roles) it's shown as it stands: nothing saves, and no stage changes, emails or invoices.
@@ -143,7 +144,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [a]);
   if (!me) return null;
-  const stage = APP_STAGE(a0), lockedStage = stage !== 'draft', locked = lockedStage || ro, draftEdit = stage === 'draft' && !ro, certing = stage === 'applied' && certifying, certDone = stage === 'certified' || stage === 'invoiced';
+  const stage = APP_STAGE(a0), lockedStage = stage !== 'draft', locked = lockedStage || ro, draftEdit = stage === 'draft' && !ro, certing = stage === 'applied' && view === 'cert' && !ro, certDone = stage === 'certified' || stage === 'invoiced', certShown = certDone && view === 'cert';
   const previous = lockedStage ? Number(a0.previous || 0) : previousLive;
   const c = appCalc(a, jf.contract_value, jf.retention_limit_pct, previous);
   const tots = groupTotals(c.lines, (l) => l.value, (l) => l.gross);
@@ -224,8 +225,8 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
   const dueNow = certNet != null ? certNet : c.net_due;
   // Laptop: below each section bar, a table with a column for each figure (Andy, 2 Nov 2026).
   const entryHead = (w: string) => `${w} ${mode === 'gbp' ? '£' : mode === 'qty' ? 'qty' : '%'}`;
-  const cols = certing || certDone ? ['ref', 'desc', 'qty', 'unit', 'value', 'pct', 'gross', 'certBox', 'cert', 'prev', 'now'] : ['ref', 'desc', 'qty', 'unit', 'rate', 'value', draftEdit ? 'box' : 'pct', 'gross', 'prev', 'now'];
-  const gridHead = <LineRow head cols={cols} cells={{ ref: 'Ref', desc: 'Description', qty: 'Qty', unit: 'Unit', rate: 'Rate', value: 'Value', box: entryHead('Applied'), pct: 'Applied %', gross: certing || certDone ? 'Applied' : 'Cumulative', certBox: certing ? entryHead('Certified') : 'Certified %', cert: 'Certified', prev: 'Previous', now: 'Current' }} />;
+  const cols = certing || certShown ? ['ref', 'desc', 'qty', 'unit', 'value', 'pct', 'gross', 'certBox', 'cert', 'prev', 'now'] : ['ref', 'desc', 'qty', 'unit', 'rate', 'value', draftEdit ? 'box' : 'pct', 'gross', 'prev', 'now'];
+  const gridHead = <LineRow head cols={cols} cells={{ ref: 'Ref', desc: 'Description', qty: 'Qty', unit: 'Unit', rate: 'Rate', value: 'Value', box: entryHead('Applied'), pct: 'Applied %', gross: certing || certShown ? 'Applied' : 'Cumulative', certBox: certing ? entryHead('Certified') : 'Certified %', cert: 'Certified', prev: 'Previous', now: 'Current' }} />;
   const varSite = (v: Row, i: number) => {
     const sp = varProgress[v.fin_variation_id || v.variation_id || ''];
     if (sp == null) return null;
@@ -254,7 +255,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
     if (k === 'draft') {
       if (!(await confirmAsk(stage === 'certified' ? 'Take it back to draft? The certificate figures will be cleared.' : 'Return this application to draft so you can edit it?', 'Return To Draft'))) return;
       if (stage === 'certified' && !(await clearCertificate(a0.id))) { toast('Not saved — check your signal and try again.'); return; }
-      if (await setStatus(a0.id, { status: 'draft' })) { setCertifying(false); refresh(); } else toast('Not saved — check your signal and try again.');
+      if (await setStatus(a0.id, { status: 'draft' })) { setView('overview'); refresh(); } else toast('Not saved — check your signal and try again.');
       return;
     }
     if (k === 'applied') {
@@ -265,7 +266,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
     }
     if (k === 'certified') {
       if (stage === 'draft') { toast('Apply for payment first, then enter the certificate.'); return; }
-      setCertifying(true); setView('lines'); return;
+      setView('cert'); return;
     }
     if (stage !== 'certified') { toast('Enter the certificate first; the invoice follows it.'); return; }
     setBusy('inv'); const r = await raiseInvoiceFromCert(me, org, a0, site as never, false); setBusy('');
@@ -282,7 +283,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
         <Text style={{ fontSize: desk ? 20 : 17, fontWeight: '600', color: base.ink }}>Application No. {a0.number}</Text>
         <Pressable accessibilityRole="button" accessibilityLabel={`Status: ${STAGE[stage]}`} disabled={stage === 'void' || ro} onPress={() => void pickStage()} style={{ backgroundColor: stage === 'draft' ? '#EEF0F3' : stage === 'applied' ? '#FFF4DF' : '#E3F5E9', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, marginTop: desk ? 4 : 3 }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: stage === 'draft' ? base.slate : stage === 'applied' ? '#92580A' : '#1E7A3C' }}>{certing ? 'Entering The Certificate' : STAGE[stage]}{stage === 'void' || ro ? '' : ' ▾'}</Text></Pressable>
       </View>
-      <FinTabs value={view} onChange={(k) => setView(k as 'overview' | 'lines')} items={[['overview', 'Overview'], ['lines', 'Line By Line']]} />
+      <FinTabs value={view} onChange={(k) => setView(k as 'overview' | 'lines' | 'cert')} items={[['overview', 'Overview'], ['lines', 'Line By Line'], ...(stage !== 'draft' && stage !== 'void' ? [['cert', 'Certificate'] as [string, string]] : [])]} />
       {view === 'overview' && (
         <View style={{ flexDirection: desk ? 'row' : 'column', alignItems: desk ? 'flex-start' : 'stretch', gap: 14 }}>
           <View style={desk ? { width: 340 } : undefined}>
@@ -320,22 +321,28 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
               <>
                 <ActionRow onDelete={deleteAny}>
                   <Button kind="ghost" title="Return To Draft" onPress={async () => { if (await confirmAsk('Return this application to draft so you can edit it?', 'Return to draft')) { if (await setStatus(a0.id, { status: 'draft' })) { toast('Back to draft — you can edit it now'); refresh(); } } }} />
-                  <Button kind="ghost" busy={busy === 'cert'} title="Import Certificate" onPress={async () => { setBusy('cert'); try { if (await importCertificate(a0, cert, toast)) { setCertifying(true); setView('lines'); } } finally { setBusy(''); } }} />
-                  <Button title="Certify" onPress={() => { setCertifying(true); setView('lines'); }} />
+                  <Button kind="ghost" busy={busy === 'cert'} title="Import Certificate" onPress={async () => { setBusy('cert'); try { if (await importCertificate(a0, cert, toast)) setView('cert'); } finally { setBusy(''); } }} />
+                  <Button title="Enter The Certificate ›" onPress={() => setView('cert')} />
                 </ActionRow>
                 <View style={{ marginTop: 4 }}><Button kind="ghost" title="Email Application" onPress={() => setMailing(true)} /></View>
               </>
             )}
-            {certing && (
-              <Certificate a={a0} jf={jf} cert={cert} onSaved={refresh} actions={(saveBtn, raiseBtn) => (
-                <ActionRow onDelete={deleteAny}>
-                  <Button kind="ghost" title="Back To The Application" onPress={() => setCertifying(false)} />
-                  {saveBtn}
-                  {raiseBtn}
-                </ActionRow>
-              )} />
-            )}
+            {/* Certified: the figure here, the certificate itself on its own tab. */}
             {(stage === 'certified' || stage === 'invoiced') && (
+              <Panel title={`${a0.cert_is_payless ? 'Pay-Less Notice' : 'Payment Certificate'} · ${fdate(a0.cert_date)}`}>
+                <View style={{ padding: 12 }}>
+                  <SumRow bold l="Net Due" v={money(a0.cert_net)} />
+                  <View style={{ alignItems: 'center', marginTop: 8 }}><Button kind="ghost" title="Open The Certificate ›" onPress={() => setView('cert')} /></View>
+                </View>
+              </Panel>
+            )}
+          </View>
+        </View>
+      )}
+      {view === 'overview' && <View style={{ alignItems: 'center', marginTop: 10 }}><Button kind="ghost" title="Next: Line By Line ›" onPress={() => setView('lines')} /></View>}
+      {(view === 'lines' || view === 'cert') && <>
+      {/* Certificate tab: the saved certificate first. */}
+            {view === 'cert' && (stage === 'certified' || stage === 'invoiced') && (
               <Panel title={`${a0.cert_is_payless ? 'Pay-Less Notice' : 'Payment Certificate'} · ${fdate(a0.cert_date)}`}>
                 <View style={{ padding: 12 }}>
                   <SumRow bold l="Net Due" v={money(a0.cert_net)} />
@@ -351,11 +358,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
                 </View>
               </Panel>
             )}
-          </View>
-        </View>
-      )}
-      {view === 'overview' && <View style={{ alignItems: 'center', marginTop: 10 }}><Button kind="ghost" title="Next: Line By Line ›" onPress={() => setView('lines')} /></View>}
-      {view === 'lines' && <>
+      {view === 'cert' && stage === 'applied' && ro && <Muted style={{ marginBottom: 10 }}>Waiting for the client&apos;s certificate.</Muted>}
       {!desk ? (
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10, alignItems: 'center' }}>
           <View style={{ flex: 1 }}><Button kind="ghost" busy={!!busy} title={certing ? 'Bulk Certify ▾' : draftEdit ? 'Bulk Edit ▾' : `Options${hideZero ? ' · 0% Hidden' : ''} ▾`} onPress={async () => {
@@ -373,14 +376,14 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
             else if (k === 'up') void uploadExcel();
             else if (k === 'all100' || k === 'all0') { const to = k === 'all100' ? 100 : 0; setA({ ...a, lines: (a.lines || []).map((l: Row) => (isItem(l) ? { ...l, pct: to } : l)), variations: (a.variations || []).map((x: Row) => ({ ...x, pct: to })) }); setGen((g) => g + 1); }
           }} /></View>
-          {stage === 'applied' && !certing && !ro && <Button title="Certify" onPress={() => setCertifying(true)} />}
+          {stage === 'applied' && !certing && !ro && <Button title="Certify ›" onPress={() => setView('cert')} />}
         </View>
       ) : (
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8, alignItems: 'center' }}>
         {(draftEdit || certing) && <SelectBox title="Enter Figures By" value={mode} options={[['pct', 'Enter %'], ['gbp', 'Enter £'], ['qty', 'Enter qty']]} onChange={(k) => setMode(k as Entry)} style={{ width: 130, marginBottom: 0 }} />}
         <Check label="Hide 0% Lines" value={hideZero} onChange={setHideZero} />
         {draftEdit && <View style={{ marginLeft: 'auto' }}><Button small kind="ghost" busy={!!busy} title="Upload Edited Excel" onPress={() => void uploadExcel()} /></View>}
-        {stage === 'applied' && !certing && !ro && <View style={{ marginLeft: 'auto' }}><Button title="Certify" onPress={() => setCertifying(true)} /></View>}
+        {stage === 'applied' && !certing && !ro && <View style={{ marginLeft: 'auto' }}><Button title="Certify ›" onPress={() => setView('cert')} /></View>}
       </View>
       )}
       {certing && <CertTools a={a0} cert={cert} />}
@@ -428,7 +431,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
         const siteTag = <Text style={{ fontSize: 12 }}>{siteProgress[l.item_id] != null ? <Text style={{ color: siteProgress[l.item_id] > pct(l.pct) ? '#b45309' : base.slate, fontWeight: '500' }}>{`  · Site ${siteProgress[l.item_id]}%`}</Text> : null}{siteProgress[l.item_id] != null && !locked && siteProgress[l.item_id] !== pct(l.pct) ? <Text onPress={() => { const was = pct(l.pct), to = pct(siteProgress[l.item_id]); setLine(i, { pct: to }); setGen((g) => g + 1); toast(`${l.description}: ${was}% → ${to}% from site — check, then Save`); }} style={{ color: base.blue, fontWeight: '600', textDecorationLine: 'underline' }}> Use</Text> : null}{siteProgress[l.item_id] == null && Object.keys(siteProgress).length > 0 ? <Text style={{ fontWeight: '500', color: base.slate }}>  · Not on site schedule</Text> : null}</Text>;
         if (desk) {
           const val = Number(l.value || 0), prev = round2((val * (prevPct[l.item_id] || 0)) / 100), p0 = pct(cert.cp[`l${i}`]);
-          const cl = certDone ? (a0.cert_lines || []).find((x: Row) => x.item_id === l.item_id) : null;
+          const cl = certShown ? (a0.cert_lines || []).find((x: Row) => x.item_id === l.item_id) : null;
           const certG = certing ? round2((val * p0) / 100) : cl ? Number(cl.gross || 0) : null;
           return (
             <LineRow key={i} cols={cols} cells={{
@@ -438,7 +441,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
               pct: `${pct(l.pct)}%`, gross: <Strong>{money(l.gross)}</Strong>,
               certBox: certing ? <AmountBox p={p0} value={l.value} qty={l.qty} unit={l.unit} mode={over[l.item_id] || mode} onMode={flip(l.item_id)} labels={CERT_LABELS} onPct={(x) => cert.applyLines({ ...cert.cp, [`l${i}`]: String(x) })} /> : cl ? `${pct(cl.pct)}%` : '—',
               cert: certG == null ? '—' : <Strong warn={certing && p0 !== pct(l.pct)}>{money(certG)}</Strong>,
-              prev: money(prev), now: certDone && !cl ? '—' : money(round2((certG ?? l.gross) - prev)),
+              prev: money(prev), now: certShown && !cl ? '—' : money(round2((certG ?? l.gross) - prev)),
             }} />
           );
         }
@@ -460,7 +463,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
             {pv > 0 && <FigRow label="Previous" unit={unit} rate={rate} pct={`${pct(pv)}%`} qty={qd(pv)} total={money(prev)} plain />}
             <FigRow label="Applied" unit={unit} rate={rate} pct={`${pct(l.pct)}%`} qty={qd(pct(l.pct))} total={money(l.gross)} inputs={locked ? undefined : boxes(pct(l.pct), ['Percent done', 'Amount done', 'Quantity done'], (x) => setLine(i, { pct: x }), `a${i}-${gen}`)} />
             {certing && (() => { const p0 = pct(cert.cp[`l${i}`]); return <FigRow label="Certified" bold unit={unit} rate={rate} pct={`${p0}%`} qty={qd(p0)} total={money(round2((Number(l.value || 0) * p0) / 100))} warn={p0 !== pct(l.pct)} inputs={boxes(p0, CERT_LABELS, (x) => cert.applyLines({ ...cert.cp, [`l${i}`]: String(x) }), `c${i}`)} />; })()}
-            {certDone && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.item_id === l.item_id); return <FigRow label="Certified" bold unit={unit} rate={rate} pct={cl ? `${pct(cl.pct)}%` : '—'} qty={cl ? qd(pct(cl.pct)) : ''} total={cl ? money(cl.gross) : '—'} />; })()}
+            {certShown && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.item_id === l.item_id); return <FigRow label="Certified" bold unit={unit} rate={rate} pct={cl ? `${pct(cl.pct)}%` : '—'} qty={cl ? qd(pct(cl.pct)) : ''} total={cl ? money(cl.gross) : '—'} />; })()}
           </View>
             );
           })()
@@ -550,7 +553,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
       {desk ? gridHead : <FigHead />}
       {varGroups.map(([gl, idxs]) => <Fragment key={gl}><VarHead label={gl} total={round2(idxs.reduce((n: number, i: number) => n + Number((c.variations[i] as Row).gross || 0), 0))} />{idxs.map((i: number) => { const v = c.variations[i] as Row; return desk ? (() => {
         const val = Number(v.value || 0), prev = round2((val * (prevVar[varKey(v)] || 0)) / 100), cp0 = pct(cert.cp[`v${i}`]);
-        const cl = certDone ? (a0.cert_lines || []).find((x: Row) => x.var_index === i) : null;
+        const cl = certShown ? (a0.cert_lines || []).find((x: Row) => x.var_index === i) : null;
         const certG = certing ? round2((val * cp0) / 100) : cl ? Number(cl.gross || 0) : null;
         const inp = { width: '100%' as const, height: 30, paddingVertical: 2, fontSize: 13 };
         return (
@@ -563,7 +566,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
             pct: `${pct(v.pct)}%`, gross: <Strong>{money(v.gross)}</Strong>,
             certBox: certing ? <AmountBox p={cp0} value={v.value} qty={Number(v.qty) > 1 ? v.qty : null} mode={over[`v${i}`] || mode} onMode={flip(`v${i}`)} labels={CERT_LABELS} onPct={(x) => cert.applyLines({ ...cert.cp, [`v${i}`]: String(x) })} /> : cl && val ? `${pct((Number(cl.gross || 0) / val) * 100)}%` : '—',
             cert: certG == null ? '—' : <Strong warn={certing && cp0 !== pct(v.pct)}>{money(certG)}</Strong>,
-            prev: money(prev), now: certDone && !cl ? '—' : money(round2((certG ?? v.gross) - prev)),
+            prev: money(prev), now: certShown && !cl ? '—' : money(round2((certG ?? v.gross) - prev)),
           }} />
         );
       })() : (() => {
@@ -589,7 +592,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
           {pv > 0 && <FigRow label="Previous" rate={rate} pct={`${pct(pv)}%`} qty={qd(pv)} total={money(round2((Number(v.value || 0) * pv) / 100))} plain />}
           <FigRow label="Applied" rate={rate} pct={`${pct(v.pct)}%`} qty={qd(pct(v.pct))} total={money(v.gross)} inputs={locked ? undefined : boxes(pct(v.pct), ['Percent done', 'Amount done', 'Quantity done'], (x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: x } : y)) }), `va${i}-${gen}`)} />
           {certing && <FigRow label="Certified" bold rate={rate} pct={`${pct(cert.cp[`v${i}`])}%`} qty={qd(pct(cert.cp[`v${i}`]))} total={money(round2((Number(v.value || 0) * pct(cert.cp[`v${i}`])) / 100))} warn={pct(cert.cp[`v${i}`]) !== pct(v.pct)} inputs={boxes(pct(cert.cp[`v${i}`]), CERT_LABELS, (x) => cert.applyLines({ ...cert.cp, [`v${i}`]: String(x) }), `vc${i}`)} />}
-          {certDone && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.var_index === i), cp1 = cl && Number(v.value) ? pct((Number(cl.gross) / Number(v.value)) * 100) : null; return <FigRow label="Certified" bold rate={rate} pct={cp1 != null ? `${cp1}%` : '—'} qty={cp1 != null ? qd(cp1) : ''} total={cl ? money(cl.gross) : '—'} />; })()}
+          {certShown && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.var_index === i), cp1 = cl && Number(v.value) ? pct((Number(cl.gross) / Number(v.value)) * 100) : null; return <FigRow label="Certified" bold rate={rate} pct={cp1 != null ? `${cp1}%` : '—'} qty={cp1 != null ? qd(cp1) : ''} total={cl ? money(cl.gross) : '—'} />; })()}
         </View>
         );
       })(); })}</Fragment>)}
@@ -599,7 +602,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
       {desk ? gridHead : <FigHead />}
       {c.dayworks.map((d: Row, i: number) => desk ? (() => {
         const typed = !locked && !d.fin_daywork_id;
-        const cl = certDone ? (a0.cert_lines || []).find((x: Row) => x.day_index === i) : null;
+        const cl = certShown ? (a0.cert_lines || []).find((x: Row) => x.day_index === i) : null;
         const certG = certing ? num(cert.cp[`d${i}`]) || 0 : cl ? Number(cl.gross || 0) : null;
         return (
           <LineRow key={i} cols={cols} cells={{
@@ -608,7 +611,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
             box: '', pct: '', gross: <Strong>{money(d.gross)}</Strong>,
             certBox: certing ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Text style={{ color: base.slate, fontWeight: '500' }}>£</Text><TextInput accessibilityLabel="Certified amount" value={cert.cp[`d${i}`]} onChangeText={(x) => cert.applyLines({ ...cert.cp, [`d${i}`]: x })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 90, height: 30, paddingVertical: 2, fontSize: 13 }]} /></View> : '',
             cert: certG == null ? '—' : <Strong warn={certing && certG !== Number(d.gross || 0)}>{money(certG)}</Strong>,
-            prev: '', now: certG == null ? (certDone ? '—' : money(d.gross)) : money(certG),
+            prev: '', now: certG == null ? (certShown ? '—' : money(d.gross)) : money(certG),
           }} />
         );
       })() : (
@@ -617,11 +620,20 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
           <FigRow label="Applied" total={money(d.gross)} inputs={locked || d.fin_daywork_id ? undefined : { total: <TextInput defaultValue={d.value != null ? String(d.value) : ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, value: num(x) } : y)) })} placeholder="£" keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 70, height: 30, paddingVertical: 2, fontSize: 13 }]} /> }} />
           {certing && <FigRow label="Certified" bold total={money(num(cert.cp[`d${i}`]) || 0)} warn={(num(cert.cp[`d${i}`]) || 0) !== Number(d.gross || 0)}
             inputs={{ total: <TextInput accessibilityLabel="Certified amount" value={cert.cp[`d${i}`]} onChangeText={(x) => cert.applyLines({ ...cert.cp, [`d${i}`]: x })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 70, height: 30, paddingVertical: 2, fontSize: 13 }]} /> }} />}
-          {certDone && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.day_index === i); return <FigRow label="Certified" bold total={cl ? money(cl.gross) : '—'} />; })()}
+          {certShown && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.day_index === i); return <FigRow label="Certified" bold total={cl ? money(cl.gross) : '—'} />; })()}
         </View>
       ))}
       </SecBlock>}
-      {certing && <View style={{ alignSelf: 'flex-end', marginBottom: 12 }}><Button title="Back To Overview To Save The Certificate" onPress={() => setView('overview')} /></View>}
+      {view === 'lines' && stage !== 'draft' && stage !== 'void' && <View style={{ alignItems: 'center', marginTop: 4, marginBottom: 10 }}><Button kind="ghost" title="Next: Certificate ›" onPress={() => setView('cert')} /></View>}
+      {/* Certificate tab: the client's figures add up here, then Save Certificate and Raise Invoice. */}
+            {certing && (
+              <Certificate a={a0} jf={jf} cert={cert} onSaved={refresh} actions={(saveBtn, raiseBtn) => (
+                <ActionRow onDelete={deleteAny}>
+                  {saveBtn}
+                  {raiseBtn}
+                </ActionRow>
+              )} />
+            )}
       </>}
       {draftEdit && (
         <ActionRow note={autoNote} onDelete={async () => { if (await confirmAsk('Delete this draft application?', 'Delete')) { if (await deleteApplication(a0.id)) { toast('Draft deleted'); refresh(); router.back(); } else toast('Not saved — check your signal and try again.'); } }}>
@@ -638,11 +650,13 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
           onClose={() => setMailing(false)} />
       )}
     </ScrollView>
-    {view === 'lines' && (
+    {(view === 'lines' || view === 'cert') && (
       <View accessibilityLabel="Totals" style={{ flexDirection: 'row', flexWrap: 'nowrap', justifyContent: desk ? 'flex-end' : 'space-between', columnGap: desk ? 26 : 8, backgroundColor: t.brand1, paddingVertical: 8, paddingHorizontal: 16 }}>
         <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>{desk ? 'Applied To Date' : 'Applied'} <Text style={{ fontWeight: '600' }}>{money(c.gross)}</Text></Text>
-        {certFig && <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>{desk ? 'Certified To Date' : 'Certified'} <Text style={{ fontWeight: '600' }}>{money(certFig.gross)}</Text></Text>}
-        <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>{desk ? 'Due This Time' : 'Due'} <Text style={{ fontWeight: '600' }}>{money(dueNow)}</Text></Text>
+        {/* While the certificate is being entered, the figures it adds up to (line by line or one total, 21 Nov 2026). */}
+        {certing ? <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>{desk ? 'Certified To Date' : 'Certified'} <Text style={{ fontWeight: '600' }}>{money(num(cert.v.cert_gross) || 0)}</Text></Text>
+          : certFig && <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>{desk ? 'Certified To Date' : 'Certified'} <Text style={{ fontWeight: '600' }}>{money(certFig.gross)}</Text></Text>}
+        <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>{desk ? 'Due This Time' : 'Due'} <Text style={{ fontWeight: '600' }}>{money(certing ? round2((num(cert.v.cert_gross) || 0) - (num(cert.v.cert_retention) || 0) - (num(cert.v.cert_previous) || 0) - (num(cert.v.cert_discount) || 0)) : dueNow)}</Text></Text>
       </View>
     )}
     <ThinExportBar busy={busy ? 'x' : undefined} onExcel={() => void exportAs('xlsx')} onPdf={() => void exportAs('pdf')} />
@@ -965,6 +979,8 @@ function Certificate({ a, cert, onSaved, jf, actions }: { a: Row; jf: Row; cert:
   const toast = useToast();
   const { v, setV, file, setFile, certApp } = cert;
   const [busy, setBusy] = useState(false);
+  // The client certified one total, not line by line: type the totals; retention is worked out at this application's %.
+  const [lump, setLump] = useState(false);
   if (!me) return null;
   const n = (k: string) => num(v[k]) || 0;
   const netWorked = round2(n('cert_gross') - n('cert_retention') - n('cert_previous') - n('cert_discount'));
@@ -979,6 +995,16 @@ function Certificate({ a, cert, onSaved, jf, actions }: { a: Row; jf: Row; cert:
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
         {f('cert_date', 'Certificate Date')}
       </View>
+      <Muted style={{ fontWeight: '600', marginTop: 4, marginBottom: 4 }}>Did The Client Certify One Total?</Muted>
+      <View style={{ maxWidth: 320 }}><FilterRow seg options={[['no', 'No, Line By Line'], ['yes', 'Yes, One Total']]} value={lump ? 'yes' : 'no'} onChange={(x) => setLump(x === 'yes')} /></View>
+      {lump ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
+          <View style={{ width: 240, marginBottom: 6 }}><Muted>Gross Certified To Date (£)</Muted><TextInput accessibilityLabel="Gross certified to date" value={String(v.cert_gross)} onChangeText={(x) => { const g = num(x) || 0; setV({ ...v, cert_gross: x, cert_retention: String(round2((g * (pct(a.retention_pct) || 0)) / 100)) }); }} keyboardType="decimal-pad" selectTextOnFocus style={box} /></View>
+          {f('cert_retention', `Less Retention (£)${pct(a.retention_pct) ? ` at ${pct(a.retention_pct)}%` : ''}`)}
+          {f('cert_discount', 'Less Discount (£)')}
+          {f('cert_previous', 'Less Previously Certified (£)')}
+        </View>
+      ) : <Muted style={{ marginBottom: 6 }}>Type what the client certified beside each line above, or fill it in from their Excel or PDF.</Muted>}
       {n('cert_gross') ? <SumRow bold l="Net Due" v={money(net)} /> : null}
       <Text style={{ color: !n('cert_gross') ? base.slate : diff < 0 ? '#C0392B' : diff > 0 ? '#1E7A3C' : base.slate, marginTop: 6, marginBottom: 6 }}>{!n('cert_gross') ? 'Nothing certified yet.' : diff ? `${diff < 0 ? 'Short by' : 'Over by'} ${money(Math.abs(diff))} compared with the ${money(a.net_due)} applied for.` : 'Matches what was applied for.'}</Text>
       <Check label="This Is A Pay-Less Notice" value={!!v.cert_is_payless} onChange={(x) => setV({ ...v, cert_is_payless: x })} />
