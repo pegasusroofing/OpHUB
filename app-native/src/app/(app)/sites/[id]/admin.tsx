@@ -116,6 +116,32 @@ export default function SiteAdmin() {
               <Card>
                 <TypeRow first label="Main Contractor" on={mc} edit={full} onPress={() => void flag({ acting_as_main_contractor: !mc }, '')}
                   desc='A Main Contractor page on the job: Before Work (Construction Phase Plan, F10, Asbestos Register, Site Rules), People (subcontractors and inductions) and On Site (permits and inspections).' />
+                {/* Who sees Main Contractor mode (Andy, 21 Nov 2026): every manager, or only the people ticked. */}
+                {mc && full && (() => {
+                  const mgrs = (people ?? []).filter((p) => ['admin', 'pm', 'site_manager'].includes(String(p.role))).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+                  const chosen = site.mc_mode_users ?? null;
+                  const roleName = (r: string) => (r === 'admin' ? 'Admin' : r === 'pm' ? 'Project Manager' : 'Site Manager');
+                  return (
+                    <View style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, marginBottom: 10 }}>
+                      <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 4 }}>Who Sees Main Contractor Mode?</Text>
+                      <Muted style={{ fontSize: 12, marginBottom: 6 }}>They get the main contractor home page on this job. Everyone else sees the ordinary job page, with a Main Contractor row.</Muted>
+                      <SelectBox title="Who Sees Main Contractor Mode" value={chosen ? 'some' : 'all'} options={[['all', 'Every Manager'], ['some', 'Only The People Ticked']]}
+                        onChange={(v) => void flag({ mc_mode_users: v === 'all' ? null : (chosen ?? [me.id]) }, '')} style={{ marginBottom: chosen ? 6 : 0 }} />
+                      {chosen && mgrs.map((p) => {
+                        const on = chosen.includes(p.id);
+                        return (
+                          <Pressable key={p.id} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={`Main Contractor mode for ${p.name}`}
+                            onPress={() => { const next = on ? chosen.filter((x) => x !== p.id) : [...chosen, p.id]; void flag({ mc_mode_users: next }, ''); }}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7, borderTopWidth: 1, borderTopColor: base.line }}>
+                            <Text style={{ fontSize: 17 }}>{on ? '☑' : '☐'}</Text>
+                            <Text style={{ flex: 1, color: base.ink }}>{p.name}{p.id === me.id ? ' (You)' : ''}</Text>
+                            <Text style={{ fontSize: 12, color: base.slate }}>{roleName(String(p.role))}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  );
+                })()}
                 {/* 380: every subcontractor company's own library (insurance, accreditations, RAMS templates), shared across jobs. */}
                 <View style={{ alignItems: 'center', marginBottom: 6 }}><Button small kind="ghost" title="📚 Company Library" onPress={() => router.push('/pm/admin/companylibrary' as never)} /></View>
                 <TypeRow label="Multi-Site" on={!!site.multi_site} edit={full} onPress={() => void setType('multi')}

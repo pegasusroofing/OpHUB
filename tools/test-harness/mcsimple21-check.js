@@ -52,7 +52,8 @@ const tab = (page, label) => page.getByText(label, {exact: true}).filter({visibl
     await signIn(page);
     await page.goto(B + `/sites/${S1}`); await page.waitForTimeout(5000);
     let t = await body(page);
-    check(/Main Contractor/.test(t) && /3 to set up/.test(t) && !/areas?\b/.test(t.split('Main Contractor')[1]?.slice(0, 40) || ''), `the job row says what's left to set up (${(t.match(/Main Contractor[^\n]*\n?[^\n]*/) || [''])[0].replace(/\n/g, ' | ')})`);
+    // A manager gets Main Contractor mode since 21 Nov 2026: Set Up on the job's home says what's left.
+    check(/Set Up: 2 Of 5 Done/.test(t), `the job's home says what's left to set up (${(t.match(/Main Contractor[^\n]*\n?[^\n]*/) || [''])[0].replace(/\n/g, ' | ')})`);
     await page.goto(B + `/sites/${S1}/mc`); await page.waitForTimeout(5000);
     t = await body(page);
     check(/Set Up: 2 Of 5 Done/.test(t), 'Set Up: 2 Of 5 Done at the top');

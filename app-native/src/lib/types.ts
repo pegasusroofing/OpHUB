@@ -90,6 +90,10 @@ export type Site = {
   acting_as_main_contractor?: boolean;
   mc_hidden_tiles?: string[] | null;
   mc_shown_tiles?: string[] | null;
+  /** Who sees Main Contractor mode on this job: null, every manager; a list, only those people (21 Nov 2026). */
+  mc_mode_users?: string[] | null;
+  /** The job's visitor sign-in link key (the QR code), 21 Nov 2026. */
+  visitor_key?: string | null;
   /** F10 not required on this job: the F10 part is closed and only managers see it (21 Nov 2026). */
   f10_not_required?: boolean | null;
   repair_contract: boolean;

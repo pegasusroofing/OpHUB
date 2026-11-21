@@ -6,6 +6,8 @@ import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { OphIcon } from '@/components/OphIcon';
+import { seesMcMode } from '@/data/mc';
+import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { canCreateProjects, isFullManager, isManager } from '@/lib/roles';
 import { can } from '@/lib/rules/rolePerms';
@@ -25,8 +27,19 @@ export function PhoneBar({ hubCount, inboxCount, outstanding }: { hubCount?: num
   const insets = useSafeAreaInsets();
   const path = usePathname().replace(/\/$/, '');
   const job = path.match(JOB);
+  const { data: jobSite } = useSite(job ? job[1] : undefined);
   let items: Item[];
-  if (job) {
+  if (job && seesMcMode(jobSite, me)) {
+    // Main Contractor mode (Andy, 21 Nov 2026): the bar is about running the site. Project Settings is the gear at the top.
+    const id = job[1], sub = job[2] || '';
+    items = [
+      { k: 'today', icon: 'home', label: 'Today', href: `/sites/${id}`, on: !sub },
+      { k: 'people', icon: 'users', label: 'People', href: `/sites/${id}/mc?tab=people`, on: sub === 'mc' },
+      { k: 'checkin', icon: 'pin', label: 'Check In', href: `/sites/${id}/checkin`, emph: true, on: sub.startsWith('checkin') },
+      { k: 'permits', icon: 'pen', label: 'Permits', href: `/sites/${id}/mc/permits`, on: sub.startsWith('mc/permits') },
+      isFullManager(me) ? { k: 'hub', icon: 'bell', label: 'HUB', href: '/pm/hub', badge: hubCount } : { k: 'inbox', icon: 'chat', label: 'Inbox', href: `/sites/${id}/messages`, badge: inboxCount, on: sub.startsWith('messages') },
+    ];
+  } else if (job) {
     const id = job[1], sub = job[2] || '';
     items = [
       { k: 'home', icon: 'home', label: 'Home', href: sub ? `/sites/${id}` : '/sites', on: !sub },

@@ -84,6 +84,83 @@ export function useMcSetup(siteId: string | undefined, orgId: string | null | un
 
 const rowsOf = <T,>(r: { data: unknown }) => (r.data as T[] | null) ?? [];
 
+/* ---------- Main Contractor mode: the job home's day (21 Nov 2026) ---------- */
+/** Does this person get Main Contractor mode on this job? Managers on a main contractor job: all of them, or only the
+ *  people chosen in Project Settings › Site Type (Andy, 21 Nov 2026). */
+export const seesMcMode = (site: Pick<Site, 'acting_as_main_contractor' | 'mc_mode_users'> | null | undefined, me: Profile | null) =>
+  !!site?.acting_as_main_contractor && !!me && ['pm', 'admin', 'site_manager'].includes(me.role) && (!site.mc_mode_users || site.mc_mode_users.includes(me.id));
+export type McOnSite = { company: string; ours: boolean; people: { id: string; name: string }[] };
+export type McToday = {
+  onSite: McOnSite[]; onSiteTotal: number;
+  toInduct: { id: string; name: string; company: string }[]; inducted: number;
+  permits: { id: string; type: string; location: string; workDate: string | null }[];
+  rams: { id: string; name: string; company: string }[];
+  briefing: { at: string } | null;
+  arriving: { what: string; when: string }[];
+  companies: { id: string; name: string; people: number; toInduct: number; ramsPending: number; onSite: number }[];
+};
+const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+/** Who's on site and with whom, who still needs inducting, open permits, RAMS waiting for approval, today's briefing and
+ *  what's arriving today, and each subcontractor's state. For a manager on a main contractor job. */
+export function useMcToday(site: Site | undefined, me: Profile | null, on = true) {
+  return useQuery({
+    queryKey: ['mcTiles', site?.id, 'today'],
+    enabled: !!site && !!me?.org_id && on,
+    queryFn: async (): Promise<McToday> => {
+      const s = site as Site, today = todayIso();
+      const [checks, cos, subOps, assigned, profiles, done, permits, rams, tpls, deliveries, events] = await Promise.all([
+        db.from('checkins').select('user_id,type,ts').eq('site_id', s.id).order('ts', { ascending: false }).limit(1000),
+        db.from('subcontractor_companies').select('id,name').eq('site_id', s.id).order('name'),
+        db.from('subcontractor_operatives').select('user_id,subcontractor_company_id').eq('site_id', s.id),
+        db.from('site_assignments').select('user_id').eq('site_id', s.id),
+        db.from('profiles').select('id,name,role').eq('org_id', (me as Profile).org_id as string),
+        db.from('site_induction_completions').select('operative_id').eq('site_id', s.id),
+        db.from('permits').select('id,permit_type,location,work_date').eq('site_id', s.id).eq('status', 'open').order('work_date'),
+        db.from('rams_docs').select('id,name,subcontractor_company_id').eq('site_id', s.id).eq('approval_status', 'pending'),
+        db.from('report_templates').select('id').eq('org_id', (me as Profile).org_id as string).eq('is_daily_briefing', true).eq('archived', false),
+        db.from('delivery_tasks').select('description,time_slot,status').eq('site_id', s.id).eq('scheduled_date', today),
+        db.from('site_calendar_events').select('title').eq('site_id', s.id).eq('event_date', today),
+      ]);
+      const names: Record<string, { name: string; role: string }> = {};
+      rowsOf<{ id: string; name: string | null; role: string }>(profiles).forEach((p) => { names[p.id] = { name: p.name || 'Someone', role: p.role }; });
+      const coName: Record<string, string> = {}; rowsOf<{ id: string; name: string }>(cos).forEach((c) => { coName[c.id] = c.name; });
+      const coOf: Record<string, string> = {}; rowsOf<{ user_id: string; subcontractor_company_id: string }>(subOps).forEach((o) => { coOf[o.user_id] = o.subcontractor_company_id; });
+      // On site: each person's latest check-in or out on this job.
+      const latest: Record<string, string> = {};
+      rowsOf<{ user_id: string; type: string }>(checks).forEach((c) => { if (!(c.user_id in latest)) latest[c.user_id] = c.type; });
+      const inNow = Object.keys(latest).filter((u) => latest[u] === 'in');
+      const groups: Record<string, McOnSite> = {};
+      inNow.forEach((u) => {
+        const co = coOf[u]; const key = co || 'ours';
+        (groups[key] = groups[key] || { company: co ? coName[co] || 'Subcontractor' : 'Ours', ours: !co, people: [] }).people.push({ id: u, name: names[u]?.name || 'Someone' });
+      });
+      const onSite = Object.values(groups).sort((x, y) => (x.ours ? -1 : y.ours ? 1 : y.people.length - x.people.length));
+      // To induct: our operatives on the job and everyone in its subcontractors, not yet inducted here.
+      const doneSet = new Set(rowsOf<{ operative_id: string }>(done).map((d) => d.operative_id));
+      const crew = new Set([...rowsOf<{ user_id: string }>(assigned).map((x) => x.user_id).filter((u) => !names[u] || names[u].role === 'operative'), ...Object.keys(coOf)]);
+      const toInduct = [...crew].filter((u) => !doneSet.has(u)).map((u) => ({ id: u, name: names[u]?.name || 'Someone', company: coOf[u] ? coName[coOf[u]] || 'Subcontractor' : 'Ours' }));
+      const tIds = rowsOf<{ id: string }>(tpls).map((t) => t.id);
+      const br = tIds.length ? rowsOf<{ created_at: string; submitted_at: string | null }>(await db.from('report_submissions').select('created_at,submitted_at').eq('site_id', s.id).in('template_id', tIds).gte('created_at', `${today}T00:00:00`).order('created_at').limit(1)) : [];
+      const ramsList = rowsOf<{ id: string; name: string; subcontractor_company_id: string | null }>(rams).map((r) => ({ id: r.id, name: r.name, company: r.subcontractor_company_id ? coName[r.subcontractor_company_id] || 'Subcontractor' : 'Ours' }));
+      return {
+        onSite, onSiteTotal: inNow.length,
+        toInduct, inducted: [...crew].filter((u) => doneSet.has(u)).length,
+        permits: rowsOf<{ id: string; permit_type: string | null; location: string | null; work_date: string | null }>(permits).map((p) => ({ id: p.id, type: p.permit_type || 'Permit', location: p.location || '', workDate: p.work_date })),
+        rams: ramsList,
+        briefing: br[0] ? { at: new Date(br[0].submitted_at || br[0].created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) } : null,
+        arriving: [
+          ...rowsOf<{ description: string | null; time_slot: string | null; status: string | null }>(deliveries).filter((d) => d.status !== 'cancelled').map((d) => ({ what: d.description || 'Delivery', when: d.time_slot || 'Today' })),
+          ...rowsOf<{ title: string }>(events).map((e) => ({ what: e.title, when: 'Today' })),
+        ],
+        companies: rowsOf<{ id: string; name: string }>(cos).map((c) => {
+          const ppl = Object.keys(coOf).filter((u) => coOf[u] === c.id);
+          return { id: c.id, name: c.name, people: ppl.length, toInduct: ppl.filter((u) => !doneSet.has(u)).length, ramsPending: ramsList.filter((r) => r.company === c.name).length, onSite: ppl.filter((u) => latest[u] === 'in').length };
+        }),
+      };
+    },
+  });
+}
+
 /** The Main Contractor page's counts; for an operative, whether they're inducted and how many permits wait for them. */
 export function useMcHome(site: Site | undefined, me: Profile | null) {
   return useQuery({

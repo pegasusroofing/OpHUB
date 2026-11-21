@@ -63,6 +63,8 @@ function Root() {
         <Stack.Screen name="reset" />
         {/* The public subcontractor sign-up form (18 Nov 2026), signed in or out. */}
         <Stack.Screen name="subcontractor" />
+        {/* Visitor sign-in on a main contractor job (21 Nov 2026): from the job's QR code, no account needed. */}
+        <Stack.Screen name="visit/[key]" />
       </Stack>
       </ToastProvider>
     </ThemeProvider>

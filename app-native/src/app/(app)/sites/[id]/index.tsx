@@ -9,13 +9,14 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { AssignList } from '@/components/AssignList';
 import { HowTo } from '@/components/HowTo';
 import { JobRows, type JobRow } from '@/components/JobRows';
+import { McHome } from '@/components/McHome';
 import { JobSignPrompt } from '@/components/JobSignPrompt';
 import { MoneyStrip } from '@/components/MoneyStrip';
 import { OphIcon } from '@/components/OphIcon';
 import { useToast } from '@/components/toast';
 import { Card, Muted } from '@/components/ui';
 import { WeatherLink } from '@/components/WeatherSwap';
-import { MC_SETUP, useMcSetup } from '@/data/mc';
+import { MC_SETUP, seesMcMode, useMcSetup } from '@/data/mc';
 import { useRepairJobs } from '@/data/repairs';
 import { assignToSite, removeFromSite, useTeamData } from '@/data/siteAdmin';
 import { useSiteHome } from '@/data/siteHome';
@@ -230,6 +231,16 @@ export default function SiteHome() {
         {assignOpen && <QuickAssign siteId={site.id} />}
       </Card>
     </Pressable>
+  );
+  // Main Contractor mode (Andy, 21 Nov 2026): a manager's home on a main contractor job is about running the site; our own
+  // trade's rows fold away under Our Own Works. Everyone else keeps the page below.
+  if (seesMcMode(site, me)) return (
+    <ScrollView contentContainerStyle={page(desk ? 1060 : 720)}>
+      {header}
+      <McHome site={site} me={me} desk={desk} ownRows={rows.filter((r) => r.key !== 'mc' && r.key !== 'ho')}
+        top={<><HowTo k="site_home" /><JobSignPrompt siteId={site.id} />{info}{fin && desk && <MoneyStrip site={site} />}{nobody}</>} />
+      {footer}
+    </ScrollView>
   );
   return (
     <ScrollView contentContainerStyle={page(720)}>
