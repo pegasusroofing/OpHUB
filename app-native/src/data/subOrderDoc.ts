@@ -6,7 +6,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { fdb } from '@/data/finance';
-import { deliverPdf, emailPdf, exportFilename, INK, PDFDocument, rgb, SLATE, StandardFonts, wrap } from '@/lib/pdf';
+import { deliverPdf, emailPdf, exportFilename, INK, PDFDocument, rgb, safe, SLATE, StandardFonts, wrap } from '@/lib/pdf';
 import { finBlocked, money } from '@/lib/rules/finance';
 import type { Organization, Profile } from '@/lib/types';
 
@@ -32,8 +32,9 @@ export async function buildSubOrderPdf(org: Organization | null, sc: Order, job:
   const line = (text: string, o: { size?: number; f?: typeof font; color?: ReturnType<typeof rgb>; x?: number; right?: string } = {}) => {
     if (y < 70) { page = doc.addPage([595.28, 841.89]); y = 790; }
     const size = o.size ?? 10.5;
-    page.drawText(text, { x: o.x ?? 50, y, size, font: o.f ?? font, color: o.color ?? INK });
-    if (o.right) page.drawText(o.right, { x: 545 - (o.f ?? font).widthOfTextAtSize(o.right, size), y, size, font: o.f ?? font, color: o.color ?? INK });
+    const t = safe(text), r = o.right ? safe(o.right) : '';
+    page.drawText(t, { x: o.x ?? 50, y, size, font: o.f ?? font, color: o.color ?? INK });
+    if (r) page.drawText(r, { x: 545 - (o.f ?? font).widthOfTextAtSize(r, size), y, size, font: o.f ?? font, color: o.color ?? INK });
     y -= size + 6;
   };
   const rule = () => { page.drawLine({ start: { x: 50, y: y + 4 }, end: { x: 545, y: y + 4 }, thickness: 0.6, color: rgb(0.85, 0.86, 0.88) }); y -= 6; };
@@ -44,9 +45,9 @@ export async function buildSubOrderPdf(org: Organization | null, sc: Order, job:
   y -= 6; rule();
   line('To', { f: bold, size: 9.5, color: SLATE }); line(sc.name || 'Subcontractor', { f: bold }); if (sc.email) line(sc.email);
   y -= 4;
-  line('Project', { f: bold, size: 9.5, color: SLATE }); line(job.name, { f: bold }); if (job.address) wrap(job.address, font, 10.5, 495).forEach((l) => line(l));
+  line('Project', { f: bold, size: 9.5, color: SLATE }); line(job.name, { f: bold }); if (job.address) wrap(safe(job.address), font, 10.5, 495).forEach((l) => line(l));
   y -= 4;
-  if (sc.description) { line('Work', { f: bold, size: 9.5, color: SLATE }); wrap(sc.description, font, 10.5, 495).forEach((l) => line(l)); y -= 4; }
+  if (sc.description) { line('Work', { f: bold, size: 9.5, color: SLATE }); wrap(safe(sc.description), font, 10.5, 495).forEach((l) => line(l)); y -= 4; }
   rule();
   line('Original Order Value', { f: bold, right: money(original) });
   if (vos.length) {
@@ -54,7 +55,7 @@ export async function buildSubOrderPdf(org: Organization | null, sc: Order, job:
     line('Variations (VOs) Added To This Order', { f: bold, size: 9.5, color: SLATE });
     vos.forEach((v) => {
       line(`VO${v.no}  ${v.title}`, { right: money(v.value) });
-      if (v.description) wrap(v.description, font, 9.5, 430).forEach((l) => line(l, { size: 9.5, color: SLATE, x: 80 }));
+      if (v.description) wrap(safe(v.description), font, 9.5, 430).forEach((l) => line(l, { size: 9.5, color: SLATE, x: 80 }));
       if (v.date) line(`Approved ${new Date(v.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`, { size: 9, color: SLATE, x: 80 });
     });
     line('Total Of Variations', { right: money(voTotal) });
@@ -70,6 +71,9 @@ export async function buildSubOrderPdf(org: Organization | null, sc: Order, job:
 
 /** Sends (or, while Finance is on trial or there's no email, downloads) the order with its VOs. A message to show. */
 export async function sendSubOrder(me: Profile, org: Organization | null, subcontractId: string, emailIt = true): Promise<string> {
+  try { return await sendSubOrderNow(me, org, subcontractId, emailIt); } catch { return 'Could not make the order PDF — try again.'; }
+}
+async function sendSubOrderNow(me: Profile, org: Organization | null, subcontractId: string, emailIt: boolean): Promise<string> {
   const sc = (await fdb.from('fin_subcontracts').select('id,site_id,number,name,email,description,order_value,retention_pct,cis_rate,created_at').eq('id', subcontractId).maybeSingle()).data as Order | null;
   if (!sc) return 'Could not find the order.';
   const site = (await fdb.from('sites').select('name,address,postcode,job_number').eq('id', sc.site_id).maybeSingle()).data as { name: string; address: string | null; postcode: string | null; job_number: string | null } | null;

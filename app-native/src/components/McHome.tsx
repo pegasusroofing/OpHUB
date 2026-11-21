@@ -13,10 +13,10 @@ import { FinTabs } from '@/components/FinNav';
 import { JobRows, type JobRow } from '@/components/JobRows';
 import { Pop } from '@/components/Pop';
 import { QrCode } from '@/components/QrCode';
-import { useToast } from '@/components/toast';
+import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Muted } from '@/components/ui';
 import { MC_DOC_LABEL, MC_SETUP, useMcHome, useMcSetup, useMcToday } from '@/data/mc';
-import { signOutVisitor, useSiteVisitors, visitLink } from '@/data/visitors';
+import { newVisitorKey, signOutVisitor, useSiteVisitors, visitLink } from '@/data/visitors';
 import { money } from '@/lib/rules/finance';
 import type { Profile, Site } from '@/lib/types';
 import { base } from '@/theme/theme';
@@ -43,6 +43,7 @@ export function McHome({ site, me, desk, top, ownRows }: { site: Site; me: Profi
   const toast = useToast();
   const qc = useQueryClient();
   const onSiteAll = t ? t.onSiteTotal + visitorsIn.length : null;
+  const openRoll = () => { void qc.invalidateQueries({ queryKey: ['mcTiles', site.id] }); setRoll(true); };
   const [own, setOwn] = useState(false);
   const go = (p: string) => () => router.push(`/sites/${site.id}/${p}` as never);
   // The check-in point to confirm stays at the top; a laptop's HUB row sits on Today; the rest is Our Own Works.
@@ -62,7 +63,7 @@ export function McHome({ site, me, desk, top, ownRows }: { site: Site; me: Profi
   const closingToday = (t?.permits ?? []).filter((p) => p.workDate && p.workDate <= new Date().toISOString().slice(0, 10));
   const counts = (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
-      {stat(onSiteAll, desk && t ? `On Site Now · ${ours} Ours · ${t.onSiteTotal - ours} Subcontractors${visitorsIn.length ? ` · ${visitorsIn.length} Visitors` : ''}` : 'On Site Now', false, () => setRoll(true))}
+      {stat(onSiteAll, desk && t ? `On Site Now · ${ours} Ours · ${t.onSiteTotal - ours} Subcontractors${visitorsIn.length ? ` · ${visitorsIn.length} Visitors` : ''}` : 'On Site Now', false, openRoll)}
       {stat(t ? t.toInduct.length : null, 'Inductions To Do', true, go('mc/inductions'))}
       {stat(t ? t.permits.length : null, desk && closingToday.length ? `Permits Open · ${closingToday.length} For Today` : 'Permits Open', false, go('mc/permits'))}
       {stat(t ? t.rams.length : null, 'RAMS To Approve', true, go('hs/rams'))}
@@ -110,7 +111,7 @@ export function McHome({ site, me, desk, top, ownRows }: { site: Site; me: Profi
           <Text style={{ fontSize: 13, color: base.slate }}>{g.people.length}</Text>
         </View>
       ))}
-      <View style={{ alignItems: 'center', marginTop: 8 }}><Button small kind="ghost" title="Fire Roll Call" onPress={() => setRoll(true)} /></View>
+      <View style={{ alignItems: 'center', marginTop: 8 }}><Button small kind="ghost" title="Fire Roll Call" onPress={openRoll} /></View>
     </View>
   );
   // Visitors today: who, from where, in and out; a manager can sign someone out who forgot.
@@ -229,6 +230,10 @@ export function McHome({ site, me, desk, top, ownRows }: { site: Site; me: Profi
             <QrCode value={visitLink(site.visitor_key)} size={desk ? 260 : 220} />
             <Text selectable style={{ fontSize: 12, color: base.slate, marginTop: 8, textAlign: 'center' }}>{visitLink(site.visitor_key)}</Text>
             <Muted style={{ textAlign: 'center', marginTop: 6 }}>Put this at the gate (print it or show it on a phone). Visitors scan it, give their name, phone, email and company, and sign in; the same page signs them out.</Muted>
+            {(me.role === 'admin' || me.role === 'pm') && <View style={{ marginTop: 10 }}><Button small kind="ghost" title="New QR Code" onPress={async () => {
+              if (!(await confirmAsk('Make a new QR code for this job? The old one stops working, so print and put up the new one.', 'Yes', 'No'))) return;
+              if (await newVisitorKey(site.id)) void qc.invalidateQueries({ queryKey: ['sites'] }); else toast('Could not make a new one — try again.');
+            }} /></View>}
             {Platform.OS === 'web' && <View style={{ marginTop: 10 }}><Button small kind="ghost" title={copied ? 'Copied ✓' : 'Copy Link'} onPress={async () => { try { await globalThis.navigator?.clipboard?.writeText(visitLink(site.visitor_key as string)); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { toast('Select the link and copy it.'); } }} /></View>}
           </View>
         </Pop>

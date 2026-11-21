@@ -131,7 +131,7 @@ export function QuoteForm({ v, setV, isNew, people, others, onOthers, docs, setD
       <SectionTitle>Customer</SectionTitle>
       <QBox label="Client *" value={v.client} onChangeText={typeClient} placeholder="Start Typing To Search Your Directory" />
       {hits.filter((h) => h.name.toLowerCase() !== v.client.trim().toLowerCase()).map((h) => (
-        <Pressable key={h.id} onPress={() => { setV((f) => ({ ...f, client: h.name, contact: f.contact || h.estimator_name || '', email: f.email || h.estimator_email || '', phone: f.phone || h.estimator_phone || '', markup: f.markup || (h.markup != null ? String(h.markup) : ''), chase: h.quote_chase === false ? 'no' : 'yes' })); setPicked(h); setHits([]); }} style={{ paddingVertical: 8, marginTop: -6 }}>
+        <Pressable key={h.id || `s:${h.name}`} onPress={() => { setV((f) => ({ ...f, client: h.name, contact: f.contact || h.estimator_name || '', email: f.email || h.estimator_email || '', phone: f.phone || h.estimator_phone || '', markup: f.markup || (h.markup != null ? String(h.markup) : ''), chase: h.quote_chase === false ? 'no' : 'yes' })); setPicked(h); setHits([]); }} style={{ paddingVertical: 8, marginTop: -6 }}>
           <Text style={{ color: base.blue, fontWeight: '600' }}>{h.name}</Text>
         </Pressable>
       ))}

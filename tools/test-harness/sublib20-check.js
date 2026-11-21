@@ -42,11 +42,12 @@ const SHOTS = path.join(__dirname, 'shots', 'sublib20'); require('fs').mkdirSync
   await page.screenshot({path: path.join(SHOTS, 'picker.png')});
   await page.getByText(/Acme Scaffolding Ltd\s+·\s+✓ Approved Sign-Up/).first().click(); await page.waitForTimeout(1000);
   check(/Employer's liability insurance expired 1 Oct 2026\. Add them to this job anyway\?/.test(await text()), 'expired insurance: it asks first');
-  await vis('Yes').last().click(); await page.waitForTimeout(3000);
+  await vis('Yes').last().click(); await page.waitForFunction(() => /Project Manager on this job/.test(document.body.innerText), null, {timeout: 8000}).catch(() => {});
   const co = db.subcontractor_companies[0];
   check(!!co && co.master_company_id === prof.id && co.site_id === S1, 'added to the job, linked to their library entry');
-  check(/Make Dan Price Acme Scaffolding Ltd’s admin on this job\?/.test(await text()), 'offers to make Dan (who signed them up) their admin');
-  await vis('Yes').last().click(); await page.waitForTimeout(3000);
+  // Since 20 Nov the person who signed them up is their Project Manager straight away, and it says so.
+  check(/Dan Price is Acme Scaffolding Ltd’s Project Manager on this job/.test(await text()), 'makes Dan (who signed them up) their Project Manager, and says so');
+  if (await page.locator('text="OK" >> visible=true').count()) { await page.locator('text="OK" >> visible=true').last().click(); await page.waitForTimeout(800); }
   check(db.subcontractor_operatives.some((x) => x.user_id === 'dan' && x.subcontractor_company_id === co.id && x.is_admin) && db.site_assignments.some((a) => a.user_id === 'dan' && a.site_id === S1), 'Dan is on the job as their admin');
   t = await text();
   check(/Acme Scaffolding Ltd/.test(t) && /⚠ Employer's liability insurance expired/.test(t), 'their row on the job shows the insurance warning');
@@ -60,7 +61,8 @@ const SHOTS = path.join(__dirname, 'shots', 'sublib20'); require('fs').mkdirSync
   await page.goto(`${B}/home`); await page.waitForTimeout(6000);
   t = await text();
   // Getting Started before any job steps: phone, signature, certificates; one of our own operatives also has the form.
-  check(/of 3 steps done/.test(t), `their operative's Getting Started has 3 steps, no Subcontractor Form (${(t.match(/\d+ of \d+ steps done/) || [''])[0]})`);
+  // Since 21 Nov a subcontractor company operative fills in a Company Induction (no financial) instead of the Subcontractor Form: 4 steps.
+  check(/of 4 steps done/.test(t) && !/Subcontractor Form/.test(t), `their operative's Getting Started has 4 steps with the Company Induction, no Subcontractor Form (${(t.match(/\d+ of \d+ steps done/) || [''])[0]})`);
   await page.screenshot({path: path.join(SHOTS, 'operative-home.png'), fullPage: true});
   await page.goto(`${B}/account`); await page.waitForTimeout(4000);
   check(!/My Employee Record/.test(await text()), 'and no "My Employee Record" in Settings');

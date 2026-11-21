@@ -117,7 +117,7 @@ const S2 = seed.S2;
   // ---- Schedule of Works: same address as the last task ----
   await page.goto(`${BASE}/sites/${S1}/schedule`); await page.waitForTimeout(6000);
   await page.getByText('+ ADD TASK').first().click(); await page.waitForTimeout(600);
-  await page.getByPlaceholder('New task, e.g. Fit lead flashing').fill('Strip ridge'); await page.getByText('Plot 2', {exact: true}).last().click();
+  await page.getByPlaceholder('New task, e.g. Fit lead flashing').fill('Strip ridge'); await page.getByLabel('Address', {exact: true}).last().click(); await page.waitForTimeout(500); await page.getByText('Plot 2', {exact: true}).last().click(); await page.waitForTimeout(400);
   await page.getByText('Add', {exact: true}).last().click(); await page.waitForTimeout(2000);
   t = await text();
   const tk = (db.schedule_tasks || []).find((x) => x.name === 'Strip ridge');

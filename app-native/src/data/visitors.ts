@@ -14,9 +14,12 @@ const rpc = (n: string, a: object) => (supabase as unknown as { rpc: (n: string,
 export const visitLink = (key: string) => `${webOrigin() || 'https://app.operativehub.co.uk'}/visit/${key}`;
 
 export type VisitInfo = { site: string; company: string; logo: string | null; colour: string | null };
-export async function visitInfo(key: string): Promise<VisitInfo | null> {
-  const r = await rpc('visitor_site_info', { p_key: key });
-  return r.error ? null : (r.data as VisitInfo | null);
+/** The job for a link; null when the link isn't a job's; 'offline' when OpHUB couldn't be reached. */
+export async function visitInfo(key: string): Promise<VisitInfo | null | 'offline'> {
+  try {
+    const r = await rpc('visitor_site_info', { p_key: key });
+    return r.error ? (/invalid input syntax/i.test(String(r.error.message)) ? null : 'offline') : (r.data as VisitInfo | null);
+  } catch { return 'offline'; }
 }
 export type Visit = { id: string; token: string };
 /** Signs a visitor in: the visit, or why not. */
@@ -27,9 +30,12 @@ export async function visitorSignIn(key: string, v: { name: string; phone: strin
   return d ? { id: d.id, token: d.token } : 'Could not sign in — try again.';
 }
 export const visitorSignOut = async (v: Visit) => (await rpc('visitor_sign_out', { p_id: v.id, p_token: v.token })).data === true;
-export async function visitStatus(v: Visit): Promise<{ name: string; signed_in_at: string; signed_out_at: string | null } | null> {
-  const r = await rpc('visitor_status', { p_id: v.id, p_token: v.token });
-  return r.error ? null : (r.data as { name: string; signed_in_at: string; signed_out_at: string | null } | null);
+/** Where a visit stands; null when there's no such visit; 'offline' when OpHUB couldn't be reached (keep the visit). */
+export async function visitStatus(v: Visit): Promise<{ name: string; signed_in_at: string; signed_out_at: string | null } | null | 'offline'> {
+  try {
+    const r = await rpc('visitor_status', { p_id: v.id, p_token: v.token });
+    return r.error ? 'offline' : (r.data as { name: string; signed_in_at: string; signed_out_at: string | null } | null);
+  } catch { return 'offline'; }
 }
 
 /** Their visit, kept on their phone so they can sign out later. */
@@ -44,10 +50,22 @@ export function useSiteVisitors(siteId: string | undefined, on = true) {
     queryKey: ['mcTiles', siteId, 'visitors'], enabled: !!siteId && on, refetchInterval: 60000,
     queryFn: async () => {
       const d = new Date(); d.setHours(0, 0, 0, 0);
-      const r = (await db.from('site_visitors').select('id,name,phone,email,company,signed_in_at,signed_out_at').eq('site_id', siteId as string).order('signed_in_at', { ascending: false }).limit(300)).data as SiteVisitor[] | null;
-      return (r ?? []).filter((v) => !v.signed_out_at || new Date(v.signed_in_at) >= d);
+      // Everyone still signed in (the fire roll call needs them all), and today's who have left.
+      const cols = 'id,name,phone,email,company,signed_in_at,signed_out_at';
+      const [inNow, today] = await Promise.all([
+        db.from('site_visitors').select(cols).eq('site_id', siteId as string).is('signed_out_at', null).order('signed_in_at', { ascending: false }),
+        db.from('site_visitors').select(cols).eq('site_id', siteId as string).gte('signed_in_at', d.toISOString()).order('signed_in_at', { ascending: false }).limit(300),
+      ]);
+      const seen = new Set<string>(), out: SiteVisitor[] = [];
+      [...((inNow.data as SiteVisitor[] | null) ?? []), ...((today.data as SiteVisitor[] | null) ?? [])].forEach((v) => { if (!seen.has(v.id)) { seen.add(v.id); out.push(v); } });
+      return out.sort((x, y) => y.signed_in_at.localeCompare(x.signed_in_at));
     },
   });
+}
+/** A new QR code for the job: the old one stops working (security review, 21 Nov 2026). Project Managers and admins. */
+export async function newVisitorKey(siteId: string): Promise<string | null> {
+  const r = await (supabase as unknown as { rpc: (n: string, a: object) => Promise<{ data: unknown; error: unknown }> }).rpc('visitor_new_key', { p_site: siteId });
+  return r.error ? null : (r.data as string);
 }
 export const signOutVisitor = async (id: string, by: string) =>
   !!(await db.from('site_visitors').update({ signed_out_at: new Date().toISOString(), signed_out_by: by } as never).eq('id', id).is('signed_out_at', null).select('id')).data?.length;

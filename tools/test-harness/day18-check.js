@@ -19,6 +19,8 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   const me = db.profiles.find((p) => p.id === 'me');
   Object.assign(me, {role: 'admin', finance_enabled: true, howto_dismissed: ['*'], phone: '07700 900111'});
   Object.assign(db.organizations[0], {has_pm: true, has_finance: true, auto_job_numbers: false, job_number_prefix: null, next_job_number: null});
+  // Next 5 Days starts on the next working day at a weekend, so the calendar item goes on a working day (fails on a Saturday otherwise).
+  { const wd = new Date(); while (wd.getDay() === 0 || wd.getDay() === 6) wd.setDate(wd.getDate() + 1); (db.site_calendar_events || []).forEach((e) => { e.event_date = wd.toISOString().slice(0, 10); }); }
   db.fin_clients = [{id: 'fc1', org_id: db.organizations[0].id, name: 'Bellway Homes', email: 'accounts@bellway.example', phone: '0191 000 0000', estimator_name: 'Sam Price', estimator_email: 'sam@bellway.example', estimator_phone: '07700 111111'}];
   const page = await ctx.newPage(); page.on('pageerror', (e) => errs.push(e.message));
   const vis = (sel) => page.locator(`${sel} >> visible=true`).first();
@@ -54,7 +56,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   // The tabs since the later 18 Nov redo: People · Projects · (Finance) · H&S · Company.
   // (Then sub tabs: that tab's pages follow the main row.)
   check(tabs[0] === 'People' && tabs[1] === 'Projects' && tabs.includes('H&S') && tabs.includes('Company') && !tabs.includes('Libraries'),`Admin Centre: People, Projects, H&S and Company tabs, as Finance (${tabs.join(', ')})`);
-  check(/Users\n/.test(t) && /Invites\n/.test(t) && /Roles\n/.test(t) && !/Users & invites/.test(t), 'People shows its rows straight away (Users, Invites, Roles)');
+  check(/Users\n/.test(t) && /Invites & Roles\n/.test(t) && !/Users & invites/.test(t), 'People shows its rows straight away (Users, Invites & Roles: Roles moved under Invites 21 Nov)');
   check(!/Sign Out/.test(t) && !/My Signature/.test(t) && !/Finance \(Trial\)/.test(t), 'no footer of links (they\'re in Settings)');
   check(await page.evaluate(() => [...document.querySelectorAll('[role="button"]')].filter((b) => /^Users/.test(b.innerText.trim())).every((b) => !b.querySelector('svg') || b.querySelectorAll('svg').length === 1)), 'plain rows: no icon squares');
   await page.screenshot({path: path.join(SHOTS, 'admin-phone.png'), fullPage: true});

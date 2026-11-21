@@ -22,9 +22,10 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.goto('http://localhost:8081/sites/'+S1+'/materials/requests'); await page.waitForTimeout(5000);
   await page.getByText('📦 Add To Collections').click(); await yes('Add');
   console.log('collections', db.material_required_items.map(m=>m.item).join(','), '| request', db.materials[0].status, db.materials[0].order_note);
-  await page.goto('http://localhost:8081/sites/'+S1+'/mc'); await page.waitForTimeout(5000);
-  await page.getByText(/Programme/).first().click(); await page.waitForTimeout(3000);
-  console.log('folder', db.drawing_folders.map(f=>f.name).join(','), '| url', page.url().includes('/drawings/'));
+  // Main Contractor mode (21 Nov): the home's Programme card opens Drawings, Specs & Programme.
+  await page.goto('http://localhost:8081/sites/'+S1); await page.waitForTimeout(5000);
+  await page.getByText(/Open The Programme/).first().click(); await page.waitForTimeout(3000);
+  console.log('programme opens drawings', page.url().includes('/drawings'));
   await page.goto('http://localhost:8081/sites/'+S1+'/hs/incidents/new'); await page.waitForTimeout(5000);
   console.log('time boxes', await page.getByPlaceholder('Time, e.g. 14:30').count());
   await page.getByPlaceholder('Time, e.g. 14:30').first().fill('14:30');

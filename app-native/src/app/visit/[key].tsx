@@ -16,7 +16,7 @@ const time = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: 
 
 export default function VisitorSignIn() {
   const { key } = useLocalSearchParams<{ key: string }>();
-  const [info, setInfo] = useState<VisitInfo | null | undefined>(undefined);
+  const [info, setInfo] = useState<VisitInfo | null | 'offline' | undefined>(undefined);
   const [visit, setVisit] = useState<Visit | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [f, setF] = useState({ name: '', phone: '', email: '', company: '' });
@@ -27,10 +27,15 @@ export default function VisitorSignIn() {
     if (!key) return;
     void visitInfo(key).then(setInfo);
     const v = savedVisit(key);
-    if (v) void visitStatus(v).then((s) => { if (s && !s.signed_out_at) { setVisit(v); setStatus(s); } else keepVisit(key, null); });
+    // On poor signal the visit is kept, so they can still sign out (bug review, 21 Nov 2026).
+    if (v) void visitStatus(v).then((s) => {
+      if (s === 'offline') { setVisit(v); setStatus({ name: '', signed_in_at: '', signed_out_at: null }); return; }
+      if (s && !s.signed_out_at) { setVisit(v); setStatus(s); } else keepVisit(key, null);
+    });
   }, [key]);
-  const colour = info?.colour || base.red;
-  const logo = info?.logo ? supabase.storage.from('org-logos').getPublicUrl(info.logo).data.publicUrl : null;
+  const site = info && info !== 'offline' ? info : null;
+  const colour = site?.colour || base.red;
+  const logo = site?.logo ? supabase.storage.from('org-logos').getPublicUrl(site.logo).data.publicUrl : null;
   const btn = (title: string, onPress: () => void, ghost = false) => (
     <Pressable onPress={onPress} disabled={busy} accessibilityRole="button" accessibilityLabel={title}
       style={({ pressed }) => [{ backgroundColor: ghost ? '#E6E8EC' : colour, borderRadius: 12, paddingVertical: 14, alignItems: 'center', opacity: busy ? 0.6 : 1 }, pressed && { opacity: 0.85 }]}>
@@ -65,24 +70,25 @@ export default function VisitorSignIn() {
       <Stack.Screen options={{ title: 'Visitor Sign-In' }} />
       <View style={{ width: '100%', maxWidth: 480 }}>
         <View style={{ alignItems: 'center', marginVertical: 14 }}>
-          {logo ? <Image source={{ uri: logo }} style={{ width: 160, height: 60, resizeMode: 'contain', marginBottom: 8 }} accessibilityLabel={info?.company || 'Logo'} /> : null}
+          {logo ? <Image source={{ uri: logo }} style={{ width: 160, height: 60, resizeMode: 'contain', marginBottom: 8 }} accessibilityLabel={site?.company || 'Logo'} /> : null}
           <Text style={{ fontSize: 22, fontWeight: '700', color: base.ink, textAlign: 'center' }}>Visitor Sign-In</Text>
-          {info ? <Text style={{ fontSize: 15, color: base.slate, textAlign: 'center', marginTop: 2 }}>{info.site} · {info.company}</Text> : null}
+          {site ? <Text style={{ fontSize: 15, color: base.slate, textAlign: 'center', marginTop: 2 }}>{site.site} · {site.company}</Text> : null}
         </View>
         <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: base.cardLine, borderRadius: 16, padding: 18 }}>
           {info === undefined ? <Text style={{ color: base.slate }}>Loading…</Text>
+            : info === 'offline' && !visit ? <><Text style={{ fontSize: 15, color: base.ink, marginBottom: 12 }}>Couldn&apos;t reach OpHUB. Check your signal and try again.</Text>{btn('Try Again', () => { setInfo(undefined); void visitInfo(key as string).then(setInfo); }, true)}</>
             : info === null ? <Text style={{ fontSize: 15, color: base.ink }}>This sign-in link isn&apos;t working. Ask the site team.</Text>
               : status && !status.signed_out_at ? (
                 <>
                   <Text style={{ fontSize: 20, fontWeight: '700', color: base.ink }}>You&apos;re Signed In</Text>
-                  <Text style={{ fontSize: 15, color: base.slate, marginTop: 4, marginBottom: 16 }}>{status.name} · since {time(status.signed_in_at)}. Sign out here when you leave the site.</Text>
+                  <Text style={{ fontSize: 15, color: base.slate, marginTop: 4, marginBottom: 16 }}>{status.name ? `${status.name} · since ${time(status.signed_in_at)}. ` : ''}Sign out here when you leave the site.</Text>
                   {!!err && <Text style={{ color: base.red, marginBottom: 10 }}>{err}</Text>}
                   {btn('Sign Out', () => void signOut())}
                 </>
               ) : status?.signed_out_at ? (
                 <>
                   <Text style={{ fontSize: 20, fontWeight: '700', color: base.ink }}>Signed Out</Text>
-                  <Text style={{ fontSize: 15, color: base.slate, marginTop: 4, marginBottom: 16 }}>At {time(status.signed_out_at)}. Thank you, {status.name}.</Text>
+                  <Text style={{ fontSize: 15, color: base.slate, marginTop: 4, marginBottom: 16 }}>At {time(status.signed_out_at)}. Thank you{status.name ? `, ${status.name}` : ''}.</Text>
                   {btn('Sign In Again', () => { setStatus(null); setErr(''); }, true)}
                 </>
               ) : (
@@ -97,7 +103,7 @@ export default function VisitorSignIn() {
                   </Pressable>
                   {!!err && <Text style={{ color: base.red, marginBottom: 10 }}>{err}</Text>}
                   {btn('Sign In', () => void signIn())}
-                  <Text style={{ fontSize: 12, color: base.slate, marginTop: 12 }}>Your details are kept by {info.company} for site safety (who is on site, for a fire roll call) and aren&apos;t used for anything else.</Text>
+                  <Text style={{ fontSize: 12, color: base.slate, marginTop: 12 }}>Your details are kept by {site?.company || 'the site'} for site safety (who is on site, for a fire roll call) and aren&apos;t used for anything else.</Text>
                 </>
               )}
         </View>

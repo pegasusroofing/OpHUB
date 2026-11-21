@@ -35,7 +35,7 @@ const {chromium, makeContext} = require('./harness');
   await tap('✎ Rename');
   await page.locator('input').locator('visible=true').last().fill('7. Main Contractor Paperwork');
   await tap('OK');
-  await tap('+ Add a folder');
+  await tap('+ Add A Folder');
   await page.locator('input').locator('visible=true').last().fill('9. Our New Folder');
   await tap('OK');
   await page.locator('[aria-label="Change 6. Programme"]').click(); await page.waitForTimeout(500);

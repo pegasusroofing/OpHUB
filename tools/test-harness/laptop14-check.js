@@ -54,7 +54,7 @@ const VP = {viewport: {width: 1300, height: 900}};
   const tiles = ['OpHUB Finance', 'Quotes', 'Dashboards', 'Reports & Surveys'];
   check(tiles.every((x) => body.includes(x)), 'home: Finance, Quotes, Dashboards, Reports & Surveys');
   check(!/Holidays, policies & handbook/.test(body), 'home: no HR tile on a laptop');
-  check(await page.getByText('Sign out', {exact: true}).filter({visible: true}).count() === 1, 'home: Sign out only once (in the bar on the left)');
+  check(await page.getByText(/^Sign out$/i).filter({visible: true}).count() === 1, 'home: Sign out only once (in the bar on the left)');
   const sz = await page.evaluate(() => {
     const byText = (t) => [...document.querySelectorAll('div')].find((d) => d.childElementCount === 0 && d.innerText === t);
     const fs = (t) => { const e = byText(t); return e ? parseFloat(getComputedStyle(e).fontSize) : 0; };

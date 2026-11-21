@@ -12,7 +12,7 @@ import { Button, Card, Muted } from '@/components/ui';
 import { useSubco } from '@/data/subcontractors';
 import { raiseOrderFor, trackOrder, useCoOrders } from '@/data/subVariations';
 import { useAuth } from '@/lib/auth';
-import { isFinanceUser, isManager } from '@/lib/roles';
+import { canRaiseOrders, isFinanceUser, isManager } from '@/lib/roles';
 import { money } from '@/lib/rules/finance';
 import { base, page, space } from '@/theme/theme';
 
@@ -58,8 +58,8 @@ export default function SubcoOrders() {
         ))}
       </Card>
       <View style={{ alignItems: 'center', marginTop: 4 }}>
-        <Button small busy={busy} title="+ Raise A Subcontract Order" onPress={() => void raise()} />
-        <Muted style={{ textAlign: 'center', marginTop: 6, fontSize: 12 }}>{fin ? 'Raised here, it is ticked for them; you go straight to Finance to add its value.' : 'Raised here, it is ticked for them; Finance adds its value.'}</Muted>
+        {canRaiseOrders(me) ? <Button small busy={busy} title="+ Raise A Subcontract Order" onPress={() => void raise()} /> : <Muted style={{ textAlign: 'center' }}>Your role can&apos;t raise orders (Admin › People › Invites &amp; Roles).</Muted>}
+        <Muted style={{ textAlign: 'center', marginTop: 6, fontSize: 12 }}>{!canRaiseOrders(me) ? '' : fin ? 'Raised here, it is ticked for them; you go straight to Finance to add its value.' : 'Raised here, it is ticked for them; Finance adds its value.'}</Muted>
       </View>
     </ScrollView>
   );

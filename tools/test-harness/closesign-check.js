@@ -24,6 +24,7 @@ const docs = (db) => {
     const t = await page.locator('#app').innerText();
     check(/Closed/.test(t) && /Closed for signing/.test(t), 'RAMS row shows Closed');
     await page.evaluate(h => { location.hash = h; }, '#/site/'+H.S1+'/hs/coshh'); await page.waitForTimeout(2500);
+    if (!(await page.evaluate(() => location.hash)).endsWith('/hs/coshh')) { await page.locator('#app').getByText('COSHH', {exact: true}).first().click(); await page.waitForTimeout(1500); } // the H&S page folds COSHH away: open it
     await page.evaluate(id => { rowActionsMenuOpenFor = 'coshhdoc-'+id; render(); }, C1); await page.waitForTimeout(1200);
     await page.waitForTimeout(1500);
     check(/Close for signing/.test(await page.locator('#app').innerText()), 'COSHH ⋯ menu has Close for signing');

@@ -107,6 +107,8 @@ export function useMcToday(site: Site | undefined, me: Profile | null, on = true
   return useQuery({
     queryKey: ['mcTiles', site?.id, 'today'],
     enabled: !!site && !!me?.org_id && on,
+    // Who's on site must be current for a fire roll call (bug review, 21 Nov 2026): every minute, and on opening the roll call.
+    refetchInterval: 60000,
     queryFn: async (): Promise<McToday> => {
       const s = site as Site, today = todayIso();
       const [checks, cos, subOps, assigned, profiles, done, permits, rams, tpls, deliveries, events] = await Promise.all([

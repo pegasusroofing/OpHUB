@@ -41,7 +41,7 @@ export default function SubcoVariations() {
   const canAsk = mgr || !!sub?.isAdmin;
   const name = sub?.company.name || 'Subcontractor';
   const tracked = orders.filter((o) => o.tracked);
-  const refresh = () => { for (const k of ['subVariations', 'subcoMoney', 'coOrders', 'mcTiles']) void qc.invalidateQueries({ queryKey: [k] }); };
+  const refresh = () => { for (const k of ['subVariations', 'subcoMoney', 'coOrders', 'mcTiles', 'finSub', 'orderVos']) void qc.invalidateQueries({ queryKey: [k] }); };
   const send = async () => {
     if (!form) return;
     const value = Number(form.value.replace(/[£,\s]/g, ''));
@@ -52,7 +52,8 @@ export default function SubcoVariations() {
     setForm(null); refresh();
   };
   const approve = async (v: (typeof vars)[number]) => {
-    let order = v.subcontract_id;
+    // Only an order tracked for this subcontractor (security review, 21 Nov 2026).
+    let order = v.subcontract_id && tracked.some((o) => o.id === v.subcontract_id) ? v.subcontract_id : null;
     if (!order) {
       if (!tracked.length) { showAlert(`No subcontract order is tracked for ${name} yet. Tick or raise one in Subcontract Orders first.`); return; }
       if (tracked.length === 1) order = tracked[0].id;

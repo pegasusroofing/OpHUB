@@ -352,7 +352,7 @@ Deno.serve(withCors(async (req) => {
           const bank = String(c.BankAccountDetails || '').replace(/[^0-9]/g, '');
           out.push({ id: c.ContactID, name: c.Name, email: c.EmailAddress || '', phone: [ph.PhoneAreaCode, ph.PhoneNumber].filter(Boolean).join(' '),
             mobile: [mob.PhoneAreaCode, mob.PhoneNumber].filter(Boolean).join(' '), account_number: c.AccountNumber || '', first_name: c.FirstName || '', last_name: c.LastName || '',
-            website: c.Website || '', country: a.Country || '', bank_sort_code: bank.length === 14 ? bank.slice(0, 6) : '', bank_account_number: bank.length === 14 ? bank.slice(6) : bank,
+            website: c.Website || '', country: a.Country || '', bank_sort_code: bank.length === 14 ? bank.slice(0, 6) : '', bank_account_number: bank.length === 14 ? bank.slice(6) : '',
             address: [a.AddressLine1, a.AddressLine2, a.AddressLine3, a.City, a.Region].filter(Boolean).join('\n'), postcode: a.PostalCode || '',
             vat_number: c.TaxNumber || '', company_number: c.CompanyNumber || '',
             sales_vat: TAXMAP[c.AccountsReceivableTaxType || ''] || '', purchase_vat: TAXMAP[c.AccountsPayableTaxType || ''] || '',
@@ -374,11 +374,15 @@ Deno.serve(withCors(async (req) => {
       if (ex) return json({ ok: true, existed: true, contact: shape(ex) });
       void addr;
       const c: any = { ...contactFields(body, !!body.supplier), Name: nm };
+      // Bank details only from an admin, and recorded (security review, 21 Nov 2026).
+      const bankSent = !!c.BankAccountDetails && me.role === 'admin';
+      if (!bankSent) delete c.BankAccountDetails;
       if (!body.supplier) c.IsCustomer = true;
       // A client's estimator goes in as one of the contact's people (on a new contact only, so Xero's own list is never replaced).
       const est = String(body.estimator_name || '').trim().split(/\s+/).filter(Boolean);
       if (!body.supplier && (est.length || String(body.estimator_email || '').trim())) c.ContactPersons = [{ FirstName: est[0] || '', LastName: est.slice(1).join(' '), EmailAddress: String(body.estimator_email || '').trim().slice(0, 255), IncludeInEmails: false }];
       const made = await postContact(call, c);
+      if (bankSent) await admin.from('fin_bank_changes').insert({ org_id: orgId, user_id: me.id, xero_contact_id: made.Contacts?.[0]?.ContactID || null, contact_name: nm });
       return json({ ok: true, contact: shape(made.Contacts[0]) });
     }
 
@@ -387,7 +391,11 @@ Deno.serve(withCors(async (req) => {
       const id = String(body.id || '').trim();
       if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: 'Not linked to Xero' }, 400);
       const c: any = { ...contactFields(body, !!body.supplier), ContactID: id };
+      // Bank details only from an admin, and recorded (security review, 21 Nov 2026).
+      const bankSent = !!c.BankAccountDetails && me.role === 'admin';
+      if (!bankSent) delete c.BankAccountDetails;
       const made = await postContact(call, c);
+      if (bankSent) await admin.from('fin_bank_changes').insert({ org_id: orgId, user_id: me.id, xero_contact_id: id, contact_name: String(body.name || '').slice(0, 255) || null });
       return json({ ok: true, id: made.Contacts?.[0]?.ContactID || id });
     }
 

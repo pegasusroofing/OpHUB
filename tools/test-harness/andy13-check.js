@@ -18,7 +18,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   const appDay = (() => { const d = new Date(); while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); })();
   Object.assign(db.organizations[0], {has_pm: true, has_finance: true});
   const site = db.sites.find((s) => s.id === S1);
-  Object.assign(site, {client_contact_name: 'Sue Client', client_phone: '07700 111222', price_enabled: false});
+  Object.assign(site, {client_contact_name: 'Sue Client', client_phone: '07700 111222', price_enabled: false, acting_as_main_contractor: false}); // an ordinary job page (the seed's job is a main contractor one)
   db.quotes = [{id: 'q1', org_id: O, client_name: 'Bellway Homes', title: 'Hove Flats', status: 'pricing', chase_on: true, chase_count: 0, created_at: today}];
   db.yard_stock = [{id: 'ys1', org_id: O, item: 'Code 4 lead', unit: 'roll', qty: 5, min_qty: 1, active: true}]; db.yard_moves = [];
   const t2 = db.schedule_tasks.find((t) => t.id === 't2'); Object.assign(t2, {status: 'progress', percent_complete: 40});

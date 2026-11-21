@@ -47,7 +47,7 @@ function yard(db) {
 
   // ---- Yard list ----
   await page.goto(B + '/fin/yard'); await page.waitForTimeout(5000);
-  let t = await vis('[aria-label="Yard stock"]').innerText();
+  let t = await vis('[aria-label="Yard Stock"]').innerText();
   check(/ITEM/.test(t) && /IN STOCK/.test(t) && /UNIT PRICE/.test(t) && /VALUE/.test(t), 'Yard: headings Item, In Stock, Unit Price, Value');
   check(/Code 4 Lead 300mm/.test(t) && /£45\.50/.test(t) && /£455\.00/.test(t) && !/Rack B/.test(t) && !/Lead & metals/.test(t) && !/min/i.test(t), 'Yard: a row is the item, qty, price and value only (no location, category or minimum)');
   check(!/Old Tile Clips/.test(t) && /In Use ▾/.test(t), 'Yard: ▾ starts on In Use (the one no longer stocked hidden)');
@@ -57,15 +57,15 @@ function yard(db) {
   check(!/Return from a job|Adjust a count/i.test(await body()), 'Yard: no Return or Adjust buttons');
   await page.screenshot({path: path.join(SHOTS, 'yard-list.png')});
   await page.getByText('Low Stock', {exact: true}).first().click(); await page.waitForTimeout(500);
-  t = await vis('[aria-label="Yard stock"]').innerText();
+  t = await vis('[aria-label="Yard Stock"]').innerText();
   check(/Breathable Membrane/.test(t) && !/Code 4 Lead/.test(t) && /Low Stock ▾/.test(t), 'Yard: the Low Stock tile picks ▾ Low Stock');
   await page.getByLabel('Clear the column searches').first().click(); await page.waitForTimeout(400);
   await vis('[aria-label="Sort by Value"]').click(); await page.waitForTimeout(400);
-  t = await vis('[aria-label="Yard stock"]').innerText();
+  t = await vis('[aria-label="Yard Stock"]').innerText();
   check(t.indexOf('Code 4 Lead') < t.indexOf('Breathable'), 'Yard: Value sorts biggest first (£455 before £120)');
 
   // ---- An item ----
-  await vis('[aria-label="Yard stock"]').getByRole('button').filter({hasText: 'Code 4 Lead 300mm'}).first().click(); await page.waitForTimeout(2500);
+  await vis('[aria-label="Yard Stock"]').getByRole('button').filter({hasText: 'Code 4 Lead 300mm'}).first().click(); await page.waitForTimeout(2500);
   const h = await page.getByRole('heading', {name: 'Code 4 Lead 300mm'}).filter({visible: true}).count();
   check(/[?&]id=y1/.test(page.url()) && h === 1, 'Item: its name is a heading at the top');
   const d = await vis('[aria-label="Item details"]').innerText();

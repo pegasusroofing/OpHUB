@@ -3,7 +3,7 @@
 // manager and any clients who signed by emailed link; COSHH adds whoever put it
 // on the job as "issued by".
 import { docBucket } from '@/data/hs';
-import { embedImage, exportFilename, fetchBytes, PDFDocument, rgb, StandardFonts } from '@/lib/pdf';
+import { embedImage, exportFilename, fetchBytes, PDFDocument, rgb, safe, StandardFonts } from '@/lib/pdf';
 import { publicUrl } from '@/lib/privateFiles';
 import { currentCycleSigs } from '@/lib/rules/hs';
 import { isManager } from '@/lib/roles';
@@ -63,13 +63,13 @@ async function tbtBase(src: Uint8Array, title: string, path: string): Promise<PD
   const img = await embedImage(pdf, src).catch(() => null);
   const pg = pdf.addPage([595.28, 841.89]);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold), font = await pdf.embedFont(StandardFonts.Helvetica);
-  pg.drawText(title.slice(0, 80), { x: 40, y: 790, size: 18, font: bold, color: rgb(0.1, 0.1, 0.1) });
+  pg.drawText(safe(title.slice(0, 80)), { x: 40, y: 790, size: 18, font: bold, color: rgb(0.1, 0.1, 0.1) });
   if (img) {
     const k = Math.min(515 / img.width, 700 / img.height, 1);
     pg.drawImage(img, { x: 40, y: 770 - img.height * k, width: img.width * k, height: img.height * k });
   } else {
     const file = path.split('/').pop()?.replace(/^[0-9a-f-]{36}-/i, '') || 'the talk';
-    pg.drawText(`Toolbox talk file: ${file.slice(0, 70)}`, { x: 40, y: 760, size: 11, font, color: rgb(0.3, 0.3, 0.3) });
+    pg.drawText(safe(`Toolbox talk file: ${file.slice(0, 70)}`), { x: 40, y: 760, size: 11, font, color: rgb(0.3, 0.3, 0.3) });
     pg.drawText('The talk is a separate file in the TBT Library. The signatures follow.', { x: 40, y: 742, size: 11, font, color: rgb(0.3, 0.3, 0.3) });
   }
   return pdf;

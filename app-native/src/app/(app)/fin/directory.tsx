@@ -4,7 +4,7 @@
 // HMRC check, CIS rate, day rate, bank details) and cost codes.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinForm, type Field } from '@/components/FinForm';
@@ -43,7 +43,7 @@ export function termsText(r: Row) {
 const CIS_REG: [string, string][] = [['', 'Choose…'], ['sole_trader', 'Sole trader'], ['company', 'Company'], ['partnership', 'Partnership'], ['trust', 'Trust']];
 
 export default function FinDirectory() {
-  const { kind: kindIn = 'client', from, add } = useLocalSearchParams<{ kind?: Kind; from?: string; add?: string }>();
+  const { kind: kindIn = 'client', from } = useLocalSearchParams<{ kind?: Kind; from?: string }>();
   // The Estimating tab is gone (21 Nov 2026): an old link opens Clients, where each client's estimating details are.
   const kind: Kind = kindIn === 'estimating' ? 'client' : kindIn;
   // Cost codes live under Settings; People & rates keeps the Subcontractors tabs when opened from there.
@@ -68,9 +68,10 @@ export default function FinDirectory() {
   const newContact = async () => {
     const k = await chooseAction('What Is This Contact?', [{ key: 'client', label: 'Client · We Invoice Them' }, { key: 'supplier', label: 'Supplier · We Buy From Them' }, { key: 'labour', label: 'Subcontractor · They Work For Us (CIS)' }]);
     if (!k) return;
-    if (k === kind) openNew(k as Kind); else router.setParams({ kind: k, add: '1' } as never);
+    // The form opens straight away; the tab follows (the page stays open, so the form does too).
+    if (k !== kind) router.setParams({ kind: k } as never);
+    openNew(k as Kind);
   };
-  useEffect(() => { if (add === '1') { openNew(kind); router.setParams({ add: undefined } as never); } }, [add, kind]); // eslint-disable-line react-hooks/exhaustive-deps
   const desk = useDesk();
   const { data: xst } = useXeroStatus();
   const xeroOn = !!(xst?.data as Row | null | undefined)?.connected;
@@ -409,7 +410,7 @@ export default function FinDirectory() {
             { k: 'cost_code_id', label: sup ? 'Default Cost Code (Xero Purchases Account)' : 'Default Cost Code (Xero Sales Account)', kind: 'choice', options: [['', 'None'], ...codes.filter((x) => x.active !== false).map((x) => [x.id, `${x.code ? `${x.code} – ` : ''}${x.name}`] as [string, string])] },
             ...(sup ? [
               { k: 'h_bank', label: 'Bank Details (For Paying Them)', kind: 'heading' },
-              { k: 'bank_account_name', label: 'Bank Account Name' }, { k: 'bank_sort_code', label: 'Sort Code', half: true, ph: '12-34-56' }, { k: 'bank_account_number', label: 'Bank Account Number', half: true, ph: '8 numbers' },
+              { k: 'bank_account_name', label: 'Bank Account Name', note: 'Bank details go to Xero only when an admin saves them, and each change is recorded.' }, { k: 'bank_sort_code', label: 'Sort Code', half: true, ph: '12-34-56' }, { k: 'bank_account_number', label: 'Bank Account Number', half: true, ph: '8 numbers' },
               { k: 'no_sync', label: 'Don’t Send This Supplier’s Bills To Xero', kind: 'check' },
             ] as Field[] : [
               { k: 'h_est', label: 'Estimating', kind: 'heading' },

@@ -119,7 +119,7 @@ const pressChange = (page, name) => page.evaluate((n) => {
   await login(page);
   await page.goto(B + '/pm/hr'); await page.waitForTimeout(3500);
   let t = await body();
-  check(/Holiday calendar/.test(t) && /Employee Records/.test(t) && /Company policies/.test(t), 'HR: holiday calendar, employee records, company policies');
+  check(/Holiday calendar/i.test(t) && /Employee Records/.test(t) && /Company policies/i.test(t), 'HR: holiday calendar, employee records, company policies');
   await page.goto(B + '/pm/hr/records'); await page.waitForTimeout(4000);
   t = await body();
   check(/Every company admin sees everyone’s folders/.test(t) && /Paul Planner/.test(t) && /Jake Morris/.test(t) && /Tom Hughes/.test(t), 'the admin sees everyone’s folder; every company admin does, to start');
@@ -225,7 +225,7 @@ const pressChange = (page, name) => page.evaluate((n) => {
   await login(pg2);
   await pg2.goto(B + '/pm/hr'); await pg2.waitForTimeout(3500);
   t = await pg2.evaluate(() => document.body.innerText);
-  check(/Holiday calendar/.test(t) && /Company policies/.test(t) && /anyone HR lets you see/.test(t), 'a PM has HR: holiday, policies, their folder and anyone HR lets them see');
+  check(/Holiday calendar/i.test(t) && /Company policies/i.test(t) && /anyone HR lets you see/.test(t), 'a PM has HR: holiday, policies, their folder and anyone HR lets them see');
   await pg2.goto(B + '/pm/hr/records'); await pg2.waitForTimeout(4000);
   t = await pg2.evaluate(() => document.body.innerText);
   check(/Jake Morris/.test(t) && /You Can See/.test(t) && !/Tom Hughes/.test(t) && !/HR Access/.test(t), 'Employee Records: their own and Jake’s, not Tom’s, no HR Access');

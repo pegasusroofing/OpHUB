@@ -57,7 +57,9 @@ export function useSubcoMoney(siteId: string | undefined, coId: string | undefin
     queryFn: async (): Promise<SubcoMoney> => {
       const key = (x: unknown) => String(x || '').trim().toLowerCase();
       const all = ((await db.from('fin_subcontracts').select('id,number,name,order_value,retention_pct,subcontractor_company_id').eq('site_id', siteId as string)).data as (FinSub & { retention_pct: number | null })[] | null) ?? [];
-      const mine = all.filter((s) => s.subcontractor_company_id === coId || (!s.subcontractor_company_id && key(s.name) === key(coName)));
+      // Exactly the orders ticked for them in Subcontract Orders (bug review, 21 Nov 2026), so the tiles match the ticks.
+      void key; void coName;
+      const mine = all.filter((s) => s.subcontractor_company_id === coId);
       const out: SubcoMoney = { subs: mine.map((s) => ({ id: s.id, number: s.number, name: s.name })), order: 0, applied: 0, certified: 0, paid: 0, toPay: 0, retention: 0, remaining: 0 };
       if (!mine.length) return out;
       type App = { subcontract_id: string; number: number; applied_gross: number | null; certified_gross: number | null; retention: number | null; pay_amount: number | null; status: string | null };

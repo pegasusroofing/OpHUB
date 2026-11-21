@@ -91,12 +91,12 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
 
   // ---- Draft invoice: Tab into an empty box and type ----
   await page.goto(B + `/fin/job/${S1}/invoice/dinv1`); await page.waitForTimeout(5000);
-  const billTo = page.locator('input[aria-label="Bill to"] >> visible=true').first();
+  const billTo = page.locator('input[aria-label="Bill To"] >> visible=true').first();
   check(await billTo.count() === 1, 'invoice: an empty Bill To is a box to type in');
   await billTo.click(); await page.keyboard.type('Bellway Homes'); await page.keyboard.press('Tab'); await page.waitForTimeout(300);
   await page.keyboard.type('1 High Street'); await page.waitForTimeout(300);
   t = await body();
-  const addr = await page.locator('textarea[aria-label="Billing address"] >> visible=true').first().inputValue().catch(() => '');
+  const addr = await page.locator('textarea[aria-label="Billing Address"] >> visible=true').first().inputValue().catch(() => '');
   check(/Bellway Homes/.test(t) && addr === '1 High Street', `invoice: Tab goes to the address and you can type (${addr})`);
   const bar = await page.getByText('Issue Invoice', {exact: true}).filter({visible: true}).first().boundingBox();
   await poTab(page, "Raise|Save & Send");

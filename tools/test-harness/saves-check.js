@@ -19,7 +19,7 @@ const B = 'http://localhost:8081', J = `/fin/job/${S1}`;
 
   // VAT rates: add one, save, stay on settings.
   await open('/fin/settings');
-  await page.getByText(/VAT rates/).first().click(); await page.waitForTimeout(400);
+  await page.getByText(/VAT rates/i).first().click(); await page.waitForTimeout(400);
   await page.getByText(/Add VAT rate/i).first().click(); await page.waitForTimeout(400);
   const blank = page.locator('input:visible').filter({hasNot: page.locator('[value]')});
   const inputs = page.locator('input:visible'); const n = await inputs.count();
@@ -54,9 +54,10 @@ const B = 'http://localhost:8081', J = `/fin/job/${S1}`;
 
   // New client on the Directory with a real email.
   await open('/fin/directory');
-  await page.getByText(/New client/i).last().click(); await page.waitForTimeout(800);
+  await page.getByText('+ New Contact', {exact: true}).last().click(); await page.waitForTimeout(800);
+  await page.getByText('Client · We Invoice Them', {exact: true}).last().click(); await page.waitForTimeout(1200);
   const after = (label) => page.locator(`xpath=//*[text()="${label}"]/following::input[1]`).first();
-  await after('Client name').fill('Acme Ltd'); await after('Accounts email').fill('acct@acme.example');
+  await after('Client Name').fill('Acme Ltd'); await after('Accounts Email').fill('acct@acme.example');
   await page.getByText(/^save$/i).last().click(); await page.waitForTimeout(1500);
   const cl = (db.fin_clients || []).find((c) => c.name === 'Acme Ltd');
   check('New client saved', !!cl && cl.email === 'acct@acme.example', await say());
