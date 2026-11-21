@@ -42,7 +42,7 @@ export default function CoshhNew() {
   const [reading, setReading] = useState(false);
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
-  if (!canSignOffHs(me)) return <Muted style={{ padding: space.l }}>Your role can view H&S but not sign it off. Ask your admin (Admin › Roles).</Muted>;
+  if (!canSignOffHs(me)) return <Muted style={{ padding: space.l }}>Your role can view H&S but not sign it off. Ask your admin (Admin › People › Invites & Roles).</Muted>;
   const shown = lib.filter((it) => !read.includes(it.id) && (!q.trim() || `${it.title} ${it.data.manufacturer}`.toLowerCase().includes(q.trim().toLowerCase())));
   const fromSheets = lib.filter((it) => read.includes(it.id));
   const tick = (pid: string, v: boolean) => setSel(v ? [...sel, pid] : sel.filter((x) => x !== pid));

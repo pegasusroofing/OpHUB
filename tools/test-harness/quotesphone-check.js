@@ -83,11 +83,11 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(/DATE/.test(t) && await align('DATE') === 'center' && await align('STATUS') === 'center', 'All: Date and Status centred');
   await page.screenshot({path: path.join(SHOTS, 'qp-all.png'), fullPage: true});
 
-  // ---- Directory › Estimating ----
-  await page.goto(B + '/fin/directory?kind=estimating'); await page.waitForTimeout(5000);
+  // ---- The client's estimating details, on the client (no Estimating tab since 21 Nov 2026) ----
+  await page.goto(B + '/fin/directory?kind=client'); await page.waitForTimeout(5000);
   t = await page.locator('body').innerText();
-  check(/Estimating/.test(t) && /Bellway Homes/.test(t) && /No Estimator Yet/.test(t), 'Directory has an Estimating tab with the clients');
-  await page.locator('[aria-label="Estimating"] >> text=Bellway Homes').first().click(); await page.waitForTimeout(1000);
+  check(/Bellway Homes/.test(t) && !/^Estimating$/m.test(t), 'Directory › Clients lists the clients; no Estimating tab');
+  await page.locator('[aria-label="Directory"] >> text=Bellway Homes').first().click(); await page.waitForTimeout(1000);
   await page.getByLabel('Estimator Name', {exact: true}).fill('Sam Estimator');
   await page.getByLabel('Estimator Email', {exact: true}).fill('sam@bellway.example');
   await page.getByLabel('Estimator Phone', {exact: true}).fill('07700 900123');
@@ -95,6 +95,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByLabel('Auto Chase New Quotes?', {exact: true}).click(); await page.waitForTimeout(500);
   await page.getByText('No', {exact: true}).last().click(); await page.waitForTimeout(400);
   await page.screenshot({path: path.join(SHOTS, 'qp-estimating-form.png')});
+  await page.getByRole('checkbox', {name: /Add To Xero As Well/}).click(); await page.waitForTimeout(300);
   await page.getByText('Save', {exact: true}).last().click(); await page.waitForTimeout(2000);
   const c1 = db.fin_clients.find((c) => c.id === 'cl1');
   check(c1.estimator_name === 'Sam Estimator' && c1.estimator_email === 'sam@bellway.example' && c1.estimator_phone === '07700 900123' && Number(c1.estimating_markup_pct) === 15 && c1.quote_chase === false, 'Estimating saves the estimator, mark-up and Auto Chase No');

@@ -31,7 +31,7 @@ export default function RepairRates() {
   const [busy, setBusy] = useState('');
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
-  // Without Finance – Edit (Admin › Roles) the rates are shown, not changed.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the rates are shown, not changed.
   const canEdit = canEditFinance(me);
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['repairRates', id] }); void qc.invalidateQueries({ queryKey: ['repairQuoteSettings', id] }); };
   const cats = Array.from(new Set(rates.map((r) => r.category).filter(Boolean))) as string[];

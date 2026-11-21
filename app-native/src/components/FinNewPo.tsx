@@ -123,7 +123,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop, po }: { site?: Site
   const [statusNow, setStatusNow] = useState<'draft' | 'open' | ''>(po ? (po.is_draft ? 'draft' : 'open') : '');
   // A cancelled or fully invoiced PO is shown, not changed (Reopen it below to change it).
   const fixed = !!po && (po.status === 'cancelled' || po.status === 'invoiced');
-  // Without Finance – Edit a saved PO is shown, not changed; raising or emailing it also needs Raise Orders (Admin › Roles).
+  // Without Finance – Edit a saved PO is shown, not changed; raising or emailing it also needs Raise Orders (Admin › People › Invites & Roles).
   const canEdit = canEditFinance(me), canOrder = canEdit && canRaiseOrders(me);
   const shut = fixed || !canEdit;
   const [panel, setPanel] = useState<'quote' | 'pdf'>('quote'); // the right-hand panel: the project quote, or the PO PDF

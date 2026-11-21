@@ -58,14 +58,14 @@ export default function MaterialCosts() {
       {office.length > 0 && (
         <Card>
           <Text style={{ fontSize: 15, fontWeight: '600', color: base.ink, marginBottom: 4 }}>Also Switched On One By One</Text>
-          <Muted style={{ marginBottom: 8 }}>People in office roles who were given material costs before the roles. Their role now decides (Admin › Roles › See Material Costs); say No here to leave it to the role.</Muted>
+          <Muted style={{ marginBottom: 8 }}>People in office roles who were given material costs before the roles. Their role now decides (Admin › People › Invites & Roles › See Material Costs); say No here to leave it to the role.</Muted>
           {office.map(row)}
         </Card>
       )}
       <Card>
         <Text style={{ fontSize: 15, fontWeight: '600', color: base.ink, marginBottom: 4 }}>Office Roles</Text>
         <Muted style={{ marginBottom: 10 }}>Project managers, site managers and the other office roles get material costs from their role. Finance users always see them.</Muted>
-        <View style={{ alignItems: 'center' }}><Button small title="Open Roles" onPress={() => router.push('/pm/admin/roles' as never)} /></View>
+        <View style={{ alignItems: 'center' }}><Button small title="Open Roles" onPress={() => router.push('/pm/admin/invites' as never)} /></View>
       </Card>
       {!canEdit && <Muted style={{ marginTop: 4 }}>Only a company admin with Finance can change these.</Muted>}
     </ScrollView>

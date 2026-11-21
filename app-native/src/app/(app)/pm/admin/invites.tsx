@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { Platform, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
+import { RolesPanel } from '@/components/RolesPanel';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { createInvite, createPermanentInvite, emailInvite, joinLink, revokeInvite, useInvites } from '@/data/admin';
 import { useOrgRoles } from '@/data/orgRoles';
@@ -50,7 +51,7 @@ export default function Invites() {
   const perm = data?.permanent;
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'Invites' }} />
+      <Stack.Screen options={{ title: me.role === 'admin' ? 'Invites & Roles' : 'Invites' }} />
       <Card>
         {perm ? (
           <>
@@ -107,6 +108,8 @@ export default function Invites() {
           </>
         )}
       </Card>
+      {/* Roles under the invites (Andy, 21 Nov 2026: "put roles under the invites tab"). Company admins only. */}
+      {me.role === 'admin' && <><View style={{ marginTop: 20 }}><SectionTitle>Roles</SectionTitle></View><RolesPanel /></>}
     </ScrollView>
   );
 }

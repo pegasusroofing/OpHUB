@@ -13,8 +13,8 @@ export default function FinOneDrive() {
   return (
     <>
       <Stack.Screen options={{ title: 'OneDrive' }} />
-      {/* The OneDrive settings are changes: Finance – Edit only (Admin › Roles). */}
-      {canEditFinance(me) ? <OneDriveSettings finance /> : <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>}
+      {/* The OneDrive settings are changes: Finance – Edit only (Admin › People › Invites & Roles). */}
+      {canEditFinance(me) ? <OneDriveSettings finance /> : <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › People › Invites & Roles).</Muted>}
     </>
   );
 }

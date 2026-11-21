@@ -188,7 +188,7 @@ export default function Collections() {
           <Card key={k}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{k === '__none' ? 'No supplier' : sup?.name ?? 'Supplier'} <Text style={{ color: base.slate, fontWeight: '400' }}>({groups[k].length} item{groups[k].length > 1 ? 's' : ''})</Text></Text>
-              {/* Emailing the list to the supplier is sending them an order: Raise Orders only (Admin › Roles). */}
+              {/* Emailing the list to the supplier is sending them an order: Raise Orders only (Admin › People › Invites & Roles). */}
               {k !== '__none' && sup && canRaiseOrders(me) && <Pressable onPress={() => { if (!sup.email && !branchesOf(sup).some((b) => b.email)) { toast('This supplier has no email on file.'); return; } setEmailing({ kind: 'supplier', sup }); }}><Text style={{ color: base.blue }}>✉ Email Supplier</Text></Pressable>}
             </View>
             {bundles(groups[k]).map((b) => (b.length < 2 ? row(b[0]) : (

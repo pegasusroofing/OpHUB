@@ -32,7 +32,9 @@ export type QuoteSettings = {
   // Quotation; the auto exports; the tender tracker kept up to date in OneDrive.
   status_folders?: Record<string, string> | null; person_folders?: Record<string, string> | null; cc_email?: string | null; auto_exports?: AutoExport[] | null; tracker_on?: boolean | null; tracker_name?: string | null;
 };
-export type ClientHit = { id: string; name: string; email: string | null; phone: string | null; markup?: number | null; estimator_name?: string | null; estimator_email?: string | null; estimator_phone?: string | null; quote_chase?: boolean | null };
+/** kind 'supplier': in the Directory as a supplier only; id is '' until it's used on a quote (it then becomes a client too,
+ *  the same Xero contact). */
+export type ClientHit = { id: string; name: string; email: string | null; phone: string | null; markup?: number | null; estimator_name?: string | null; estimator_email?: string | null; estimator_phone?: string | null; quote_chase?: boolean | null; kind?: 'client' | 'supplier' };
 
 export const useQuotes = (orgId: string | null | undefined) => useQuery({
   queryKey: ['quotes', orgId], enabled: !!orgId,
@@ -64,9 +66,10 @@ export const useQuoteSettings = (orgId: string | null | undefined) => useQuery({
 export const saveQuoteSettings = async (s: Partial<QuoteSettings> & { org_id: string }) => !(await db.from('quote_settings').upsert({ ...s, updated_at: new Date().toISOString() } as never)).error;
 
 export async function searchClients(q: string): Promise<ClientHit[]> {
-  // v3 (11 Nov 2026) adds the client's estimator (Directory › Estimating) and whether new quotes are chased.
-  const r = await rpc('quote_client_search_v3', { q });
-  return r.error ? [] : (r.data as ClientHit[]);
+  // v4 (21 Nov 2026): the whole Directory, clients and suppliers (Andy: "the estimating just pulls through from ANY (client,
+  // supplier etc)"). v3 added the client's estimator and whether new quotes are chased.
+  const r = await rpc('quote_client_search_v4', { q });
+  return r.error ? [] : ((r.data as ClientHit[]) || []).map((h) => (h.kind === 'supplier' ? { ...h, id: '' } : h));
 }
 /** Another client tendering the same job (they join the Directory if new). */
 export async function addQuoteClient(me: Profile, quoteId: string, c: { name: string; email?: string | null; phone?: string | null; contact?: string | null }): Promise<boolean> {
@@ -91,7 +94,7 @@ export async function setClientMarkup(clientId: string, pct: number | null): Pro
   const r = await rpc('quote_set_client_markup', { p_client: clientId, p_pct: pct });
   return !r.error && r.data === true;
 }
-/** The client's estimator into Directory › Estimating (Save To Directory on a New Enquiry). Null if it saved, else why not. */
+/** The client's estimator into Directory › Clients (Save To Directory on a New Enquiry). Null if it saved, else why not. */
 export async function setClientEstimator(client: string, e: { name: string; email: string; phone: string }): Promise<string | null> {
   const r = await rpc('quote_set_client_estimator', { p_client: client, p_name: e.name, p_email: e.email, p_phone: e.phone });
   return r.error ? (/email/i.test(String((r.error as { message?: string }).message || '')) ? 'Check the email address.' : 'Could not save it to the Directory.') : r.data === true ? null : 'Could not find that client in the Directory.';
@@ -100,7 +103,8 @@ export async function setClientEstimator(client: string, e: { name: string; emai
 export const receivedOn = (q: { received_date: string | null; created_at: string; imported?: boolean | null }) => q.received_date || (q.imported ? null : q.created_at.slice(0, 10));
 /** A new name joins the client Directory, as on a new Finance job. */
 export async function clientId(name: string, email: string, phone: string): Promise<string | null> {
-  const r = await rpc('quote_add_client', { p_name: name, p_email: email, p_phone: phone });
+  // v2 (21 Nov 2026): a supplier's name becomes a client copied from the supplier (same Xero contact), not a blank one.
+  const r = await rpc('quote_add_client_v2', { p_name: name, p_email: email, p_phone: phone });
   return r.error ? null : (r.data as string);
 }
 export async function saveQuote(me: Profile, id: string | null, patch: Partial<Quote>): Promise<string | null> {

@@ -61,7 +61,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
   const ex = (inbox?.extracted || {}) as Row;
   // In Xero or paid: shown as it is, not changed here.
   const locked = !!pi && (!!pi.xero_id || !!pi.paid_on);
-  // Without Finance – Edit (Admin › Roles) it's shown, not changed: no save, query, approve or delete.
+  // Without Finance – Edit (Admin › People › Invites & Roles) it's shown, not changed: no save, query, approve or delete.
   const ro = locked || !canEditFinance(me);
   // A saved invoice opens locked; Edit at the bottom opens it for changes (Andy, 6 Nov 2026).
   const [editing, setEditing] = useState(!pi || !!startEdit);

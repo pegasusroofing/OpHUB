@@ -36,6 +36,13 @@ export const SUBFORM_SECTIONS: SubSection[] = [
     { k: 'phone', l: 'Mobile', type: 'tel', req: 1, core: 1, half: 1 },
     { k: 'office_phone', l: 'Office Phone', type: 'tel' },
   ] },
+  // Next of kin (Andy, 21 Nov 2026): filled in for them at every site induction.
+  { t: 'Next Of Kin', hint: 'Who we contact in an emergency. It fills in your site inductions for you.', q: [
+    { k: 'kin_name', l: 'Next Of Kin Name', half: 1 },
+    { k: 'kin_relationship', l: 'Relationship To You', half: 1 },
+    { k: 'kin_phone', l: 'Their Phone Number', type: 'tel', half: 1 },
+    { k: 'kin_address', l: 'Their Address', type: 'textarea' },
+  ] },
   { t: 'Your Work', q: [
     { k: 'trades', l: 'Trades', type: 'checks', req: 1, hint: 'Tick all that apply', o: SUB_TRADES },
     { k: 'other_trade', l: 'Other Trade' },

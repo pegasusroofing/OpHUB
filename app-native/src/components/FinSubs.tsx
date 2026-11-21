@@ -53,7 +53,7 @@ export function useSubsData(orgId: string | null | undefined, siteId?: string) {
 
 export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun' | 'orders' | 'apps' | 'cis'; siteId?: string; f?: string }) {
   const { me } = useAuth();
-  // Finance – Edit for anything that changes; a subcontractor PO is an order, so also Raise Orders (Admin › Roles).
+  // Finance – Edit for anything that changes; a subcontractor PO is an order, so also Raise Orders (Admin › People › Invites & Roles).
   const canEdit = canEditFinance(me), canOrder = canEdit && canRaiseOrders(me);
   const toast = useToast();
   const qc = useQueryClient();
@@ -249,7 +249,7 @@ function WagesTab({ me, siteId, canEdit }: { me: Profile; siteId?: string; canEd
   return (
     <View>
       <Muted style={{ marginBottom: 10 }}>Labour from operative invoices and PAYE wages from sign-ins wait here. Book each to a price sheet and that week’s booked-in amount updates straight away, or send it to other job costs. PMs see their own jobs’ in the Price tile.</Muted>
-      {!canEdit && <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>}
+      {!canEdit && <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › People › Invites & Roles).</Muted>}
       {canEdit && !siteId && !wagesOff(me.org_id) && (
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 10 }}>
           <View style={{ flex: 1 }}><DateBox value={week} onChange={(v) => setWeek(monday(v))} /></View>

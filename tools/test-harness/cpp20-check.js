@@ -73,13 +73,15 @@ const roles = ['Contract Director', 'Contract Manager', 'Project Manager', 'Firs
   await page.goto(`${B}/sites/${S1}/mc/cpp/cp2`); await page.waitForTimeout(5000);
   t = await text();
   check(await page.getByRole('tab').count() === 0 && /Construction Phase Plan · Version 1/.test(t), 'an issued plan opens closed (no tabs)');
-  const btns = await page.evaluate(() => ['⬇ Export', '✉ Email', '✎ Edit', '👁 View'].map((l) => { const e = [...document.querySelectorAll('div')].find((x) => x.childElementCount === 0 && x.textContent === l); const b = e && e.closest('[role="button"]'); const r = e && e.getBoundingClientRect(); return {l, x: r ? Math.round(r.left) : null, y: r ? Math.round(r.top) : null, bg: b ? getComputedStyle(b).backgroundColor : null}; }));
-  check(btns.every((b) => b.x !== null) && btns.every((b) => b.y === btns[0].y) && btns[3].x > btns[2].x && btns[2].x > btns[1].x && btns[1].x > btns[0].x, `Export / Email / Edit / View on one row, View on the right (${btns.map((b) => `${b.l}@${b.x}`).join(' ')})`);
-  check(btns[3].bg && btns[3].bg !== btns[2].bg, `View is in the company colour (${btns[3].bg} vs ${btns[2].bg})`);
+  // Edit is in the ⋮ since 21 Nov 2026.
+  const btns = await page.evaluate(() => ['⬇ Export', '✉ Email', '👁 View'].map((l) => { const e = [...document.querySelectorAll('div')].find((x) => x.childElementCount === 0 && x.textContent === l); const b = e && e.closest('[role="button"]'); const r = e && e.getBoundingClientRect(); return {l, x: r ? Math.round(r.left) : null, y: r ? Math.round(r.top) : null, bg: b ? getComputedStyle(b).backgroundColor : null}; }));
+  check(btns.every((b) => b.x !== null) && btns.every((b) => b.y === btns[0].y) && btns[2].x > btns[1].x && btns[1].x > btns[0].x, `Export / Email / View on one row, View on the right (${btns.map((b) => `${b.l}@${b.x}`).join(' ')})`);
+  check(btns[2].bg && btns[2].bg !== btns[1].bg, `View is in the company colour (${btns[2].bg} vs ${btns[1].bg})`);
   check(!/Revise The Plan/i.test(t), 'no Revise The Plan box');
   await page.screenshot({path: path.join(SHOTS, '3-issued-closed-phone.png')});
-  await page.getByText('✎ Edit', {exact: true}).click(); await page.waitForTimeout(900);
-  check(await page.getByRole('tab').count() > 0, 'Edit opens the tabs');
+  await page.getByLabel('More for this plan').click(); await page.waitForTimeout(600);
+  await page.getByText('✎ Edit', {exact: true}).last().click(); await page.waitForTimeout(900);
+  check(await page.getByRole('tab').count() > 0, 'Edit (in the ⋮) opens the tabs');
   await tab(/^Issue/);
   t = await text();
   check(/You.re editing version 1/.test(t) && /Issue Revision 2/.test(t) && /Stop Editing/.test(t), 'the Issue tab says to issue revision 2 (and Stop Editing)');

@@ -59,7 +59,7 @@ export function FinSettingsBody({ only: one }: { only?: string | string[] }) {
   if (!me) return null;
   const s = (st || {}) as Row;
   const s0 = s;
-  // Without Finance – Edit (Admin › Roles) the settings are shown, not changed.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the settings are shown, not changed.
   const canEdit = canEditFinance(me);
   const initial = { ...s, po_enabled: !!s.po_enabled, pi_auto_approve: s.pi_auto_approve !== false, expenses_user: s.expenses_user || '', po_vat_default: String(s.po_vat_default || '20'), auto_job_numbers: !!o?.auto_job_numbers, job_number_prefix: o?.job_number_prefix || '', next_job_number: o?.next_job_number ?? '' };
   const xs = xero?.data, xErr = xero?.error;
@@ -157,8 +157,8 @@ export function FinSettingsBody({ only: one }: { only?: string | string[] }) {
                 ) : k === 'costs' ? (
                   <>
                     {/* Who sees material costs is set in the Admin Centre now (Andy, 18 Nov 2026: one place, with the roles). */}
-                    <Muted style={{ marginBottom: 8 }}>Office roles get material costs from Admin › Roles (See Material Costs). Finance users always see them.</Muted>
-                    {me.role === 'admin' && <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8 }}><Button small title='Open Roles' onPress={() => router.push('/pm/admin/roles' as never)} /></View>}
+                    <Muted style={{ marginBottom: 8 }}>Office roles get material costs from Admin › People › Invites & Roles (See Material Costs). Finance users always see them.</Muted>
+                    {me.role === 'admin' && <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8 }}><Button small title='Open Roles' onPress={() => router.push('/pm/admin/invites' as never)} /></View>}
                   </>
                 ) : k === 'inbox' ? (
                   <>

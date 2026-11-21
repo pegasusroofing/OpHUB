@@ -41,7 +41,7 @@ export default function Puwer() {
   useEffect(() => { if (data) { setTools(data.tools); setComments(data.comments); setRetry(false); } }, [data]);
   if (!me) return null;
   const mgr = isManager(me);
-  // Sign Off H&S (Admin › Roles): without it a manager gets the roster read-only (no inspecting for others, no closing the week).
+  // Sign Off H&S (Admin › People › Invites & Roles): without it a manager gets the roster read-only (no inspecting for others, no closing the week).
   const signOff = canSignOffHs(me);
   if (mgr && !user) return <PuwerRoster siteId={id} offset={offset} setOffset={setOffset} readOnly={!signOff} />;
   // 680 isClientView: a client sees who's done this week's inspection and can export them, nothing to fill in.

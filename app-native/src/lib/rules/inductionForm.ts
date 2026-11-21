@@ -103,6 +103,38 @@ export function carryOver(form: IndForm, prev: IndAnswers | null | undefined, le
   if (!a.kin_phone && legacy?.number) a.kin_phone = legacy.number;
   return a;
 }
+/** Their own line on the sign-up form's operatives list: a list of { name, trade, card, expiry } (the sign-up page), or
+ *  lines of "Name — trade — CSCS card — expiry" (the in-app form). Theirs by name, or the only one listed. */
+function ownCard(ops: unknown, name: string): { trade: string; card: string; expiry: string } {
+  const none = { trade: '', card: '', expiry: '' };
+  const rows: { name: string; trade: string; card: string; expiry: string }[] = Array.isArray(ops)
+    ? ops.map((o) => { const x = (o || {}) as Record<string, unknown>; return { name: String(x.name || ''), trade: String(x.trade || ''), card: String(x.card || ''), expiry: String(x.expiry || '') }; })
+    : typeof ops === 'string' ? ops.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => { const [n = '', t = '', c = '', e = ''] = l.split(/\s*[—–|]\s*|\s+-\s+/); return { name: n, trade: t, card: c, expiry: e }; }) : [];
+  const me = name.trim().toLowerCase();
+  const r = rows.find((x) => me && x.name.trim().toLowerCase() === me) || (rows.length === 1 ? rows[0] : null);
+  if (!r) return none;
+  const e = r.expiry.trim(), uk = e.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+  const expiry = /^\d{4}-\d{2}-\d{2}$/.test(e) ? e : uk ? `${uk[3]}-${uk[2].padStart(2, '0')}-${uk[1].padStart(2, '0')}` : '';
+  return { trade: r.trade.trim(), card: r.card.trim(), expiry };
+}
+/** What their sign-up form already says (Andy, 21 Nov 2026: "The about you in the induction form should auto pull from
+ *  the operatives sign up, even next of kin"): next of kin, employer, trade and CSCS card. Only items the company's form
+ *  has, and only answers that are there. */
+export function fromSignUp(form: IndForm, d: Record<string, unknown> | null | undefined, name: string | null | undefined): IndAnswers {
+  if (!d) return {};
+  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+  const own = ownCard(d.operatives, String(name || ''));
+  const trades = Array.isArray(d.trades) ? (d.trades as unknown[]).map((t) => String(t)).filter((t) => t && t !== 'Other') : [];
+  if (str(d.other_trade)) trades.push(str(d.other_trade));
+  const v: Record<string, string> = {
+    kin_name: str(d.kin_name), kin_relationship: str(d.kin_relationship), kin_phone: str(d.kin_phone), kin_address: str(d.kin_address),
+    about_employer: str(d.trading_name) || str(d.company_name), about_trade: own.trade || trades.join(', '), about_cscs: own.card, about_cscs_expiry: own.expiry,
+  };
+  const ids = new Set(form.sections.flatMap((s) => s.items.filter((it) => it.type !== 'tick' && it.type !== 'yesno').map((it) => it.id)));
+  const a: IndAnswers = {};
+  Object.entries(v).forEach(([k, x]) => { if (x && ids.has(k)) a[k] = x; });
+  return a;
+}
 /** How an answer reads on the PDF. */
 export function answerText(it: IndItem, a: IndAnswers): string {
   const v = a[it.id];

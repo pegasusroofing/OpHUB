@@ -11,6 +11,7 @@ import { Image, Pressable, Text, TextInput, View } from 'react-native';
 
 import { viewDoc } from '@/components/DocViewer';
 import { FinTabs } from '@/components/FinNav';
+import { GrowInput } from '@/components/GrowInput';
 import { MapSnapshot } from '@/components/MapSnapshot';
 import { MarkupEditor } from '@/components/MarkupEditor';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
@@ -50,6 +51,7 @@ export function SiteRulesEditor(props: JobProps | TemplateProps) {
   const [busy, setBusy] = useState('');
   const [snap, setSnap] = useState<{ at: { lat: number; lon: number } | null } | null>(null);
   const [mark, setMark] = useState<{ src: string; base: string; ops: MarkOp[] } | null>(null);
+  const [saved, setSaved] = useState(false);
   const issued = row?.status === 'issued';
   // The job's Construction Phase Plan, when its site rules aren't this sheet's (null when there's none or they match).
   const { data: cppGap = null } = useQuery({ queryKey: ['siteRulesCpp', siteId, row?.version], enabled: job && issued && !editing, queryFn: () => cppNeedsRules(siteId, latest.current.rules) });
@@ -65,7 +67,7 @@ export function SiteRulesEditor(props: JobProps | TemplateProps) {
     return ok;
   };
   const change = (fn: (x: SiteRulesDoc) => SiteRulesDoc) => {
-    const next = fn(latest.current); latest.current = next; setD(next); setSaveState('Saving…');
+    const next = fn(latest.current); latest.current = next; setD(next); setSaveState('Saving…'); setSaved(false);
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => { void saveNow(); }, 700);
   };
@@ -110,8 +112,8 @@ export function SiteRulesEditor(props: JobProps | TemplateProps) {
       {d.rules.map((r, i) => (
         <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 6 }}>
           <Text style={{ width: 26, paddingTop: 10, fontWeight: '700', color: base.ink, textAlign: 'right' }}>{i + 1}.</Text>
-          <TextInput value={r} onChangeText={(v) => setRule(i, v)} multiline placeholder="Type the rule" placeholderTextColor={base.slateLight} accessibilityLabel={`Rule ${i + 1}`}
-            style={[box, { flex: 1, minWidth: 0, marginBottom: 0, minHeight: 40, textAlignVertical: 'top' }]} />
+          <GrowInput value={r} onChangeText={(v) => setRule(i, v)} placeholder="Type the rule" placeholderTextColor={base.slateLight} accessibilityLabel={`Rule ${i + 1}`}
+            style={[box, { flex: 1, minWidth: 0, marginBottom: 0 }]} />
           <View style={{ gap: 2, paddingTop: 4 }}>
             <Pressable accessibilityLabel={`Move rule ${i + 1} up`} disabled={i === 0} hitSlop={4} onPress={() => moveRule(i, -1)} style={{ opacity: i === 0 ? 0.3 : 1 }}><Text style={{ fontSize: 15 }}>↑</Text></Pressable>
             <Pressable accessibilityLabel={`Move rule ${i + 1} down`} disabled={i === d.rules.length - 1} hitSlop={4} onPress={() => moveRule(i, 1)} style={{ opacity: i === d.rules.length - 1 ? 0.3 : 1 }}><Text style={{ fontSize: 15 }}>↓</Text></Pressable>
@@ -251,7 +253,8 @@ export function SiteRulesEditor(props: JobProps | TemplateProps) {
           <FinTabs even value={tab} onChange={(k) => void go(k as Tab)} items={TABS.map((t) => [t, t === 'rules' ? `Rules (${d.rules.length})` : t === 'issue' && missing.length ? 'Issue ⚠' : LABEL[t]] as [string, string])} />
           <View style={{ height: 10 }} />
           {body}
-          {nx ? <View style={{ marginTop: 6, marginBottom: 20, alignItems: 'center' }}><Button title={`Next: ${LABEL[nx]} ›`} onPress={() => void go(nx)} /></View> : <View style={{ height: 20 }} />}
+          {nx ? <View style={{ marginTop: 6, marginBottom: 20, alignItems: 'center' }}><Button title={`Next: ${LABEL[nx]} ›`} onPress={() => void go(nx)} /></View>
+            : !job ? <View style={{ marginTop: 6, marginBottom: 20, alignItems: 'center' }}><Button title={saved ? 'Saved ✓' : 'Save Template'} onPress={async () => { if (await saveNow()) setSaved(true); }} /></View> : <View style={{ height: 20 }} />}
         </>
       )}
       {snap && <MapSnapshot at={snap.at} onClose={(pic) => { setSnap(null); if (pic) void startMarkup(pic); }} />}

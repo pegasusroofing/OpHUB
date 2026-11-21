@@ -43,7 +43,9 @@ export function termsText(r: Row) {
 const CIS_REG: [string, string][] = [['', 'Choose…'], ['sole_trader', 'Sole trader'], ['company', 'Company'], ['partnership', 'Partnership'], ['trust', 'Trust']];
 
 export default function FinDirectory() {
-  const { kind = 'client', from } = useLocalSearchParams<{ kind?: Kind; from?: string }>();
+  const { kind: kindIn = 'client', from } = useLocalSearchParams<{ kind?: Kind; from?: string }>();
+  // The Estimating tab is gone (21 Nov 2026): an old link opens Clients, where each client's estimating details are.
+  const kind: Kind = kindIn === 'estimating' ? 'client' : kindIn;
   // Cost codes live under Settings; People & rates keeps the Subcontractors tabs when opened from there.
   const section = kind === 'codes' ? 'settings' : kind === 'labour' && from === 'subs' ? 'subs' : 'directory';
   const subTab = section === 'subs' ? 'rates' : kind;
@@ -77,7 +79,7 @@ export default function FinDirectory() {
         .sort((a, b) => String(a.name).localeCompare(String(b.name))) as Row[];
     }
     if (kind === 'codes') return (await selectAll<Row>('fin_cost_codes', '*', (x) => x.eq('org_id', org))).sort((a, b) => `${a.grp} ${a.name}`.localeCompare(`${b.grp} ${b.name}`));
-    return (await selectAll<Row>(kind === 'client' || kind === 'estimating' ? 'fin_clients' : 'fin_suppliers', '*', (x) => x.eq('org_id', org))).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    return (await selectAll<Row>(kind === 'client' ? 'fin_clients' : 'fin_suppliers', '*', (x) => x.eq('org_id', org))).sort((a, b) => String(a.name).localeCompare(String(b.name)));
   } });
   // 9219j: people who filled in the sub-contractor sign-up form but aren't in the Labour directory yet.
   const { data: apps = [] } = useQuery({ queryKey: ['finDir', me?.org_id, 'apps'], enabled: !!me && kind === 'labour', queryFn: async () => ((await fdb.from('subcontractor_applications').select('id,user_id,company_name,contact_name,email,phone,status,created_at,data').eq('org_id', me?.org_id as string).neq('status', 'rejected').order('created_at', { ascending: false }).limit(300)).data as Row[] | null) ?? [] });
@@ -87,7 +89,7 @@ export default function FinDirectory() {
   const { data: supInvs = [] } = useQuery({ queryKey: ['finDir', me?.org_id, 'supInvs'], enabled: !!me && kind === 'supplier', queryFn: async () => selectAll<Row>('purchase_invoices', 'id,supplier_id,supplier_name,status,net,total,paid_on', (x) => x.eq('org_id', me?.org_id as string)) });
   const { data: codes = [] } = useQuery({ queryKey: ['finDir', me?.org_id, 'codes'], enabled: !!me && kind !== 'codes', queryFn: async () => selectAll<Row>('fin_cost_codes', '*', (x) => x.eq('org_id', me?.org_id as string)) });
   if (!me) return null;
-  // Without Finance – Edit (Admin › Roles) the Directory is shown, not changed: rows don't open their edit form.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the Directory is shown, not changed: rows don't open their edit form.
   const canEdit = canEditFinance(me);
   const refresh = () => void qc.invalidateQueries({ queryKey: ['finDir'] });
   const go = (k: string) => router.setParams({ kind: k });
@@ -97,6 +99,18 @@ export default function FinDirectory() {
     if (section === 'settings') { if (k !== 'codes') finSettingsGo(k); return; }
     if (section === 'subs') { if (k !== 'rates') router.replace(`/fin/subs?tab=${k}` as never); return; }
     go(k);
+  };
+  /** A contact that's both a client and a supplier is one Xero contact: when one is saved, the other's shared details
+   *  (name, contact, address, VAT, company and account numbers, Xero link) follow it. Matched by Xero link, else name. */
+  const syncTwin = async (sup: boolean, rec: Row, oldName: string) => {
+    const other = sup ? 'fin_clients' : 'fin_suppliers';
+    const rows = (((await fdb.from(other).select('id,name,xero_contact_id').eq('org_id', me?.org_id as string)).data as Row[] | null) ?? []);
+    const k = (n: unknown) => String(n || '').trim().toLowerCase();
+    const twin = (rec.xero_contact_id && rows.find((r) => r.xero_contact_id === rec.xero_contact_id)) || rows.find((r) => k(r.name) === k(oldName) || k(r.name) === k(rec.name));
+    if (!twin) return;
+    const keys = ['name', 'email', 'phone', 'mobile', 'address', 'postcode', 'country', 'website', 'account_number', 'first_name', 'last_name', 'vat_registered', 'vat_number', 'company_number', 'xero_contact_id'];
+    const patch: Row = {}; keys.forEach((x) => { if (rec[x] !== undefined && rec[x] !== null && rec[x] !== '') patch[x] = rec[x]; });
+    if (Object.keys(patch).length) await fdb.from(other).update(patch as never).eq('id', twin.id);
   };
   const pull = async () => {
     setBusy(true);
@@ -108,7 +122,7 @@ export default function FinDirectory() {
       let added = 0, linked = 0;
       for (const x of list) {
         const patch: Row = { name: x.name, xero_contact_id: x.id, xero_synced_at: new Date().toISOString() };
-        ['email', 'phone', 'address', 'postcode', 'sales_vat', 'purchase_vat', 'company_number'].forEach((k) => { if (x[k]) patch[k] = x[k]; });
+        ['email', 'phone', 'address', 'postcode', 'sales_vat', 'purchase_vat', 'company_number', 'mobile', 'account_number', 'first_name', 'last_name', 'website', 'country', ...(kind === 'client' ? [] : ['bank_sort_code', 'bank_account_number'])].forEach((k) => { if (x[k]) patch[k] = x[k]; });
         if (x.vat_number) { patch.vat_number = x.vat_number; patch.vat_registered = true; }
         if (x.terms_type) { patch.terms_type = x.terms_type; patch.terms_days = x.terms_days; }
         const ex = saved.find((c) => c.xero_contact_id === x.id) || saved.find((c) => String(c.name).trim().toLowerCase() === String(x.name).trim().toLowerCase());
@@ -228,44 +242,6 @@ export default function FinDirectory() {
       </FinPage>
     );
   }
-  // Directory › Estimating (Andy, 11 Nov 2026): each client's estimator, who a new enquiry's contact is filled from and who
-  // the chaser emails, and the client's estimating settings: the guide mark-up new quotes start with, and whether new quotes
-  // start with the chaser on. Nothing here goes to Xero.
-  if (kind === 'estimating') {
-    const list = ((data as Row[]) || []).filter((c) => !ql || `${c.name} ${c.estimator_name || ''} ${c.estimator_email || ''}`.toLowerCase().includes(ql));
-    return (
-      <FinPage title="Directory" section={section} sub={subTab} onSub={onSub}>
-        <Muted style={{ marginBottom: 8 }}>A client’s estimator fills in the contact on a new enquiry, and the chaser emails them. Tap a client to set theirs.</Muted>
-        {/* A phone's table has a search box under each heading (Andy, 14 Nov 2026); a laptop keeps the search bar. */}
-        {desk && <TextInput value={q} onChangeText={setQ} placeholder="Search Clients" style={box} />}
-        {isLoading ? <Muted>Loading…</Muted> : list.length ? (
-          <PhoneTable key="estimating" search={!desk} label="Estimating" rows={list} keyOf={(c) => c.id} onRow={canEdit ? (c) => setEdit(c) : undefined}
-            cols={[
-              { l: 'Client', main: (c) => c.name, sub: (c) => [c.estimator_name, c.estimator_email].filter(Boolean).join(' · ') || 'No Estimator Yet' },
-              { l: 'Mark-Up', w: 64, main: (c) => (c.estimating_markup_pct != null ? `${c.estimating_markup_pct}%` : '—'), sort: (c) => (c.estimating_markup_pct != null ? Number(c.estimating_markup_pct) : null) },
-              { l: 'Chase', w: 52, main: (c) => (c.quote_chase === false ? 'No' : 'Yes') },
-            ]} />
-        ) : <Empty>No clients yet. Add them in Clients.</Empty>}
-        {edit && (
-          <FinForm title={edit.name} onClose={() => setEdit(null)}
-            initial={{ estimator_name: edit.estimator_name ?? '', estimator_email: edit.estimator_email ?? '', estimator_phone: edit.estimator_phone ?? '', estimating_markup_pct: edit.estimating_markup_pct ?? '', quote_chase: edit.quote_chase === false ? 'no' : 'yes' }}
-            fields={[
-              { k: 'estimator_name', label: 'Estimator Name' },
-              { k: 'estimator_email', label: 'Estimator Email', kind: 'email', half: true }, { k: 'estimator_phone', label: 'Estimator Phone', half: true },
-              { k: 'estimating_markup_pct', label: 'Estimating Mark-Up %', kind: 'number', half: true, note: 'Fills the guide mark-up on new quotes for this client.' },
-              { k: 'quote_chase', label: 'Auto Chase New Quotes?', kind: 'choice', options: [['yes', 'Yes'], ['no', 'No']], half: true, note: 'No: their new quotes start with the chaser off.' },
-            ]}
-            onSave={async (v) => {
-              const email = String(v.estimator_email || '').trim(); if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Check the email address.';
-              const t = (k: string) => String(v[k] ?? '').trim() || null;
-              const r = await fdb.from('fin_clients').update({ estimator_name: t('estimator_name'), estimator_email: email || null, estimator_phone: t('estimator_phone'), estimating_markup_pct: num(v.estimating_markup_pct), quote_chase: v.quote_chase !== 'no' } as never).eq('id', edit.id).select('id');
-              if (!r.data?.length) return 'Could not save — try again.';
-              refresh(); return null;
-            }} />
-        )}
-      </FinPage>
-    );
-  }
   if (kind === 'codes') {
     const list = ((data as Row[]) || []).filter((c) => !ql || `${c.name} ${c.code || ''} ${c.description || ''}`.toLowerCase().includes(ql));
     const groups: Record<string, Row[]> = {}; list.forEach((c) => { (groups[c.grp || 'No group'] = groups[c.grp || 'No group'] || []).push(c); });
@@ -368,28 +344,55 @@ export default function FinDirectory() {
       ) : <Empty>Nothing here yet.</Empty>}
       {!sup && !!jd && sites.some((s) => !(s.client_name || jd.jfBy[s.id]?.billing_name)) && <Muted style={{ marginTop: 10 }}>Jobs with no client set: {sites.filter((s) => !(s.client_name || jd.jfBy[s.id]?.billing_name)).map(jobTag).join(', ')}</Muted>}
       {edit && (
-        <FinForm title={edit.id ? edit.name : `New ${sup ? 'supplier' : 'client'}`} initial={{ ...edit, estimating_markup_pct: edit.estimating_markup_pct ?? '', terms_days: edit.terms_days ?? '', cis_rate: String(edit.cis_rate ?? 20), toX: !edit.xero_contact_id, od_folders: edit.onedrive_folders === false ? 'no' : 'yes' }} onClose={() => setEdit(null)}
-          note={edit.xero_contact_id ? 'Linked to Xero.' : 'Not in Xero yet.'}
+        <FinForm title={edit.id ? edit.name : `New ${sup ? 'supplier' : 'client'}`} initial={{ ...edit, estimating_markup_pct: edit.estimating_markup_pct ?? '', terms_days: edit.terms_days ?? '', cis_rate: String(edit.cis_rate ?? 20), toX: true, od_folders: edit.onedrive_folders === false ? 'no' : 'yes', quote_chase: edit.quote_chase === false ? 'no' : 'yes', country: edit.country || 'United Kingdom' }} onClose={() => setEdit(null)}
+          note={edit.xero_contact_id ? 'Linked to Xero: saving sends what you change to Xero too.' : 'Not in Xero yet.'}
+          // Everything a Xero contact holds, in one record (Andy, 21 Nov 2026: "whatever Xero needs for suppliers, clients etc
+          // we need to make sure we have in the directory to fill in and issue to Xero"). A client's estimating details are
+          // here too (the Estimating tab was "a duplicate of the clients").
           fields={[
-            { k: 'name', label: `${sup ? 'Supplier' : 'Client'} name` }, ...(sup ? [{ k: 'category', label: 'Category', kind: 'choice', options: [['', 'Not set'], ...SUP_CATS.map((x) => [x, x])] }, { k: 'supplier_id', label: 'Projects Supplier (ordering)', kind: 'choice', options: [['', 'Not linked'], ...mats.map((m) => { const other = ((data as Row[]) || []).find((x) => x.supplier_id === m.id && x.id !== edit.id); return [m.id, `${m.name}${other ? ` (linked to ${other.name})` : ''}`]; }), ['__new', '+ Add to the Projects suppliers']], note: 'Links this Directory record to the supplier you order from on projects. They stay separate — changing one never changes the other.' }] as Field[] : []),
-            { k: 'email', label: sup ? 'Supplier email' : 'Accounts email', kind: 'email' }, { k: 'address', label: 'Address', kind: 'multiline' }, { k: 'postcode', label: 'Postcode', half: true }, { k: 'phone', label: 'Phone', half: true },
-            { k: 'cost_code_id', label: 'Default cost code', kind: 'choice', options: [['', 'None'], ...codes.filter((x) => x.active !== false).map((x) => [x.id, `${x.code ? `${x.code} – ` : ''}${x.name}`] as [string, string])] },
-            { k: 'terms_days', label: 'Payment terms (number)', kind: 'number', half: true }, { k: 'terms_type', label: 'Terms type', kind: 'choice', options: TERMS, half: true }, { k: 'terms_agreed', label: 'Terms agreed (signed)', kind: 'check' },
-            { k: 'vat_registered', label: 'VAT registered', kind: 'check' }, { k: 'vat_number', label: 'VAT number', half: true }, { k: 'sales_vat', label: sup ? 'Default sales VAT' : 'Default VAT code on invoices', kind: 'choice', options: VAT, half: true },
-            ...(sup ? [{ k: 'purchase_vat', label: 'Default purchase VAT', kind: 'choice', options: VAT, half: true }, { k: 'foreign_supplier', label: 'Foreign supplier (ignore VAT)', kind: 'check' }, { k: 'no_sync', label: 'Don’t send this supplier’s bills to Xero', kind: 'check' }, { k: 'utr', label: 'UTR', half: true }] as Field[] : []),
-            { k: 'cis_registered', label: sup ? 'CIS subcontractor (you deduct CIS)' : 'CIS registered (they deduct CIS from you)', kind: 'check' }, { k: 'cis_rate', label: 'CIS rate', kind: 'choice', options: CIS, half: true },
-            { k: 'company_number', label: 'Company number', half: true },
-            // The guide mark-up a quote for this client starts with is on the Estimating tab now (Andy, 11 Nov 2026).
-            // Some clients never want OneDrive folders (Andy, 8 Nov 2026): their new jobs start with the tick off. Jobs already made keep theirs.
-            ...(sup ? [] : [{ k: 'od_folders', label: 'Create OneDrive Folders For This Client’s Jobs?', kind: 'choice', options: [['yes', 'Yes'], ['no', 'No']], half: true, note: 'No: their new jobs start without one. Jobs already made keep theirs.' }] as Field[]),
-            { k: 'notes', label: 'Notes', kind: 'multiline' }, ...(!edit.xero_contact_id ? [{ k: 'toX', label: 'Add to Xero as well', kind: 'check' }] as Field[] : []),
+            { k: 'h_contact', label: 'Contact', kind: 'heading' },
+            { k: 'name', label: `${sup ? 'Supplier' : 'Client'} Name` }, ...(sup ? [{ k: 'category', label: 'Category', kind: 'choice', options: [['', 'Not set'], ...SUP_CATS.map((x) => [x, x])], half: true }, { k: 'supplier_id', label: 'Projects Supplier (Ordering)', kind: 'choice', half: true, options: [['', 'Not linked'], ...mats.map((m) => { const other = ((data as Row[]) || []).find((x) => x.supplier_id === m.id && x.id !== edit.id); return [m.id, `${m.name}${other ? ` (linked to ${other.name})` : ''}`]; }), ['__new', '+ Add to the Projects suppliers']], note: 'Links this record to the supplier you order from on projects.' }] as Field[] : []),
+            { k: 'first_name', label: 'Main Contact First Name', half: true }, { k: 'last_name', label: 'Main Contact Last Name', half: true },
+            { k: 'email', label: sup ? 'Supplier Email' : 'Accounts Email', kind: 'email' }, { k: 'phone', label: 'Phone', half: true }, { k: 'mobile', label: 'Mobile', half: true },
+            { k: 'website', label: 'Website', half: true }, { k: 'account_number', label: 'Account Number (Your Reference)', half: true, note: 'Your reference for them in Xero.' },
+            { k: 'h_address', label: 'Address', kind: 'heading' },
+            { k: 'address', label: 'Address', kind: 'multiline', note: 'One line each: street, area, town.' }, { k: 'postcode', label: 'Postcode', half: true }, { k: 'country', label: 'Country', half: true },
+            { k: 'h_tax', label: 'VAT, CIS And Payment Terms', kind: 'heading' },
+            { k: 'vat_registered', label: 'VAT Registered', kind: 'check' }, { k: 'vat_number', label: 'VAT Number', half: true }, { k: 'company_number', label: 'Company Number', half: true },
+            { k: 'sales_vat', label: sup ? 'Default Sales VAT' : 'Default VAT Code On Invoices', kind: 'choice', options: VAT, half: true },
+            ...(sup ? [{ k: 'purchase_vat', label: 'Default Purchase VAT', kind: 'choice', options: VAT, half: true }, { k: 'foreign_supplier', label: 'Foreign Supplier (Ignore VAT)', kind: 'check' }, { k: 'utr', label: 'UTR', half: true }] as Field[] : []),
+            { k: 'cis_registered', label: sup ? 'CIS Subcontractor (You Deduct CIS)' : 'CIS Registered (They Deduct CIS From You)', kind: 'check' }, { k: 'cis_rate', label: 'CIS Rate', kind: 'choice', options: CIS, half: true },
+            { k: 'terms_days', label: 'Payment Terms (Number)', kind: 'number', half: true }, { k: 'terms_type', label: 'Terms Type', kind: 'choice', options: TERMS, half: true }, { k: 'terms_agreed', label: 'Terms Agreed (Signed)', kind: 'check' },
+            { k: 'cost_code_id', label: sup ? 'Default Cost Code (Xero Purchases Account)' : 'Default Cost Code (Xero Sales Account)', kind: 'choice', options: [['', 'None'], ...codes.filter((x) => x.active !== false).map((x) => [x.id, `${x.code ? `${x.code} – ` : ''}${x.name}`] as [string, string])] },
+            ...(sup ? [
+              { k: 'h_bank', label: 'Bank Details (For Paying Them)', kind: 'heading' },
+              { k: 'bank_account_name', label: 'Bank Account Name' }, { k: 'bank_sort_code', label: 'Sort Code', half: true, ph: '12-34-56' }, { k: 'bank_account_number', label: 'Bank Account Number', half: true, ph: '8 numbers' },
+              { k: 'no_sync', label: 'Don’t Send This Supplier’s Bills To Xero', kind: 'check' },
+            ] as Field[] : [
+              { k: 'h_est', label: 'Estimating', kind: 'heading' },
+              { k: 'estimator_name', label: 'Estimator Name', note: 'Fills in the contact on a new enquiry; the chaser emails them.' },
+              { k: 'estimator_email', label: 'Estimator Email', kind: 'email', half: true }, { k: 'estimator_phone', label: 'Estimator Phone', half: true },
+              { k: 'estimating_markup_pct', label: 'Estimating Mark-Up %', kind: 'number', half: true, note: 'The guide mark-up new quotes for this client start with.' },
+              { k: 'quote_chase', label: 'Auto Chase New Quotes?', kind: 'choice', options: [['yes', 'Yes'], ['no', 'No']], half: true },
+              // Some clients never want OneDrive folders (Andy, 8 Nov 2026): their new jobs start with the tick off. Jobs already made keep theirs.
+              { k: 'od_folders', label: 'Create OneDrive Folders For This Client’s Jobs?', kind: 'choice', options: [['yes', 'Yes'], ['no', 'No']], half: true, note: 'No: their new jobs start without one. Jobs already made keep theirs.' },
+            ] as Field[]),
+            { k: 'notes', label: 'Notes', kind: 'multiline' },
+            { k: 'toX', label: edit.xero_contact_id ? 'Update Xero As Well' : 'Add To Xero As Well', kind: 'check' },
           ]}
           onSave={async (v) => {
             const name = String(v.name || '').trim(); if (!name) return 'Enter the name.';
             const email = String(v.email || '').trim(); if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Check the email address.';
             const utr = String(v.utr || '').replace(/\s/g, ''); if (utr && !/^\d{10}$/.test(utr)) return 'A UTR is 10 numbers.';
+            const sort = String(v.bank_sort_code || '').replace(/[^0-9]/g, ''), acct = String(v.bank_account_number || '').replace(/[^0-9]/g, '');
+            if (sup && sort && sort.length !== 6) return 'A sort code is 6 numbers.';
+            if (sup && acct && acct.length !== 8) return 'A bank account number is 8 numbers.';
+            const estEmail = String(v.estimator_email || '').trim(); if (!sup && estEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(estEmail)) return 'Check the estimator’s email address.';
             const t = (k: string) => String(v[k] ?? '').trim() || null;
-            const row: Row = { name, email: email || null, address: t('address'), postcode: t('postcode'), phone: t('phone'), vat_registered: !!v.vat_registered, vat_number: t('vat_number'), sales_vat: t('sales_vat'), terms_days: num(v.terms_days), terms_type: t('terms_type'), terms_agreed: !!v.terms_agreed, cost_code_id: t('cost_code_id'), company_number: t('company_number'), cis_registered: !!v.cis_registered, cis_rate: Number(v.cis_rate || 20), notes: t('notes') };
+            const row: Row = { name, email: email || null, address: t('address'), postcode: t('postcode'), phone: t('phone'), vat_registered: !!v.vat_registered, vat_number: t('vat_number'), sales_vat: t('sales_vat'), terms_days: num(v.terms_days), terms_type: t('terms_type'), terms_agreed: !!v.terms_agreed, cost_code_id: t('cost_code_id'), company_number: t('company_number'), cis_registered: !!v.cis_registered, cis_rate: Number(v.cis_rate || 20), notes: t('notes'),
+              account_number: t('account_number'), first_name: t('first_name'), last_name: t('last_name'), mobile: t('mobile'), website: t('website'), country: t('country') };
+            if (sup) Object.assign(row, { bank_account_name: t('bank_account_name'), bank_sort_code: sort ? `${sort.slice(0, 2)}-${sort.slice(2, 4)}-${sort.slice(4)}` : null, bank_account_number: acct || null });
+            else Object.assign(row, { estimator_name: t('estimator_name'), estimator_email: estEmail || null, estimator_phone: t('estimator_phone'), estimating_markup_pct: num(v.estimating_markup_pct), quote_chase: v.quote_chase !== 'no' });
             let link = sup ? String(v.supplier_id || '') || null : null;
             if (link === '__new') { const m = await fdb.from('suppliers').insert({ org_id: me.org_id, name, email: email || '', created_by: me.id } as never).select('id').single(); link = (m.data as Row | null)?.id ?? null; if (!link) return 'Could not add it to the Projects suppliers.'; }
             if (!sup) row.onedrive_folders = v.od_folders !== 'no';
@@ -405,12 +408,29 @@ export default function FinDirectory() {
               const ids = (((await fdb.from('job_finance').select('site_id,billing_name').eq('org_id', me.org_id as string)).data as Row[] | null) ?? []).filter((j) => String(j.billing_name || '').trim().toLowerCase() === old.toLowerCase()).map((j) => j.site_id);
               if (ids.length) await fdb.from('job_finance').update({ billing_name: rec.name, billing_email: rec.email || null, billing_address: [rec.address, rec.postcode].filter(Boolean).join('\n') || null } as never).in('site_id', ids);
             }
-            if (v.toX && !rec.xero_contact_id) {
-              const lines = String(rec.address || '').split(/\n|,/).map((x) => x.trim()).filter(Boolean);
-              const x = await finInvoke<{ contact: { id: string }; existed?: boolean }>(me, 'xero', { action: 'create_contact', name: rec.name, email: rec.email || '', phone: rec.phone || '', line1: lines[0] || '', line2: lines.slice(1, -1).join(', '), city: lines.length > 1 ? lines[lines.length - 1] : '', postcode: rec.postcode || '', supplier: sup });
-              if (x.error) msg += `. Xero: ${x.error.slice(0, 100)}`;
-              else if (x.data?.contact?.id) { await fdb.from(tbl).update({ xero_contact_id: x.data.contact.id, xero_synced_at: new Date().toISOString() } as never).eq('id', rec.id); msg += x.data.existed ? ' — already in Xero, linked' : ' and added to Xero'; }
+            // Xero: what's filled in goes there, as a new contact or to the one it's linked to.
+            if (v.toX) {
+              const code = codes.find((c) => c.id === rec.cost_code_id)?.code;
+              const fields = { name: rec.name, email: rec.email || '', phone: rec.phone || '', mobile: rec.mobile || '', first_name: rec.first_name || '', last_name: rec.last_name || '', account_number: rec.account_number || '',
+                company_number: rec.company_number || '', vat_number: rec.vat_registered ? rec.vat_number || '' : '', address: rec.address || '', postcode: rec.postcode || '', country: rec.country || '',
+                sales_vat: rec.sales_vat || '', purchase_vat: sup ? rec.purchase_vat || '' : '', terms_days: rec.terms_days, terms_type: rec.terms_type || '', account_code: code || '',
+                bank_sort_code: sup ? rec.bank_sort_code || '' : '', bank_account_number: sup ? rec.bank_account_number || '' : '', estimator_name: sup ? '' : rec.estimator_name || '', estimator_email: sup ? '' : rec.estimator_email || '', supplier: sup };
+              let xid = rec.xero_contact_id as string | null, existed = false;
+              const wasLinked = !!xid;
+              if (!xid) {
+                const x = await finInvoke<{ contact: { id: string }; existed?: boolean }>(me, 'xero', { action: 'create_contact', ...fields });
+                if (x.error) msg += `. Xero: ${x.error.slice(0, 100)}`;
+                else if (x.data?.contact?.id) { xid = x.data.contact.id; existed = !!x.data.existed; rec.xero_contact_id = xid; await fdb.from(tbl).update({ xero_contact_id: xid, xero_synced_at: new Date().toISOString() } as never).eq('id', rec.id); msg += existed ? ' — already in Xero, linked and updated' : ' and added to Xero'; }
+              }
+              if (xid && (wasLinked || existed)) {
+                const u = await finInvoke<{ ok: boolean }>(me, 'xero', { action: 'update_contact', id: xid, ...fields });
+                if (u.error) msg += `. Xero: ${u.error.slice(0, 100)}`;
+                else { await fdb.from(tbl).update({ xero_synced_at: new Date().toISOString() } as never).eq('id', rec.id); if (wasLinked) msg += ' and Xero updated'; }
+              }
             }
+            // The same contact as a supplier and a client (one Xero contact): its details, and its Xero link, stay the same in
+            // both (21 Nov 2026).
+            await syncTwin(sup, rec, String(edit.name || rec.name));
             toast(msg); refresh(); return null;
           }} />
       )}

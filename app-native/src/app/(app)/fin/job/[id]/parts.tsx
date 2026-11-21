@@ -62,7 +62,7 @@ export default function FinParts() {
   const open = async (r: P) => {
     const go = () => router.push(`/fin/job/${id}/costs?sub=${r.id}` as never);
     const isSub = r.id !== 'none' && sv.subs.some((a) => a.id === r.id);
-    // Without Finance – Edit (Admin › Roles) it only opens its costs: no booking, adding or changing the value.
+    // Without Finance – Edit (Admin › People › Invites & Roles) it only opens its costs: no booking, adding or changing the value.
     if (!isSub || !canEditFinance(me)) { go(); return; }
     // Book a cost to it (Andy, 8 Nov 2026): one of the project's costs not booked to a job or plot yet.
     const k = await chooseAction(r.name, [{ key: 'costs', label: 'See Its Costs' }, ...(bookable(fc.lines).length ? [{ key: 'book', label: 'Book A Cost To It' }] : []), { key: 'add', label: '+ Add A Cost To It' }, ...(editValues ? [{ key: 'value', label: r.value != null ? `Change The Value (${money(r.value)})` : 'Set Its Value' }] : [])]);

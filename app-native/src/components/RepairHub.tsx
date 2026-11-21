@@ -481,7 +481,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
             const item: Trade = { id: tradeEdit.id || `t${Date.now().toString(36)}`, trade: name, date: String(v.d || '') || null, done: v.done === 'yes', done_at: v.done === 'yes' ? tradeEdit.done_at || new Date().toISOString() : null, ...(tradeEdit.po_id ? { po_id: tradeEdit.po_id, po_number: tradeEdit.po_number } : {}) };
             const list = tradeEdit.id ? trades.map((x) => (x.id === tradeEdit.id ? item : x)) : [...trades, item];
             if (!(await save({ trades: list, ...tradesSummary(list) }))) return 'Could not save.';
-            if (v.po && canRaiseOrders(me)) setPoFor({ item, list }); // Raise Orders (Admin › Roles)
+            if (v.po && canRaiseOrders(me)) setPoFor({ item, list }); // Raise Orders (Admin › People › Invites & Roles)
             return null;
           }}
           onDelete={tradeEdit.id ? async () => { const list = trades.filter((x) => x.id !== tradeEdit.id); return (await save({ trades: list, ...tradesSummary(list) })) ? null : 'Could not save.'; } : undefined} />

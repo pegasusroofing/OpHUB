@@ -43,7 +43,7 @@ export default function MaterialRequests() {
   const qc = useQueryClient();
   const { data: site } = useSite(id);
   const mgr = !!me && isManager(me);
-  // Ordering from a merchant (or sending an order again) needs Raise Orders (Admin › Roles); requests, yard stock and
+  // Ordering from a merchant (or sending an order again) needs Raise Orders (Admin › People › Invites & Roles); requests, yard stock and
   // collections don't.
   const canOrder = canRaiseOrders(me);
   const fin = isFinanceUser(me, org);

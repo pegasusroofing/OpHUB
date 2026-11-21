@@ -33,7 +33,7 @@ export default function FinDayworks() {
   const [sheet, setSheet] = useState<{ uri: string; name: string; mimeType?: string | null } | null>(null);
   const { data = [], isLoading } = useQuery({ queryKey: ['finDw', id], queryFn: async () => ((await fdb.from('fin_dayworks').select('*').eq('site_id', id).order('seq')).data as Row[] | null) ?? [] });
   if (!me) return null;
-  // Without Finance – Edit (Admin › Roles) the day works are shown, not changed.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the day works are shown, not changed.
   const canEdit = canEditFinance(me);
   const list = data.filter((d) => f === 'all' || d.status === f);
   const small = (label: string, onPress: () => void, color = base.blue) => (

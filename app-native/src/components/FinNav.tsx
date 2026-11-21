@@ -26,7 +26,8 @@ export const FIN_SUBS: Record<string, [string, string][]> = {
   // Every word capitalised, as the current app (9219x) and Andy's rule (cmp-fin 5 Nov 2026).
   subs: [['opinv', 'Operative Invoices'], ['wages', 'Wages To Book'], ['payrun', 'Pay Run'], ['orders', 'Subcontractor POs'], ['apps', 'Applications & Certificates'], ['cis', 'CIS'], ['rates', 'People & Rates']],
   settings: [['general', 'Settings'], ['codes', 'Cost Codes'], ['templates', 'Templates'], ['team', 'Team']],
-  directory: [['client', 'Clients'], ['estimating', 'Estimating'], ['supplier', 'Suppliers'], ['labour', 'Labour (CIS)']],
+  // No Estimating tab (Andy, 21 Nov 2026: "a duplicate of the clients"): a client's estimator and mark-up are on the client.
+  directory: [['client', 'Clients'], ['supplier', 'Suppliers'], ['labour', 'Labour (CIS)']],
 };
 const Chip = ({ on, label, onPress, n }: { on: boolean; label: string; onPress: () => void; n?: number }) => {
   const t = useTheme();
@@ -117,7 +118,7 @@ export function FinJobTabs({ id, active, job, name, onOverview }: { id: string; 
   const toProject = !financeOnlyPerson(me, org);
   const { data: kind } = useJobKind(id);
   const invoiceJob = kind?.billing === 'invoice', repair = !!kind?.repair;
-  // + New only when the role has Finance – Edit; orders also need Raise Orders (Admin › Roles).
+  // + New only when the role has Finance – Edit; orders also need Raise Orders (Admin › People › Invites & Roles).
   const canEdit = canEditFinance(me), canOrder = canEdit && canRaiseOrders(me);
   // Variations sit inside the Bill of Quantities tab, unless an invoice job has no Bill.
   // Costs By Job / Plot sits under Live Jobs on a repair contract, else under the Bill (or Variations on an invoice job).
@@ -236,7 +237,7 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide, to
           </View>
           {!(subs.length > 1 && onSub) && <>{subRight}{slot}</>}
           </View>
-          {/* A role without Finance – Edit (Admin › Roles) sees Finance look-only. */}
+          {/* A role without Finance – Edit (Admin › People › Invites & Roles) sees Finance look-only. */}
           {!canEditFinance(me) && <Muted style={{ marginBottom: 8 }}>View Only</Muted>}
           {/* Only for a company still on the Finance trial: one put live (Platform Admin) is completely separate (Andy, 19 Nov 2026). */}
           {section === 'overview' && finTrialFor(org?.id) && <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 10 }}><Text style={{ color: '#111827', fontSize: 12 }}>🔒 Finance trial — nothing is sent from Finance (no emails, no Xero, no pushes to PMs) while it&apos;s being tested.</Text></View>}

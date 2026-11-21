@@ -21,14 +21,14 @@ export function finHasAccess(u: Profile | null, org: Organization | null): boole
   return !!u && u.finance_enabled === true && !['operative', 'driver', 'client'].includes(u.role) && !(org && org.has_pm === false && org.has_finance === false);
 }
 export const isFinanceUser = (u: Profile | null, org: Organization | null) => finHasAccess(u, org) && u?.finance_hidden !== true && can(u, 'fin_view');
-/** + New Project (Projects, Finance, the phone's Add): PMs and admins whose role has Create Projects (Admin › Roles). */
+/** + New Project (Projects, Finance, the phone's Add): PMs and admins whose role has Create Projects (Admin › People › Invites & Roles). */
 export const canCreateProjects = (u: Profile | null) => isFullManager(u) && can(u, 'create_projects');
-/** Sign Off H&S (Admin › Roles): a manager who may publish, issue and sign off H&S paperwork (RAMS, COSHH, permits,
+/** Sign Off H&S (Admin › People › Invites & Roles): a manager who may publish, issue and sign off H&S paperwork (RAMS, COSHH, permits,
  *  toolbox talks, briefings, inspections, incidents). Without it a manager still sees H&S, read-only. */
 export const canSignOffHs = (u: Profile | null) => isManager(u) && can(u, 'hs_signoff');
-/** Finance – Edit (Admin › Roles): without it Finance is look-only (no new, edit, delete, send or approve). */
+/** Finance – Edit (Admin › People › Invites & Roles): without it Finance is look-only (no new, edit, delete, send or approve). */
 export const canEditFinance = (u: Profile | null) => can(u, 'fin_edit');
-/** Raise Orders (Admin › Roles): material orders, purchase orders and subcontract orders. */
+/** Raise Orders (Admin › People › Invites & Roles): material orders, purchase orders and subcontract orders. */
 export const canRaiseOrders = (u: Profile | null) => (isManager(u) || u?.role === 'superadmin') && can(u, 'orders');
 export const isFinanceOnlyOrg = (org: Organization | null) => !!org && org.has_pm === false;
 

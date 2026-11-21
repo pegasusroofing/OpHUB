@@ -73,8 +73,8 @@ const seedRoles = (db, org) => {
   await page.goto(B + '/fin/settings'); await page.waitForTimeout(4500);
   await page.getByText('Who Can See Material Costs', {exact: true}).first().click(); await page.waitForTimeout(600);
   t = await body();
-  check(/Office roles get material costs from Admin › Roles/.test(t) && !/Select All|Untick All/.test(t), 'Finance › Settings › material costs points to Roles (no second list)');
-  await page.getByText('Purchase invoices', {exact: true}).first().click(); await page.waitForTimeout(600);
+  check(/Office roles get material costs from Admin › People › Invites & Roles/.test(t) && !/Select All|Untick All/.test(t), 'Finance › Settings › material costs points to Roles (no second list)');
+  await page.getByText('Purchase Invoices', {exact: true}).first().click(); await page.waitForTimeout(600);
   check(/Expense receipts go to \(Admin › Company › Expenses\)/.test(await body()), 'Finance › Settings › Purchase invoices says where who-books-receipts is set');
 
   // 4: Expenses.

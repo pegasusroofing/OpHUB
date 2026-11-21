@@ -52,7 +52,7 @@ export function PriceLists({ sup }: { sup?: string }) {
   const { me } = useAuth();
   const { data } = usePriceLists(me?.org_id);
   if (!me || !data) return <Muted>Loading…</Muted>;
-  // Without Finance – Edit (Admin › Roles) the prices are shown, not changed.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the prices are shown, not changed.
   const canEdit = canEditFinance(me);
   return sup ? <SupplierPrices name={sup} data={data} canEdit={canEdit} /> : <Suppliers data={data} canEdit={canEdit} />;
 }

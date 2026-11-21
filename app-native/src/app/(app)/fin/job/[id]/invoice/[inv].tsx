@@ -39,13 +39,13 @@ export default function FinInvoice() {
   const toast = useToast();
   const made = useRef(false);
   useEffect(() => {
-    // Starting one is a change: Finance – Edit only (Admin › Roles).
+    // Starting one is a change: Finance – Edit only (Admin › People › Invites & Roles).
     if (invId !== 'new' || made.current || !me || !site || !canEditFinance(me)) return;
     made.current = true;
     void newInvoice(me, site as never).then((nid) => { if (nid) router.replace(`/fin/job/${id}/invoice/${nid}` as never); else toast('Could not start an invoice — try again.'); });
   }, [invId, me, site, id, toast]);
   const { data, isLoading } = useQuery({ queryKey: ['finInvoice', invId], enabled: invId !== 'new', gcTime: 0, queryFn: () => loadInvoice(invId) });
-  if (invId === 'new' && me && !canEditFinance(me)) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>;
+  if (invId === 'new' && me && !canEditFinance(me)) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › People › Invites & Roles).</Muted>;
   if (invId === 'new' || isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!data?.inv) return <Muted style={{ padding: space.l }}>Invoice not found.</Muted>;
   return data.inv.status === 'draft' ? <Draft key={data.inv.id} inv={data.inv} site={site as Row} /> : <Issued inv={data.inv} pays={data.pays} site={site as Row} />;
@@ -175,7 +175,7 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
     return () => { live = false; };
   }, [site?.client_name, me?.org_id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!me) return null;
-  // Without Finance – Edit (Admin › Roles) the draft is shown, not changed: no typing, saving, issuing or deleting.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the draft is shown, not changed: no typing, saving, issuing or deleting.
   const ro = !canEditFinance(me);
   const t = invTotals(d.lines, d.vat_treatment, d.vat_rate);
   const set = (k: string, v: unknown) => setD({ ...d, [k]: v });
@@ -256,7 +256,7 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
     void chooseAction(`Invoice ${inv.number} issued`, [{ key: 'email', label: 'Email it' }, { key: 'pdf', label: 'Export PDF' }, { key: 'done', label: 'Done' }]).then((k) => { if (k === 'email') setMailing(true); else if (k === 'pdf') void openPdf(); });
   }, [inv.id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!me) return null;
-  // Without Finance – Edit (Admin › Roles) the invoice is shown, not changed: no emailing, payments, voiding or line changes.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the invoice is shown, not changed: no emailing, payments, voiding or line changes.
   const canEdit = canEditFinance(me);
   const out = invOutstanding(inv as never), t = invTotals(inv.lines, inv.vat_treatment, inv.vat_rate);
   const refresh = () => { ['finInvoice', 'finSales', 'finBook', 'finOverview', 'finJobs'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };

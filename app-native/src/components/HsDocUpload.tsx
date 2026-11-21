@@ -46,7 +46,7 @@ export function HsDocUpload({ kind, site, companyId = null, create, createLabel,
   const tpls = tplsAll.filter((t) => boxesOf(t.layout).length);
   if (!me) return null;
   const label = DOC_LABEL[kind];
-  // Sign Off H&S (Admin › Roles): without it a manager can still export and email, but not create or upload RAMS / COSHH.
+  // Sign Off H&S (Admin › People › Invites & Roles): without it a manager can still export and email, but not create or upload RAMS / COSHH.
   const signOff = kind === 'layout' || !isManager(me) || canSignOffHs(me);
   // Who is still to sign, as a table (document, person, role) for the export and the email.
   const table = (ids?: string[]) => {

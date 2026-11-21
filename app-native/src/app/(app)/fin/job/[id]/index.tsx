@@ -60,7 +60,7 @@ export default function FinJob() {
   const qcJob = useQueryClient();
   const finOnly = isFinanceOnlyOrg(org);
   useEffect(() => {
-    // Bringing them in is a change: only for someone with Finance – Edit (Admin › Roles).
+    // Bringing them in is a change: only for someone with Finance – Edit (Admin › People › Invites & Roles).
     if (!me || !id || finOnly || !isFinanceUser(me, org) || !canEditFinance(me)) return;
     void importSiteVariations(me, id).then((r) => { if (r.added) void qcJob.invalidateQueries({ queryKey: ['finBook'] }); });
   }, [me, org, id, finOnly, qcJob]);
@@ -92,7 +92,7 @@ export default function FinJob() {
 function Overview({ id, fc, settings, invs, apps, book, askFinancials }: { id: string; fc: ReturnType<typeof forecast>; settings: Row; invs: FinInv[]; apps: FinApp[]; book: Row; askFinancials?: boolean }) {
   const qcOv = useQueryClient();
   const { me } = useAuth();
-  // Without Finance – Edit (Admin › Roles) the overview is look-only: no Getting Started steps or set-up form.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the overview is look-only: no Getting Started steps or set-up form.
   const canEdit = canEditFinance(me);
   // A new project is asked for its financials (Andy, 1 Nov 2026): a pop-up on creating it, and this prompt until they're saved or
   // someone says they're fine. Not on a job that's already invoicing (9219zi).
@@ -238,7 +238,7 @@ function RetentionPanel({ id, fc, settings, invs, apps }: { id: string; fc: Retu
   const [retBusy, setRetBusy] = useState(false);
   // Release a half either way (9219zn): Apply puts it through the next application, or Raise invoice bills it now.
   const retAppFor = (n: 1 | 2) => { const aid = n === 1 ? fc.jf.ret1_app_id : fc.jf.ret2_app_id; const a = aid ? apps.find((x) => x.id === aid) : null; return a && a.status !== 'void' ? a : null; };
-  // Without Finance – Edit (Admin › Roles) a half only opens its invoice or application; it isn't released from here.
+  // Without Finance – Edit (Admin › People › Invites & Roles) a half only opens its invoice or application; it isn't released from here.
   const canEdit = canEditFinance(me);
   const canTap = (n: 1 | 2) => canEdit || !!(n === 1 ? fc.jf.ret1_invoice_id : fc.jf.ret2_invoice_id) || !!retAppFor(n);
   const retInv = async (n: 1 | 2) => {
@@ -303,7 +303,7 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone, appsN = 0, boqN
     return !!(((await fdb.from('quotes').select('id').eq('site_id', id).limit(1)).data as Row[] | null) ?? []).length;
   } });
   if (!me) return null;
-  // Without Finance – Edit (Admin › Roles) the project details are shown, not changed.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the project details are shown, not changed.
   const canEdit = canEditFinance(me);
   // Company overheads: only an admin or a Finance Controller sees or changes them here (Andy, 7 Nov 2026).
   const canOhp = me.role === 'admin' || isFinanceController(me);

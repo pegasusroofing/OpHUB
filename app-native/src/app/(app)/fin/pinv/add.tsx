@@ -68,8 +68,8 @@ export default function AddInvoices() {
     queryFn: async () => ((await fdb.from('fin_inbox').select('id,file_name,extracted,status,purchase_invoice_id').in('id', ids)).data as Row[] | null) ?? [] });
   const rowOf = (id: string) => rows.find((r) => r.id === id);
   const back = () => router.replace((site ? `/fin/job/${site}?tab=purchases` : '/fin/purchases?tab=invoices') as never);
-  // Adding invoices is a change: Finance – Edit only (Admin › Roles).
-  if (me && !canEditFinance(me)) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>;
+  // Adding invoices is a change: Finance – Edit only (Admin › People › Invites & Roles).
+  if (me && !canEditFinance(me)) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › People › Invites & Roles).</Muted>;
 
   return (
     <ScrollView contentContainerStyle={page(820)} keyboardShouldPersistTaps="handled">

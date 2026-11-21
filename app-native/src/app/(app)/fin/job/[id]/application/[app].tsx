@@ -63,13 +63,13 @@ export default function FinApplication() {
   const toast = useToast();
   const started = useRef(false);
   useEffect(() => {
-    // Starting one is a change: Finance – Edit only (Admin › Roles).
+    // Starting one is a change: Finance – Edit only (Admin › People › Invites & Roles).
     if (app !== 'new' || started.current || !me || !canEditFinance(me)) return;
     started.current = true;
     void newApplication(me, id).then((r) => { if (r.id) router.replace(`/fin/job/${id}/application/${r.id}` as never); else { toast(r.error || 'Could not start.'); if (r.error?.startsWith('Set up')) router.replace(`/fin/job/${id}/boq` as never); } });
   }, [app, me, id, toast]);
   const { data, isLoading } = useQuery({ queryKey: ['finApp', app], enabled: app !== 'new', gcTime: 0, refetchOnWindowFocus: false, queryFn: () => loadApplication(app) });
-  if (app === 'new' && me && !canEditFinance(me)) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>;
+  if (app === 'new' && me && !canEditFinance(me)) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › People › Invites & Roles).</Muted>;
   if (app === 'new' || isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!data) return <Muted style={{ padding: space.l }}>Application not found.</Muted>;
   return <Editor key={`${(data.a as Row).id}${data.a.status}${(data.a as Row).cert_net ?? ''}`} a0={data.a} jf={data.jf} prior={data.prior} previousLive={data.previousLive} prevPct={data.prevPct} prevVar={data.prevVar} siteProgress={data.siteProgress} varProgress={data.varProgress} />;
@@ -89,7 +89,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
   // An applied application stays as an application; the client's certificate is entered on the Certificate tab.
   const [over, setOver] = useState<Record<string, Entry>>({}); // single lines switched away from the page's choice
   const { me, org } = useAuth();
-  // Without Finance – Edit (Admin › Roles) it's shown as it stands: nothing saves, and no stage changes, emails or invoices.
+  // Without Finance – Edit (Admin › People › Invites & Roles) it's shown as it stands: nothing saves, and no stage changes, emails or invoices.
   const ro = !canEditFinance(me);
   const { data: site } = useSite(a0.site_id);
   const { data: finSt } = useFinSettings(me?.org_id);

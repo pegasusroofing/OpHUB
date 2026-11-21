@@ -61,7 +61,7 @@ export default function FinBoq() {
 
 function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }) {
   const { org } = useAuth();
-  // Without Finance – Edit (Admin › Roles) the Bill is shown, not changed: nothing saves, and the tools are hidden.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the Bill is shown, not changed: nothing saves, and the tools are hidden.
   const ro = !canEditFinance(me);
   const t = useTheme();
   const desk = useDesk();

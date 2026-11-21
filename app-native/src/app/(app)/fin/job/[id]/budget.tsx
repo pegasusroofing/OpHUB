@@ -34,7 +34,7 @@ export default function FinBudget() {
   const [split, setSplit] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(SPLIT).map(([k, n]) => [k, String(n)])));
   if (!data || !me) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const fc = forecast(data.book, id, data.settings);
-  // Without Finance – Edit (Admin › Roles) the budget is shown, not changed.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the budget is shown, not changed.
   const canEdit = canEditFinance(me);
   const vals = v || Object.fromEntries(fc.cats.map((k) => [k, { budget: fc.budget[k] != null ? String(fc.budget[k]) : '', tc: fc.tcSet[k] ? String(fc.toComplete[k]) : '' }]));
   const set = (k: string, f: 'budget' | 'tc', x: string) => setV({ ...vals, [k]: { ...vals[k], [f]: x } });

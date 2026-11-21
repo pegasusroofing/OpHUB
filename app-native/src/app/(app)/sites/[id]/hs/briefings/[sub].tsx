@@ -28,7 +28,7 @@ export default function BriefingView() {
   if (isLoading || !sub) return <Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Briefing not found.'}</Muted>;
   const sigs = data?.sigs ?? [];
   const mine = sigs.find((s) => s.user_id === me.id);
-  // Issue and Edit need Sign Off H&S (Admin › Roles); anyone can still tap to sign their own.
+  // Issue and Edit need Sign Off H&S (Admin › People › Invites & Roles); anyone can still tap to sign their own.
   const signOff = canSignOffHs(me);
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['briefing', subId] }); void qc.invalidateQueries({ queryKey: ['briefings'] }); };
 

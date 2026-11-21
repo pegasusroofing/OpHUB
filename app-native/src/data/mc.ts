@@ -34,9 +34,10 @@ export const MC_PART_TITLE: Record<McPart, string> = {
  *  shows it to them (the row's ⋮). MC_GUARDED: the parts a link is checked against (Site Rules pages stay open for signing). */
 export const MC_OP_DEFAULT: McPart[] = ['site_inductions', 'permits'];
 export const MC_GUARDED = ['cpp', 'f10', 'asbestos', 'subcontractors', 'site_inductions', 'permits', 'inspections'];
-type McVis = Pick<Site, 'mc_hidden_tiles' | 'mc_shown_tiles'>;
+type McVis = Pick<Site, 'mc_hidden_tiles' | 'mc_shown_tiles' | 'f10_not_required'>;
+/** An F10 marked not required is seen by managers only, even if it was shown to operatives. */
 export const mcOpSees = (site: McVis, key: string) =>
-  MC_OP_DEFAULT.includes(key as McPart) ? !(site.mc_hidden_tiles ?? []).includes(key) : (site.mc_shown_tiles ?? []).includes(key);
+  key === 'f10' && site.f10_not_required ? false : MC_OP_DEFAULT.includes(key as McPart) ? !(site.mc_hidden_tiles ?? []).includes(key) : (site.mc_shown_tiles ?? []).includes(key);
 /** Shows a part to operatives on this job, or hides it again. */
 export async function setMcOpSees(siteId: string, site: McVis, key: McPart, show: boolean) {
   const flip = (list: string[] | null | undefined, add: boolean) => (add ? [...new Set([...(list ?? []), key])] : (list ?? []).filter((k) => k !== key));
@@ -44,8 +45,13 @@ export async function setMcOpSees(siteId: string, site: McVis, key: McPart, show
   return !!(await db.from('sites').update(patch as never).eq('id', siteId).select('id')).data?.length;
 }
 
+/** Marks the job's F10 as not required, or required again (Andy, 21 Nov 2026). */
+export async function setF10NotRequired(siteId: string, on: boolean) {
+  return !!(await db.from('sites').update({ f10_not_required: on } as never).eq('id', siteId).select('id')).data?.length;
+}
+
 /** The five things a Main Contractor job needs before work starts ("Set Up: 3 Of 5 Done"). Each ticks itself: an F10 and
- *  an Asbestos Register uploaded, the Construction Phase Plan issued (or one uploaded), a Site Rules sheet or document on
+ *  an Asbestos Register uploaded (or the F10 marked not required), the Construction Phase Plan issued (or one uploaded), a Site Rules sheet or document on
  *  the job, and the company's own Induction Form saved. go: a page in the job, or an address. */
 export type McSetupKey = 'f10' | 'asbestos' | 'cpp' | 'rules' | 'form';
 export const MC_SETUP: { k: McSetupKey; label: string; go: string }[] = [
@@ -60,16 +66,18 @@ export function useMcSetup(siteId: string | undefined, orgId: string | null | un
     queryKey: ['mcTiles', siteId, 'setup'],
     enabled: !!siteId && !!orgId && on,
     queryFn: async () => {
-      const [docs, plan, rules, form] = await Promise.all([
+      const [docs, plan, rules, form, st] = await Promise.all([
         db.from('mc_documents').select('category').eq('site_id', siteId as string).in('category', ['f10', 'asbestos', 'cpp']),
         db.from('cpp_plans').select('status').eq('site_id', siteId as string).eq('status', 'issued').limit(1),
         db.from('site_layout_docs').select('id').eq('site_id', siteId as string).limit(1),
         db.from('induction_templates').select('org_id').eq('org_id', orgId as string).limit(1),
+        db.from('sites').select('f10_not_required').eq('id', siteId as string).limit(1),
       ]);
+      const f10Off = !!((st.data as { f10_not_required: boolean | null }[] | null) ?? [])[0]?.f10_not_required;
       const cats = new Set(((docs.data as { category: string }[] | null) ?? []).map((d) => d.category));
       const has = (r: { data: unknown }) => ((r.data as unknown[] | null) ?? []).length > 0;
-      const done: Record<McSetupKey, boolean> = { f10: cats.has('f10'), asbestos: cats.has('asbestos'), cpp: cats.has('cpp') || has(plan), rules: has(rules), form: has(form) };
-      return { done, n: Object.values(done).filter(Boolean).length };
+      const done: Record<McSetupKey, boolean> = { f10: cats.has('f10') || f10Off, asbestos: cats.has('asbestos'), cpp: cats.has('cpp') || has(plan), rules: has(rules), form: has(form) };
+      return { done, n: Object.values(done).filter(Boolean).length, f10Off };
     },
   });
 }

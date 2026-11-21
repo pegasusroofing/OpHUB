@@ -45,7 +45,7 @@ export default function ProjectQuotes() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
   if (!me || !data) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
-  // Without Finance – Edit (Admin › Roles) the project quotes are shown, not changed.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the project quotes are shown, not changed.
   const canEdit = canEditFinance(me);
   const refresh = () => void qc.invalidateQueries({ queryKey: ['finShop', id] });
   const qLabel = (q: Row) => [q.supplier_name, q.quote_no].filter(Boolean).join(' · ') || 'Quote';

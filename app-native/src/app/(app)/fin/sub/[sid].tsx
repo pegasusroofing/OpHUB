@@ -57,10 +57,10 @@ export default function FinSubcontract() {
   const { data: subJobs = [] } = useSubJobs(home as never);
   const { data: sheet } = useQuery({ queryKey: ['finSubSheet', data?.sc?.price_sheet_id], enabled: !!data?.sc?.price_sheet_id, queryFn: async () => (await fdb.from('price_builder_sheets').select('id,title,status,total,site_id,pricing_element_id').eq('id', data?.sc?.price_sheet_id).maybeSingle()).data as Record<string, any> | null });
   if (!me) return null;
-  // Finance – Edit to change an order or its applications; a new order also needs Raise Orders (Admin › Roles).
+  // Finance – Edit to change an order or its applications; a new order also needs Raise Orders (Admin › People › Invites & Roles).
   const canEdit = canEditFinance(me);
-  if (sid === 'new' && !canEdit) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>;
-  if (sid === 'new' && !canRaiseOrders(me)) return <Muted style={{ padding: space.l }}>Your role can’t raise orders. Ask your admin (Admin › Roles).</Muted>;
+  if (sid === 'new' && !canEdit) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › People › Invites & Roles).</Muted>;
+  if (sid === 'new' && !canRaiseOrders(me)) return <Muted style={{ padding: space.l }}>Your role can’t raise orders. Ask your admin (Admin › People › Invites & Roles).</Muted>;
   if (sid !== 'new' && isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const sc = data?.sc || null, apps = data?.apps || [];
   if (sid !== 'new' && !sc) return <Muted style={{ padding: space.l }}>Subcontractor PO not found.</Muted>;

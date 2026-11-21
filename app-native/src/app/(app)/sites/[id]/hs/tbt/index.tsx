@@ -38,7 +38,7 @@ export default function Tbts() {
   const { data: talks, isLoading } = useTbts(site);
   const { data: people } = usePeople();
   const mgr = !!me && isManager(me);
-  // Sign Off H&S (Admin › Roles): without it a manager sees every talk but can't add, sync, issue or delete them.
+  // Sign Off H&S (Admin › People › Invites & Roles): without it a manager sees every talk but can't add, sync, issue or delete them.
   const signOff = canSignOffHs(me);
   const [tab, setTab] = useState<'bank' | 'live' | 'completed' | null>(null);
   const [title, setTitle] = useState('');

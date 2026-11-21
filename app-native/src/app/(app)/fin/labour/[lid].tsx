@@ -46,8 +46,8 @@ export default function FinOpInvoice() {
     const who = [...people.filter((x) => canInvoice(rateBy[x.id]) || x.id === p?.user_id).map((x) => ({ key: x.id, name: x.name })), ...rates.filter((r) => !r.user_id && (canInvoice(r) || r.id === p?.worker_id)).map((r) => ({ key: `w:${r.id}`, name: r.trading_name || r.name || 'Worker' }))].sort((a, b) => a.name.localeCompare(b.name));
     return { p, rateBy, who };
   } });
-  // A new one needs Finance – Edit (Admin › Roles).
-  if (lid === 'new' && me && !canEditFinance(me)) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>;
+  // A new one needs Finance – Edit (Admin › People › Invites & Roles).
+  if (lid === 'new' && me && !canEditFinance(me)) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › People › Invites & Roles).</Muted>;
   if (isLoading || !data) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   return <Editor key={lid} p={data.p} rateBy={data.rateBy} who={data.who} />;
 }
@@ -79,7 +79,7 @@ function Editor({ p, rateBy, who }: { p: Row | null; rateBy: Record<string, Row>
     toast(`${nm} is on the list — add their bank details and UTR in Directory › Labour.`);
   };
   if (!me) return null;
-  // Paid, or a role without Finance – Edit (Admin › Roles): shown, not changed.
+  // Paid, or a role without Finance – Edit (Admin › People › Invites & Roles): shown, not changed.
   const canEdit = canEditFinance(me), paid = p?.status === 'paid', locked = paid || !canEdit;
   const r = rateBy[key] || {};
   const cisRate = num(inv.cis) ?? (r.cis_rate != null ? Number(r.cis_rate) : 20);

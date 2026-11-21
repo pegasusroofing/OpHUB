@@ -84,7 +84,7 @@ export function PurchaseQuotes({ siteId }: { siteId?: string }) {
   const [busy, setBusy] = useState('');
   const [edit, setEdit] = useState<string | null>(null);
   if (!me || !data) return <Muted>Loading…</Muted>;
-  // Finance – Edit to upload or change a list; ticking items for a PO also needs Raise Orders (Admin › Roles).
+  // Finance – Edit to upload or change a list; ticking items for a PO also needs Raise Orders (Admin › People › Invites & Roles).
   const canEdit = canEditFinance(me), pick = !!siteId && canEdit && canRaiseOrders(me);
   const refresh = () => void qc.invalidateQueries({ queryKey: ['finPQuotes'] });
   const qBy: Record<string, Row> = {}; data.quotes.forEach((x) => { qBy[x.id] = x; });

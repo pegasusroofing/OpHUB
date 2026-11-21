@@ -32,7 +32,7 @@ export function XeroSettings({ s }: { s: Row }) {
   const [v, setV] = useState({ sales: String(s.xero_sales_account || '200'), purch: String(s.xero_purchase_account || '310'), labour: String(s.xero_labour_account || '320'), track: String(s.xero_tracking_name || 'Project'), auto: !!s.xero_auto });
   const [busy, setBusy] = useState('');
   if (!me) return null;
-  // Without Finance – Edit (Admin › Roles) the settings are shown, not changed.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the settings are shown, not changed.
   const canEdit = canEditFinance(me);
   const f = (k: keyof typeof v, label: string) => (
     <View style={{ flexBasis: '47%', flexGrow: 1, marginBottom: 8 }}>

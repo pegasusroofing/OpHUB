@@ -8,11 +8,11 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { confirmAsk, promptText, useToast } from '@/components/toast';
-import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
+import { Button, Card, Check, Empty, Muted, Toggle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { createCpp, useCppPlans } from '@/data/cpp';
-import { deleteMcDoc, MC_DOC_LABEL, renameMcDoc, uploadMcDoc, useMcDocs } from '@/data/mc';
+import { deleteMcDoc, MC_DOC_LABEL, renameMcDoc, setF10NotRequired, uploadMcDoc, useMcDocs } from '@/data/mc';
 import { useSite } from '@/data/sites';
 import { isBetaSite } from '@/lib/betaOnly';
 import { useAuth } from '@/lib/auth';
@@ -35,14 +35,30 @@ export default function McDocs() {
   const { data: site } = useSite(id);
   const { data: plans } = useCppPlans(builder ? id : undefined);
   const [making, setMaking] = useState(false);
+  const [showF10, setShowF10] = useState(false);
   if (!me) return null;
   const mgr = isManager(me);
   const label = MC_DOC_LABEL[cat] ?? 'Documents';
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['mcDocs', id, cat] }); void qc.invalidateQueries({ queryKey: ['mcTiles', id] }); };
   const isOpen = open ?? !docs?.length;
+  // F10 not required (Andy, 21 Nov 2026): a tick box at the top; ticked, the folder closes and only managers see it.
+  const f10Off = cat === 'f10' && !!site?.f10_not_required;
+  if (f10Off && !mgr) return <Muted style={{ padding: space.l }}>An F10 isn’t required on this job.</Muted>;
+  const hidden = f10Off && !showF10;
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: label }} />
+      {cat === 'f10' && mgr && (
+        <Card>
+          <Check label="F10 Not Required On This Job" value={f10Off} onChange={async (on) => {
+            if (!(await setF10NotRequired(id, on))) { toast('Could not save — try again.'); return; }
+            setShowF10(false);
+            void qc.invalidateQueries({ queryKey: ['sites'] }); void qc.invalidateQueries({ queryKey: ['mcTiles', id] });
+          }} />
+          <Muted style={{ fontSize: 12.5 }}>{f10Off ? 'Closed: only Project Managers and admins see the F10 on this job. Untick it if one is needed.' : 'An F10 is needed when the work lasts more than 30 working days with more than 20 people on site at once, or more than 500 person days.'}</Muted>
+          {f10Off && <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 6 }}><Button small kind="ghost" title={showF10 ? 'Hide The F10 Folder' : `Open The F10 Folder${docs?.length ? ` (${docs.length})` : ''}`} onPress={() => setShowF10(!showF10)} /></View>}
+        </Card>
+      )}
       {builder && mgr && (
         <Card>
           <Text style={{ fontSize: 16.5, fontWeight: '600', color: base.ink }}>Build A Construction Phase Plan</Text>
@@ -62,7 +78,7 @@ export default function McDocs() {
           </View>
         </Card>
       )}
-      {isLoading ? <Muted>Loading…</Muted> : docs?.length ? docs.map((d) => (
+      {hidden ? null : isLoading ? <Muted>Loading…</Muted> : docs?.length ? docs.map((d) => (
         <Card key={d.id}>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Text style={{ flex: 1, fontSize: 16.5, fontWeight: '600', color: base.ink }}>{d.name}</Text>
@@ -73,7 +89,7 @@ export default function McDocs() {
           <Button small kind="ghost" title="📄 View Document" onPress={async () => { const u = await openDocLink('mc-documents', d.storage_path); if (u) viewDoc(u); else toast('Could not open the document.'); }} />
         </Card>
       )) : <Empty>No documents uploaded.</Empty>}
-      {mgr && (
+      {mgr && !hidden && (
         <>
           <Toggle title={`Upload ${label}`} open={isOpen} onPress={() => setOpen(!isOpen)} />
           {isOpen && (

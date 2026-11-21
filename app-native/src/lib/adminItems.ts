@@ -34,13 +34,13 @@ export const FIN_GROUPS: Record<string, string[]> = { sales: ['inv', 'bill', 'de
 const finPart = (key: string, group: string, label: string, sub: string, kw: string, show = fin): AdminItem =>
   ({ key: `fin_${key}`, page: 'finance', group, icon: '💷', label, sub, kw: `finance ${kw}`, route: `/pm/admin/finsettings?part=${key}`, show });
 export const ADMIN_ITEMS: AdminItem[] = [
-  { key: 'invites', page: 'people', group: 'Team', icon: '✉️', label: 'Invites', sub: 'Invite links and pending invites', kw: 'invite link join', route: '/pm/admin/invites', show: (u) => isManager(u) && can(u, 'people') },
-  { key: 'users', page: 'people', group: 'Team', icon: '👥', label: 'Users', sub: 'Roles, passwords, removing people', kw: 'user role admin pm estimator operative driver', route: '/pm/admin/users', show: (u) => isManager(u) && can(u, 'people') },
-  { key: 'roles', page: 'people', group: 'Team', icon: '🏷', label: 'Roles', sub: 'Your list of roles and what each one uses', kw: 'role roles job title contracts administrator quantity surveyor document controller contracts manager money on home', route: '/pm/admin/roles', show: admin },
+  { key: 'invites', page: 'people', group: 'Team', icon: '✉️', label: 'Invites & Roles', sub: 'Invite links, pending invites, and your roles', kw: 'invite link join role roles job title contracts administrator quantity surveyor document controller contracts manager money on home', route: '/pm/admin/invites', show: (u) => isManager(u) && can(u, 'people') },
+  { key: 'users', page: 'people', group: 'Team', icon: '👥', label: 'Users', sub: 'Roles, passwords, removing people, device locks', kw: 'user role admin pm estimator operative driver device phone lock approve', route: '/pm/admin/users', show: (u) => isManager(u) && can(u, 'people') },
+  { key: 'roles', page: 'people', group: 'Team', icon: '🏷', label: 'Roles', sub: 'Your list of roles and what each one uses', kw: 'role roles job title contracts administrator quantity surveyor document controller contracts manager money on home', route: '/pm/admin/roles', show: () => false }, // under Invites & Roles now (Andy, 21 Nov 2026)
   // Office roles get See Material Costs on Admin › Roles. Operatives one by one: hidden (Andy, 18 Nov 2026: "what is the need
   // for material costs for operatives?" ... "Yes, remove it"; nobody had it on). The page and the setting are kept.
   { key: 'matcosts', page: 'people', group: 'Team', icon: '💷', label: 'Material Costs For Operatives', sub: 'Which operatives see material prices', kw: 'material costs prices see operatives cost', route: '/pm/admin/matcosts', show: () => false },
-  { key: 'devicelocks', page: 'people', group: 'Team', icon: '📱', label: 'Device Locks', sub: 'One phone = one person', kw: 'device phone lock approve', route: '/pm/admin/devicelocks', show: (u) => isFullManager(u) && can(u, 'people') },
+  { key: 'devicelocks', page: 'people', group: 'Team', icon: '📱', label: 'Device Locks', sub: 'One phone = one person', kw: 'device phone lock approve', route: '/pm/admin/devicelocks', show: () => false }, // a drop-down at the bottom of Users now (Andy, 21 Nov 2026)
   { key: 'checkinlogs', page: 'people', group: 'Logs', icon: '📍', label: 'Check-In Logs', sub: 'Everyone’s check-ins, drivers too, by dates', kw: 'check in out log site attendance driver shift break hours', route: '/pm/admin/checkinlogs', show: isManager },
   { key: 'drivercheckins', page: 'people', group: 'Logs', icon: '🚚', label: 'Driver Check-In Log', sub: 'Shifts, breaks, hours', kw: 'driver check in shift break hours', route: '/pm/admin/drivercheckins', show: () => false }, // in Check-In Logs now (Andy, 18 Nov 2026)
   // In the Subcontractor Library now (Main Contractor tab, 21 Nov 2026); its page opens from there.
@@ -107,10 +107,13 @@ export function searchItems(me: Profile, org: Organization | null, q: string) {
 /** The row (sub tab) a page is: its address, and any ?part= / ?kind= it needs, match the row's. */
 export function adminItemAt(items: AdminItem[], path: string, params: Record<string, unknown>): AdminItem | null {
   const p = path.replace(/\/$/, '');
-  return items.find((i) => {
+  // The most exact match wins: Main Contractor's Inspection Templates (templates?kind=mc) before Projects' Report
+  // Templates (templates), which used to win and underline Projects (Andy, 21 Nov 2026).
+  const q = (i: AdminItem) => (i.route || '').split('?')[1] || '';
+  return items.filter((i) => {
     if (!i.route) return false;
-    const [rp, q] = i.route.split('?');
+    const [rp, qs] = i.route.split('?');
     if (rp !== p) return false;
-    return !q || q.split('&').every((kv) => { const [k, v] = kv.split('='); return String(params[k] ?? '') === v; });
-  }) ?? null;
+    return !qs || qs.split('&').every((kv) => { const [k, v] = kv.split('='); return String(params[k] ?? '') === v; });
+  }).sort((a, b) => q(b).split('&').length * (q(b) ? 1 : 0) - q(a).split('&').length * (q(a) ? 1 : 0))[0] ?? null;
 }

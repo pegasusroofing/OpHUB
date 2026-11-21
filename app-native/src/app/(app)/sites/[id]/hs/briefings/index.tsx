@@ -39,7 +39,7 @@ export default function Briefings() {
   const [sel, setSel] = useState<Set<string>>(new Set());
   if (!me) return null;
   const mgr = isManager(me);
-  // Sign Off H&S (Admin › Roles): without it a manager reads every briefing but can't start or fill one in.
+  // Sign Off H&S (Admin › People › Invites & Roles): without it a manager reads every briefing but can't start or fill one in.
   const signOff = canSignOffHs(me);
   const current = weekKeyOf(new Date());
   const weeks: Record<string, Submission[]> = {};

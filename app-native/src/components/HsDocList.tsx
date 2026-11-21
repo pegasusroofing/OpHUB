@@ -135,7 +135,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
   const insets = useSafeAreaInsets();
   if (!me) return null;
   const manager = canManage ?? isManager(me);
-  // Sign Off H&S (Admin › Roles): without it a manager sees RAMS / COSHH read-only. Site layouts and a subcontractor's own admin are unchanged.
+  // Sign Off H&S (Admin › People › Invites & Roles): without it a manager sees RAMS / COSHH read-only. Site layouts and a subcontractor's own admin are unchanged.
   const signOff = manager && (kind === 'layout' || !isManager(me) || canSignOffHs(me));
   const client = me.role === 'client';
   if (isLoading || !data) return <Muted>Loading…</Muted>;

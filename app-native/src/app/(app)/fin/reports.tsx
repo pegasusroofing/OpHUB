@@ -161,7 +161,7 @@ function AutoRun({ id, title, f, dates }: { id: string; title: string; f: Filter
   const here = trail[trail.length - 1] ?? null;
   const { data: level, isLoading } = useQuery({ queryKey: ['reportFolders', here?.id ?? 'root', here?.driveId ?? ''], enabled: open && choosing, queryFn: () => listFolders(here) });
   if (!me || !['admin', 'pm'].includes(me.role)) return null;
-  // Without Finance – Edit (Admin › Roles) the auto-run is shown, not changed.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the auto-run is shown, not changed.
   const canEdit = canEditFinance(me);
   const on = !!sc?.active;
   const label = on ? `Auto-run: ${FREQ.find(([k]) => k === sc?.frequency)?.[1] || 'On'}` : 'Auto-run: Off';

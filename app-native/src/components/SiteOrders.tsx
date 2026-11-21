@@ -120,7 +120,7 @@ export function HiredPlantCard({ siteId }: { siteId: string }) {
 /* ---------- subcontract orders (Materials › Subcontract Orders) ---------- */
 export function SubOrdersList({ siteId }: { siteId: string }) {
   const { me } = useAuth();
-  // Raise Orders (Admin › Roles) to raise a new subcontract order.
+  // Raise Orders (Admin › People › Invites & Roles) to raise a new subcontract order.
   const canOrder = canRaiseOrders(me);
   const qc = useQueryClient();
   const { data: list = [], isLoading } = useSubOrders(siteId);

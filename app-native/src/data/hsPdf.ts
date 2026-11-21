@@ -3,7 +3,7 @@
 // manager and any clients who signed by emailed link; COSHH adds whoever put it
 // on the job as "issued by".
 import { docBucket } from '@/data/hs';
-import { exportFilename, fetchBytes, PDFDocument } from '@/lib/pdf';
+import { embedImage, exportFilename, fetchBytes, PDFDocument, rgb, StandardFonts } from '@/lib/pdf';
 import { publicUrl } from '@/lib/privateFiles';
 import { currentCycleSigs } from '@/lib/rules/hs';
 import { isManager } from '@/lib/roles';
@@ -55,6 +55,26 @@ export async function buildSignedHsPdf(kind: 'rams' | 'coshh', docId: string, si
   } catch { return 'Could not build the signed PDF — the source file may not be a valid PDF.'; }
 }
 
+/** The talk as the start of its signed PDF. Talks can be any file since 21 Nov 2026: a PDF as it is; a picture on a page
+ *  of its own; anything else (a Word document, say) a cover page with its name, as the file can't be put inside a PDF. */
+async function tbtBase(src: Uint8Array, title: string, path: string): Promise<PDFDocument> {
+  try { return await PDFDocument.load(src, { ignoreEncryption: true }); } catch { /* not a PDF */ }
+  const pdf = await PDFDocument.create();
+  const img = await embedImage(pdf, src).catch(() => null);
+  const pg = pdf.addPage([595.28, 841.89]);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold), font = await pdf.embedFont(StandardFonts.Helvetica);
+  pg.drawText(title.slice(0, 80), { x: 40, y: 790, size: 18, font: bold, color: rgb(0.1, 0.1, 0.1) });
+  if (img) {
+    const k = Math.min(515 / img.width, 700 / img.height, 1);
+    pg.drawImage(img, { x: 40, y: 770 - img.height * k, width: img.width * k, height: img.height * k });
+  } else {
+    const file = path.split('/').pop()?.replace(/^[0-9a-f-]{36}-/i, '') || 'the talk';
+    pg.drawText(`Toolbox talk file: ${file.slice(0, 70)}`, { x: 40, y: 760, size: 11, font, color: rgb(0.3, 0.3, 0.3) });
+    pg.drawText('The talk is a separate file in the TBT Library. The signatures follow.', { x: 40, y: 742, size: 11, font, color: rgb(0.3, 0.3, 0.3) });
+  }
+  return pdf;
+}
+
 /** Signed Toolbox Talk (710 buildSignedToolboxTalkPdfBytes): the talk, then the record — conducted / issued by first, then operatives, then 6+ blank rows. */
 export async function buildSignedTbtPdf(tbtId: string, site: Site): Promise<{ bytes: Uint8Array; filename: string; name: string } | string> {
   const talk = ((await db.from('toolbox_talks').select('*').eq('id', tbtId).maybeSingle()).data as { id: string; title: string; storage_path: string; created_by: string | null; created_at: string } | null);
@@ -78,7 +98,7 @@ export async function buildSignedTbtPdf(tbtId: string, site: Site): Promise<{ by
     ...sigs.filter((s) => (!managerSig || s.user_id !== managerSig.user_id) && prof(s.user_id) && !mgr(s.user_id)).map((s) => ({ name: prof(s.user_id)?.name || 'Unknown', plainName: '', dateText: '', when: when(s.signed_at), imagePath: s.signature_image_path })),
   ];
   try {
-    const pdf = await PDFDocument.load(src, { ignoreEncryption: true });
+    const pdf = await tbtBase(src, talk.title, talk.storage_path);
     await drawSignatureTable(pdf, { title: talk.title, disclaimer: `I have read and understood the contents of this Toolbox Talk (${talk.title}). At all times employees must work in a safe manner both to prevent personal injury or injury/harm to others. Anything I did not understand has been explained to me to my satisfaction.`, signers, minBlank: 6 });
     const filename = exportFilename(site.name, `${talk.title} (Signed)`, 'pdf');
     pdf.setTitle(filename.replace(/\.pdf$/i, ''));

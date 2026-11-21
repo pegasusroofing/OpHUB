@@ -46,7 +46,8 @@ const setUp = async (browser, role, fin, viewport) => {
   check(where(page) === '/pm/admin/invites', `Admin opens straight on People › Invites (${where(page)})`);
   check(JSON.stringify(ts.slice(0, N).map((x) => x.t)) === JSON.stringify(MAIN) && ts[0].on, `tabs: ${MAIN.join(', ')}, People chosen (${ts.slice(0, N).map((x) => x.t).join(', ')})`);
   const subs = ts.slice(N).map((x) => x.t);
-  check(['Invites', 'Users', 'Roles', 'Device Locks', 'Check-In Logs'].every((x) => subs.includes(x)) && !subs.includes('Material Costs For Operatives') && !!ts.find((x) => x.t === 'Invites')?.on, `sub tabs: People's pages, Invites chosen (${subs.join(', ')})`);
+  // Invites & Roles, and Device Locks inside Users, since 21 Nov 2026.
+  check(['Invites & Roles', 'Users', 'Check-In Logs'].every((x) => subs.includes(x)) && !subs.includes('Roles') && !subs.includes('Device Locks') && !subs.includes('Material Costs For Operatives') && !!ts.find((x) => x.t === 'Invites & Roles')?.on, `sub tabs: People's pages, Invites chosen (${subs.join(', ')})`);
   check(/Admin Centre/.test(await body()), 'the bar says Admin Centre');
   await page.screenshot({path: path.join(SHOTS, 'people-laptop.png')});
 

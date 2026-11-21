@@ -1,7 +1,7 @@
 // The enquiry's details (Andy, 11 Nov 2026): New Enquiry, and Edit Details on a quote. Every box the same height and lined
 // up; Discipline and Who Is Pricing It are drop-downs; Discipline Other lets you type your own; Save For This Client sits
 // level with the mark-up box at the same height; + Multiple Clients picks the other clients tendering the same job.
-// Picking a client fills the contact from its estimator (Directory › Estimating) only, not its accounts email; with none
+// Picking a client fills the contact from its estimator (Directory › Clients) only, not its accounts email; with none
 // saved, Save To Directory keeps the contact typed in as their estimator (Andy, 11 Nov 2026).
 import * as DocumentPicker from 'expo-document-picker';
 import { useState, type ReactNode } from 'react';
@@ -16,7 +16,7 @@ import { useAuth } from '@/lib/auth';
 import { DISCIPLINES } from '@/lib/rules/quotes';
 import { base, radius, space, useDesk } from '@/theme/theme';
 
-// chase: from the client's Directory › Estimating setting when one is picked ('no' starts a new quote with the chaser off).
+// chase: from the client's Directory › Clients setting when one is picked ('no' starts a new quote with the chaser off).
 export type QForm = { client: string; contact: string; email: string; phone: string; title: string; address: string; postcode: string; discipline: string; other: string; markup: string; pricedBy: string; pricedName: string; received: string; ret: string; notes: string; chase?: '' | 'yes' | 'no' };
 export const EMPTY_FORM: QForm = { client: '', contact: '', email: '', phone: '', title: '', address: '', postcode: '', discipline: '', other: '', markup: '', pricedBy: '', pricedName: '', received: '', ret: '', notes: '', chase: '' };
 export const formOf = (q: Quote): QForm => {
@@ -74,8 +74,8 @@ export function ClientsPop({ have, onDone, onClose }: { have: string[]; onDone: 
         </Pressable>
       ))}
       {hits.filter((h) => !taken(h.name)).map((h) => (
-        <Pressable key={h.id} onPress={() => setPicked([...picked, { name: h.name, email: h.estimator_email || h.email, phone: h.estimator_phone || h.phone, contact: h.estimator_name || null }])} style={{ flexDirection: 'row', gap: 8, paddingVertical: 8 }}>
-          <Text style={{ fontSize: 15 }}>☐</Text><Text style={{ flex: 1, color: base.ink }}>{h.name}</Text>
+        <Pressable key={h.id || `s:${h.name}`} onPress={() => setPicked([...picked, { name: h.name, email: h.estimator_email || h.email, phone: h.estimator_phone || h.phone, contact: h.estimator_name || null }])} style={{ flexDirection: 'row', gap: 8, paddingVertical: 8 }}>
+          <Text style={{ fontSize: 15 }}>☐</Text><Text style={{ flex: 1, color: base.ink }}>{h.name}{h.kind === 'supplier' ? <Text style={{ color: base.slate, fontSize: 12 }}>  Supplier</Text> : null}</Text>
         </Pressable>
       ))}
       {q.trim().length >= 2 && !taken(q.trim()) && !hits.some((h) => h.name.toLowerCase() === q.trim().toLowerCase()) && (
@@ -104,7 +104,7 @@ export function QuoteForm({ v, setV, isNew, people, others, onOthers, docs, setD
   // The client picked from the list, if the name hasn't been changed since.
   const pk = picked && picked.name.toLowerCase() === v.client.trim().toLowerCase() ? picked : null;
   // Save To Directory (Andy, 11 Nov 2026): on a new enquiry, when the client has no estimator saved yet and a contact is
-  // typed in, keep them as the client's estimator in Directory › Estimating.
+  // typed in, keep them as the client's estimator in Directory › Clients.
   const hasContact = !!(v.contact.trim() || v.email.trim() || v.phone.trim());
   const canSaveEst = isNew && !!v.client.trim() && hasContact && estSaved !== v.client.trim().toLowerCase() && !(pk && (pk.estimator_name || pk.estimator_email || pk.estimator_phone));
   const saveEst = async () => {
@@ -118,7 +118,7 @@ export function QuoteForm({ v, setV, isNew, people, others, onOthers, docs, setD
       if (!(await confirmAsk(`${known.name} already has ${known.estimator_name || known.estimator_email} as their estimator. Replace them?`, 'Yes', 'No'))) return;
       setSaving(true);
     }
-    const cid = known?.id ?? (await clientId(name, email, v.phone.trim()));
+    const cid = known?.id || (await clientId(name, email, v.phone.trim()));
     const err = cid ? await setClientEstimator(cid, { name: v.contact.trim(), email, phone: v.phone.trim() }) : 'Could not add the client to the Directory.';
     setSaving(false);
     if (err) { toast(err); return; }
@@ -151,7 +151,7 @@ export function QuoteForm({ v, setV, isNew, people, others, onOthers, docs, setD
             style={{ height: 36, paddingHorizontal: 14, borderRadius: radius.input, backgroundColor: '#DFE3EA', alignItems: 'center', justifyContent: 'center', opacity: saving ? 0.6 : 1 }}>
             <Text style={{ fontSize: 13.5, fontWeight: '500', color: base.ink }}>{saving ? 'Saving…' : 'Save To Directory'}</Text>
           </Pressable>
-          <Muted style={{ flex: 1, fontSize: 12 }}>Keeps this contact as {v.client.trim()}’s estimator (Directory › Estimating).</Muted>
+          <Muted style={{ flex: 1, fontSize: 12 }}>Keeps this contact as {v.client.trim()}’s estimator (Directory › Clients).</Muted>
         </View>
       )}
       {isNew && estSaved === v.client.trim().toLowerCase() && !!estSaved && <Muted style={{ marginTop: -4, marginBottom: space.m, fontSize: 12 }}>✓ In The Directory As {v.client.trim()}’s Estimator</Muted>}
@@ -178,7 +178,7 @@ export function QuoteForm({ v, setV, isNew, people, others, onOthers, docs, setD
           <Pressable accessibilityRole="button" accessibilityLabel="Save For This Client" disabled={saving} onPress={async () => {
             const n = Number(v.markup.replace(/[%\s]/g, '')); if (!isFinite(n)) { toast('The mark-up needs to be a number.'); return; }
             setSaving(true);
-            const cid = picked?.id ?? (await clientId(v.client.trim(), v.email.trim(), v.phone.trim()));
+            const cid = picked?.id || (await clientId(v.client.trim(), v.email.trim(), v.phone.trim()));
             const ok = !!cid && (await setClientMarkup(cid, n));
             setSaving(false);
             if (ok) setPicked({ ...(picked ?? { id: cid as string, name: v.client.trim(), email: null, phone: null }), markup: n }); else toast('Could not save it to the client.');

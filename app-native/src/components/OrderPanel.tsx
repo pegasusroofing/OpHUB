@@ -41,7 +41,7 @@ export function OrderPanel({ siteId, mats, again, onDone, onCancel }: { siteId: 
   const [ccIds, setCcIds] = useState<Set<string>>(new Set());
   const [ccRaw, setCcRaw] = useState('');
   const [busy, setBusy] = useState(false);
-  // Sending an order needs Raise Orders (Admin › Roles).
+  // Sending an order needs Raise Orders (Admin › People › Invites & Roles).
   if (!me || !canRaiseOrders(me)) return null;
 
   const toMe = supId === ME_KEY;

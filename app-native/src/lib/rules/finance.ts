@@ -9,7 +9,7 @@ export const FIN_TRIAL = true;
 export const FIN_SANDBOX_ORGS = ['2eb072b7-2704-48c0-8110-62e45e621ded'];
 export const FIN_TRIAL_MSG = 'Finance trial — switched off while testing';
 /** Xero actions the Directory may still use during the trial (reading / adding contacts). */
-const XERO_CLIENT_OK = ['status', 'customers', 'suppliers', 'contact', 'create_contact', 'connect', 'disconnect'];
+const XERO_CLIENT_OK = ['status', 'customers', 'suppliers', 'contact', 'create_contact', 'update_contact', 'connect', 'disconnect'];
 /** Companies the platform's super admin has put live (Platform Admin › Finance: Live; organizations.finance_live,
  *  Andy 19 Nov 2026: "i want to make construction live"). Filled in when the company loads. */
 const FIN_LIVE_ORGS = new Set<string>();

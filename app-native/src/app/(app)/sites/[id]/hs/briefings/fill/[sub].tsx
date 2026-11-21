@@ -17,7 +17,7 @@ export default function BriefingFill() {
   const { data, isLoading } = useSubmission(subId);
   const sub = data?.sub;
   const done = sub?.status === 'completed';
-  // Managers with Sign Off H&S (Admin › Roles) only; anyone else is sent to the read-only view.
+  // Managers with Sign Off H&S (Admin › People › Invites & Roles) only; anyone else is sent to the read-only view.
   const locked = !!sub && (!me || !canSignOffHs(me) || (done && data?.signed));
   useEffect(() => { if (locked && sub) router.replace(`/sites/${id}/hs/briefings/${sub.id}`); }, [locked, sub, id]);
   if (!me) return null;

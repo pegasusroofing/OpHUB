@@ -57,7 +57,7 @@ export default function NewProject() {
   const fd = useNewJobFolderDefault(me?.org_id, d.client_name);
   const wantFolder = folderTick ?? fd.start;
   if (!me) return null;
-  if (!canCreateProjects(me)) return <Muted style={{ padding: space.l }}>{isFullManager(me) ? 'Your role doesn’t create projects. Ask your admin (Admin › Roles).' : 'Project managers and admins only.'}</Muted>;
+  if (!canCreateProjects(me)) return <Muted style={{ padding: space.l }}>{isFullManager(me) ? 'Your role doesn’t create projects. Ask your admin (Admin › People › Invites & Roles).' : 'Project managers and admins only.'}</Muted>;
   const set = (p: Partial<NewSite>) => setD({ ...d, ...p });
   const auto = !!nums?.auto_job_numbers;
   const saved = clientPortfolio(sites);

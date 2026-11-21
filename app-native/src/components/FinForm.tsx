@@ -10,7 +10,7 @@ import { Button, Check, Muted } from '@/components/ui';
 import { plainDbText } from '@/lib/rules/plainError';
 import { base, radius } from '@/theme/theme';
 
-export type Field = { k: string; label: string; kind?: 'text' | 'money' | 'number' | 'date' | 'day' | 'multiline' | 'choice' | 'check' | 'email'; options?: [string, string][]; ph?: string; half?: boolean; note?: string; extra?: { label: string; onPress: () => void }; tall?: boolean };
+export type Field = { k: string; label: string; kind?: 'text' | 'money' | 'number' | 'date' | 'day' | 'multiline' | 'choice' | 'check' | 'email' | 'heading'; options?: [string, string][]; ph?: string; half?: boolean; note?: string; extra?: { label: string; onPress: () => void }; tall?: boolean };
 const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th'}`;
 /** A day of the month as a date this month, so the calendar can show it. */
 const dayAsDate = (d: number) => { const t = new Date(), last = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate(); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(Math.min(d, last)).padStart(2, '0')}`; };
@@ -41,6 +41,7 @@ export function FinForm({ title, fields, initial, onSave, onClose, onDelete, del
   const fillKey = (k: string) => !!fillIns?.keys.includes(k);
   const extra = typeof extraIn === 'function' ? extraIn(v) : extraIn;
   const field = (f: Field) => {
+    if (f.kind === 'heading') return <Text key={f.k} style={{ flexBasis: '100%', fontSize: 14, fontWeight: '700', color: base.ink, marginTop: 8, marginBottom: 2 }}>{f.label}</Text>;
     if (f.kind === 'check') return <Check key={f.k} label={f.label} value={!!v[f.k]} onChange={(x) => set(f.k, x)} />;
     const box1 = field1(f);
     if (!fillIns || f.k !== fillIns.keys[fillIns.keys.length - 1]) return box1;

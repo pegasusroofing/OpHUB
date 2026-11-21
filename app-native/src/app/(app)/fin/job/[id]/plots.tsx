@@ -29,7 +29,7 @@ export default function FinPlots() {
   const { data: plots = [], refetch } = useSiteAddresses(id, !!s?.multi_site);
   const [edit, setEdit] = useState<FullSubAddr | 'new' | null>(null);
   if (!me || !s) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
-  // Without Finance – Edit (Admin › Roles) the plots are shown, not changed.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the plots are shown, not changed.
   const canEdit = canEditFinance(me);
   const refresh = () => { void refetch(); void qc.invalidateQueries({ queryKey: ['finSubJobs'] }); void qc.invalidateQueries({ queryKey: ['subAddresses'] }); };
   const turnOn = async () => {

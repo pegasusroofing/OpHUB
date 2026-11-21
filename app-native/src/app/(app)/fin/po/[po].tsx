@@ -32,11 +32,11 @@ export default function FinPo() {
   const [rm, setRm] = useState<Set<number> | null>(null); // ticking lines to take off (9219zr)
   const newSv = useRef<ComponentRef<typeof ScrollView>>(null); // the new PO page, so View PO can go back to the top // Send PO: the supplier's email (Andy, 5 Nov 2026)
   if (!me) return null;
-  // Finance – Edit to change a PO; a new one also needs Raise Orders (Admin › Roles).
+  // Finance – Edit to change a PO; a new one also needs Raise Orders (Admin › People › Invites & Roles).
   const canEdit = canEditFinance(me);
   if (poId === 'new') {
-    if (!canEdit) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>;
-    if (!canRaiseOrders(me)) return <Muted style={{ padding: space.l }}>Your role can’t raise orders. Ask your admin (Admin › Roles).</Muted>;
+    if (!canEdit) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › People › Invites & Roles).</Muted>;
+    if (!canRaiseOrders(me)) return <Muted style={{ padding: space.l }}>Your role can’t raise orders. Ask your admin (Admin › People › Invites & Roles).</Muted>;
     const st = sites.find((x) => x.id === site);
     return (
       <ScrollView ref={newSv} contentContainerStyle={page(1300)} keyboardShouldPersistTaps="handled">

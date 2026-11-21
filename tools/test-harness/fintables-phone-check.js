@@ -96,12 +96,10 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(cl && Math.abs(cl.left) <= 1, `Clients: the box's writing starts under CLIENT (${cl && cl.left.toFixed(1)})`);
   await page.screenshot({path: path.join(SHOTS, 'fin-clients.png')});
 
-  // ---- Directory › Estimating ----
+  // ---- No Directory › Estimating since 21 Nov 2026: an old link opens Clients ----
   await page.goto(B + '/fin/directory?kind=estimating'); await page.waitForTimeout(5000);
-  check(await page.locator('input[placeholder="Search Clients"] >> visible=true').count() === 0, 'Estimating: no search bar above');
-  await vis('[aria-label="Search Client"]').fill('pat'); await page.waitForTimeout(500);
-  t = await tableText('Estimating');
-  check(/Persimmon/.test(t) && !/Bellway/.test(t), 'Estimating: the Client box finds the estimator too');
+  t = await tableText('Directory');
+  check(/Persimmon/.test(t) && /Bellway/.test(t), 'an old Estimating link opens the Clients table');
 
   check(!errs.length, `no page errors ${errs.slice(0, 2).join(' | ')}`);
   await browser.close();

@@ -24,7 +24,7 @@ export default function CoshhPick() {
   const { data, isLoading } = useFolderView(me?.org_id, folderId);
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
-  if (!canSignOffHs(me)) return <Muted style={{ padding: space.l }}>Your role can view H&S but not sign it off. Ask your admin (Admin › Roles).</Muted>;
+  if (!canSignOffHs(me)) return <Muted style={{ padding: space.l }}>Your role can view H&S but not sign it off. Ask your admin (Admin › People › Invites & Roles).</Muted>;
   const cur = data?.current ?? null;
   return (
     <ScrollView contentContainerStyle={page(720)}>

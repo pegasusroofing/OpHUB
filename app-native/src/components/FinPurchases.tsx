@@ -139,7 +139,7 @@ export function NewPoButton() {
 const noRate = (h: Row) => !Number(h.rate) && h.cost_from !== 'invoices';
 export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoices' | 'plant' | 'suppliers' | 'all'; siteId?: string; f?: string }) {
   const { me, org } = useAuth();
-  // Without Finance – Edit the lists are look-only; a new PO also needs Raise Orders (Admin › Roles).
+  // Without Finance – Edit the lists are look-only; a new PO also needs Raise Orders (Admin › People › Invites & Roles).
   const canEdit = canEditFinance(me), canPo = canEdit && canRaiseOrders(me);
   const { data: sites = [] } = useSites();
   const { data } = usePurchases(me?.org_id, siteId);

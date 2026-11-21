@@ -37,7 +37,7 @@ export default function TbtView() {
   const { data: sites } = useSites();
   if (!me) return null;
   const mgr = isManager(me);
-  // Sign Off H&S (Admin › Roles): without it a manager can export, email and remind, but not issue, complete, change or delete.
+  // Sign Off H&S (Admin › People › Invites & Roles): without it a manager can export, email and remind, but not issue, complete, change or delete.
   const signOff = canSignOffHs(me);
   const site = (sites ?? []).find((s) => s.id === id);
   const talk = data?.talk;

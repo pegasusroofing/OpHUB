@@ -133,9 +133,10 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
       await page.getByText('Issue Plan', {exact: true}).click(); await page.waitForTimeout(7000);
       check((db.mc_documents || []).some((d) => /Construction Phase Plan v1/.test(d.name)) && db.cpp_plans[0].status === 'issued', 'laptop: Issue Plan files v1 in the CPP folder');
       // The issued plan first, as a RAMS row, with View / Export / Email; revising under it (Andy, 19 Nov 2026).
-      // Once issued it closes (Andy, 20 Nov 2026): Export / Email / Edit / View, no tabs; Edit opens the tabs for revision 2.
-      check(/Construction Phase Plan · Version 1/.test(await text()) && /👁 View/.test(await text()) && /⬇ Export/.test(await text()) && /✉ Email/.test(await text()) && /✎ Edit/.test(await text()) && !/Revise The Plan/i.test(await text()) && await page.getByRole('tab').count() === 0, 'laptop: once issued it closes: Export / Email / Edit / View, no tabs');
-      await page.getByText('✎ Edit', {exact: true}).first().click(); await page.waitForTimeout(800);
+      // Once issued it closes (Andy, 20 Nov 2026): Export / Email / View, no tabs; Edit (in the ⋮ since 21 Nov) opens the tabs for revision 2.
+      check(/Construction Phase Plan · Version 1/.test(await text()) && /👁 View/.test(await text()) && /⬇ Export/.test(await text()) && /✉ Email/.test(await text()) && await page.getByLabel('More for this plan').count() === 1 && !/Revise The Plan/i.test(await text()) && await page.getByRole('tab').count() === 0, 'laptop: once issued it closes: Export / Email / View and a ⋮, no tabs');
+      await page.getByLabel('More for this plan').click(); await page.waitForTimeout(600);
+      await page.getByText('✎ Edit', {exact: true}).last().click(); await page.waitForTimeout(800);
       check(await page.getByRole('tab').count() > 0, 'laptop: Edit opens the tabs');
       await tab(/^Issue/);
       check(/You.re editing version 1/.test(await text()) && /Issue Revision 2/.test(await text()), 'laptop: the Issue tab says to issue revision 2');

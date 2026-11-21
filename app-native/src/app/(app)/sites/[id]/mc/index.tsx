@@ -65,7 +65,7 @@ export default function McHome() {
   const d = data;
   const subOf: Record<McPart, string> = {
     cpp: d ? (d.cpp ? (d.cpp.status === 'issued' ? `Issued · version ${d.cpp.version}` : 'Draft · being written') : docs(d.docs.cpp || 0)) : '…',
-    f10: d ? `${docs(d.docs.f10 || 0)} · for the plan` : '…',
+    f10: site.f10_not_required ? 'Not required on this job' : d ? `${docs(d.docs.f10 || 0)} · for the plan` : '…',
     asbestos: d ? `${docs(d.docs.asbestos || 0)} · for the plan` : '…',
     site_layout: d ? `${docs(d.layout)} · signed in the induction` : '…',
     subcontractors: d ? `${d.companies} compan${d.companies === 1 ? 'y' : 'ies'}` : '…',
@@ -117,7 +117,7 @@ export default function McHome() {
               style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 14, borderTopWidth: 1, borderTopColor: '#EEF0F2' }, pressed && { backgroundColor: '#F7F8FA' }]}>
               {tick(ok)}
               <Text style={{ flex: 1, fontSize: 13.5, fontWeight: '600', color: ok ? base.slate : base.ink }}>{s.label}</Text>
-              <Text style={{ fontSize: 12, color: base.slateLight }}>{ok ? 'Done' : s.k === 'form' ? 'Admin' : 'To Do'}</Text>
+              <Text style={{ fontSize: 12, color: base.slateLight }}>{ok ? (s.k === 'f10' && setup?.f10Off ? 'Not Required' : 'Done') : s.k === 'form' ? 'Admin' : 'To Do'}</Text>
               <OphIcon name="chevron" size={14} color={base.slateLight} />
             </Pressable>
           );

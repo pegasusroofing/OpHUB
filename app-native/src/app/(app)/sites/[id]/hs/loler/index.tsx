@@ -30,7 +30,7 @@ export default function Loler() {
   const { data: plant } = usePlantItems(me?.org_id, picker === 'plant');
   const { data: people } = usePeople();
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
-  // Starting and filling in an inspection needs Sign Off H&S (Admin › Roles); without it a manager opens them read-only.
+  // Starting and filling in an inspection needs Sign Off H&S (Admin › People › Invites & Roles); without it a manager opens them read-only.
   const signOff = canSignOffHs(me);
   const t = data?.template ?? null;
 

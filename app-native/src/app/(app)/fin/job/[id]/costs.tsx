@@ -56,7 +56,7 @@ export default function FinCosts() {
   // + Add A Cost from a works order or plot (8 Nov 2026): the form opens, and the cost is booked to it.
   useEffect(() => { if (add === '1' && data && !opened.current) { opened.current = true; setEdit('new'); } }, [add, data]);
   if (!data || !me) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
-  // Without Finance – Edit (Admin › Roles) the costs are shown, not changed: no adding, and a cost doesn't open its form.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the costs are shown, not changed: no adding, and a cost doesn't open its form.
   const canEdit = canEditFinance(me);
   const fc = forecast(data.book, id, data.settings);
   const ql = q.trim().toLowerCase();

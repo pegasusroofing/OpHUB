@@ -166,6 +166,58 @@ async function xero(orgId: string) {
   return { call, tenant: c.tenant_name };
 }
 
+// A Directory record as a Xero contact (21 Nov 2026). Only what's filled in is sent, so an update never blanks a field in
+// Xero. sup: a supplier (Bills terms, purchase tax, bank details); else a client (Sales terms, sales tax).
+const SALES_TAX: Record<string, string> = { '20': 'OUTPUT2', '5': 'RROUTPUT', '0': 'ZERORATEDOUTPUT', ex: 'EXEMPTOUTPUT', rc20: 'DRCHARGESUPPLY20', rc5: 'DRCHARGESUPPLY5', none: 'NONE' };
+const BUY_TAX: Record<string, string> = { '20': 'INPUT2', '5': 'RRINPUT', '0': 'ZERORATEDINPUT', ex: 'EXEMPTINPUT', rc20: 'DRCHARGE20', rc5: 'DRCHARGE5', none: 'NONE' };
+const TERMS_OUT: Record<string, string> = { days_after_bill: 'DAYSAFTERBILLDATE', days_after_month: 'DAYSAFTERBILLMONTH', of_current_month: 'OFCURRENTMONTH', of_following_month: 'OFFOLLOWINGMONTH' };
+function contactFields(body: any, sup: boolean): any {
+  const t = (k: string, n = 255) => String(body?.[k] ?? '').trim().slice(0, n);
+  const c: any = {};
+  if (t('name')) c.Name = t('name');
+  if (t('email')) c.EmailAddress = t('email');
+  if (t('account_number', 50)) c.AccountNumber = t('account_number', 50);
+  if (t('first_name')) c.FirstName = t('first_name');
+  if (t('last_name')) c.LastName = t('last_name');
+  if (t('company_number', 50)) c.CompanyNumber = t('company_number', 50);
+  if (t('vat_number', 50)) c.TaxNumber = t('vat_number', 50);
+  // Website is read-only in Xero's API: it comes back on a pull, it isn't sent.
+  const phones: any[] = [];
+  if (t('phone', 50)) phones.push({ PhoneType: 'DEFAULT', PhoneNumber: t('phone', 50) });
+  if (t('mobile', 50)) phones.push({ PhoneType: 'MOBILE', PhoneNumber: t('mobile', 50) });
+  if (phones.length) c.Phones = phones;
+  // The address: line1 / line2 / city from older callers, else the Directory's address box (one line each, the last is the town).
+  let a1 = t('line1', 500), a2 = t('line2', 500), a3 = '', city = t('city');
+  if (!a1 && t('address', 1000)) {
+    const ls = t('address', 1000).split(/\n|,/).map((x) => x.trim()).filter(Boolean);
+    if (ls.length > 1) city = ls.pop() as string;
+    a1 = ls[0] || ''; a2 = ls[1] || ''; a3 = ls.slice(2).join(', ');
+  }
+  const pc = t('postcode', 50), country = t('country');
+  if (a1 || pc) {
+    const ad: any = { AddressLine1: a1, AddressLine2: a2, AddressLine3: a3, City: city, PostalCode: pc, Country: country || 'United Kingdom' };
+    c.Addresses = [{ AddressType: 'POBOX', ...ad }, { AddressType: 'STREET', ...ad }];
+  }
+  const sv = SALES_TAX[t('sales_vat')], pv = BUY_TAX[t('purchase_vat')];
+  if (sv) c.AccountsReceivableTaxType = sv;
+  if (pv) c.AccountsPayableTaxType = pv;
+  const day = Number(body?.terms_days), type = TERMS_OUT[t('terms_type')];
+  if (type && Number.isFinite(day) && day >= 0) c.PaymentTerms = { [sup ? 'Bills' : 'Sales']: { Day: Math.round(day), Type: type } };
+  if (t('account_code', 50)) c[sup ? 'PurchasesDefaultAccountCode' : 'SalesDefaultAccountCode'] = t('account_code', 50);
+  const bank = [t('bank_sort_code', 20).replace(/[^0-9]/g, ''), t('bank_account_number', 20).replace(/[^0-9]/g, '')].filter(Boolean).join('');
+  if (bank) c.BankAccountDetails = bank;
+  return c;
+}
+/** Sends a contact; a default account code Xero doesn't know is dropped and it tries again, so the rest still goes. */
+async function postContact(call: any, c: any) {
+  try { return await call('POST', '/Contacts', { Contacts: [c] }); }
+  catch (e) {
+    if (!/account/i.test(String((e as Error)?.message || '')) || !(c.SalesDefaultAccountCode || c.PurchasesDefaultAccountCode)) throw e;
+    const d = { ...c }; delete d.SalesDefaultAccountCode; delete d.PurchasesDefaultAccountCode;
+    return await call('POST', '/Contacts', { Contacts: [d] });
+  }
+}
+
 // Find a contact by name; create it if missing; fill in missing email / address in Xero from what OpHUB has.
 async function contactFor(call: any, name: string, email?: string | null, address?: string | null) {
   const nm = (name || '').trim() || 'Unknown contact';
@@ -296,7 +348,11 @@ Deno.serve(withCors(async (req) => {
           const a = (c.Addresses || []).find((x: any) => x.AddressLine1) || {};
           const ph = (c.Phones || []).find((x: any) => x.PhoneNumber) || {};
           const pt = (c.PaymentTerms || {})[sup ? 'Bills' : 'Sales'] || null;
+          const mob = (c.Phones || []).find((x: any) => x.PhoneType === 'MOBILE' && x.PhoneNumber) || {};
+          const bank = String(c.BankAccountDetails || '').replace(/[^0-9]/g, '');
           out.push({ id: c.ContactID, name: c.Name, email: c.EmailAddress || '', phone: [ph.PhoneAreaCode, ph.PhoneNumber].filter(Boolean).join(' '),
+            mobile: [mob.PhoneAreaCode, mob.PhoneNumber].filter(Boolean).join(' '), account_number: c.AccountNumber || '', first_name: c.FirstName || '', last_name: c.LastName || '',
+            website: c.Website || '', country: a.Country || '', bank_sort_code: bank.length === 14 ? bank.slice(0, 6) : '', bank_account_number: bank.length === 14 ? bank.slice(6) : bank,
             address: [a.AddressLine1, a.AddressLine2, a.AddressLine3, a.City, a.Region].filter(Boolean).join('\n'), postcode: a.PostalCode || '',
             vat_number: c.TaxNumber || '', company_number: c.CompanyNumber || '',
             sales_vat: TAXMAP[c.AccountsReceivableTaxType || ''] || '', purchase_vat: TAXMAP[c.AccountsPayableTaxType || ''] || '',
@@ -316,15 +372,23 @@ Deno.serve(withCors(async (req) => {
       const addr = { AddressType: 'POBOX', AddressLine1: String(body.line1 || '').slice(0, 500), AddressLine2: String(body.line2 || '').slice(0, 500), City: String(body.city || '').slice(0, 255), PostalCode: String(body.postcode || '').slice(0, 50) };
       const shape = (c: any) => { const a = (c.Addresses || []).find((x: any) => x.AddressLine1) || {}; return { id: c.ContactID, name: c.Name, email: c.EmailAddress || '', address: [a.AddressLine1, a.AddressLine2, a.AddressLine3, a.City, a.Region, a.PostalCode].filter(Boolean).join('\n') }; };
       if (ex) return json({ ok: true, existed: true, contact: shape(ex) });
-      const c: any = { Name: nm };
+      void addr;
+      const c: any = { ...contactFields(body, !!body.supplier), Name: nm };
       if (!body.supplier) c.IsCustomer = true;
-      if (body.email) c.EmailAddress = String(body.email).slice(0, 255);
-      if (body.first_name) c.FirstName = String(body.first_name).slice(0, 255);
-      if (body.last_name) c.LastName = String(body.last_name).slice(0, 255);
-      if (body.phone) c.Phones = [{ PhoneType: 'DEFAULT', PhoneNumber: String(body.phone).slice(0, 50) }];
-      if (addr.AddressLine1 || addr.PostalCode) c.Addresses = [addr];
-      const made = await call('POST', '/Contacts', { Contacts: [c] });
+      // A client's estimator goes in as one of the contact's people (on a new contact only, so Xero's own list is never replaced).
+      const est = String(body.estimator_name || '').trim().split(/\s+/).filter(Boolean);
+      if (!body.supplier && (est.length || String(body.estimator_email || '').trim())) c.ContactPersons = [{ FirstName: est[0] || '', LastName: est.slice(1).join(' '), EmailAddress: String(body.estimator_email || '').trim().slice(0, 255), IncludeInEmails: false }];
+      const made = await postContact(call, c);
       return json({ ok: true, contact: shape(made.Contacts[0]) });
+    }
+
+    if (action === 'update_contact') {
+      // A Directory record linked to Xero, changed in OpHUB (21 Nov 2026): what's filled in goes to Xero; nothing is blanked.
+      const id = String(body.id || '').trim();
+      if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: 'Not linked to Xero' }, 400);
+      const c: any = { ...contactFields(body, !!body.supplier), ContactID: id };
+      const made = await postContact(call, c);
+      return json({ ok: true, id: made.Contacts?.[0]?.ContactID || id });
     }
 
     if (action === 'workers') {

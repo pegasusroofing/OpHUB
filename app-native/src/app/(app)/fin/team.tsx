@@ -49,7 +49,7 @@ export default function FinTeam() {
           </View>
         ))}
       </Card>
-      {/* Inviting is a change: Finance – Edit only (Admin › Roles). */}
+      {/* Inviting is a change: Finance – Edit only (Admin › People › Invites & Roles). */}
       {isManager(me) && canEditFinance(me) && (
         <Card>
           <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 6 }}>Invite someone</Text>

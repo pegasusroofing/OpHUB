@@ -64,7 +64,7 @@ export default function FinYard() {
   // Before the early return: a hook must run on every render (lint, 15 Nov 2026).
   const desk = useDesk();
   if (!me) return null;
-  // Without Finance – Edit (Admin › Roles) the yard is shown, not changed: no new items, booking in or out, or stock take.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the yard is shown, not changed: no new items, booking in or out, or stock take.
   const canEdit = canEditFinance(me);
   const items = data?.items ?? [], rateBy = data?.rateBy ?? {};
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['finYard'] }); void qc.invalidateQueries({ queryKey: ['yard'] }); void qc.invalidateQueries({ queryKey: ['finYardMoves'] }); };

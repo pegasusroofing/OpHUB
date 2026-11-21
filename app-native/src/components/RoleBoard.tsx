@@ -1,4 +1,4 @@
-// What Each Role Can Do (Admin › Roles). Andy, 17 Nov 2026: first a board with every office role as a column; then
+// What Each Role Can Do (Admin › People › Invites & Roles). Andy, 17 Nov 2026: first a board with every office role as a column; then
 // "change it to a vertical drop down ... make the role drop down choose so only one role visible at a time to amend
 // ... remove options from the left hand side ... they already have in the right hand side". So: choose one role from
 // the Role ▾ drop-down. On the left, Options: the parts it hasn't got; on the right, In This Role: the parts it has.

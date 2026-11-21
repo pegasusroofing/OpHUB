@@ -4,11 +4,14 @@
 // (Andy, 16 Nov 2026; Admin Centre › Roles); a company admin chooses any of them, anyone else each level's default.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { DeviceLocksPanel } from '@/components/DeviceLocksPanel';
+
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
-import { Empty, Muted, SectionTitle } from '@/components/ui';
-import { removeMember, setPhone, setSubform, toggleFinance, useTeam, type TeamMember } from '@/data/admin';
+import { Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
+import { removeMember, setPhone, setSubform, toggleFinance, useDeviceLocks, useTeam, type TeamMember } from '@/data/admin';
 import { removeCompanyAccess, useAccessElsewhere } from '@/data/companies';
 import { isSwitchSite } from '@/lib/betaOnly';
 import { setPersonRole, useOrgRoles } from '@/data/orgRoles';
@@ -29,11 +32,14 @@ export default function Users() {
   const { data: roles = [], isLoading: rolesLoading } = useOrgRoles(me?.org_id);
   const th = useTheme();
   const { data: elsewhere = [] } = useAccessElsewhere(isSwitchSite() && me?.role === 'admin', me?.org_id);
+  const { data: locks = [] } = useDeviceLocks(me?.org_id);
+  const waiting = locks.filter((x) => x.status === 'pending').length;
+  const [locksOpen, setLocksOpen] = useState<boolean | null>(null);
   // Initials coloured by role, as the current app (260): admins the company's second colour, PMs and drivers the main colour, the rest grey.
   const swatch = (role: string) => (role === 'admin' ? th.brand2 || base.ink : role === 'pm' || role === 'driver' ? th.brand1 : role === 'site_manager' ? '#6B6F78' : '#4B4F58');
   const swatchText = (role: string) => (role === 'pm' || role === 'driver' ? th.brand1Text : '#fff');
   if (!me) return null;
-  if (!can(me, 'people')) return <Muted style={{ padding: space.l }}>Your role doesn’t manage people. Ask your admin (Admin › Roles).</Muted>;
+  if (!can(me, 'people')) return <Muted style={{ padding: space.l }}>Your role doesn’t manage people. Ask your admin (Admin › People › Invites & Roles).</Muted>;
   if (!isManager(me)) return <><Stack.Screen options={{ title: 'Users' }} /><Muted style={{ padding: space.l }}>Managers only.</Muted></>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['team'] }); void qc.invalidateQueries({ queryKey: ['people'] }); };
   const iAmAdmin = me.role === 'admin';
@@ -117,7 +123,7 @@ Pass it on securely — it won’t be shown again.`, 'Password reset');
                   <Text style={{ fontWeight: '600', color: base.ink }}>{p.name}{p.id === me.id ? ' (you)' : ''}</Text>
                   <Text style={{ fontSize: 12, color: base.slate }}>{p.email ? `  ${p.email}` : ''}{p.phone ? ` · ${p.phone}` : ''}</Text>
                 </Text>
-                {finRole(p) && roleNoFin(p) ? <Text accessibilityLabel={`${p.name}: their role doesn't include Finance (Admin › Roles)`} style={{ fontSize: 11.5, color: base.slate, maxWidth: 110, textAlign: 'right' }}>Role Has No Finance</Text> : finRole(p) && (canFin && p.id !== me.id
+                {finRole(p) && roleNoFin(p) ? <Text accessibilityLabel={`${p.name}: their role doesn't include Finance (Admin › People › Invites & Roles)`} style={{ fontSize: 11.5, color: base.slate, maxWidth: 110, textAlign: 'right' }}>Role Has No Finance</Text> : finRole(p) && (canFin && p.id !== me.id
                   ? <Pressable accessibilityRole="switch" accessibilityState={{ checked: !!p.finance_enabled }} accessibilityLabel={`Finance for ${p.name}`} hitSlop={6} onPress={(e) => { e.stopPropagation(); void flipFinance(p); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Text style={{ fontSize: 12, fontWeight: '600', color: base.ink }}>Finance</Text>
                       <View style={{ width: 36, height: 20, borderRadius: 10, backgroundColor: p.finance_enabled ? '#15803d' : '#d1d5db', padding: 2, alignItems: p.finance_enabled ? 'flex-end' : 'flex-start' }}><View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff' }} /></View>
@@ -151,6 +157,13 @@ Pass it on securely — it won’t be shown again.`, 'Password reset');
         </View>
       )}
       <Muted style={{ marginTop: 14 }}>Project Managers and Admins can remove Operatives and Drivers. Only a Company Admin can remove a Project Manager, Site Manager or another Admin.</Muted>
+      {/* Device Locks: a drop-down at the bottom (Andy, 21 Nov 2026), open when a phone is waiting for approval. */}
+      {isFullManager(me) && (
+        <View style={{ marginTop: 16 }}>
+          <Toggle title={`Device Locks${waiting ? ` · ${waiting} Waiting` : ''}`} open={locksOpen ?? waiting > 0} onPress={() => setLocksOpen(!(locksOpen ?? waiting > 0))} />
+          {(locksOpen ?? waiting > 0) && <DeviceLocksPanel />}
+        </View>
+      )}
     </ScrollView>
   );
 }

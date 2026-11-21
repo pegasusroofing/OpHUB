@@ -24,7 +24,7 @@ export function XeroWorkersButton() {
   const qc = useQueryClient();
   const [state, setState] = useState<{ people: Item[]; notes: string[]; names: Record<string, string> } | 'loading' | null>(null);
   const [busy, setBusy] = useState(false);
-  // Bringing people in is a change: Finance – Edit only (Admin › Roles).
+  // Bringing people in is a change: Finance – Edit only (Admin › People › Invites & Roles).
   if (!me || !canEditFinance(me)) return null;
   const open = async () => {
     setState('loading');

@@ -123,6 +123,13 @@ export async function saveInductionForm(orgId: string, form: IndForm): Promise<b
   if (ok && ticks.length) await setInductionQuestions(orgId, ticks);
   return ok;
 }
+/** Their sign-up form's answers (their latest Subcontractor Form), to fill in the induction (21 Nov 2026). */
+export function useMySignUp(meId: string | undefined) {
+  return useQuery({
+    queryKey: ['mySignUp', meId], enabled: !!meId,
+    queryFn: async () => ((((await db.from('subcontractor_applications').select('data').eq('user_id', meId as string).order('created_at', { ascending: false }).limit(1)).data as { data: Record<string, unknown> | null }[] | null) ?? [])[0]?.data) ?? null,
+  });
+}
 /** What they gave last time (any job), to fill in what doesn't change: next of kin, employer, CSCS. */
 export function useMyLastInduction(meId: string | undefined) {
   return useQuery({

@@ -180,7 +180,7 @@ function Statement({ id }: { id: string }) {
   const setLine = (lid: string, p: Partial<SLine>) => save({ lines: lines.map((l) => (l.id === lid ? { ...l, ...p } : l)) });
   const used = new Set(lines.map((l) => l.match).filter(Boolean));
   const done = s.status === 'reconciled';
-  // Reconciled, or a role without Finance – Edit (Admin › Roles): shown, not changed.
+  // Reconciled, or a role without Finance – Edit (Admin › People › Invites & Roles): shown, not changed.
   const canEdit = canEditFinance(me), shut = done || !canEdit;
   const notOnStmt = cands.filter((c) => !used.has(c.id) && c.status !== 'paid' && (!s.statement_date || !c.date || c.date <= s.statement_date));
   // The lines (not ignored) add up to — checked against the balance on the statement (9219l).

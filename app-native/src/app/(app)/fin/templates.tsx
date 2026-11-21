@@ -21,7 +21,7 @@ export default function FinTemplates() {
   const { data: list = [] } = useTemplates(me?.org_id);
   const [edit, setEdit] = useState<Partial<Tpl> | null>(null);
   if (!me) return null;
-  // Without Finance – Edit (Admin › Roles) the templates are shown, not changed.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the templates are shown, not changed.
   const canEdit = canEditFinance(me);
   const startNew = (kind: TplKind) => setEdit({ kind, name: '', subject: TPL_STANDARD[kind].subject, body: TPL_STANDARD[kind].body, is_default: !list.some((t) => t.kind === kind && t.is_default), show_logo: true, logos: [] });
   return (

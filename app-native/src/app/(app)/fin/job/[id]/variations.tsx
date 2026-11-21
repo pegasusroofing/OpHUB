@@ -42,7 +42,7 @@ export default function FinVariations() {
   const finOnly = isFinanceOnlyOrg(org);
   const [site, setSite] = useState<Row[]>([]);
   useEffect(() => {
-    // Bringing them in is a change: only for someone with Finance – Edit (Admin › Roles).
+    // Bringing them in is a change: only for someone with Finance – Edit (Admin › People › Invites & Roles).
     if (!me || !id || finOnly || !canEditFinance(me)) return;
     void importSiteVariations(me, id).then((r) => { setSite(r.site); if (r.added) void qc.invalidateQueries({ queryKey: ['finBook'] }); });
   }, [me, id, finOnly, qc]);
@@ -50,7 +50,7 @@ export default function FinVariations() {
   // The instruction / quote document on a variation (911 finVaFile).
   const [vfile, setVfile] = useState<{ uri: string; name: string; mimeType?: string | null } | null>(null);
   if (!data || !me) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
-  // Without Finance – Edit (Admin › Roles) the variations are shown, not changed.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the variations are shown, not changed.
   const canEdit = canEditFinance(me);
   const vars = data.book.vars.filter((v) => v.site_id === id).sort((a, b) => (a.seq || 0) - (b.seq || 0));
   const g = (v: Row) => (v.status === 'agreed' ? 'agreed' : v.status === 'rejected' ? 'rejected' : 'submitted');

@@ -28,7 +28,7 @@ export default function FinPlant() {
   if (pid !== 'new' && isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const siteId = h?.site_id || site || '';
   const c = h ? plantCost(h as never) : null;
-  // Without Finance – Edit (Admin › Roles) the hire is shown, not changed; a new one isn't offered.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the hire is shown, not changed; a new one isn't offered.
   if (!canEditFinance(me)) return (
     <ScrollView contentContainerStyle={{ padding: space.l }}>
       <Stack.Screen options={{ title: h ? h.item : 'Plant Hire' }} />
@@ -39,7 +39,7 @@ export default function FinPlant() {
           <AllocRow table="fin_plant_hires" row={h} />
         </Card>
       )}
-      <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>
+      <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › People › Invites & Roles).</Muted>
     </ScrollView>
   );
   return (

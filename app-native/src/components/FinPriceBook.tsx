@@ -29,7 +29,7 @@ export function PriceBook() {
   const ql = q.trim().toLowerCase();
   const list = (rows || []).filter((r) => !ql || `${r.supplier_name} ${r.description} ${r.code || ''}`.toLowerCase().includes(ql));
   const cur = edit && edit !== 'new' ? edit : null;
-  // Without Finance – Edit (Admin › Roles) the prices are shown, not changed.
+  // Without Finance – Edit (Admin › People › Invites & Roles) the prices are shown, not changed.
   const canEdit = canEditFinance(me);
   return (
     <View>

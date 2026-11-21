@@ -13,8 +13,8 @@ export default function FinYardIn() {
   return (
     <>
       <Stack.Screen options={{ title: 'Book Stock Into The Yard' }} />
-      {/* Booking stock in is a change: Finance – Edit only (Admin › Roles). */}
-      {canEditFinance(me) ? <DriverYard /> : <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>}
+      {/* Booking stock in is a change: Finance – Edit only (Admin › People › Invites & Roles). */}
+      {canEditFinance(me) ? <DriverYard /> : <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › People › Invites & Roles).</Muted>}
     </>
   );
 }

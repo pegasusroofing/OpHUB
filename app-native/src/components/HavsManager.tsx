@@ -37,7 +37,7 @@ export function HavsManager({ site }: { site: Site }) {
   const [offset, setOffset] = useState(0);
   const days = weekDates(offset);
   const from = localISODate(days[0]), to = localISODate(days[4]);
-  // Without Sign Off H&S (Admin › Roles) the week is shown as if closed: no minutes, tools, closing or reopening.
+  // Without Sign Off H&S (Admin › People › Invites & Roles) the week is shown as if closed: no minutes, tools, closing or reopening.
   const signOff = canSignOffHs(me);
   const { data: week, isLoading } = useHavsManagerWeek(site, from, to, tab === 'week');
   const data = week && !signOff ? { ...week, locked: true } : week;

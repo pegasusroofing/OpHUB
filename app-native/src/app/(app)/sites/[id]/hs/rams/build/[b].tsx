@@ -34,7 +34,7 @@ export default function RamsBuildScreen() {
   const { data, isLoading } = useQuery({ queryKey: ['ramsBuild', buildId, !!site], enabled: !!me && !!buildId && !!site, gcTime: 0, queryFn: () => loadBuild(me as never, org as never, site, buildId) });
   if (!me) return null;
   if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
-  if (!canSignOffHs(me)) return <Muted style={{ padding: space.l }}>Your role can view H&S but not sign it off. Ask your admin (Admin › Roles).</Muted>;
+  if (!canSignOffHs(me)) return <Muted style={{ padding: space.l }}>Your role can view H&S but not sign it off. Ask your admin (Admin › People › Invites & Roles).</Muted>;
   if (isLoading || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!data) return <Muted style={{ padding: space.l }}>RAMS not found.</Muted>;
   return <Editor key={data.id} initial={data} siteId={id} />;

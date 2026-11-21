@@ -15,7 +15,7 @@ export default function LolerFill() {
   const { me } = useAuth();
   const { data, isLoading } = useSubmission(subId);
   const sub = data?.sub;
-  // Only this job's submissions open here, and only for managers with Sign Off H&S (Admin › Roles); others get the read-only view.
+  // Only this job's submissions open here, and only for managers with Sign Off H&S (Admin › People › Invites & Roles); others get the read-only view.
   const { data: isLoler } = useIsLoler(sub?.template_id as string | null | undefined);
   const locked = !!sub && (!me || !canSignOffHs(me) || sub.site_id !== id || isLoler === false);
   useEffect(() => { if (locked && sub) router.replace(`/sites/${id}/hs/loler/view/${sub.id}` as never); }, [locked, sub, id]);

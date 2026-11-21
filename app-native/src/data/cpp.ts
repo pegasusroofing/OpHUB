@@ -37,15 +37,24 @@ async function loadDefaults(orgId: string | null | undefined): Promise<Defaults>
 }
 /** Saves this plan's wording as the company's starting point for the next plan. The site, client and company names go
  *  back to {site}, {client} and {company}, so they fill in afresh on the next job. */
-export async function saveCppDefaults(orgId: string, p: CppPlan): Promise<boolean> {
+function cppDefaultsOf(p: CppPlan): Defaults {
   const back = (t: string) => [[p.siteName, '{site}'], [p.client.name, '{client}'], [p.pc.name, '{company}']].reduce((s, [from, to]) => (from.trim().length > 2 ? s.split(from.trim()).join(to) : s), t);
-  const data: Defaults = {
+  return {
     advisor: p.advisor, wasteLicence: p.wasteLicence, siteHours: p.siteHours, hse: p.hse, utilities: p.utilities,
     contacts: p.contacts.map((c) => (/project manager|first aid/i.test(c.role) ? { ...c, name: '', day: '', ooh: '' } : c)),
     sections: p.sections.map(({ num, title, body }) => ({ num, title, body: back(body) })),
   };
-  return !(await db.from('cpp_defaults').upsert({ org_id: orgId, data, updated_at: new Date().toISOString() } as never, { onConflict: 'org_id' })).error;
 }
+export async function saveCppDefaults(orgId: string, p: CppPlan): Promise<boolean> {
+  return !(await db.from('cpp_defaults').upsert({ org_id: orgId, data: cppDefaultsOf(p), updated_at: new Date().toISOString() } as never, { onConflict: 'org_id' })).error;
+}
+/** The company's saved wording, to tell whether a plan is already the template (Andy, 21 Nov 2026: "if it is saved as
+ *  the template for company the save as company template button shouldn't be there"). */
+export const useCppDefaults = (orgId: string | null | undefined, on = true) =>
+  useQuery({ queryKey: ['cppDefaults', orgId], enabled: !!orgId && on, queryFn: () => loadDefaults(orgId) });
+/** The same JSON whatever order the keys come back in. */
+const stableJson = (v: unknown): string => JSON.stringify(v, (_k, x: unknown) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.keys(x as object).sort().map((k) => [k, (x as Record<string, unknown>)[k]])) : x));
+export const isCppTemplate = (p: CppPlan, saved: Defaults | undefined) => !!saved?.sections?.length && stableJson(cppDefaultsOf(p)) === stableJson(saved);
 
 /** The company's CPP template (Admin > H&S): the saved wording, or the standard wording if none is saved yet. */
 export async function loadCppTemplate(orgId: string | null | undefined): Promise<CppPlan> {

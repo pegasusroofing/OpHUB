@@ -6,7 +6,7 @@ type Member = { name: string; email: string | null; role: string; is_estimator?:
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function pickRecipient(title: string, team: Member[], myEmail: string | null): Promise<{ to: string; cc?: string } | null | 'bad'> {
-  const pms = team.filter((p) => (p.role === 'pm' || p.role === 'admin') && p.email && p.email !== myEmail && !(p.role === 'pm' && p.is_estimator) && !p.notify_off); // nor roles without Notifications And Emails (Admin › Roles)
+  const pms = team.filter((p) => (p.role === 'pm' || p.role === 'admin') && p.email && p.email !== myEmail && !(p.role === 'pm' && p.is_estimator) && !p.notify_off); // nor roles without Notifications And Emails (Admin › People › Invites & Roles)
   const k = await chooseAction(title, [
     ...(myEmail ? [{ key: myEmail, label: `Me (${myEmail})` }] : []),
     ...pms.map((p) => ({ key: p.email as string, label: `${p.name} (${p.email})` })),

@@ -29,8 +29,8 @@ type Row = Record<string, any>;
 export default function FinPinv() {
   const { pid, site, po, receipt, sup, no, amt, date, edit } = useLocalSearchParams<{ pid: string; site?: string; po?: string; receipt?: string; sup?: string; no?: string; amt?: string; date?: string; edit?: string }>();
   const { me } = useAuth();
-  // A new one needs Finance – Edit (Admin › Roles).
-  if (pid === 'new' && !canEditFinance(me)) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › Roles).</Muted>;
+  // A new one needs Finance – Edit (Admin › People › Invites & Roles).
+  if (pid === 'new' && !canEditFinance(me)) return <Muted style={{ padding: space.l }}>Your role can view Finance but not change it. Ask your admin (Admin › People › Invites & Roles).</Muted>;
   // Add Manually opens the line-by-line screen (Andy, 5 Nov 2026); the project is chosen on it.
   if (pid === 'new') return <PinvEditor key={`${site || ''}${po || ''}${receipt || ''}${no || ''}`} siteId={site || undefined} poId={po || undefined} start={sup || no ? { supplier: sup, no, amount: amt ? Number(amt) : undefined, date } : undefined} />;
   return <ViewPinv id={pid} startEdit={edit === '1'} />;

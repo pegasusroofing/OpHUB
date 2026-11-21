@@ -90,6 +90,8 @@ export type Site = {
   acting_as_main_contractor?: boolean;
   mc_hidden_tiles?: string[] | null;
   mc_shown_tiles?: string[] | null;
+  /** F10 not required on this job: the F10 part is closed and only managers see it (21 Nov 2026). */
+  f10_not_required?: boolean | null;
   repair_contract: boolean;
   price_enabled: boolean;
   client_name: string | null;

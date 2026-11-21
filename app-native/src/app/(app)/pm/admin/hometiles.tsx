@@ -18,8 +18,8 @@ export default function HomeTilesSettings() {
       <Stack.Screen options={{ title: 'Home Page' }} />
       <Card>
         <Text style={{ fontSize: 15, fontWeight: '600', color: base.ink, marginBottom: 4 }}>Money On Home Is In Roles Now</Text>
-        <Muted style={{ marginBottom: 12 }}>Who sees the money on Home (Due In and the OpHUB Finance tile) is set for each role: Admin › Roles, the Money On Home part. Company admins always see it, and only people with Finance switched on ever do.</Muted>
-        <View style={{ alignItems: 'center' }}><Button title="Open Roles" onPress={() => router.replace('/pm/admin/roles' as never)} /></View>
+        <Muted style={{ marginBottom: 12 }}>Who sees the money on Home (Due In and the OpHUB Finance tile) is set for each role: Admin › People › Invites & Roles, the Money On Home part. Company admins always see it, and only people with Finance switched on ever do.</Muted>
+        <View style={{ alignItems: 'center' }}><Button title="Open Roles" onPress={() => router.replace('/pm/admin/invites' as never)} /></View>
       </Card>
     </ScrollView>
   );

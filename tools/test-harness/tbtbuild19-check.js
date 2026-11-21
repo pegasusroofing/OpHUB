@@ -29,12 +29,15 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
 
   await page.goto(B + '/pm/admin/tbt'); await page.waitForTimeout(4000);
   let t = await text();
-  check(/How Often Does Each Live Project Need A Toolbox Talk\?/.test(t) && /Toolbox Talk Templates/i.test(t), 'Toolbox Talks shows How Often and the templates together');
+  check(/How Often Does Each Live Project Need A Toolbox Talk\?/.test(t) && /TBT Library/i.test(t), 'Toolbox Talks shows How Often and the TBT Library together');
   const tabs = await page.locator('[role="tab"], [role="button"]').allInnerTexts();
   check(tabs.some((x) => x.trim() === 'Toolbox Talks') && !tabs.some((x) => /Toolbox Talks Required|Toolbox Talk Templates/.test(x)), `the H&S tab is "Toolbox Talks", with no separate Required tab`);
   await page.screenshot({path: path.join(__dirname, 'shots', 'tbtbuild19-page.png')});
 
-  await page.getByText('+ Create A Toolbox Talk', {exact: true}).click(); await page.waitForTimeout(1200);
+  // + Create TBT asks for the name first (21 Nov 2026); blank it in the builder to check it's still asked for.
+  await page.getByText('+ Create TBT', {exact: true}).click(); await page.waitForTimeout(800);
+  await page.getByPlaceholder('e.g. Alcohol & Drugs').fill('Draft'); await page.getByText('Next', {exact: true}).last().click(); await page.waitForTimeout(1200);
+  { const l = page.getByText('Title', {exact: true}).first(); await l.locator('xpath=following-sibling::*[1]//input | following-sibling::*[1]//textarea').first().fill(''); }
   await page.getByText('Save Template', {exact: true}).click(); await page.waitForTimeout(600);
   check(/Give the talk a title\./.test(await text()), 'it asks for a title before saving');
   const box = (label) => page.locator(`[aria-label="${label}"], input[placeholder], textarea`).first();
