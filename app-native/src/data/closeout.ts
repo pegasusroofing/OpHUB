@@ -47,6 +47,36 @@ export function useCloseout(siteId: string | undefined, companyId: string | unde
   });
 }
 
+/** A subcontractor's money on this job (21 Nov 2026), from Finance's subcontract orders linked to the company (or named
+ *  after it): the order value, what they've applied for and what's been certified to date (the latest application of each
+ *  order), paid and still to pay, retention held, and what's left on the order. */
+export type SubcoMoney = { subs: { id: string; number: string | null; name: string | null }[]; order: number; applied: number; certified: number; paid: number; toPay: number; retention: number; remaining: number };
+export function useSubcoMoney(siteId: string | undefined, coId: string | undefined, coName: string | undefined, on: boolean) {
+  return useQuery({
+    queryKey: ['subcoMoney', siteId, coId], enabled: on && !!siteId && !!coId,
+    queryFn: async (): Promise<SubcoMoney> => {
+      const key = (x: unknown) => String(x || '').trim().toLowerCase();
+      const all = ((await db.from('fin_subcontracts').select('id,number,name,order_value,retention_pct,subcontractor_company_id').eq('site_id', siteId as string)).data as (FinSub & { retention_pct: number | null })[] | null) ?? [];
+      const mine = all.filter((s) => s.subcontractor_company_id === coId || (!s.subcontractor_company_id && key(s.name) === key(coName)));
+      const out: SubcoMoney = { subs: mine.map((s) => ({ id: s.id, number: s.number, name: s.name })), order: 0, applied: 0, certified: 0, paid: 0, toPay: 0, retention: 0, remaining: 0 };
+      if (!mine.length) return out;
+      type App = { subcontract_id: string; number: number; applied_gross: number | null; certified_gross: number | null; retention: number | null; pay_amount: number | null; status: string | null };
+      const apps = ((await db.from('fin_sub_apps').select('subcontract_id,number,applied_gross,certified_gross,retention,pay_amount,status').in('subcontract_id', mine.map((s) => s.id))).data as App[] | null) ?? [];
+      mine.forEach((s) => {
+        const a = apps.filter((x) => x.subcontract_id === s.id).sort((x, y) => x.number - y.number);
+        const lastCert = a.filter((x) => x.certified_gross != null).pop();
+        out.order += Number(s.order_value || 0);
+        out.applied += Number(a[a.length - 1]?.applied_gross || 0);
+        out.certified += Number(lastCert?.certified_gross || 0);
+        out.retention += lastCert ? (lastCert.retention != null ? Number(lastCert.retention) : Number(lastCert.certified_gross || 0) * Number(s.retention_pct || 0) / 100) : 0;
+        a.forEach((x) => { if (x.status === 'paid') out.paid += Number(x.pay_amount || 0); else if (x.status === 'certified') out.toPay += Number(x.pay_amount || 0); });
+      });
+      out.remaining = out.order - out.certified;
+      return out;
+    },
+  });
+}
+
 /** Saves the close-out's settings (making the row the first time). */
 export async function saveCloseout(site: Site, companyId: string, cur: Closeout | null, patch: Partial<Closeout>): Promise<boolean> {
   if (cur) return !!(await db.from('subcontractor_closeouts').update(patch as never).eq('id', cur.id).select('id')).data?.length;

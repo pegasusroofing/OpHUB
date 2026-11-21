@@ -4,25 +4,32 @@
 // Talks, Daily Briefings, their inspection files), Work (their Schedule of Works, Snags, Permits), People (operatives and
 // their Project Manager) and Handover (close-out and O&M, for managers and their Project Manager). Their own people keep
 // Check In, My Induction and the Calendar at the top, as their home on the job (the Site Rules are signed in the induction).
+// With Finance on, our Finance people see the subcontractor's money on the job at the top, as clickable tiles like Finance's
+// own (Andy, 21 Nov 2026): order value, applied, certified, paid, retention and what's left.
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView, View } from 'react-native';
 
-import { FinTabs } from '@/components/FinNav';
+import { FinStat, FinTabs } from '@/components/FinNav';
+import { chooseAction } from '@/components/toast';
 import { JobRows, type JobRow } from '@/components/JobRows';
-import { Muted } from '@/components/ui';
+import { Button, Muted } from '@/components/ui';
+import { useSubcoMoney } from '@/data/closeout';
 import { nameOf, usePeople } from '@/data/hs';
 import { useInductions } from '@/data/inductions';
 import { useSite } from '@/data/sites';
 import { useSubco, useSubcos } from '@/data/subcontractors';
-import { isManager } from '@/lib/roles';
+import { isFinanceUser, isManager } from '@/lib/roles';
+import { money } from '@/lib/rules/finance';
 import { useAuth } from '@/lib/auth';
 import { page, space, useDesk } from '@/theme/theme';
 
 export default function SubcoHub() {
   const { id, co, tab: asked } = useLocalSearchParams<{ id: string; co: string; tab?: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const desk = useDesk();
   const { data, isLoading } = useSubco(co, me);
+  const fin = !!me && isManager(me) && isFinanceUser(me, org) && org?.has_finance !== false;
+  const { data: m } = useSubcoMoney(id, co, data?.company.name, fin && !!data);
   const { data: site } = useSite(id);
   const { data: list } = useSubcos(site, me);
   const mine = !!me && !isManager(me) && list?.myCompany === co;
@@ -79,6 +86,30 @@ export default function SubcoHub() {
           ]} />
         </View>
       )}
+      {fin && m && (m.subs.length ? (() => {
+        // Each tile opens the order (or asks which, when there's more than one).
+        const open = async () => {
+          if (m.subs.length === 1) { router.push(`/fin/sub/${m.subs[0].id}` as never); return; }
+          const k = await chooseAction('Which Subcontract Order', m.subs.map((s) => ({ key: s.id, label: [s.number, s.name].filter(Boolean).join(' · ') || 'Order' })));
+          if (k) router.push(`/fin/sub/${k}` as never);
+        };
+        const basis = desk ? 150 : 140;
+        return (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+            <FinStat basis={basis} v={money(m.order, 0)} label="Order Value" tone="blue" sub={m.subs.length > 1 ? `${m.subs.length} orders` : m.subs[0].number || undefined} onPress={() => void open()} />
+            <FinStat basis={basis} v={money(m.applied, 0)} label="Applied To Date" tone="amber" onPress={() => void open()} />
+            <FinStat basis={basis} v={money(m.certified, 0)} label="Certified To Date" tone="green" sub={m.toPay ? `${money(m.toPay, 0)} to pay` : undefined} onPress={() => void open()} />
+            <FinStat basis={basis} v={money(m.paid, 0)} label="Paid To Date (Net)" tone="green" onPress={() => void open()} />
+            <FinStat basis={basis} v={money(m.retention, 0)} label="Retention Held" tone="amber" onPress={() => void open()} />
+            <FinStat basis={basis} v={money(m.remaining, 0)} label="Remaining On Order" tone={m.remaining < 0 ? 'red' : 'blue'} sub={m.remaining < 0 ? 'Over the order' : undefined} onPress={() => void open()} />
+          </View>
+        );
+      })() : (
+        <View style={{ alignItems: 'center', marginBottom: 12 }}>
+          <Muted style={{ textAlign: 'center', marginBottom: 6 }}>No subcontract order with {data.company.name} on this job yet.</Muted>
+          <Button small kind="ghost" title="Subcontract Orders ›" onPress={job('materials/subcontracts')} />
+        </View>
+      ))}
       <FinTabs even value={tab} onChange={(k) => router.setParams({ tab: k })} items={tabs} />
       <JobRows desk={desk} rows={rows[tab]} />
     </ScrollView>
